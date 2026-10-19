@@ -389,7 +389,7 @@ def test_mapped_errors_lets_other_exceptions_through():
 
 
 class _Answer(BaseModel):
-    """A tiny structured-output schema for the cut-off test."""
+    """A tiny structured-output schema for the structured-reply tests."""
 
     text: str
 
