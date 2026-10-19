@@ -154,6 +154,17 @@ INGEST_DROPPED_SEC_TITLES: frozenset[str] = frozenset(
     }
 )
 
+# The vector index (docs/ARCHITECTURE.md section 4): a persistent Chroma collection, embedded in the
+# app's process only (never a server; .claude/rules/security-privacy.md). Gitignored and rebuilt by
+# BUILD_INDEX_COMMAND (D7).
+CHROMA_DIR = PROJECT_ROOT / "chroma"
+# Chroma names need 3-512 characters from [a-zA-Z0-9._-].
+CHROMA_COLLECTION = "nutrition-sources"
+BUILD_INDEX_COMMAND = "python scripts/build_index.py"
+# Chunks sent to the embedding API per request: about 50 KB of text each, so one failed request
+# loses little work and the build can show its progress.
+EMBEDDING_BATCH_SIZE = 64
+
 # Article XML comes only from the Europe PMC REST API, which allows automated retrieval
 # (copyright policy rule 10); the PMC, Europe PMC and publisher websites are never scripted.
 EUROPE_PMC_FULLTEXT_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/{pmcid}/fullTextXML"
