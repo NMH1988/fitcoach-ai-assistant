@@ -1,0 +1,32 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Secrets: never commit keys
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Downloaded source documents and data (rebuilt by the download script; see docs/SOURCES.md)
+data/raw/
+data/usda/
+
+# Vector store (rebuilt from the sources)
+chroma/
+.chroma/
+
+# Generated exports
+*.pdf
+
+# Tool caches
+.coverage
+.pytest_cache/
+.ruff_cache/
