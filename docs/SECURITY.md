@@ -28,7 +28,7 @@ This is a student portfolio project. If you find a security problem, contact the
 | Answers without evidence | Every answer is grounded in retrieved sources and cites them; "not covered" when nothing is found | `src/chat.py` |
 | Personal data leaks | Profile in session state only; never logged, stored, indexed; PDF built in memory | `src/profile.py`, `src/export_pdf.py` |
 | Script injection through model output | Markdown rendering without `unsafe_allow_html` | `app.py` |
-| Vulnerable or badly licensed dependencies | `pip-audit` in CI; Dependabot; permissive licences checked before adding a package; every ignored advisory documented below | `.github/workflows/ci.yml`, `.github/dependabot.yml`, `docs/ARCHITECTURE.md` section 12 |
+| Vulnerable or badly licensed dependencies | `pip-audit` in CI on the runtime dependencies and what they pull in (`pip-audit .` reads only `[project].dependencies`; the dev tools are not audited, as they do not ship with the app); Dependabot; permissive licences checked before adding a package; every ignored advisory documented below | `.github/workflows/ci.yml`, `.github/dependabot.yml`, `docs/ARCHITECTURE.md` section 12 |
 | Chroma server vulnerabilities | Chroma embedded only, never run as a server; no Chroma embedding functions (see "Accepted risks") | `.claude/rules/security-privacy.md` |
 
 ## Accepted risks

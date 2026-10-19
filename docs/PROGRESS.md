@@ -23,6 +23,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
   - `app.py`: title, intro and the disclaimer only.
   - Tests: `tests/test_config.py` (models, limits, the Sprint 1 key tests with fake `sk-test-` keys, the missing-key message holds no key), `tests/test_app_smoke.py` (AppTest with no key: no exception, the title, the disclaimer).
   - `.github/workflows/ci.yml` (lint, tests with coverage, pip-audit) and `.github/dependabot.yml`, as in Sprint 1. `CLAUDE.md` lists the real commands.
+  - `README.md`: status "in development" and a "Run locally" section (Python 3.14, install, key setup, run, test and lint commands).
 - **Why:** the smallest base every later ticket builds on, with CI from the first PR.
 - **Decisions & gotchas:**
   - `pip-audit` found four advisories in chromadb 1.5.9 (the latest; no fix yet), all in Chroma's HTTP server. The owner chose to keep Chroma: CI ignores exactly those four IDs with the reason next to them, `docs/SECURITY.md` lists them as accepted risks, and `.claude/rules/security-privacy.md` forbids running Chroma as a server or using its embedding functions. Dependabot will propose a fixed release; then remove the ignores.
@@ -30,6 +31,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
   - Limits for retrieval, tools and the calorie floor are added by the tickets that use them, not here.
   - Checked locally on Python 3.14.8: ruff clean, 26 tests pass (coverage 99%), pip-audit clean with the four ignores.
   - Code review (round 1, before the PR): pip-audit added to the dev extra and the dev tools pinned; the unused `packaging` dev dependency dropped; config notes that the limits come from Sprint 1 and the reasoning effort from T1.2. `actions/checkout@v4` and `setup-python@v5` are left for Dependabot.
+  - Code review on PR #21 (rounds 1-2, approved): README run steps added; dev tool versions and licences recorded in `docs/ARCHITECTURE.md` section 12; `docs/SECURITY.md` says `pip-audit .` audits only the runtime dependencies (it reads `[project].dependencies`, not the dev extra); the pip-audit pin in `ci.yml` must be bumped by hand, as Dependabot does not update `run:` lines.
 - **Follow-ups:** T1.2 (#2) builds the OpenRouter clients on this config.
 
 ## 2026-10-19 · Implementation plan and GitHub issues · direct commit (no ticket, before the setup ticket)

@@ -25,8 +25,9 @@ Stack: Python, Streamlit, LangChain, OpenRouter, Chroma, USDA FoodData Central.
 Requires Python 3.14 and an [OpenRouter](https://openrouter.ai/keys) API key.
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate     # macOS/Linux; Windows PowerShell: .venv\Scripts\Activate.ps1
+python3.14 -m venv .venv      # Windows: py -3.14 -m venv .venv
+source .venv/bin/activate     # Windows: .venv\Scripts\Activate.ps1 (PowerShell)
+                              # or source .venv/Scripts/activate (Git Bash)
 pip install -e ".[dev]"
 ```
 

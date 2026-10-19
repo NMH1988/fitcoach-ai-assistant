@@ -46,7 +46,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version-file: .python-version
-      # Same version as the dev extra in pyproject.toml.
+      # Keep in step with the dev extra in pyproject.toml by hand: Dependabot does not update
+      # versions in `run:` lines.
       - run: pip install pip-audit==2.10.1
       # Accepted risk, documented in docs/SECURITY.md: these four chromadb advisories (no fixed
       # version yet) affect only the Chroma HTTP server (its /api/v2 endpoints and multi-tenant
