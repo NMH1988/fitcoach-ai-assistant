@@ -15,6 +15,8 @@ dependencies = [
     "langchain-chroma==1.1.0",
     "langchain-openai==1.7.2",
     "langchain-text-splitters==1.1.3",
+    # Used directly by src/llm.py (its error classes); its retry policy is what the tests pin.
+    "openai==3.35.1",
     "pydantic==2.14.1",
     "rank-bm25==0.2.2",
     "rapidfuzz==3.14.6",
@@ -26,6 +28,8 @@ dependencies = [
 # Pinned too, so a new ruff or pytest release cannot turn CI red on an unrelated PR;
 # Dependabot proposes upgrades.
 dev = [
+    # The OpenAI SDK's HTTP library; the tests use its MockTransport.
+    "httpx2==2.14.0",
     "pip-audit==2.10.1",
     "pytest==9.1.1",
     "pytest-cov==7.1.0",

@@ -18,12 +18,12 @@ This is a student portfolio project. If you find a security problem, contact the
 | Threat | Control | Where |
 |---|---|---|
 | Key leaked in the repo | Secrets files gitignored; only a placeholder example committed; GitHub secret scanning and push protection on | `.gitignore`, repo settings |
-| Key leaked by the app | Read only through `get_api_key()`; never logged, shown, stored in session state or put in errors | `src/config.py` |
+| Key leaked by the app | Read only through `get_api_key()`; never logged, shown, stored in session state or put in errors; API errors are replaced by fixed messages with the original dropped from the traceback (tested with a server that echoes the key); never log or show `LLMError.__context__` or an SDK error's `.request`, which hold the key; log `LLMError.diagnostic` (type and location only) instead | `src/config.py`, `src/llm.py` |
 | Strangers spending the key on a public deploy | "Bring your own key" or access gate plus spending limit; local only until then | `docs/DEPLOYMENT.md` |
 | Prompt injection in user input | Input guard (patterns, length); user text delimited in the user message, never in the system prompt; attack and benign test strings | `src/guard.py`, prompts |
 | Indirect injection in retrieved text | Retrieved chunks delimited as data; the system prompt says to ignore instructions inside them; only approved, licence-checked sources are indexed | `src/chat.py`, `docs/SOURCES.md` |
 | Malicious or wrong tool arguments | Pydantic schemas with ranges; the profile comes from the session, not from the model; tools never touch files, URLs or code | `src/tools/` |
-| Runaway cost | Guard before any API call; per-session rate limit; capped `max_tokens`; at most 4 tool rounds; cheap model for query translation; cost shown to the user | `src/config.py`, `src/guard.py`, `src/usage.py` |
+| Runaway cost | Guard before any API call; per-session rate limit; capped `max_tokens` and a model allowlist, set when the client is built and never overridden at call time; at most 4 tool rounds; cheap model for query translation; cost shown to the user | `src/config.py`, `src/llm.py`, `src/guard.py`, `src/usage.py`, `.claude/rules/security-privacy.md` |
 | Harmful advice | Domain guardrails: no performance-enhancing drug dosing; calorie floor in code; age 18+ in the profile; redirect pregnancy, medical and disordered-eating cases; disclaimer always visible | `src/tools/energy.py`, `src/profile.py`, system prompt, UI |
 | Answers without evidence | Every answer is grounded in retrieved sources and cites them; "not covered" when nothing is found | `src/chat.py` |
 | Personal data leaks | Profile in session state only; never logged, stored, indexed; PDF built in memory | `src/profile.py`, `src/export_pdf.py` |

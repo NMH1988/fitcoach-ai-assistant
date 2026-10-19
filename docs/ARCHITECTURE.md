@@ -62,6 +62,7 @@ scripts/
   download_sources.py       fetch article XML listed in the manifest, check the licence
   build_index.py            chunk, embed and write the Chroma index
   prepare_usda.py           turn the USDA Foundation Foods CSV into a small foods table
+  live_check_llm.py         owner's live check: one real chat and one real embedding call
 data/
   sources.json              manifest of approved sources (committed)
   usda_foods.csv            trimmed USDA table (committed, CC0)
@@ -130,12 +131,19 @@ Each LLM call (query translation, every answer round) reports its token use (`us
 | Situation | What the user sees |
 |---|---|
 | No API key | A setup message, no crash |
-| 401 / 402 (bad key, no credit) | "The API key is invalid or out of credit" |
-| 429 / timeout / 5xx | Retry a bounded number of times, then "the service is busy, try again" |
+| 401 (bad key) | "The OpenRouter API key was rejected"; not retried by default |
+| 402 (no credit) | "The OpenRouter account is out of credit"; not retried by default |
+| 429 / timeout (ours or a 408) / 5xx | Retried up to `LLM_MAX_RETRIES` (2) times by the OpenAI SDK, then a message of its own for each: too many requests, took too long, temporarily unavailable |
+| A 200 reply carrying an error, no result, or an empty or cut-off body (provider failed mid-request) | "Temporarily unavailable", like a 5xx |
+| Structured output stopped by the token limit | "The answer was cut off" |
+| Structured output that fails its schema (wrong or missing field, not JSON), is refused by the model, or comes back empty | "Not in the expected format" (`InvalidReplyError`, separate from an outage so a caller can fall back) |
+| Service unreachable, other SDK errors (e.g. a content filter) | "Could not reach the model service" / a generic "try again" |
 | Chroma index missing | "Run `python scripts/build_index.py` first" |
 | No relevant chunks | "Our sources do not cover this"; no invented citation |
 | Tool error or bad arguments | The tool's message, the turn continues |
 | Failure mid-answer | Chat history stays intact |
+
+The mapping lives in `src/llm.py`: callers wrap a model or embedding call in `with mapped_errors():`, which turns any OpenAI SDK error, and a malformed reply the client could not read, into an `LLMError` subclass whose message is fixed text (never the server's response, so never the key) and drops the original from the traceback. The original stays on `__context__` and its request holds the key, so it is never logged or shown; each `LLMError` carries a `diagnostic` instead (the error type and the function that raised it, no message text), which is safe to log. Malformed replies raise plain `ValueError`/`KeyError`/`TypeError`, so those are mapped only when the traceback passes through `openai` or `langchain_openai`; a bug of ours that langchain raises is mapped too, and the diagnostic shows where it came from. Each request has a `LLM_TIMEOUT_SECONDS` (60) timeout. Clients are built only through `src/llm.py`, and `model` and `max_tokens` are never passed at call time or changed on a built client (`.claude/rules/security-privacy.md`), so the allowlist and the cap are not bypassed as long as that rule is followed; no code or test enforces it.
 
 ## 11. Testing
 
@@ -153,12 +161,13 @@ Checked on PyPI on 2026-10-19. Licences are permissive, as the copyright policy 
 | langchain-chroma | 1.1.0 | MIT | vector store integration |
 | chromadb | 1.5.9 | Apache-2.0 | vector store, embedded only (pulls in onnxruntime, MIT, which we do not use for embeddings). Four unfixed advisories in its HTTP server are an accepted risk: `docs/SECURITY.md` |
 | langchain-text-splitters | 1.1.3 | MIT | chunking |
+| openai | 3.35.1 | Apache-2.0 | the SDK under langchain-openai; pinned in T1.2 because `src/llm.py` maps its error classes and relies on its retries |
 | rank-bm25 | 0.2.2 | Apache-2.0 | BM25 (small and stable; last release 2022) |
 | rapidfuzz | 3.14.6 | MIT | fuzzy food-name match |
 | reportlab | 5.0.1 | BSD | PDF |
 | pydantic | 2.14.1 | MIT | schemas |
 
-Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 7.1.0 (MIT), ruff 0.17.1 (MIT), pip-audit 2.10.1 (Apache-2.0). Not chosen: fpdf2 (LGPL-3.0, not permissive). Python **3.14** as in Sprint 1; every package above has a wheel or pure-Python build for it.
+Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 7.1.0 (MIT), ruff 0.17.1 (MIT), pip-audit 2.10.1 (Apache-2.0), and httpx2 2.14.0 (BSD-3-Clause; the OpenAI SDK's HTTP library, whose `MockTransport` the T1.2 tests use). Not chosen: fpdf2 (LGPL-3.0, not permissive). Python **3.14** as in Sprint 1; every package above has a wheel or pure-Python build for it.
 
 ## 13. Decisions (approved by the owner on 2026-10-19)
 
@@ -175,9 +184,10 @@ Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 
 
 ## 14. Risks and early checks
 
-- **Embeddings through OpenRouter with `OpenAIEmbeddings`:** by default it may send token arrays instead of text, which OpenRouter may not accept; set `check_embedding_ctx_length=False`. Confirmed in T1.2 by one live call run by the owner (O5).
+- **Embeddings through OpenRouter with `OpenAIEmbeddings`:** by default it may send token arrays instead of text, which OpenRouter may not accept; set `check_embedding_ctx_length=False`. Set in T1.2 (`src/llm.py`, and a unit test checks the raw text goes out); confirmed by one live call run by the owner (O5, `scripts/live_check_llm.py`).
 - **Source #1 download:** see section 4.
-- **gpt-5 models:** no `temperature`; reasoning tokens add cost, so `max_tokens` and the reasoning effort are set in config.
+- **gpt-5 models:** no `temperature`; reasoning tokens add cost, so `max_tokens` and the reasoning effort (`low`, T1.2) are set in config.
+- **Long waits:** the OpenAI SDK honours a server's `Retry-After` up to 2 minutes per retry, so in the worst case one call waits about 7 minutes (3 timeouts of 60 s plus 2 waits of 120 s) before the error shows, and a turn makes several calls. The 60 s limit applies to each phase of a request (connect, each read), not the whole request: a server that keeps sending bytes (e.g. keep-alive whitespace) could keep one request open longer, so 7 minutes is not a hard limit. Not observed with OpenRouter so far. Abandoned requests after our timeout may still be billed by the provider. Accepted in T1.2; lower `LLM_MAX_RETRIES` or the timeout if it is a problem in practice.
 - **Deadline (2026-11-02, 14 days):** if time runs short, cut in this order: `evaluate_meal_plan`, chart polish, PDF styling. The core requirements and the chosen optional tasks come first.
 
 ## 15. Brief coverage
