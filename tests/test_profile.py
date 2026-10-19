@@ -389,3 +389,31 @@ def test_with_goal_rejects_an_unknown_goal():
     """An unknown goal is rejected by the model."""
     with pytest.raises(ValidationError):
         profile.with_goal(build_profile(**VALID_METRIC), "bulk")
+
+
+def test_saving_with_only_another_field_edited_keeps_the_stored_weight_and_height():
+    """Changing only the goal in the other unit system keeps the exact stored kg and cm."""
+    stored = build_profile(**{**VALID_IMPERIAL, "weight": 176.5, "height_in": 10})
+    shown = {**profile.form_values(stored, "metric"), "goal": "maintain"}
+    saved = profile.save_profile(shown, "metric", stored)
+    assert saved.goal == "maintain"
+    assert saved.weight_kg == stored.weight_kg
+    assert saved.height_cm == stored.height_cm
+
+
+def test_saving_an_edited_height_keeps_the_stored_weight():
+    """Only the edited field takes the typed value; the untouched weight keeps its stored kg."""
+    stored = build_profile(**{**VALID_IMPERIAL, "weight": 176.5})
+    edited = {**profile.form_values(stored, "metric"), "height_cm": 170}
+    saved = profile.save_profile(edited, "metric", stored)
+    assert saved.height_cm == 170
+    assert saved.weight_kg == stored.weight_kg
+
+
+def test_saving_an_edited_weight_uses_the_typed_value():
+    """An edited weight is stored as typed, converted to kg."""
+    stored = build_profile(**VALID_IMPERIAL)
+    edited = {**profile.form_values(stored, "imperial"), "weight": 180.0}
+    saved = profile.save_profile(edited, "imperial", stored)
+    assert saved.weight_kg == pytest.approx(units.lb_to_kg(180.0))
+    assert saved.height_cm == stored.height_cm

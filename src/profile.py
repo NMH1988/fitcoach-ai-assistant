@@ -298,14 +298,25 @@ def switch_form_units(
 def save_profile(
     values: dict[str, Any], system: UnitSystem, current: UserProfile | None
 ) -> UserProfile:
-    """Return the saved form's profile, keeping the stored one if the shown values are unchanged."""
-    # The form shows the stored profile rounded (0.1 kg or lb, whole cm or inch); saving it as
-    # shown, e.g. after a units switch only (see initial_form_memory), keeps the stored values.
-    if current is not None and values == form_values(current, system):
-        return current
-    return build_profile(units_system=system, **values)
+    """Return the saved form's profile, keeping the stored weight and height where unchanged."""
+    # The form shows the stored profile rounded (0.1 kg or lb, whole cm or inch). A weight or
+    # height saved as shown, e.g. after a units switch (see initial_form_memory) or with only
+    # another field edited, keeps its stored value instead of the rounded one.
+    built = build_profile(units_system=system, **values)
+    if current is None:
+        return built
+    shown = form_values(current, system)
+    kept = {}
+    if values.get("weight") == shown["weight"]:
+        kept["weight_kg"] = current.weight_kg
+    if all(values.get(field) == shown[field] for field in ("height_cm", "height_ft", "height_in")):
+        kept["height_cm"] = current.height_cm
+    if not kept:
+        return built
+    restored = UserProfile(**{**built.model_dump(), **kept})
+    return current if restored == current else restored
 
 
-def with_goal(current: UserProfile, goal: Any) -> UserProfile:
+def with_goal(current: UserProfile, goal: Goal) -> UserProfile:
     """Return the profile with another goal; an unknown goal raises pydantic's ValidationError."""
     return UserProfile(**{**current.model_dump(), "goal": goal})
