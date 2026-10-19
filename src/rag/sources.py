@@ -66,10 +66,14 @@ class Source(BaseModel):
     copyright_notice: Text
     evidence_tier: int
     topics: list[Text] = Field(min_length=1)
+    # For a correction notice: the ID of the article it corrects, which must be read with it.
+    corrects: Annotated[str, StringConstraints(pattern=r"^\d+[a-z]?$")] | None = None
 
     @model_validator(mode="after")
     def _consistent(self) -> Source:
-        """Check the URL against the DOI, the licence URL against its name, tier and topics."""
+        """Check URL vs DOI, licence URL vs name, tier, topics, and no self-correction."""
+        if self.corrects == self.id:
+            raise ValueError("a source cannot correct itself")
         if self.url != f"https://doi.org/{self.doi}":
             raise ValueError("url must be https://doi.org/<doi>")
         if self.license_url != license_url_for(self.license):
@@ -112,6 +116,12 @@ def load_manifest(path: Path | None = None) -> list[Source]:
         values = [str(getattr(source, field)).casefold() for source in sources]
         if len(set(values)) != len(values):
             raise ManifestError(f"Manifest entries must have distinct values for {field!r}.")
+    ids = {source.id for source in sources}
+    for source in sources:
+        if source.corrects is not None and source.corrects not in ids:
+            raise ManifestError(
+                f"Source {source.id} corrects {source.corrects}, which is not listed."
+            )
     return sources
 
 

@@ -565,7 +565,8 @@
     "evidence_tier": 2,
     "topics": [
       "supplements"
-    ]
+    ],
+    "corrects": "18"
   },
   {
     "id": "19",
