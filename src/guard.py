@@ -60,15 +60,28 @@ _GAP = rf"(?: {_FILLER}){{0,3}}"
 # "... my dietitian gave me", "... that my coach wrote", "... from my coach", "... on the tub".
 # Anything else ("... in this conversation", "... that you received") still counts as an attack.
 _POSSESSIVES = r"(?:my|his|her|their|our)"
-# Words that mean the chat itself, not someone else's advice. "Session" and "model" are gym and
-# science words too ("my session tomorrow", "a model of protein synthesis"), so they count only
-# after "this" or "our". A chat word that is part of a longer name ("AI-generated meal plan",
-# "the AI meal plan my app made", "a chatbot coach") is not the chat either.
+# Words that mean the chat itself, not someone else's advice.
+_CHAT_NOUNS = r"(?:conversation|chat|prompt|message|thread|system|assistant|chatbot|ai|bot)"
+# Food and training words that make a chat word part of a plan's name ("this AI meal plan").
+_FOOD_WORDS = r"meal|meals|diet|plan|plans|food|recipe|recipes|workout|training|program|programme"
+_FOOD_COMPOUND = rf"(?:{_FOOD_WORDS})"
+# Any longer name built on a chat word ("the AI app", "a chatbot coach", "an AI fitness tracker").
+_COMPOUND = (
+    rf"(?:{_FOOD_WORDS}|app|apps|coach|tracker|nutrition|fitness|tool|calculator|scale|generated)"
+)
+# A chat word owned by someone else: "the bot's meal plan", "the message from my dietitian",
+# "the chat with my trainer".
+_OWNED = r"'s\b| (?:(?:from|with|by|that|which) )?(?:my|his|her|their)\b"
+# After "this" or "our" a chat word (and "session" or "model", which are gym and science words
+# otherwise: "my session tomorrow", "a model of protein synthesis") means this chat, even inside
+# a longer name ("this chat app", "this AI tool"), unless it names a plan ("this AI meal plan").
+# Elsewhere a chat word in a longer name or owned by someone else is not the chat ("the
+# AI-generated meal plan", "the AI meal plan my app made", "the message from my dietitian").
+# Owner's choice in T1.3: "this AI app I downloaded" is rejected with the attacks.
 _CHAT_WORDS = (
-    r"(?:(?:conversation|chat|prompt|message|thread|system|assistant|chatbot|ai|bot)"
-    r"|(?:(?<=this )|(?<=our ))(?:session|model))"
-    r"(?![\w-]| (?:meal|meals|diet|plan|plans|app|apps|coach|tracker|nutrition|food|recipe"
-    r"|recipes|workout|training|program|programme|tool|calculator|scale|generated)\b)"
+    rf"(?:(?:(?<=this )|(?<=our ))(?:{_CHAT_NOUNS}|session|model)"
+    rf"(?!\w|-(?:generated|powered|written|made|based)\b| {_FOOD_COMPOUND}\b)"
+    rf"|{_CHAT_NOUNS}(?![\w-]| {_COMPOUND}\b|{_OWNED}))"
 )
 # "System prompt" is the assistant's prompt unless a body or energy system comes first: "does the
 # immune system prompt inflammation?" uses "prompt" as a verb. One fixed-width lookbehind per
@@ -104,13 +117,20 @@ _BODY_SYSTEMS = (
     "glycolytic",
     "oxidative",
     "phosphagen",
+    "acid",
+    "lactate",
+    "pc",
+    "stress",
+    "hunger",
+    "gi",
+    "thermoregulatory",
 )
 _NOT_BODY_SYSTEM = "".join(rf"(?<!{word}{sep})" for word in _BODY_SYSTEMS for sep in (" ", "-"))
 _NOT_THIRD_PARTY = (
     rf"(?! (?:(?:that|which|i got|we got|i was given) )?{_POSSESSIVES}\b)"
     rf"(?! (?:on|from|given by|provided by|printed on|written on) (?:the|an?|{_POSSESSIVES})\b)"
     # "... in the old WHO report", "... for this meal plan", but not "... in this conversation".
-    rf"(?! (?:in|for|about) (?:the|that|this|an?|my) (?!{_CHAT_WORDS}))"
+    rf"(?! (?:in|for|about) (?:the|that|this|an?|my|our) (?!{_CHAT_WORDS}))"
 )
 # After "instructions" or "rules": a how-to request ("your instructions for meal prepping"),
 # unless it points at the chat itself ("your instructions for this conversation").
