@@ -30,9 +30,9 @@ EMBEDDING_MODEL = "qwen/qwen3-embedding-8b"
 REASONING_EFFORT = "low"
 # Seconds one model or embedding request may take before it counts as a timeout.
 LLM_TIMEOUT_SECONDS = 60
-# Retries after a 408, 429, 5xx or a timeout; 401 and 402 are not retried by default. With the
-# timeout above this bounds one call, to about 7 minutes at worst: the SDK also honours a server's
-# Retry-After, up to 2 minutes per retry.
+# Retries the SDK makes after a 408, 409, 429, 5xx, a timeout or a connection error; 401 and 402
+# are not retried by default. With the timeout above this bounds one call, to about 7 minutes at
+# worst: the SDK also honours a server's Retry-After, up to 2 minutes per retry.
 LLM_MAX_RETRIES = 2
 
 # The token budget, input length and rate limits below are the values that worked in Sprint 1.

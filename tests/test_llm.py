@@ -6,6 +6,8 @@ import traceback
 import httpx2
 import openai
 import pytest
+from langchain_core.messages import BaseMessage
+from pydantic import BaseModel
 
 from src import config, llm
 
@@ -34,7 +36,8 @@ EMBEDDINGS_OK = {
     "usage": {"prompt_tokens": 1, "total_tokens": 1},
 }
 
-# The five failures the ticket names, each with its own error class.
+# The five failures the ticket names (401, 402, 429, timeout, 5xx), plus 408, OpenRouter's
+# upstream timeout; each maps to its own error class.
 STATUS_ERRORS = [
     (401, llm.InvalidAPIKeyError),
     (402, llm.OutOfCreditError),
@@ -321,7 +324,7 @@ def test_the_five_named_failures_have_distinct_messages():
 @pytest.mark.usefixtures("no_sleep")
 @pytest.mark.parametrize("status", RETRIED_STATUSES)
 def test_transient_errors_are_retried_a_bounded_number_of_times(status):
-    """429 and 5xx are retried exactly LLM_MAX_RETRIES times, then fail."""
+    """408, 429 and 5xx are retried exactly LLM_MAX_RETRIES times, then fail."""
     server = Recorder(status=status, body=_error_body(status))
     with pytest.raises(llm.LLMError), llm.mapped_errors():
         _chat(server).invoke("Hi")
@@ -364,6 +367,7 @@ def test_the_key_never_appears_in_a_mapped_error(status):
     assert FAKE_KEY not in "".join(traceback.format_exception(error))
     assert error.__cause__ is None
     assert error.__suppress_context__
+    assert FAKE_KEY not in error.diagnostic
     # Python still keeps the SDK error on __context__, and its request holds the key; this is
     # why docs/SECURITY.md says never to log or show it.
     assert FAKE_KEY in error.__context__.request.headers["authorization"]
@@ -381,3 +385,76 @@ def test_mapped_errors_lets_other_exceptions_through():
     """Errors that are not from the OpenAI SDK are not swallowed or renamed."""
     with pytest.raises(KeyError), llm.mapped_errors():
         raise KeyError("not an API error")
+
+
+class _Answer(BaseModel):
+    """A tiny structured-output schema for the cut-off test."""
+
+    text: str
+
+
+class _UnknownMessage(BaseMessage):
+    """A message type langchain-openai cannot convert, standing in for a bug in our code."""
+
+    type: str = "unknown"
+
+
+def _call_chat(client: httpx2.Client) -> None:
+    """Make one chat call through the given client."""
+    llm.build_chat_model(api_key=FAKE_KEY, http_client=client).invoke("Hi")
+
+
+def _call_embeddings(client: httpx2.Client) -> None:
+    """Make one embedding call through the given client."""
+    llm.build_embeddings(api_key=FAKE_KEY, http_client=client).embed_query("protein")
+
+
+@pytest.mark.parametrize("call", [_call_chat, _call_embeddings], ids=["chat", "embeddings"])
+@pytest.mark.parametrize("content", [b"", b" ", b'{"choices": ['], ids=["empty", "blank", "cut"])
+def test_unreadable_200_body_maps_to_unavailable(call, content):
+    """A 200 reply whose JSON body is empty or cut off becomes ServiceUnavailableError."""
+    reply = httpx2.Response(200, content=content, headers={"content-type": "application/json"})
+    client = httpx2.Client(transport=httpx2.MockTransport(lambda request: reply))
+    with pytest.raises(llm.ServiceUnavailableError) as excinfo, llm.mapped_errors():
+        call(client)
+    assert excinfo.value.diagnostic.startswith("JSONDecodeError in json.")
+
+
+def test_reply_cut_off_by_the_token_limit_maps_to_its_own_error():
+    """Structured output that stops at the token limit becomes ReplyCutOffError, not a crash."""
+    body = {**CHAT_OK, "choices": [{**CHAT_OK["choices"][0], "finish_reason": "length"}]}
+    server = Recorder(body=body)
+    structured = _chat(server).with_structured_output(_Answer)
+    with pytest.raises(llm.ReplyCutOffError) as excinfo, llm.mapped_errors():
+        structured.invoke("Hi")
+    assert str(excinfo.value) == llm.ReplyCutOffError.user_message
+    assert excinfo.value.diagnostic.startswith("LengthFinishReasonError")
+
+
+@pytest.mark.parametrize(
+    "error",
+    [openai.ContentFilterFinishReasonError(), openai.OpenAIError("some SDK failure")],
+    ids=["content-filter", "bare-sdk-error"],
+)
+def test_sdk_errors_outside_api_error_are_mapped(error):
+    """SDK errors that are not APIError (content filter, a bare OpenAIError) get the generic one."""
+    with pytest.raises(llm.LLMServiceError) as excinfo, llm.mapped_errors():
+        raise error
+    assert str(excinfo.value) == llm.LLMError.user_message
+
+
+def test_our_bug_raised_inside_langchain_keeps_a_diagnostic():
+    """A bad message type raised inside langchain-openai is mapped but says where it came from."""
+    server = Recorder(body=CHAT_OK)
+    with pytest.raises(llm.ServiceUnavailableError) as excinfo, llm.mapped_errors():
+        _chat(server).invoke([_UnknownMessage(content="Hi")])
+    assert excinfo.value.diagnostic.startswith("TypeError in langchain_openai.")
+    assert not server.requests
+
+
+def test_status_error_diagnostic_names_the_sdk_error():
+    """A mapped HTTP error carries the SDK error's type as its diagnostic."""
+    server = Recorder(status=401, body=_error_body(401))
+    with pytest.raises(llm.InvalidAPIKeyError) as excinfo, llm.mapped_errors():
+        _chat(server).invoke("Hi")
+    assert excinfo.value.diagnostic.startswith("OpenAIAuthenticationError")

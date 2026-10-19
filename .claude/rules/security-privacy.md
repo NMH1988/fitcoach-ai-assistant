@@ -8,6 +8,11 @@ Full threat model and controls: `docs/SECURITY.md`.
 - Never hardcode, log, print, display, or put the owner's key in exceptions, `st.session_state`, tests, issues, PRs or commit messages. Never open the real secrets file. (If the "bring your own key" option in `docs/DEPLOYMENT.md` is built, a visitor's own key may live in the session only, under the same never-log, never-show rules.)
 - **No anonymous visitor may spend the owner's key.** A public deployment must use one of the options in `docs/DEPLOYMENT.md`. Until then the app runs locally only.
 
+## Model clients
+
+- Build chat and embedding clients only with `build_chat_model()` and `build_embeddings()` in `src/llm.py`; they check the model allowlist and cap `max_tokens` when the client is built.
+- **Never pass `model`, `max_tokens`, `max_completion_tokens`, `base_url` or `reasoning_effort` at call time** (`.bind(...)`, `invoke(..., max_tokens=...)`, `model_kwargs`, `extra_body`): call-time arguments override the client's settings and would get around the allowlist and the cap. For another model or budget, build a new client.
+
 ## Personal data
 
 - The user's profile (weight, height, age, sex, activity, goal) lives in `st.session_state` only for the session. It is never logged, written to disk, sent anywhere except the LLM call that needs it, or put in the vector store.

@@ -15,10 +15,12 @@ class LLMError(RuntimeError):
 
     user_message = "Something went wrong while calling the model service. Please try again."
 
-    def __init__(self, status_code: int | None = None) -> None:
-        """Store the HTTP status (if any) and use the class's fixed text as the message."""
+    def __init__(self, status_code: int | None = None, diagnostic: str | None = None) -> None:
+        """Store the HTTP status and a safe-to-log diagnostic; the message is the fixed text."""
         super().__init__(self.user_message)
         self.status_code = status_code
+        # Error type and where it was raised, never its message: safe to log, unlike __context__.
+        self.diagnostic = diagnostic
 
 
 class InvalidAPIKeyError(LLMError):
@@ -60,8 +62,14 @@ class LLMConnectionError(LLMError):
     user_message = "Could not reach the model service. Check the internet connection and try again."
 
 
+class ReplyCutOffError(LLMError):
+    """The reply hit the token limit before it was finished (structured output only)."""
+
+    user_message = "The answer was cut off before it was finished. Please try again."
+
+
 class LLMServiceError(LLMError):
-    """Any other API error, e.g. a rejected request (HTTP 400, 403, 404)."""
+    """Any other SDK error, e.g. a rejected request (HTTP 400, 403, 404) or a content filter."""
 
 
 # HTTP status -> error class; 5xx is handled by range in translate_error().
@@ -75,53 +83,67 @@ _STATUS_ERRORS: dict[int, type[LLMError]] = {
 
 # Packages whose code raises ValueError, KeyError or TypeError for a malformed reply: langchain
 # for a 200 reply that carries an "error" field or no "choices", the embeddings client for one
-# with no "data". OpenRouter sends such replies when the upstream provider fails mid-request.
+# with no "data", the SDK (through json) for an empty or cut-off body. OpenRouter sends such
+# replies when the upstream provider fails mid-request.
 _CLIENT_PACKAGES = frozenset({"langchain_openai", "openai"})
 
 
-def translate_error(exc: openai.APIError) -> LLMError:
-    """Return the user-facing LLMError for an OpenAI SDK error, keeping only its status code."""
-    # APITimeoutError is a subclass of APIConnectionError, so it must be checked first.
-    if isinstance(exc, openai.APITimeoutError):
-        return LLMTimeoutError()
-    if isinstance(exc, openai.APIConnectionError):
-        return LLMConnectionError()
-    if isinstance(exc, openai.APIStatusError):
-        status = exc.status_code
-        if status >= 500:
-            return ServiceUnavailableError(status)
-        return _STATUS_ERRORS.get(status, LLMServiceError)(status)
-    return LLMServiceError()
-
-
-def _raised_by_client(exc: BaseException) -> bool:
-    """Return True if the exception was raised inside the OpenAI SDK or langchain-openai."""
+def _diagnostic(exc: BaseException) -> str:
+    """Return the error's type and the function that raised it, without its message."""
     tb = exc.__traceback__
     if tb is None:
-        return False
+        return type(exc).__name__
     while tb.tb_next is not None:
         tb = tb.tb_next
-    module = tb.tb_frame.f_globals.get("__name__", "")
-    return module.split(".")[0] in _CLIENT_PACKAGES
+    module = tb.tb_frame.f_globals.get("__name__", "?")
+    return f"{type(exc).__name__} in {module}.{tb.tb_frame.f_code.co_name}"
+
+
+def translate_error(exc: openai.OpenAIError) -> LLMError:
+    """Return the user-facing LLMError for an OpenAI SDK error, keeping only its status code."""
+    diagnostic = _diagnostic(exc)
+    # APITimeoutError is a subclass of APIConnectionError, so it must be checked first.
+    if isinstance(exc, openai.APITimeoutError):
+        return LLMTimeoutError(diagnostic=diagnostic)
+    if isinstance(exc, openai.APIConnectionError):
+        return LLMConnectionError(diagnostic=diagnostic)
+    if isinstance(exc, openai.APIStatusError):
+        status = exc.status_code
+        error_class = ServiceUnavailableError if status >= 500 else _STATUS_ERRORS.get(status)
+        return (error_class or LLMServiceError)(status, diagnostic)
+    if isinstance(exc, openai.LengthFinishReasonError):
+        return ReplyCutOffError(diagnostic=diagnostic)
+    return LLMServiceError(diagnostic=diagnostic)
+
+
+def _passed_through_client(exc: BaseException) -> bool:
+    """Return True if any frame between the `with` block and the raise is in a client package."""
+    tb = exc.__traceback__
+    while tb is not None:
+        module = tb.tb_frame.f_globals.get("__name__", "")
+        if module.split(".")[0] in _CLIENT_PACKAGES:
+            return True
+        tb = tb.tb_next
+    return False
 
 
 @contextmanager
 def mapped_errors() -> Iterator[None]:
-    """Turn API errors and malformed replies raised inside the block into LLMError.
-
-    The SDK's messages quote the response body, so `from None` keeps them out of tracebacks.
-    The original error is still on `__context__` (Python sets it inside an `except`) and its
-    request holds the key: never log or show `__context__`.
-    """
+    """Turn SDK errors and malformed replies raised inside the block into LLMError."""
+    # The SDK's messages quote the response body, so `from None` keeps them out of tracebacks.
+    # The original stays on `__context__` (Python sets it inside an `except`) and its request
+    # holds the key: never log or show `__context__`; log `LLMError.diagnostic` instead.
     try:
         yield
-    except openai.APIError as exc:
+    except openai.OpenAIError as exc:
         raise translate_error(exc) from None
     except (ValueError, KeyError, TypeError) as exc:
-        # Only replies the client could not read; the same errors from the caller's code pass.
-        if not _raised_by_client(exc):
+        # Only errors raised while the client handled the call; the caller's own pass through.
+        # A bug of ours that langchain raises (e.g. a bad message type) also lands here, which
+        # is why the diagnostic is kept.
+        if not _passed_through_client(exc):
             raise
-        raise ServiceUnavailableError() from None
+        raise ServiceUnavailableError(diagnostic=_diagnostic(exc)) from None
 
 
 def build_chat_model(
