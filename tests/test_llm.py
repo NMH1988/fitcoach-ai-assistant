@@ -5,6 +5,7 @@ import traceback
 
 import httpx2
 import openai
+import pydantic
 import pytest
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel
@@ -458,3 +459,28 @@ def test_status_error_diagnostic_names_the_sdk_error():
     with pytest.raises(llm.InvalidAPIKeyError) as excinfo, llm.mapped_errors():
         _chat(server).invoke("Hi")
     assert excinfo.value.diagnostic.startswith("OpenAIAuthenticationError")
+
+
+@pytest.mark.parametrize(
+    "content",
+    ['{"other": "field"}', "not JSON at all", '{"text": 42}'],
+    ids=["missing-field", "not-json", "wrong-type"],
+)
+def test_structured_reply_that_breaks_the_schema_maps_to_invalid_reply(content):
+    """A structured reply that fails schema validation is InvalidReplyError, not an outage."""
+    message = {"role": "assistant", "content": content}
+    body = {**CHAT_OK, "choices": [{**CHAT_OK["choices"][0], "message": message}]}
+    server = Recorder(body=body)
+    structured = _chat(server).with_structured_output(_Answer)
+    with pytest.raises(llm.InvalidReplyError) as excinfo, llm.mapped_errors():
+        structured.invoke("Hi")
+    assert not isinstance(excinfo.value, llm.ServiceUnavailableError)
+    assert str(excinfo.value) == llm.InvalidReplyError.user_message
+    assert content not in str(excinfo.value)
+    assert excinfo.value.diagnostic.startswith("ValidationError in pydantic.")
+
+
+def test_validation_error_from_our_own_code_passes_through():
+    """A Pydantic ValidationError from our code inside the block is not renamed."""
+    with pytest.raises(pydantic.ValidationError), llm.mapped_errors():
+        _Answer.model_validate({"other": "field"})

@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from typing import Any
 
 import openai
+import pydantic
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from src import config
@@ -68,6 +69,12 @@ class ReplyCutOffError(LLMError):
     user_message = "The answer was cut off before it was finished. Please try again."
 
 
+class InvalidReplyError(LLMError):
+    """A structured reply did not match its schema; callers may fall back instead of failing."""
+
+    user_message = "The model's answer was not in the expected format. Please try again."
+
+
 class LLMServiceError(LLMError):
     """Any other SDK error, e.g. a rejected request (HTTP 400, 403, 404) or a content filter."""
 
@@ -84,7 +91,9 @@ _STATUS_ERRORS: dict[int, type[LLMError]] = {
 # Packages whose code raises ValueError, KeyError or TypeError for a malformed reply: langchain
 # for a 200 reply that carries an "error" field or no "choices", the embeddings client for one
 # with no "data", the SDK (through json) for an empty or cut-off body. OpenRouter sends such
-# replies when the upstream provider fails mid-request.
+# replies when the upstream provider fails mid-request. The SDK also validates a structured
+# reply with Pydantic, whose ValidationError is a ValueError: that one is a bad answer from the
+# model, not an outage, so it gets InvalidReplyError.
 _CLIENT_PACKAGES = frozenset({"langchain_openai", "openai"})
 
 
@@ -143,6 +152,9 @@ def mapped_errors() -> Iterator[None]:
         # is why the diagnostic is kept.
         if not _passed_through_client(exc):
             raise
+        # Its message quotes the model's reply, so it is mapped (and hidden) too.
+        if isinstance(exc, pydantic.ValidationError):
+            raise InvalidReplyError(diagnostic=_diagnostic(exc)) from None
         raise ServiceUnavailableError(diagnostic=_diagnostic(exc)) from None
 
 
