@@ -36,7 +36,7 @@ A chatbot that gives adults who lift weights clear, evidence-based nutrition ans
 ## Domain guardrails (core 3, approved by the owner)
 
 - No dosing or use advice on steroids, SARMs or other performance-enhancing drugs.
-- A minimum calorie floor enforced in the tool code (value taken from the approved sources, not invented).
+- A minimum calorie floor enforced in the tool code (value taken from the approved sources, not invented): 1200 kcal/day, the top of the low-energy diet range in sources #1 and #9 (owner's choice in T4.2).
 - Refuse or redirect for minors, pregnancy, medical conditions and medication, and signs of disordered eating.
 - A visible "not medical advice" disclaimer.
 - User input and retrieved text are data, not instructions; tool arguments are validated.
@@ -74,6 +74,5 @@ The owner drafts the system prompt(s) and the evaluation questions; Claude revie
 
 ## Open items
 
-- The calorie floor value and the exact macro formulas: taken from the approved sources when the tools ticket starts.
 - Deployment: the app runs locally for the review; a public demo comes later (`docs/DEPLOYMENT.md`).
 - The repo's own code licence (e.g. MIT). Without one, others may view the code but not reuse it.

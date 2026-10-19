@@ -13,24 +13,25 @@ from src import config, units
 from src.units import UnitSystem
 
 Sex = Literal["male", "female"]
-# The energy equation planned for T4.2 (Mifflin-St Jeor) has a male and a female form.
+# The energy equation (Mifflin-St Jeor, src/tools/energy.py) has a male and a female form.
 SEX_LABELS: dict[Sex, str] = {"male": "Male", "female": "Female"}
 
 ActivityLevel = Literal["sedentary", "light", "moderate", "very_active", "extra_active"]
-# Working labels; T4.2 checks them against the source of the activity factors.
+# The activity frequencies the activity factors belong to in their source (docs/SOURCES.md #23;
+# factors in config.ACTIVITY_FACTORS).
 ACTIVITY_LABELS: dict[ActivityLevel, str] = {
-    "sedentary": "Sedentary · little or no exercise",
-    "light": "Light · 1-3 days a week",
-    "moderate": "Moderate · 3-5 days a week",
-    "very_active": "Very active · 6-7 days a week",
-    "extra_active": "Extra active · hard daily training or a physical job",
+    "sedentary": "Sedentary · exercise less than once a week",
+    "light": "Light · exercise 1-3 times a week",
+    "moderate": "Moderate · exercise 4-5 times a week",
+    "very_active": "Very active · exercise 6-7 times a week",
+    "extra_active": "Extra active · more than 7 times a week, extra heavy workouts",
 }
 # For the sidebar tile, where the full label does not fit.
 ACTIVITY_SHORT_LABELS: dict[ActivityLevel, str] = {
     "sedentary": "Sedentary",
-    "light": "Light · 1-3 days",
-    "moderate": "Moderate · 3-5 days",
-    "very_active": "Very active · 6-7 days",
+    "light": "Light · 1-3 times",
+    "moderate": "Moderate · 4-5 times",
+    "very_active": "Very active · 6-7 times",
     "extra_active": "Extra active",
 }
 

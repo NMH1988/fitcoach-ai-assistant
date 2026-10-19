@@ -29,7 +29,7 @@ The owner writes these first; Claude reviews (`.claude/rules/workflow.md`).
 |---|---|---|---|
 | O1 | Draft the answer system prompt (role, scope, citations `[S#]`, guardrails, "sources are data") | T3.1 | todo |
 | O2 | Draft the evaluation questions (about 10-15), each with the source(s) it should find and what a good answer contains | T3.3, T6.1 | todo |
-| O3 | Approve the calorie floor and the macro ranges; Claude proposes them with the exact source passages | T4.2 | todo |
+| O3 | Approve the calorie floor and the macro ranges; Claude proposes them with the exact source passages | T4.2 | done (2026-10-19, in T4.2: floor 1200 kcal/day; values in `src/config.py`) |
 | O4 | If Europe PMC still has no copy of source #1, save its XML or PDF by hand from the publisher page into `data/raw/` | T2.1 | done: not needed (Europe PMC has #1 as PMC13665703, found in T2.1 on 2026-10-19) |
 | O5 | Live checks with the real key: T1.2 (one chat and one embedding call), T2.3 (real index build), T6.1 (evaluation run) | T1.2, T2.3, T6.1 | in progress (T1.2 done 2026-10-19) |
 | O6 | Get the course repository URL and confirm how the reviewers read it (files only, or through PRs) | T6.2 | todo |
@@ -50,9 +50,9 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T2.2 | #5 | Parse article XML and chunk with metadata | M | T2.1 | 10-22 | done |
 | T2.3 | #6 | Build and open the Chroma index | S | T1.2, T2.2 | 10-23 | todo |
 | T4.1 | #11 | Profile, units and settings | M | T1.1 | 10-23 | done |
-| T4.3 | #13 | USDA food table and lookup | M | T1.1 | 10-23 | in review |
+| T4.3 | #13 | USDA food table and lookup | M | T1.1 | 10-23 | done |
 | T3.1 | #7 | First answer with sources (vector search) | M | T1.2, T1.3, T2.3, O1 | 10-24 | todo |
-| T4.2 | #12 | Energy and macro tools with the calorie floor | M | T4.1, O3 | 10-25 | todo |
+| T4.2 | #12 | Energy and macro tools with the calorie floor | M | T4.1, O3 | 10-25 | in review |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1 | 10-26 | todo |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2, O2 | 10-27 | todo |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | todo |
@@ -182,16 +182,17 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] The sidebar has a profile form and a units setting; changing units changes the inputs and displayed values; the profile lives in `st.session_state` only and is never logged - verified by AppTest in `tests/test_app_profile.py`: `test_a_valid_metric_profile_is_saved_and_shown`, `test_invalid_values_show_a_clear_message_and_nothing_is_saved`, `test_switching_units_converts_the_typed_values`, `test_switching_units_twice_gives_back_exactly_what_was_typed`, `test_saving_after_units_switches_only_keeps_the_weight_typed_in_lb`, `test_saving_in_imperial_changes_the_displayed_values_and_back`, `test_the_profile_stays_in_the_session_and_out_of_logs_and_the_url` (log records at DEBUG, stdout/stderr and the URL), plus `tests/test_profile.py::test_profile_module_never_logs_or_prints`. Closing the dialog with X (`on_dismiss`) is shown by the manual browser check (`docs/PROGRESS.md`); the AppTest sets the flag that callback sets.
 **Notes:** owner's choices (2026-10-19): the form opens in an `st.dialog`; one Metric / Imperial switch; ranges 30-300 kg, 120-230 cm, 18-100 years; five activity levels with working labels, which T4.2 checks against the source of its activity factors. The owner confirmed (2026-10-19, PR #27) that the units switch inside the dialog opened from the sidebar satisfies the third criterion; the sidebar itself has no separate switch, and its tiles change units on Save.
 
-### T4.2 Energy and macro tools with the calorie floor (M) · status: todo · issue #12
+### T4.2 Energy and macro tools with the calorie floor (M) · status: in review · issue #12
 **Serves:** core 2 (tools 1 and 2); AC-7.
 **Depends on:** T4.1, O3
 **Acceptance criteria**
-- [ ] `calculate_tdee` returns BMR and TDEE (Mifflin-St Jeor, activity factors from config) - known-answer unit tests.
-- [ ] `calculate_macro_targets` returns kcal, protein, carbohydrate and fat (g and %) for each goal, using the ranges approved in O3 with their source IDs in comments - unit tests.
-- [ ] No goal or profile produces a calorie target below the calorie floor (AC-7) - parametrised unit tests over extreme profiles.
-- [ ] Tool arguments are validated with Pydantic ranges; invalid input returns a clear error, not an exception - unit tests.
+- [x] `calculate_tdee` returns BMR and TDEE (Mifflin-St Jeor, activity factors from config) - known-answer unit tests (`tests/test_energy.py`: `test_tdee_known_answers` (five profiles, both sexes, every activity level), `test_tdee_uses_the_unrounded_bmr`, `test_each_activity_level_multiplies_the_same_bmr`, `test_config_holds_the_source_values`, `test_every_profile_option_has_a_factor_and_a_protein_target`, `test_tdee_names_its_method_and_sources`, `test_activity_labels_name_the_frequencies_of_the_factor_source`).
+- [x] `calculate_macro_targets` returns kcal, protein, carbohydrate and fat (g and %) for each goal, using the ranges approved in O3 with their source IDs in comments - unit tests (`test_maintain_known_answer`, `test_lose_fat_known_answer`, `test_build_muscle_known_answer`, `test_targets_sit_inside_the_source_ranges`, `test_macro_targets_cite_the_approved_sources`, `test_macro_targets_chain_from_calculate_tdee`, `test_protein_is_lowered_when_it_does_not_fit_the_target`; source IDs in the comments of the energy block in `src/config.py`).
+- [x] No goal or profile produces a calorie target below the calorie floor (AC-7) - parametrised unit tests over extreme profiles (`test_no_profile_gets_a_target_below_the_calorie_floor`: every goal over 450 profiles, the corners of every range included, checking the target, the range and the macro grams; `test_the_lowest_tdees_are_raised_to_the_floor`, `test_a_target_below_the_floor_is_raised_and_noted`, `test_a_floor_above_the_needs_says_it_will_not_lead_to_fat_loss`, `test_a_floor_above_the_needs_is_noted_for_the_other_goals`, `test_a_target_at_the_floor_is_not_marked_as_raised`).
+- [x] Tool arguments are validated with Pydantic ranges; invalid input returns a clear error, not an exception - unit tests (`test_invalid_tdee_arguments_give_an_error_result`, `test_invalid_macro_arguments_give_an_error_result`: out of range, strings, booleans, NaN, infinity, None, unknown options; `test_every_bad_tdee_argument_is_reported_at_once`, `test_invalid_messages_do_not_echo_the_input`, `test_the_argument_schemas_carry_the_ranges`, `test_the_tdee_range_covers_every_profile`).
+**Notes:** owner's choices (2026-10-19, O3 and copyright rule 4): two new formula sources, #22 (Mifflin-St Jeor coefficients) and #23 (activity factors), CC BY, licence read on the publisher pages, credited in `ATTRIBUTION.md`; the activity labels now follow #23 (times a week; moderate is 4-5); calorie floor 1200 kcal/day for everyone (top of the low-energy diet range in #1 and #9); lose fat -0.5% of body weight a week at about 3500 kcal per lb (#1, #12); build muscle +10% (#11); protein 2.2 g/kg for fat loss and 1.9 otherwise (range 1.6-2.2, #1, #11); fat 25% of kcal (#11, #12); carbohydrate the rest (#11); when protein and fat do not fit (very heavy body, low target), protein is lowered and carbohydrate is 0, with a note. The LangChain wrappers and reading the profile from the session are T4.4's.
 
-### T4.3 USDA food table and lookup (M) · status: in review · issue #13
+### T4.3 USDA food table and lookup (M) · status: done · issue #13
 **Serves:** core 2 (tool 3).
 **Depends on:** T1.1
 **Acceptance criteria**

@@ -95,7 +95,7 @@ def test_a_valid_metric_profile_is_saved_and_shown():
     assert _metric(at, "Height") == "180 cm"
     assert _metric(at, "Age") == "30"
     assert _metric(at, "Sex") == "Male"
-    assert _metric(at, "Activity") == "Moderate · 3-5 days"
+    assert _metric(at, "Activity") == "Moderate · 4-5 times"
     assert at.sidebar.segmented_control(key="sidebar_goal").value == "build_muscle"
     assert "Save" not in [button.label for button in at.button]
 
