@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-19 · T2.2 Parse article XML and chunk with metadata · #<PR> (closes #5)
+## 2026-10-19 · T2.2 Parse article XML and chunk with metadata · #29 (closes #5)
 - **Brief:** core requirement 1 (chunking). The correction link (#18a <-> #18) serves the copyright policy's rule 7 (beyond the brief, owner's request).
 - **What:**
   - `src/rag/ingest.py` (new): `parse_article()` (JATS XML -> `ParsedArticle` with the title and `Section`s in reading order), `chunk_article()` (sections -> LangChain `Document`s with metadata), `load_chunks()` (manifest -> `data/raw/<PMCID>.xml` -> `check_article()` -> parse -> chunks; `IngestError` lists every missing, refused or empty article).
