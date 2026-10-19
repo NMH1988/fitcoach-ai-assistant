@@ -156,6 +156,28 @@ def test_saving_in_imperial_changes_the_displayed_values_and_back():
     assert at.session_state["profile"].height_cm == 180.0
 
 
+def test_saving_after_units_switches_only_keeps_the_weight_typed_in_lb():
+    """176.5 lb saved, then saved in metric and back in imperial unedited, still shows 176.5 lb."""
+    at = _start()
+    _button(at, "Add your details").click().run(timeout=30)
+    at.segmented_control(key="profile_form_units").set_value("imperial").run(timeout=30)
+    at.number_input(key=_key("weight")).set_value(176.5)
+    at.number_input(key=_key("height_ft")).set_value(5)
+    at.number_input(key=_key("height_in")).set_value(11)
+    at.number_input(key=_key("age")).set_value(30)
+    at.segmented_control(key=_key("sex")).set_value("male")
+    at.selectbox(key=_key("activity")).set_value("moderate")
+    at.segmented_control(key=_key("goal")).set_value("maintain")
+    _save(at)
+    stored = at.session_state["profile"]
+    for system in ("metric", "imperial"):
+        _button(at, "Edit details").click().run(timeout=30)
+        at.segmented_control(key="profile_form_units").set_value(system).run(timeout=30)
+        _save(at)
+    assert at.session_state["profile"] == stored
+    assert _metric(at, "Weight") == "176.5 lb"
+
+
 def test_switching_units_twice_gives_back_exactly_what_was_typed():
     """Flipping to imperial and back without editing restores the typed metric values."""
     at = _start()

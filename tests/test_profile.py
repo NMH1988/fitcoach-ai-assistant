@@ -346,3 +346,46 @@ def test_profile_module_never_logs_or_prints():
     """The profile module has no logging or printing (the profile is never logged)."""
     source = (Path(profile.__file__)).read_text(encoding="utf-8")
     assert "logging" not in source and "print(" not in source
+
+
+def test_first_unedited_switch_after_opening_shows_the_stored_profile():
+    """Opening in metric and switching to imperial shows the stored lb, not a re-rounded one."""
+    stored = build_profile(**{**VALID_IMPERIAL, "weight": 176.5})
+    shown = profile.form_values(stored, "metric")
+    assert shown["weight"] == 80.1  # 80.1 kg converted would show 176.6 lb
+    memory = profile.initial_form_memory(stored, "metric")
+    there, _ = profile.switch_form_units(shown, "metric", "imperial", memory)
+    assert there == profile.form_values(stored, "imperial")
+    assert there["weight"] == 176.5
+    assert profile.save_profile(there, "imperial", stored) is stored
+
+
+def test_initial_form_memory_without_a_profile_is_empty():
+    """A form opened with no profile has nothing to restore."""
+    assert profile.initial_form_memory(None, "metric") is None
+
+
+def test_editing_another_field_between_switches_keeps_the_exact_restore():
+    """Changing activity after a switch still restores the typed height and keeps the change."""
+    typed = _typed_metric(80.0, 181)
+    there, memory = profile.switch_form_units(typed, "metric", "imperial", None)
+    back, _ = profile.switch_form_units(
+        {**there, "activity": "very_active"}, "imperial", "metric", memory
+    )
+    assert back["height_cm"] == 181
+    assert back["weight"] == 80.0
+    assert back["activity"] == "very_active"
+
+
+def test_with_goal_changes_only_the_goal():
+    """with_goal returns the same profile with the new goal."""
+    stored = build_profile(**VALID_METRIC)
+    changed = profile.with_goal(stored, "lose_fat")
+    assert changed.goal == "lose_fat"
+    assert changed.model_dump(exclude={"goal"}) == stored.model_dump(exclude={"goal"})
+
+
+def test_with_goal_rejects_an_unknown_goal():
+    """An unknown goal is rejected by the model."""
+    with pytest.raises(ValidationError):
+        profile.with_goal(build_profile(**VALID_METRIC), "bulk")

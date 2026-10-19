@@ -251,9 +251,31 @@ def convert_form_values(
     return converted
 
 
-# What the last units switch did: the system switched from, the values typed there, and the
-# converted values it showed. Lets a switch back restore exactly what was typed.
+# The form fields that depend on the unit system; the others never change on a units switch.
+UNIT_FIELDS = ("weight", "height_cm", "height_ft", "height_in")
+
+# What the last units switch did: the system switched from, the weight and height there, and
+# the converted weight and height it showed. Lets a switch back restore exactly what was there.
 FormMemory = tuple[UnitSystem, dict[str, Any], dict[str, Any]]
+
+
+def _unit_fields(values: dict[str, Any]) -> dict[str, Any]:
+    """Return only the weight and height fields of the form values."""
+    return {field: values.get(field) for field in UNIT_FIELDS}
+
+
+def initial_form_memory(current: UserProfile | None, system: UnitSystem) -> FormMemory | None:
+    """Return a new form's memory, so a first unedited switch shows the stored profile."""
+    # Without it, the first switch would convert the rounded values on screen, which can land
+    # 0.1 lb away from the stored weight shown in the other system.
+    if current is None:
+        return None
+    other: UnitSystem = "imperial" if system == "metric" else "metric"
+    return (
+        other,
+        _unit_fields(form_values(current, other)),
+        _unit_fields(form_values(current, system)),
+    )
 
 
 def switch_form_units(
@@ -263,19 +285,27 @@ def switch_form_units(
     memory: FormMemory | None,
 ) -> tuple[dict[str, Any], FormMemory]:
     """Convert the form to another unit system; switching back unedited restores what was typed."""
-    if memory is not None and memory[0] == to_system and memory[2] == values:
-        result = dict(memory[1])
+    # Only the weight and height are compared and restored, so editing age, sex, activity or goal
+    # in between keeps the exact restore and the edit.
+    shown = _unit_fields(values)
+    if memory is not None and memory[0] == to_system and memory[2] == shown:
+        result = {**values, **memory[1]}
     else:
         result = convert_form_values(values, from_system, to_system)
-    return result, (from_system, dict(values), dict(result))
+    return result, (from_system, shown, _unit_fields(result))
 
 
 def save_profile(
     values: dict[str, Any], system: UnitSystem, current: UserProfile | None
 ) -> UserProfile:
     """Return the saved form's profile, keeping the stored one if the shown values are unchanged."""
-    # Without this, saving after only a units switch would round the stored kg and cm to the
-    # precision the form shows.
+    # The form shows the stored profile rounded (0.1 kg or lb, whole cm or inch); saving it as
+    # shown, e.g. after a units switch only (see initial_form_memory), keeps the stored values.
     if current is not None and values == form_values(current, system):
         return current
     return build_profile(units_system=system, **values)
+
+
+def with_goal(current: UserProfile, goal: Any) -> UserProfile:
+    """Return the profile with another goal; an unknown goal raises pydantic's ValidationError."""
+    return UserProfile(**{**current.model_dump(), "goal": goal})

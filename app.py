@@ -33,7 +33,9 @@ def _open_profile_form() -> None:
         st.session_state[_form_key(field)] = value
     st.session_state["profile_form_units"] = system
     st.session_state["profile_form_units_shown"] = system
-    st.session_state["profile_form_memory"] = None
+    st.session_state["profile_form_memory"] = profile.initial_form_memory(
+        st.session_state.get("profile"), system
+    )
     st.session_state["profile_form_open"] = True
 
 
@@ -61,7 +63,7 @@ def _change_goal() -> None:
     goal = st.session_state["sidebar_goal"]
     current = st.session_state.get("profile")
     if current is not None and goal in get_args(profile.Goal):
-        st.session_state["profile"] = profile.UserProfile(**{**current.model_dump(), "goal": goal})
+        st.session_state["profile"] = profile.with_goal(current, goal)
 
 
 @st.dialog("Your details", on_dismiss=_close_profile_form)
