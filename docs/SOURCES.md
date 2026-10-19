@@ -4,6 +4,12 @@ The approved list for the knowledge base and data, under the copyright policy in
 
 **Verification status.** On 2026-10-19 the licence statement of every approved article was read from the article itself: the article page on PubMed Central (which reproduces the publisher's copyright and licence statement) or, for #1, the publisher's article XML on tandfonline.com. All 20 articles and the correction to #18 are CC BY. CC0 links on some BioMed Central articles apply to the article's data, not its text. Re-check a licence if a source is replaced by a new version.
 
+**How the check was done, and a correction.** The PMC pages were read in one browser session, 20 of them by a short script. PMC's copyright page (read afterwards) forbids systematic or automated retrieval of batches of articles from its website, open access included. The check read only the licence lines and stored no article text, but it should have used the allowed services instead. From now on, automated access goes only through the Europe PMC REST API or PMC's OAI-PMH/FTP/Cloud services (`.claude/rules/copyright.md`, rule 10).
+
+**Access terms.** Europe PMC's copyright page (read 2026-10-19) allows its OAI, REST, SOAP and bulk download services for automated retrieval and forbids crawling its website; articles keep their own licence. PMC allows only its OAI-PMH, FTP and Cloud services for automated retrieval. Taylor & Francis's website terms (read 2026-10-19, section on open access materials) allow anyone to access, download, copy, display, redistribute, adapt and text-and-data-mine its CC BY articles without permission, provided the source is cited, the licence terms are made clear, copyright notices and disclaimers are kept, no endorsement is implied, the author's moral right to the integrity of the work is respected, and third-party content inside an article is not reused without its own permission. Its stricter rules for "Free Materials" (no data mining or AI use) do not apply to open access articles.
+
+**Licence terms read on 2026-10-19:** CC BY 4.0 legal code (irrevocable, worldwide; allows copying, sharing and adapting; conditions: credit, copyright and licence notices, link, indicate changes; no added restrictions; no implied endorsement; moral, publicity, privacy, patent and trademark rights not licensed; rights end on breach and come back if fixed within 30 days of discovery) and CC BY 2.0 legal code (keep copyright notices, credit author and title, include the licence link, no added restrictions).
+
 ## Approved
 
 ### Tier 1: ISSN position stands (professional society)
@@ -78,4 +84,4 @@ CC BY 2.0 (#12) allows the same uses as CC BY 4.0 (copy, redistribute, adapt, in
 
 ## Attribution template (CC BY)
 
-> Authors. *Title*. Journal, Year. DOI/URL. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Changes: text extracted and split into chunks.
+> Authors. *Title*. Journal, Year. DOI/URL. <The article's copyright notice, e.g. "© The Author(s) 2017">. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Changes: text extracted and split into chunks. No endorsement by the authors or publisher is implied.

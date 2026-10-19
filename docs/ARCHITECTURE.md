@@ -77,7 +77,8 @@ tests/
 
 **Download** (`scripts/download_sources.py`):
 - Articles with a PMCID come from the Europe PMC REST API as JATS XML (`https://www.ebi.ac.uk/europepmc/webservices/rest/<PMCID>/fullTextXML`). Tested on 2026-10-19 for PMC5477153: HTTP 200, XML with a `<license>` element.
-- Source #1 (diets for body weight reduction, 2026) has no PMCID yet. The publisher's XML loaded in a browser but scripted requests to tandfonline.com were refused (HTTP 403) earlier. Fallback: retry Europe PMC later, or the owner saves the XML from the browser into `data/raw/` once.
+- Source #1 (diets for body weight reduction, 2026) has no PMCID yet. Scripted access to tandfonline.com is not used. Fallback: retry Europe PMC later, or the owner saves the article from the browser into `data/raw/` once, by hand.
+- **Access terms:** the script uses only the Europe PMC REST API (allowed for automated retrieval by Europe PMC's copyright page); it never scrapes the PMC, Europe PMC or publisher websites. It sends a descriptive User-Agent and waits between requests.
 - **Copyright guard in code:** the script reads the `<license>` element of each file and refuses any file whose licence is not a CC BY or CC0 URL. Raw XML stays in `data/raw/` (gitignored).
 
 **Parsing** (`src/rag/ingest.py`, standard library `xml.etree`): keep the title, abstract and body sections (section titles and paragraphs). Drop figures, tables, formulas, supplementary material and the reference list, as the copyright policy requires (text only).
@@ -169,7 +170,7 @@ Dev: pytest, pytest-cov, ruff, pip-audit (as in Sprint 1). Not chosen: fpdf2 (LG
 | D4 | **Own RRF + rank-bm25** for hybrid search | `EnsembleRetriever` (now in `langchain-classic`) | About 20 lines we can explain in the review; no legacy package |
 | D5 | **reportlab** for the PDF | fpdf2 | BSD vs LGPL-3.0 |
 | D6 | **gpt-5-nano** for query translation, **gpt-5-mini** for answers | One model for both | The rewrite step is simple; cheaper and faster |
-| D7 | Commit the manifest and the trimmed USDA table; do not commit raw XML or the Chroma index | Commit the index | Copyright policy rule 7; the index is cheap to rebuild |
+| D7 | Commit the manifest and the trimmed USDA table; do not commit raw XML or the Chroma index | Commit the index | Copyright policy rule 8 (raw documents not committed); the index is cheap to rebuild |
 | D8 | Python 3.14 | 3.13 | Same as Sprint 1; all dependencies support it. Check the host's Python options at deploy time |
 
 ## 14. Risks and early checks
