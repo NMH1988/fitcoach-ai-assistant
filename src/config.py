@@ -48,9 +48,14 @@ MAX_TOKENS_CAP = 16000
 
 # Longest user message (after cleaning) the guard lets through to the models.
 MAX_INPUT_CHARS = 2000
+# Longest raw message the guard reads at all: checked before cleaning, so a huge paste (or one
+# padded with invisible characters) is rejected without walking through it. Leaves room for
+# characters that cleaning drops.
+MAX_RAW_INPUT_CHARS = 4 * MAX_INPUT_CHARS
 
-# Model requests allowed per browser session: at most this many in any rolling window, and this
-# many in all. Reloading the page starts a new session.
+# Questions allowed per browser session: at most this many in any rolling window, and this many
+# in all. One accepted question counts once, however many model calls its turn makes; questions
+# the guard rejects do not count (owner's choice in T1.3). Reloading the page starts a new session.
 RATE_LIMIT_PER_MINUTE = 10
 RATE_LIMIT_WINDOW_SECONDS = 60
 RATE_LIMIT_PER_SESSION = 50
