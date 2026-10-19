@@ -30,7 +30,7 @@ The owner writes these first; Claude reviews (`.claude/rules/workflow.md`).
 | O1 | Draft the answer system prompt (role, scope, citations `[S#]`, guardrails, "sources are data") | T3.1 | todo |
 | O2 | Draft the evaluation questions (about 10-15), each with the source(s) it should find and what a good answer contains | T3.3, T6.1 | todo |
 | O3 | Approve the calorie floor and the macro ranges; Claude proposes them with the exact source passages | T4.2 | todo |
-| O4 | If Europe PMC still has no copy of source #1, save its XML or PDF by hand from the publisher page into `data/raw/` | T2.1 | todo |
+| O4 | If Europe PMC still has no copy of source #1, save its XML or PDF by hand from the publisher page into `data/raw/` | T2.1 | done: not needed (Europe PMC has #1 as PMC13665703, found in T2.1 on 2026-10-19) |
 | O5 | Live checks with the real key: T1.2 (one chat and one embedding call), T2.3 (real index build), T6.1 (evaluation run) | T1.2, T2.3, T6.1 | in progress (T1.2 done 2026-10-19) |
 | O6 | Get the course repository URL and confirm how the reviewers read it (files only, or through PRs) | T6.2 | todo |
 
@@ -43,7 +43,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T1.1 | #1 | Project skeleton, config and CI | S | - | 10-20 | done |
 | T1.2 | #2 | OpenRouter clients and error mapping | S | T1.1 | 10-20 | in review |
 | T1.3 | #3 | Input guard and rate limit | S | T1.1 | 10-21 | todo |
-| T2.1 | #4 | Source manifest, download script, attribution | M | T1.1, O4 | 10-21 | todo |
+| T2.1 | #4 | Source manifest, download script, attribution | M | T1.1, O4 | 10-21 | in review |
 | T2.2 | #5 | Parse article XML and chunk with metadata | M | T2.1 | 10-22 | todo |
 | T2.3 | #6 | Build and open the Chroma index | S | T1.2, T2.2 | 10-23 | todo |
 | T4.1 | #11 | Profile, units and settings | M | T1.1 | 10-23 | in review |
@@ -100,16 +100,16 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 ## Epic 2: Knowledge base
 
-### T2.1 Source manifest, download script, attribution (M) · status: todo · issue #4
+### T2.1 Source manifest, download script, attribution (M) · status: in review · issue #4
 **Serves:** core 1 and 3 (focused knowledge base), AC-14; the copyright policy (beyond the brief, owner's request).
 **Depends on:** T1.1, O4
 **Acceptance criteria**
-- [ ] `data/sources.json` lists every Approved article in `docs/SOURCES.md` (#1-#20 and the correction #18a) with title, authors, year, journal, DOI, PMCID, URL, licence, licence URL, copyright notice, evidence tier and topics - unit test checks the IDs match `docs/SOURCES.md` and no field is empty.
-- [ ] `scripts/download_sources.py` fetches each article only through the Europe PMC REST API (`fullTextXML`), with a descriptive User-Agent and a pause between requests, into `data/raw/` - unit test with a mocked HTTP client checks the URLs used.
-- [ ] The script refuses a file whose `<license>` is not CC BY or CC0 and reports it - unit test with fixture XML for both cases.
-- [ ] Source #1 is either downloaded from Europe PMC or read from the file the owner saved by hand (O4).
-- [ ] `ATTRIBUTION.md` is generated from the manifest with authors, title, year, copyright notice, DOI, licence link and the change made - unit test on the generator.
-**Notes:** fixture XML is a tiny made-up document we write ourselves, never a copied article.
+- [x] `data/sources.json` lists every Approved article in `docs/SOURCES.md` (#1-#20 and the correction #18a) with title, authors, year, journal, DOI, PMCID, URL, licence, licence URL, copyright notice, evidence tier and topics - unit test checks the IDs match `docs/SOURCES.md` and no field is empty (`tests/test_sources_manifest.py`: `test_manifest_ids_match_the_approved_list`, `test_manifest_matches_the_approved_list_per_article`, `test_no_manifest_field_is_empty`, plus validation tests).
+- [x] `scripts/download_sources.py` fetches each article only through the Europe PMC REST API (`fullTextXML`), with a descriptive User-Agent and a pause between requests, into `data/raw/` - unit test with a mocked HTTP client checks the URLs used (`tests/test_download_sources.py`: `test_every_manifest_article_is_fetched_only_from_the_europe_pmc_rest_api`, `test_requests_are_spaced_out`, `test_fetch_sends_a_descriptive_user_agent_and_a_timeout`).
+- [x] The script refuses a file whose `<license>` is not CC BY or CC0 and reports it - unit test with fixture XML for both cases (`tests/test_sources_license.py`; `tests/test_download_sources.py::test_a_file_without_cc_by_or_cc0_is_refused_and_reported`; fixtures in `tests/fixtures/jats/`).
+- [x] Source #1 is either downloaded from Europe PMC or read from the file the owner saved by hand (O4) - downloaded from Europe PMC (PMC13665703) in the real run on 2026-10-19 (`docs/TESTING.md`); `test_source_one_comes_from_europe_pmc`.
+- [x] `ATTRIBUTION.md` is generated from the manifest with authors, title, year, copyright notice, DOI, licence link and the change made - unit test on the generator (`tests/test_attribution.py`; `test_committed_attribution_credits_every_source` fails while the committed file is out of date).
+**Notes:** fixture XML is a tiny made-up document we write ourselves, never a copied article. The hand-saved fallback for #1 was dropped (owner's choice, 2026-10-19): every source now has a PMCID.
 
 ### T2.2 Parse article XML and chunk with metadata (M) · status: todo · issue #5
 **Serves:** core 1 (chunking).

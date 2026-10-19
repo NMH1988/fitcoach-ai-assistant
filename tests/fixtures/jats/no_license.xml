@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A tiny made-up article written for the tests; not a copy of any real article. -->
+<article article-type="review-article">
+  <front>
+    <article-meta>
+      <article-id pub-id-type="doi">10.1234/made-up.1</article-id>
+      <title-group><article-title>A made-up article about barley</article-title></title-group>
+      <permissions><copyright-statement>© The Author(s) 2024. All rights reserved.</copyright-statement></permissions>
+    </article-meta>
+  </front>
+  <body><sec><title>Barley</title><p>Barley is a grain. This sentence was written for a test.</p></sec></body>
+</article>

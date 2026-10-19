@@ -1,0 +1,627 @@
+[
+  {
+    "id": "1",
+    "title": "International Society of Sports Nutrition position stand: diets for body weight reduction",
+    "authors": [
+      "Alan A Aragon",
+      "Bill I Campbell",
+      "Brad J Schoenfeld",
+      "Jeffrey R Stout",
+      "Douglas Kalman",
+      "Paul J Arciero",
+      "Shawn M Arent",
+      "Richard B Kreider",
+      "Lem W Taylor",
+      "Laurent Bannock",
+      "Robert EC Wildman",
+      "Chad M Kerksick",
+      "Jose Antonio"
+    ],
+    "year": 2026,
+    "journal": "Journal of the International Society of Sports Nutrition",
+    "doi": "10.1080/15502783.2026.2740266",
+    "pmcid": "PMC13665703",
+    "url": "https://doi.org/10.1080/15502783.2026.2740266",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© 2026 The Author(s). Published by Informa UK Limited, trading as Taylor & Francis Group.",
+    "evidence_tier": 1,
+    "topics": [
+      "energy_balance",
+      "protein",
+      "carbohydrate",
+      "fat"
+    ]
+  },
+  {
+    "id": "2",
+    "title": "International Society of Sports Nutrition position stand: effects of dietary antioxidants on exercise and sports performance",
+    "authors": [
+      "Drew E Gonzalez",
+      "Broderick L Dickerson",
+      "Brandon M Roberts",
+      "Jennifer A Kurtz",
+      "Hunter S Waldman",
+      "Adam M Gonzalez",
+      "Matthew J McAllister",
+      "Jeffery L Heileson",
+      "Richard J Bloomer",
+      "Shawn M Arent",
+      "Darren G Candow",
+      "Jeffrey R Stout",
+      "Karen A Hecht",
+      "Bill Campbell",
+      "Chad M Kerksick",
+      "Douglas Kalman",
+      "Jose Antonio",
+      "Richard B Kreider"
+    ],
+    "year": 2026,
+    "journal": "Journal of the International Society of Sports Nutrition",
+    "doi": "10.1080/15502783.2026.2629828",
+    "pmcid": "PMC12915426",
+    "url": "https://doi.org/10.1080/15502783.2026.2629828",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© 2026 The Author(s). Published by Informa UK Limited, trading as Taylor & Francis Group.",
+    "evidence_tier": 1,
+    "topics": [
+      "supplements"
+    ]
+  },
+  {
+    "id": "3",
+    "title": "International Society of Sports Nutrition Position Stand: Long-Chain Omega-3 Polyunsaturated Fatty Acids",
+    "authors": [
+      "Ralf Jäger",
+      "Jeffery L Heileson",
+      "Sidney Abou Sawan",
+      "Broderick L Dickerson",
+      "Megan Leonard",
+      "Richard B Kreider",
+      "Chad M Kerksick",
+      "Stephen M Cornish",
+      "Darren G Candow",
+      "Dean M Cordingley",
+      "Scott C Forbes",
+      "Grant M Tinsley",
+      "Tindaro Bongiovanni",
+      "Roberto Cannataro",
+      "Bill I Campbell",
+      "Shawn M Arent",
+      "Jeffrey R Stout",
+      "Douglas S Kalman",
+      "Jose Antonio"
+    ],
+    "year": 2025,
+    "journal": "Journal of the International Society of Sports Nutrition",
+    "doi": "10.1080/15502783.2024.2441775",
+    "pmcid": "PMC11737053",
+    "url": "https://doi.org/10.1080/15502783.2024.2441775",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© 2025 The Author(s). Published by Informa UK Limited, trading as Taylor & Francis Group.",
+    "evidence_tier": 1,
+    "topics": [
+      "fat",
+      "supplements"
+    ]
+  },
+  {
+    "id": "4",
+    "title": "International society of sports nutrition position stand: β-hydroxy-β-methylbutyrate (HMB)",
+    "authors": [
+      "John A. Rathmacher",
+      "Lisa M. Pitchford",
+      "Jeffrey R. Stout",
+      "Jeremy R. Townsend",
+      "Ralf Jäger",
+      "Richard B. Kreider",
+      "Bill I. Campbell",
+      "Chad M. Kerksick",
+      "Patrick S. Harty",
+      "Darren G. Candow",
+      "Brandon M. Roberts",
+      "Shawn M. Arent",
+      "Douglas S. Kalman",
+      "Jose Antonio"
+    ],
+    "year": 2024,
+    "journal": "Journal of the International Society of Sports Nutrition",
+    "doi": "10.1080/15502783.2024.2434734",
+    "pmcid": "PMC11740297",
+    "url": "https://doi.org/10.1080/15502783.2024.2434734",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© 2024 The Author(s). Published by Informa UK Limited, trading as Taylor & Francis Group.",
+    "evidence_tier": 1,
+    "topics": [
+      "supplements"
+    ]
+  },
+  {
+    "id": "5",
+    "title": "International society of sports nutrition position stand: essential amino acid supplementation on skeletal muscle and Performance",
+    "authors": [
+      "Arny A. Ferrando",
+      "Robert R. Wolfe",
+      "Katie R. Hirsch",
+      "David D. Church",
+      "Shiloah A. Kviatkovsky",
+      "Michael D. Roberts",
+      "Jeffrey R. Stout",
+      "Drew E. Gonzalez",
+      "Ryan J. Sowinski",
+      "Richard B. Kreider",
+      "Chad M. Kerksick",
+      "Nicholas A. Burd",
+      "Stefan M. Pasiakos",
+      "Michael J. Ormsbee",
+      "Shawn M. Arent",
+      "Paul J. Arciero",
+      "Bill I. Campbell",
+      "Trisha A. VanDusseldorp",
+      "Ralf Jager",
+      "Darryn S. Willoughby",
+      "Douglas S. Kalman",
+      "Jose Antonio"
+    ],
+    "year": 2023,
+    "journal": "Journal of the International Society of Sports Nutrition",
+    "doi": "10.1080/15502783.2023.2263409",
+    "pmcid": "PMC10561576",
+    "url": "https://doi.org/10.1080/15502783.2023.2263409",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© 2023 The Author(s). Published by Informa UK Limited, trading as Taylor & Francis Group.",
+    "evidence_tier": 1,
+    "topics": [
+      "protein",
+      "supplements"
+    ]
+  },
+  {
+    "id": "6",
+    "title": "International society of sports nutrition position stand: caffeine and exercise performance",
+    "authors": [
+      "Nanci S Guest",
+      "Trisha A VanDusseldorp",
+      "Michael T Nelson",
+      "Jozo Grgic",
+      "Brad J Schoenfeld",
+      "Nathaniel D M Jenkins",
+      "Shawn M Arent",
+      "Jose Antonio",
+      "Jeffrey R Stout",
+      "Eric T Trexler",
+      "Abbie E Smith-Ryan",
+      "Erica R Goldstein",
+      "Douglas S Kalman",
+      "Bill I Campbell"
+    ],
+    "year": 2021,
+    "journal": "Journal of the International Society of Sports Nutrition",
+    "doi": "10.1186/s12970-020-00383-4",
+    "pmcid": "PMC7777221",
+    "url": "https://doi.org/10.1186/s12970-020-00383-4",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© The Author(s) 2021",
+    "evidence_tier": 1,
+    "topics": [
+      "supplements"
+    ]
+  },
+  {
+    "id": "7",
+    "title": "International Society of Sports Nutrition Position Stand: protein and exercise",
+    "authors": [
+      "Ralf Jäger",
+      "Chad M. Kerksick",
+      "Bill I. Campbell",
+      "Paul J. Cribb",
+      "Shawn D. Wells",
+      "Tim M. Skwiat",
+      "Martin Purpura",
+      "Tim N. Ziegenfuss",
+      "Arny A. Ferrando",
+      "Shawn M. Arent",
+      "Abbie E. Smith-Ryan",
+      "Jeffrey R. Stout",
+      "Paul J. Arciero",
+      "Michael J. Ormsbee",
+      "Lem W. Taylor",
+      "Colin D. Wilborn",
+      "Doug S. Kalman",
+      "Richard B. Kreider",
+      "Darryn S. Willoughby",
+      "Jay R. Hoffman",
+      "Jamie L. Krzykowski",
+      "Jose Antonio"
+    ],
+    "year": 2017,
+    "journal": "Journal of the International Society of Sports Nutrition",
+    "doi": "10.1186/s12970-017-0177-8",
+    "pmcid": "PMC5477153",
+    "url": "https://doi.org/10.1186/s12970-017-0177-8",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© The Author(s). 2017",
+    "evidence_tier": 1,
+    "topics": [
+      "protein",
+      "nutrient_timing"
+    ]
+  },
+  {
+    "id": "8",
+    "title": "International society of sports nutrition position stand: nutrient timing",
+    "authors": [
+      "Chad M. Kerksick",
+      "Shawn Arent",
+      "Brad J. Schoenfeld",
+      "Jeffrey R. Stout",
+      "Bill Campbell",
+      "Colin D. Wilborn",
+      "Lem Taylor",
+      "Doug Kalman",
+      "Abbie E. Smith-Ryan",
+      "Richard B. Kreider",
+      "Darryn Willoughby",
+      "Paul J. Arciero",
+      "Trisha A. VanDusseldorp",
+      "Michael J. Ormsbee",
+      "Robert Wildman",
+      "Mike Greenwood",
+      "Tim N. Ziegenfuss",
+      "Alan A. Aragon",
+      "Jose Antonio"
+    ],
+    "year": 2017,
+    "journal": "Journal of the International Society of Sports Nutrition",
+    "doi": "10.1186/s12970-017-0189-4",
+    "pmcid": "PMC5596471",
+    "url": "https://doi.org/10.1186/s12970-017-0189-4",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© The Author(s). 2017",
+    "evidence_tier": 1,
+    "topics": [
+      "nutrient_timing",
+      "protein",
+      "carbohydrate"
+    ]
+  },
+  {
+    "id": "9",
+    "title": "International society of sports nutrition position stand: diets and body composition",
+    "authors": [
+      "Alan A. Aragon",
+      "Brad J. Schoenfeld",
+      "Robert Wildman",
+      "Susan Kleiner",
+      "Trisha VanDusseldorp",
+      "Lem Taylor",
+      "Conrad P. Earnest",
+      "Paul J. Arciero",
+      "Colin Wilborn",
+      "Douglas S. Kalman",
+      "Jeffrey R. Stout",
+      "Darryn S. Willoughby",
+      "Bill Campbell",
+      "Shawn M. Arent",
+      "Laurent Bannock",
+      "Abbie E. Smith-Ryan",
+      "Jose Antonio"
+    ],
+    "year": 2017,
+    "journal": "Journal of the International Society of Sports Nutrition",
+    "doi": "10.1186/s12970-017-0174-y",
+    "pmcid": "PMC5470183",
+    "url": "https://doi.org/10.1186/s12970-017-0174-y",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© The Author(s). 2017",
+    "evidence_tier": 1,
+    "topics": [
+      "energy_balance",
+      "protein",
+      "carbohydrate",
+      "fat"
+    ]
+  },
+  {
+    "id": "10",
+    "title": "International Society of Sports Nutrition position stand: safety and efficacy of creatine supplementation in exercise, sport, and medicine",
+    "authors": [
+      "Richard B Kreider",
+      "Douglas S Kalman",
+      "Jose Antonio",
+      "Tim N Ziegenfuss",
+      "Robert Wildman",
+      "Rick Collins",
+      "Darren G Candow",
+      "Susan M Kleiner",
+      "Anthony L Almada",
+      "Hector L Lopez"
+    ],
+    "year": 2017,
+    "journal": "Journal of the International Society of Sports Nutrition",
+    "doi": "10.1186/s12970-017-0173-z",
+    "pmcid": "PMC5469049",
+    "url": "https://doi.org/10.1186/s12970-017-0173-z",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© The Author(s). 2017",
+    "evidence_tier": 1,
+    "topics": [
+      "supplements"
+    ]
+  },
+  {
+    "id": "11",
+    "title": "Nutrition Recommendations for Bodybuilders in the Off-Season: A Narrative Review",
+    "authors": [
+      "Juma Iraki",
+      "Peter Fitschen",
+      "Sergio Espinar",
+      "Eric Helms"
+    ],
+    "year": 2019,
+    "journal": "Sports",
+    "doi": "10.3390/sports7070154",
+    "pmcid": "PMC6680710",
+    "url": "https://doi.org/10.3390/sports7070154",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© 2019 by the authors.",
+    "evidence_tier": 2,
+    "topics": [
+      "energy_balance",
+      "protein",
+      "carbohydrate",
+      "fat",
+      "supplements"
+    ]
+  },
+  {
+    "id": "12",
+    "title": "Evidence-based recommendations for natural bodybuilding contest preparation: nutrition and supplementation",
+    "authors": [
+      "Eric R Helms",
+      "Alan A Aragon",
+      "Peter J Fitschen"
+    ],
+    "year": 2014,
+    "journal": "Journal of the International Society of Sports Nutrition",
+    "doi": "10.1186/1550-2783-11-20",
+    "pmcid": "PMC4033492",
+    "url": "https://doi.org/10.1186/1550-2783-11-20",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/",
+    "copyright_notice": "Copyright © 2014 Helms et al.; licensee BioMed Central Ltd.",
+    "evidence_tier": 2,
+    "topics": [
+      "energy_balance",
+      "protein",
+      "carbohydrate",
+      "fat",
+      "supplements"
+    ]
+  },
+  {
+    "id": "13",
+    "title": "How much protein can the body use in a single meal for muscle-building? Implications for daily protein distribution",
+    "authors": [
+      "Brad Jon Schoenfeld",
+      "Alan Albert Aragon"
+    ],
+    "year": 2018,
+    "journal": "Journal of the International Society of Sports Nutrition",
+    "doi": "10.1186/s12970-018-0215-1",
+    "pmcid": "PMC5828430",
+    "url": "https://doi.org/10.1186/s12970-018-0215-1",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© The Author(s). 2018",
+    "evidence_tier": 2,
+    "topics": [
+      "protein",
+      "nutrient_timing"
+    ]
+  },
+  {
+    "id": "14",
+    "title": "The Effect of Carbohydrate Intake on Muscle Hypertrophy: A Systematic Review and Meta-analysis",
+    "authors": [
+      "Menno Henselmans",
+      "Fredrik Tonstad Vårvik",
+      "Mikel Izquierdo"
+    ],
+    "year": 2026,
+    "journal": "Sports Medicine",
+    "doi": "10.1007/s40279-025-02341-z",
+    "pmcid": "PMC13018098",
+    "url": "https://doi.org/10.1007/s40279-025-02341-z",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© The Author(s) 2026",
+    "evidence_tier": 2,
+    "topics": [
+      "carbohydrate"
+    ]
+  },
+  {
+    "id": "15",
+    "title": "Dose–structure–population interactions of protein supplementation combined with resistance training on body composition: a Bayesian network meta-analysis with dose–response modeling",
+    "authors": [
+      "Yunxia Li",
+      "Gang Qin",
+      "Ziyu Wang",
+      "Jinghao Zhang"
+    ],
+    "year": 2026,
+    "journal": "Frontiers in Nutrition",
+    "doi": "10.3389/fnut.2026.1860234",
+    "pmcid": "PMC13490089",
+    "url": "https://doi.org/10.3389/fnut.2026.1860234",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "Copyright © 2026 Li, Qin, Wang and Zhang.",
+    "evidence_tier": 2,
+    "topics": [
+      "protein",
+      "supplements"
+    ]
+  },
+  {
+    "id": "16",
+    "title": "Which Protein‐Based Dietary Supplements Most Effectively Enhance Fat‐Free Mass and Strength Gains in Healthy Adults Undergoing Resistance Training? A Network Meta‐Analysis",
+    "authors": [
+      "Marcos D. M. Drummond",
+      "Ronaldo A. D. Silva",
+      "Nelson Carvas Junior",
+      "Miércio S. Melo",
+      "Matheus H. L. Ferreira"
+    ],
+    "year": 2026,
+    "journal": "Translational Sports Medicine",
+    "doi": "10.1155/tsm2/5557511",
+    "pmcid": "PMC12862422",
+    "url": "https://doi.org/10.1155/tsm2/5557511",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "Copyright © 2026 Marcos D. M. Drummond et al. Translational Sports Medicine published by John Wiley & Sons Ltd.",
+    "evidence_tier": 2,
+    "topics": [
+      "protein",
+      "supplements"
+    ]
+  },
+  {
+    "id": "17",
+    "title": "Creatine supplementation and resistance training: a comparison between novice and experienced lifters - a systematic review and dose-response meta-analysis",
+    "authors": [
+      "Damoon Ashtary-Larky",
+      "Shooka Mohammadi",
+      "Leila Hajizadeh",
+      "Seyed Amir Hossein Mousavi",
+      "Scott C. Forbes",
+      "Darren G. Candow",
+      "Jose Antonio"
+    ],
+    "year": 2025,
+    "journal": "Journal of the International Society of Sports Nutrition",
+    "doi": "10.1080/15502783.2025.2586523",
+    "pmcid": "PMC12777911",
+    "url": "https://doi.org/10.1080/15502783.2025.2586523",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© 2025 The Author(s). Published by Informa UK Limited, trading as Taylor & Francis Group.",
+    "evidence_tier": 2,
+    "topics": [
+      "supplements"
+    ]
+  },
+  {
+    "id": "18",
+    "title": "Creatine supplementation in young men under resistance versus non-resistance training: a systematic review and meta-analysis of strength, performance, and lean mass",
+    "authors": [
+      "Jinfa Gu",
+      "Yan Li",
+      "Jialing Xiao",
+      "Yu Zhang"
+    ],
+    "year": 2026,
+    "journal": "Frontiers in Nutrition",
+    "doi": "10.3389/fnut.2026.1800546",
+    "pmcid": "PMC13099317",
+    "url": "https://doi.org/10.3389/fnut.2026.1800546",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "Copyright © 2026 Gu, Li, Xiao and Zhang.",
+    "evidence_tier": 2,
+    "topics": [
+      "supplements"
+    ]
+  },
+  {
+    "id": "18a",
+    "title": "Correction: Creatine supplementation in young men under resistance versus non-resistance training: a systematic review and meta-analysis of strength, performance, and lean mass",
+    "authors": [
+      "Jinfa Gu",
+      "Yan Li",
+      "Jialing Xiao",
+      "Yu Zhang"
+    ],
+    "year": 2026,
+    "journal": "Frontiers in Nutrition",
+    "doi": "10.3389/fnut.2026.1854605",
+    "pmcid": "PMC13231500",
+    "url": "https://doi.org/10.3389/fnut.2026.1854605",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "Copyright © 2026 Gu, Li, Xiao and Zhang.",
+    "evidence_tier": 2,
+    "topics": [
+      "supplements"
+    ]
+  },
+  {
+    "id": "19",
+    "title": "Effects of Creatine Supplementation and Resistance Training on Muscle Strength Gains in Adults <50 Years of Age: A Systematic Review and Meta-Analysis",
+    "authors": [
+      "Ziyu Wang",
+      "Bopeng Qiu",
+      "Ruoling Li",
+      "Yunzhi Han",
+      "Carl Petersen",
+      "Shuting Liu",
+      "Yinkai Zhang",
+      "Chang Liu",
+      "Darren G. Candow",
+      "Juan Del Coso"
+    ],
+    "year": 2024,
+    "journal": "Nutrients",
+    "doi": "10.3390/nu16213665",
+    "pmcid": "PMC11547435",
+    "url": "https://doi.org/10.3390/nu16213665",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© 2024 by the authors.",
+    "evidence_tier": 2,
+    "topics": [
+      "supplements"
+    ]
+  },
+  {
+    "id": "20",
+    "title": "The Effects of Creatine Supplementation Combined with Resistance Training on Regional Measures of Muscle Hypertrophy: A Systematic Review with Meta-Analysis",
+    "authors": [
+      "Ryan Burke",
+      "Alec Piñero",
+      "Max Coleman",
+      "Adam Mohan",
+      "Max Sapuppo",
+      "Francesca Augustin",
+      "Alan A. Aragon",
+      "Darren G. Candow",
+      "Scott C. Forbes",
+      "Paul Swinton",
+      "Brad J. Schoenfeld"
+    ],
+    "year": 2023,
+    "journal": "Nutrients",
+    "doi": "10.3390/nu15092116",
+    "pmcid": "PMC10180745",
+    "url": "https://doi.org/10.3390/nu15092116",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© 2023 by the authors.",
+    "evidence_tier": 2,
+    "topics": [
+      "supplements"
+    ]
+  }
+]
