@@ -52,6 +52,14 @@ RATE_LIMIT_PER_MINUTE = 10
 RATE_LIMIT_WINDOW_SECONDS = 60
 RATE_LIMIT_PER_SESSION = 50
 
+# Accepted profile values, in kg, cm and years (docs/ARCHITECTURE.md section 8). The app is for
+# adults: ages under 18 are out of scope (docs/PRD.md). Bounds are inclusive.
+PROFILE_WEIGHT_KG_RANGE = (30.0, 300.0)
+PROFILE_HEIGHT_CM_RANGE = (120.0, 230.0)
+PROFILE_AGE_RANGE = (18, 100)
+# The units the profile form and the sidebar start in; the user can switch to imperial.
+DEFAULT_UNIT_SYSTEM = "metric"
+
 API_KEY_NAME = "OPENROUTER_API_KEY"
 
 
