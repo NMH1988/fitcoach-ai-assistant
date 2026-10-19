@@ -417,3 +417,53 @@ def test_saving_an_edited_weight_uses_the_typed_value():
     saved = profile.save_profile(edited, "imperial", stored)
     assert saved.weight_kg == pytest.approx(units.lb_to_kg(180.0))
     assert saved.height_cm == stored.height_cm
+
+
+def test_editing_the_weight_before_a_switch_still_restores_the_stored_height():
+    """Weight edited in imperial, then a switch to metric, shows and saves the stored 181 cm."""
+    stored = build_profile(**{**VALID_METRIC, "height_cm": 181})
+    shown = profile.form_values(stored, "imperial")
+    assert (shown["height_ft"], shown["height_in"]) == (5, 11)  # 5 ft 11 in converts to 180 cm
+    memory = profile.initial_form_memory(stored, "imperial")
+    there, _ = profile.switch_form_units({**shown, "weight": 180.0}, "imperial", "metric", memory)
+    assert there["height_cm"] == 181
+    assert there["weight"] == pytest.approx(81.6)
+    saved = profile.save_profile(there, "metric", stored)
+    assert saved.height_cm == 181.0
+    assert saved.weight_kg == pytest.approx(81.6)
+
+
+def test_editing_the_height_before_a_switch_still_restores_the_stored_weight():
+    """Height edited in metric, then a switch to imperial, shows and saves the stored 176.5 lb."""
+    stored = build_profile(**{**VALID_IMPERIAL, "weight": 176.5, "height_in": 10})
+    shown = profile.form_values(stored, "metric")
+    assert shown["weight"] == 80.1  # 80.1 kg converts to 176.6 lb
+    memory = profile.initial_form_memory(stored, "metric")
+    there, _ = profile.switch_form_units({**shown, "height_cm": 175}, "metric", "imperial", memory)
+    assert there["weight"] == 176.5
+    assert (there["height_ft"], there["height_in"]) == (5, 9)
+    saved = profile.save_profile(there, "imperial", stored)
+    assert saved.weight_kg == stored.weight_kg
+    assert saved.height_cm == pytest.approx(units.ft_in_to_cm(5, 9))
+
+
+@pytest.mark.parametrize(
+    ("changes", "feet", "inches"), [({"height_in": 6}, 5, 6), ({"height_ft": 6}, 6, 11)]
+)
+def test_saving_an_edited_imperial_height_uses_the_typed_feet_and_inches(changes, feet, inches):
+    """In imperial, an edit to the feet or the inches alone counts as a height edit."""
+    stored = build_profile(**{**VALID_METRIC, "height_cm": 181})
+    edited = {**profile.form_values(stored, "imperial"), **changes}
+    saved = profile.save_profile(edited, "imperial", stored)
+    assert saved.height_cm == pytest.approx(units.ft_in_to_cm(feet, inches))
+    assert saved.weight_kg == stored.weight_kg
+
+
+def test_saving_the_imperial_form_with_only_the_goal_changed_keeps_the_stored_height():
+    """In imperial, a goal edit keeps the stored 181 cm instead of 5 ft 11 in (180.34 cm)."""
+    stored = build_profile(**{**VALID_METRIC, "height_cm": 181})
+    edited = {**profile.form_values(stored, "imperial"), "goal": "lose_fat"}
+    saved = profile.save_profile(edited, "imperial", stored)
+    assert saved.goal == "lose_fat"
+    assert saved.height_cm == 181.0
+    assert saved.weight_kg == stored.weight_kg

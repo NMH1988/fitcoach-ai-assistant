@@ -252,7 +252,9 @@ def convert_form_values(
 
 
 # The form fields that depend on the unit system; the others never change on a units switch.
-UNIT_FIELDS = ("weight", "height_cm", "height_ft", "height_in")
+WEIGHT_FIELDS = ("weight",)
+HEIGHT_FIELDS = ("height_cm", "height_ft", "height_in")
+UNIT_FIELDS = WEIGHT_FIELDS + HEIGHT_FIELDS
 
 # What the last units switch did: the system switched from, the weight and height there, and
 # the converted weight and height it showed. Lets a switch back restore exactly what was there.
@@ -285,13 +287,14 @@ def switch_form_units(
     memory: FormMemory | None,
 ) -> tuple[dict[str, Any], FormMemory]:
     """Convert the form to another unit system; switching back unedited restores what was typed."""
-    # Only the weight and height are compared and restored, so editing age, sex, activity or goal
-    # in between keeps the exact restore and the edit.
+    # The weight and the height are restored separately, each only if it was not edited since
+    # the last switch; an edited one, and every other field, comes from the current values.
     shown = _unit_fields(values)
-    if memory is not None and memory[0] == to_system and memory[2] == shown:
-        result = {**values, **memory[1]}
-    else:
-        result = convert_form_values(values, from_system, to_system)
+    result = convert_form_values(values, from_system, to_system)
+    if memory is not None and memory[0] == to_system:
+        for group in (WEIGHT_FIELDS, HEIGHT_FIELDS):
+            if all(memory[2][field] == shown[field] for field in group):
+                result.update({field: memory[1][field] for field in group})
     return result, (from_system, shown, _unit_fields(result))
 
 
@@ -309,7 +312,7 @@ def save_profile(
     kept = {}
     if values.get("weight") == shown["weight"]:
         kept["weight_kg"] = current.weight_kg
-    if all(values.get(field) == shown[field] for field in ("height_cm", "height_ft", "height_in")):
+    if all(values.get(field) == shown[field] for field in HEIGHT_FIELDS):
         kept["height_cm"] = current.height_cm
     if not kept:
         return built
