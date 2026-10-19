@@ -89,11 +89,15 @@ def open_index(embeddings: Embeddings | None = None, persist_dir: Path | None = 
     persist_dir = persist_dir or config.CHROMA_DIR
     # Checked first, so a missing index is reported even when no API key is set.
     check_index(persist_dir)
-    return Chroma(
+    index = Chroma(
         collection_name=config.CHROMA_COLLECTION,
         embedding_function=embeddings or llm.build_embeddings(),
         client=_client(persist_dir),
     )
+    # Chroma(...) creates the collection if it is gone, which happens when a rebuild drops it
+    # between the check above and this line; checked again so an empty one is never searched.
+    check_index(persist_dir)
+    return index
 
 
 def build_index(

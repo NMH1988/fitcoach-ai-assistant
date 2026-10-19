@@ -225,6 +225,22 @@ def test_opening_keeps_the_index_usable(built, index_dir):
     assert len(store.open_index(SpyEmbeddings(), index_dir).get()["ids"]) == len(CHUNKS)
 
 
+def test_an_index_dropped_while_it_opens_is_not_searched(index_dir, monkeypatch):
+    """If a rebuild drops the index just as the app opens it, opening fails instead of using it."""
+    store.build_index(CHUNKS, SpyEmbeddings(), index_dir)
+    real_chroma = store.Chroma
+
+    def chroma_after_a_drop(**kwargs):
+        """Drop the index collection, as a concurrent rebuild would, then open it."""
+        kwargs["client"].delete_collection(config.CHROMA_COLLECTION)
+        return real_chroma(**kwargs)
+
+    monkeypatch.setattr(store, "Chroma", chroma_after_a_drop)
+    with pytest.raises(IndexNotReadyError) as caught:
+        store.open_index(SpyEmbeddings(), index_dir)
+    _assert_build_hint(caught.value, "empty")
+
+
 # --- Similarity search with a metadata filter (AC2) ---------------------------------------------
 
 

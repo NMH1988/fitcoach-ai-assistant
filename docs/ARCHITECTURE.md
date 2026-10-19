@@ -144,7 +144,7 @@ Each LLM call (query translation, every answer round) reports its token use (`us
 | Structured output stopped by the token limit | "The answer was cut off" |
 | Structured output that fails its schema (wrong or missing field, not JSON), is refused by the model, or comes back empty | "Not in the expected format" (`InvalidReplyError`, separate from an outage so a caller can fall back) |
 | Service unreachable, other SDK errors (e.g. a content filter) | "Could not reach the model service" / a generic "try again" |
-| Chroma index missing, unreadable, empty or built with another embedding model | "The knowledge base index is missing. Run `python scripts/build_index.py` to build it." (`IndexNotReadyError`, shown in the answer by T3.1) |
+| Chroma index missing, unreadable, empty or built with another embedding model | What went wrong, then "Run `python scripts/build_index.py` to build it.", e.g. "The knowledge base index is missing. Run ..." (`IndexNotReadyError`, shown in the answer by T3.1) |
 | No relevant chunks | "Our sources do not cover this"; no invented citation |
 | Tool error or bad arguments | The tool's message, the turn continues |
 | Failure mid-answer | Chat history stays intact |

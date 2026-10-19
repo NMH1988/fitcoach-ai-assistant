@@ -37,7 +37,7 @@ Record only what was actually run and observed: date, model, what was checked, r
 
 How to run the T1.2 check (O5): from the repo root, with the key set up as in the README, `python scripts/live_check_llm.py` (on Windows without an activated venv: `.venv\Scripts\python.exe scripts/live_check_llm.py`). It prints the model, reply length, token use and embedding size (never the key), or the mapped error.
 
-How to run the T2.3 check (O5): after `python scripts/download_sources.py`, from the repo root with the key set up, `python scripts/build_index.py` (or `.venv\Scripts\python.exe scripts/build_index.py`). It prints its progress per batch and then the chunk, source and character counts (never the key). Stop the app first if it is running (it keeps the old collection open) and restart it afterwards. Read the cost of the run from the OpenRouter activity page (langchain does not return the token use of embeddings), and record both here.
+How to run the T2.3 check (O5): after `python scripts/download_sources.py`, from the repo root with the key set up, `python scripts/build_index.py` (or `.venv\Scripts\python.exe scripts/build_index.py`). It prints its progress per batch and then the chunk, source and character counts (never the key). Stop the app first if it is running (it keeps the old collection open) and restart it afterwards. Read the cost of the run from the OpenRouter activity page (langchain does not return the token use of embeddings); its chart shows only daily totals, so if the run's requests cannot be told apart, estimate the cost from the printed character count (about 4 characters per token) and say it is an estimate. Record both here.
 
 | Date | Ticket | What was checked | Result |
 |---|---|---|---|
