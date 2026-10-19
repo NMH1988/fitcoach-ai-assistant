@@ -151,7 +151,7 @@ Checked on PyPI on 2026-10-19. Licences are permissive, as the copyright policy 
 | langchain | 1.4.6 | MIT | framework |
 | langchain-openai | 1.7.2 | MIT | chat and embeddings through OpenRouter's OpenAI-compatible API |
 | langchain-chroma | 1.1.0 | MIT | vector store integration |
-| chromadb | 1.5.9 | Apache-2.0 | vector store (pulls in onnxruntime, MIT, which we do not use for embeddings) |
+| chromadb | 1.5.9 | Apache-2.0 | vector store, embedded only (pulls in onnxruntime, MIT, which we do not use for embeddings). Four unfixed advisories in its HTTP server are an accepted risk: `docs/SECURITY.md` |
 | langchain-text-splitters | 1.1.3 | MIT | chunking |
 | rank-bm25 | 0.2.2 | Apache-2.0 | BM25 (small and stable; last release 2022) |
 | rapidfuzz | 3.14.6 | MIT | fuzzy food-name match |
@@ -175,7 +175,7 @@ Dev: pytest, pytest-cov, ruff, pip-audit (as in Sprint 1). Not chosen: fpdf2 (LG
 
 ## 14. Risks and early checks
 
-- **Embeddings through OpenRouter with `OpenAIEmbeddings`:** by default it may send token arrays instead of text, which OpenRouter may not accept; set `check_embedding_ctx_length=False`. Confirmed in the setup ticket by one live call run by the owner.
+- **Embeddings through OpenRouter with `OpenAIEmbeddings`:** by default it may send token arrays instead of text, which OpenRouter may not accept; set `check_embedding_ctx_length=False`. Confirmed in T1.2 by one live call run by the owner (O5).
 - **Source #1 download:** see section 4.
 - **gpt-5 models:** no `temperature`; reasoning tokens add cost, so `max_tokens` and the reasoning effort are set in config.
 - **Deadline (2026-11-02, 14 days):** if time runs short, cut in this order: `evaluate_meal_plan`, chart polish, PDF styling. The core requirements and the chosen optional tasks come first.

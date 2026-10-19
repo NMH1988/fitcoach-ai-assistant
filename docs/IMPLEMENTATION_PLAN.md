@@ -40,7 +40,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 | Ticket | Issue | Title | Size | Depends on | Target | Status |
 |---|---|---|---|---|---|---|
-| T1.1 | #1 | Project skeleton, config and CI | S | - | 10-20 | todo |
+| T1.1 | #1 | Project skeleton, config and CI | S | - | 10-20 | in review |
 | T1.2 | #2 | OpenRouter clients and error mapping | S | T1.1 | 10-20 | todo |
 | T1.3 | #3 | Input guard and rate limit | S | T1.1 | 10-21 | todo |
 | T2.1 | #4 | Source manifest, download script, attribution | M | T1.1, O4 | 10-21 | todo |
@@ -69,7 +69,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 ## Epic 1: Foundation
 
-### T1.1 Project skeleton, config and CI (S) · status: todo · issue #1
+### T1.1 Project skeleton, config and CI (S) · status: in review · issue #1
 **Serves:** core 4 (technical base); CI as in Sprint 1.
 **Depends on:** -
 **Acceptance criteria**

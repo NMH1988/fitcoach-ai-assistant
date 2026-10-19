@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev]"
+      # LLM and embedding calls must be mocked in tests; CI never needs an OpenRouter key.
+      - run: pytest --cov=. --cov-report=term-missing
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      # Same version as the dev extra in pyproject.toml.
+      - run: pip install pip-audit==2.10.1
+      # Accepted risk, documented in docs/SECURITY.md: these four chromadb advisories (no fixed
+      # version yet) affect only the Chroma HTTP server (its /api/v2 endpoints and multi-tenant
+      # authorization). The app uses Chroma embedded in-process (PersistentClient), never as a
+      # server, and never uses Chroma's embedding functions. Remove each line once a fixed
+      # chromadb release is pinned.
+      #   PYSEC-2026-311  = CVE-2026-45829 (unauthenticated code injection via the server API)
+      #   PYSEC-2026-3814 = CVE-2026-45833 (authenticated code injection via the server API)
+      #   PYSEC-2026-3815 = CVE-2026-45831 (server RBAC ignores tenant/database/collection scope)
+      #   PYSEC-2026-3813 = CVE-2026-45830 (server lacks cross-tenant authorization checks)
+      - run: >-
+          pip-audit .
+          --ignore-vuln PYSEC-2026-311
+          --ignore-vuln PYSEC-2026-3814
+          --ignore-vuln PYSEC-2026-3815
+          --ignore-vuln PYSEC-2026-3813

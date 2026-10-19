@@ -49,7 +49,8 @@ Read `CLAUDE.md`, `.claude/rules/`, `docs/PRD.md`, `docs/SECURITY.md` and `docs/
 - **Personal data:** profile values (weight, height, age, sex, goals) stay in `st.session_state` only: never logged, written to disk, sent to analytics, or put in the vector store. The PDF summary is built in memory and handed to the browser; no copy is kept on the server.
 - **Output safety:** LLM output is rendered as Markdown without `unsafe_allow_html`; no model or user text reaches raw HTML.
 - **Model settings:** the model is in the allowed list in config; `max_tokens` is capped.
-- **Dependencies:** new packages are pinned in `pyproject.toml` and have a licence compatible with a public repo (MIT, BSD, Apache-2.0 preferred); flag copyleft or unknown licences.
+- **Dependencies:** new packages are pinned in `pyproject.toml` and have a licence compatible with a public repo (MIT, BSD, Apache-2.0 preferred); flag copyleft or unknown licences. Every `--ignore-vuln` in CI has a matching row under "Accepted risks" in `docs/SECURITY.md`.
+- **Chroma:** used only embedded (`PersistentClient` / `langchain_chroma.Chroma` with a local directory); no Chroma server, `HttpClient`, Chroma embedding function or `trust_remote_code` anywhere.
 
 ### 3. Copyright policy (`.claude/rules/copyright.md`)
 - Every document, dataset or text added to the knowledge base, prompts, tests, fixtures or docs comes from an **Approved** row in `docs/SOURCES.md` (or is the owner's or our own text).

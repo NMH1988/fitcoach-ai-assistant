@@ -28,7 +28,19 @@ This is a student portfolio project. If you find a security problem, contact the
 | Answers without evidence | Every answer is grounded in retrieved sources and cites them; "not covered" when nothing is found | `src/chat.py` |
 | Personal data leaks | Profile in session state only; never logged, stored, indexed; PDF built in memory | `src/profile.py`, `src/export_pdf.py` |
 | Script injection through model output | Markdown rendering without `unsafe_allow_html` | `app.py` |
-| Vulnerable or badly licensed dependencies | `pip-audit` in CI; permissive licences checked before adding a package | `.github/workflows/ci.yml`, `docs/ARCHITECTURE.md` section 12 |
+| Vulnerable or badly licensed dependencies | `pip-audit` in CI; Dependabot; permissive licences checked before adding a package; every ignored advisory documented below | `.github/workflows/ci.yml`, `.github/dependabot.yml`, `docs/ARCHITECTURE.md` section 12 |
+| Chroma server vulnerabilities | Chroma embedded only, never run as a server; no Chroma embedding functions (see "Accepted risks") | `.claude/rules/security-privacy.md` |
+
+## Accepted risks
+
+| Advisory | What it is | Why it does not apply here | Review |
+|---|---|---|---|
+| PYSEC-2026-311 / CVE-2026-45829 (GHSA-f4j7-r4q5-qw2c) | chromadb >= 1.0.0: unauthenticated code injection through the Chroma server's collections API (`trust_remote_code` with a model repository) | The app never runs Chroma as a server and never uses Chroma's embedding functions; there is no API endpoint to reach | Remove the CI ignore when a fixed chromadb is released |
+| PYSEC-2026-3814 / CVE-2026-45833 (GHSA-36p7-vc44-83pf) | chromadb >= 0.4.17: authenticated code injection through the server's collection update API | Same as above | Same |
+| PYSEC-2026-3815 / CVE-2026-45831 (GHSA-xph7-9rjv-w5fr) | chromadb >= 0.5.0: the server's `SimpleRBACAuthorizationProvider` ignores the tenant/database/collection scope of a permission | No server, no users, no tenants | Same |
+| PYSEC-2026-3813 / CVE-2026-45830 (GHSA-2wm9-hf6c-p5cr) | chromadb >= 0.4.17: the server lets any authenticated user act on any tenant's collections | No server, no users, no tenants | Same |
+
+Found by `pip-audit` on 2026-10-19 against chromadb 1.5.9 (the latest release that day); no fixed version was listed. The four are ignored by ID in `.github/workflows/ci.yml`, with the reason next to them. Any other advisory still fails CI.
 
 ## Known limits
 
