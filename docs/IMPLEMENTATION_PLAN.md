@@ -41,9 +41,9 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | Ticket | Issue | Title | Size | Depends on | Target | Status |
 |---|---|---|---|---|---|---|
 | T1.1 | #1 | Project skeleton, config and CI | S | - | 10-20 | done |
-| T1.2 | #2 | OpenRouter clients and error mapping | S | T1.1 | 10-20 | in review |
+| T1.2 | #2 | OpenRouter clients and error mapping | S | T1.1 | 10-20 | done |
 | T1.3 | #3 | Input guard and rate limit | S | T1.1 | 10-21 | todo |
-| T2.1 | #4 | Source manifest, download script, attribution | M | T1.1, O4 | 10-21 | in review |
+| T2.1 | #4 | Source manifest, download script, attribution | M | T1.1, O4 | 10-21 | done |
 | T2.2 | #5 | Parse article XML and chunk with metadata | M | T2.1 | 10-22 | todo |
 | T2.3 | #6 | Build and open the Chroma index | S | T1.2, T2.2 | 10-23 | todo |
 | T4.1 | #11 | Profile, units and settings | M | T1.1 | 10-23 | todo |
@@ -80,7 +80,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] `CLAUDE.md` "Commands" lists the real commands.
 **Notes:** check every new package's licence (`.claude/rules/copyright.md` rule 9). Add `dependabot.yml` as in Sprint 1.
 
-### T1.2 OpenRouter clients and error mapping (S) · status: in review · issue #2
+### T1.2 OpenRouter clients and error mapping (S) · status: done · issue #2
 **Serves:** core 4 (LangChain with OpenRouter; error handling).
 **Depends on:** T1.1
 **Acceptance criteria**
@@ -100,7 +100,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 ## Epic 2: Knowledge base
 
-### T2.1 Source manifest, download script, attribution (M) · status: in review · issue #4
+### T2.1 Source manifest, download script, attribution (M) · status: done · issue #4
 **Serves:** core 1 and 3 (focused knowledge base), AC-14; the copyright policy (beyond the brief, owner's request).
 **Depends on:** T1.1, O4
 **Acceptance criteria**
