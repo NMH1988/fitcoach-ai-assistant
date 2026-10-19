@@ -15,6 +15,13 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-19 · Implementation plan and GitHub issues · direct commit (no ticket, before the setup ticket)
+- **Brief:** plans the work for every core requirement and the chosen optional tasks (Medium 3, 5, 6, 7; Hard 1).
+- **What:** `docs/IMPLEMENTATION_PLAN.md`: 6 epics, 19 tickets plus the stretch T4.5, each with testable acceptance criteria mapped to tests or checks; owner tasks O1-O6; order, target dates, critical path and cut order. GitHub issues #1-#20 created, one per ticket (T1.1 = #1 ... T6.2 = #20), and their numbers filled into the plan.
+- **Why:** phase 4 of the owner's six-phase process; the owner approved the plan on 2026-10-19.
+- **Decisions & gotchas:** issue bodies copy the ticket text from the plan; if a ticket changes, update both. Owner tasks are tracked in the plan only, not as issues.
+- **Follow-ups:** T1.1 (#1) starts next on its own branch.
+
 ## 2026-10-19 · Legal check of sources and access terms · direct commit (no ticket, before the setup ticket)
 - **Brief:** beyond the brief (owner's request): the copyright policy.
 - **What:** `.claude/rules/copyright.md`: attribution now keeps the article's copyright and licence notices and implies no endorsement; new rule 7 (do not distort sources; leave out third-party content inside articles); new rule 10 (access terms: automated downloads only through the Europe PMC REST API or PMC's OAI-PMH/FTP/Cloud services; reading, saving or copying a single CC BY article by hand is allowed). `docs/SOURCES.md`: how the licences were checked, the access terms of PMC, Europe PMC and Taylor & Francis, and a summary of the CC BY 4.0 and 2.0 legal codes. `docs/ARCHITECTURE.md`: the download script uses only the Europe PMC REST API.
