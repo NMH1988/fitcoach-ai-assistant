@@ -47,7 +47,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T1.2 | #2 | OpenRouter clients and error mapping | S | T1.1 | 10-20 | done |
 | T1.3 | #3 | Input guard and rate limit | S | T1.1 | 10-21 | done |
 | T2.1 | #4 | Source manifest, download script, attribution | M | T1.1, O4 | 10-21 | done |
-| T2.2 | #5 | Parse article XML and chunk with metadata | M | T2.1 | 10-22 | todo |
+| T2.2 | #5 | Parse article XML and chunk with metadata | M | T2.1 | 10-22 | done |
 | T2.3 | #6 | Build and open the Chroma index | S | T1.2, T2.2 | 10-23 | todo |
 | T4.1 | #11 | Profile, units and settings | M | T1.1 | 10-23 | in review |
 | T4.3 | #13 | USDA food table and lookup | M | T1.1 | 10-23 | todo |
@@ -116,13 +116,14 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] `ATTRIBUTION.md` is generated from the manifest with authors, title, year, copyright notice, DOI, licence link and the change made - unit test on the generator (`tests/test_attribution.py`; `test_committed_attribution_credits_every_source` fails while the committed file is out of date).
 **Notes:** fixture XML is a tiny made-up document we write ourselves, never a copied article. The hand-saved fallback for #1 was dropped (owner's choice, 2026-10-19): every source now has a PMCID.
 
-### T2.2 Parse article XML and chunk with metadata (M) · status: todo · issue #5
+### T2.2 Parse article XML and chunk with metadata (M) · status: done · issue #5
 **Serves:** core 1 (chunking).
 **Depends on:** T2.1
 **Acceptance criteria**
-- [ ] `src/rag/ingest.py` keeps the title, abstract and body sections and drops figures, tables, formulas, supplementary material and references - unit test on fixture XML containing each element.
-- [ ] Chunks are about 1,000 characters with 150 overlap, never span two sections, and start with their section title - unit tests.
-- [ ] Every chunk has `source_id`, `title`, `authors`, `year`, `section`, `topics`, `evidence_tier`, `license`, `source_url`, `chunk_index` - unit test.
+- [x] `src/rag/ingest.py` keeps the title, abstract and body sections and drops figures, tables, display formulas (inline formulas keep their plain text, owner's choice in T2.2), supplementary material and references - unit test on fixture XML containing each element (`tests/test_ingest.py`: `test_the_article_title_is_kept`, `test_abstract_and_body_sections_are_kept_in_reading_order`, `test_dropped_content_never_appears`, `test_inline_formulas_keep_their_plain_text`; fixture `tests/fixtures/jats/ingest_article.xml`).
+- [x] Chunks are about 1,000 characters with 150 overlap, never span two sections, and start with their section title - unit tests (`test_long_sections_split_into_chunks_of_about_1000_characters`, `test_neighbouring_chunks_overlap_by_at_most_150_characters`, `test_chunks_never_span_two_sections`, `test_text_after_a_subsection_is_its_own_section`, `test_every_chunk_starts_with_its_section_title`, `test_chunks_cut_at_a_paragraph_break_share_no_text`). The overlap (up to 150) applies where a cut falls inside a paragraph; a cut at a paragraph break carries nothing over (owner's confirmation, 2026-10-19).
+- [x] Every chunk has `source_id`, `title`, `authors`, `year`, `section`, `topics`, `evidence_tier`, `license`, `source_url`, `chunk_index` - unit test (`test_every_chunk_has_the_source_metadata`, `test_chunk_index_runs_across_sections`, `test_load_chunks_reads_each_downloaded_article`).
+**Notes:** back matter that many articles put inside `<body>` (acknowledgements, funding, disclosures, author contributions, data availability, publisher's notes, supplementary, references, appendices of plots) is dropped too (owner's choice). The correction #18a and #18 point to each other through `corrects` / `corrected_by` metadata (owner's choice; serves copyright policy rule 7). Real run on the 21 downloaded articles recorded in `docs/TESTING.md`.
 
 ### T2.3 Build and open the Chroma index (S) · status: todo · issue #6
 **Serves:** core 1 (embeddings, similarity search).
