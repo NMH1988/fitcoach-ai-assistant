@@ -36,7 +36,19 @@ def test_app_shows_title():
 
 
 def test_app_shows_disclaimer():
-    """The 'not medical advice' disclaimer is visible on the page."""
+    """The 'Not medical advice' badge and the full disclaimer are visible on the page (AC-12)."""
     at = _run_app()
-    assert [box.value for box in at.info] == [config.DISCLAIMER]
+    assert ":orange-badge[:material/info: Not medical advice]" in [m.value for m in at.markdown]
+    assert f":material/info: {config.DISCLAIMER}" in [caption.value for caption in at.caption]
     assert "not medical advice" in config.DISCLAIMER
+
+
+def test_app_shows_the_four_tabs():
+    """The page has the Ask, My targets, Food lookup and Details tabs (docs/UI_DESIGN.md)."""
+    at = _run_app()
+    assert [tab.label for tab in at.tabs] == [
+        ":material/chat: Ask",
+        ":material/target: My targets",
+        ":material/search: Food lookup",
+        ":material/list: Details",
+    ]

@@ -81,7 +81,7 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 - Messages in `st.container(height=...)` so the input stays in view; `st.chat_input("Ask about nutrition for your training")` directly below it, inside the tab (inline, not pinned).
 - User messages: `st.chat_message("user")`.
 - Assistant messages: `st.chat_message("assistant", avatar=":material/nutrition:")`, containing in order:
-  1. **Progress** while the turn runs: `st.status(":shimmer[Searching sources]", type="compact")` with `type="step"` children (check input, rewrite question, search sources, answer, tools). Collapses to a static label when done (core 5).
+  1. **Progress** while the turn runs: `st.status(":shimmer[Searching sources]", type="compact")` with `type="step"` children (check input, rewrite question, search sources, answer, tools). Collapses to a static label when done (core 5). Each step holds a one-line caption on what it does: in Streamlit 1.66 a step without content ends the timeline and hides the steps after it (found in T3.1). Past turns show the same collapsed status.
   2. **Answer** as Markdown with `[S#]` citations (no `unsafe_allow_html`).
   3. **Sources:** one `st.container(border=True)` per cited source: bold title, `st.badge` for the evidence tier (green "ISSN position stand", violet "Peer-reviewed review"), caption with journal, year and licence, and a link "Open article" (AC-1).
   4. **Tool result:** a compact expander labelled with the headline result (e.g. ":material/calculate: Protein target: 160 g") that opens to the result table (AC-6, T4.4).
@@ -134,5 +134,5 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 
 ## Open questions
 
-- Height of the message container on small screens: check during T3.1.
+- Height of the message container on small screens: T3.1 uses `CHAT_HEIGHT_PX` = 520, which keeps the input in view on a laptop screen; on a short window the page scrolls to the input. Revisit in the UI polish ticket.
 - Whether `baseFontSize = 14` reads well on a phone: check during the UI polish ticket.

@@ -258,4 +258,4 @@ def test_the_profile_stays_in_the_session_and_out_of_logs_and_the_url(caplog, ca
 def test_disclaimer_stays_visible_with_a_profile():
     """The disclaimer is still shown once a profile exists."""
     at = _add_metric_profile()
-    assert any("not medical advice" in box.value for box in at.info)
+    assert any("not medical advice" in caption.value for caption in at.caption)

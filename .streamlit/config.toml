@@ -1,5 +1,34 @@
-# Streamlit settings. The full theme from docs/UI_DESIGN.md is added in T3.1.
+# Streamlit settings: the theme from docs/UI_DESIGN.md (T3.1).
 
 [theme]
+# System font: no Google Fonts request, so visitors' IPs are not sent to Google.
+font = "sans-serif"
+baseFontSize = 14
+baseRadius = "0.5rem"
+buttonRadius = "0.5rem"
+showWidgetBorder = true
+showSidebarBorder = true
 # The default 2.25rem cuts off the profile values in the sidebar tiles (T4.1).
 metricValueFontSize = "1.25rem"
+linkUnderline = false
+
+[theme.light]
+# Teal-green, dark enough for white button text (WCAG AA).
+primaryColor = "#0F6E56"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F4F6F5"
+textColor = "#1F2328"
+borderColor = "#D8DEDB"
+greenColor = "#0F6E56"
+orangeColor = "#BA7517"
+violetColor = "#534AB7"
+
+[theme.dark]
+primaryColor = "#1D9E75"
+backgroundColor = "#0F1412"
+secondaryBackgroundColor = "#18201D"
+textColor = "#E6EDEA"
+borderColor = "#2C3633"
+greenColor = "#5DCAA5"
+orangeColor = "#EF9F27"
+violetColor = "#AFA9EC"

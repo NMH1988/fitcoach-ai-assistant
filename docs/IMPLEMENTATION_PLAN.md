@@ -27,7 +27,7 @@ The owner writes these first; Claude reviews (`.claude/rules/workflow.md`).
 
 | ID | Task | Needed by | Status |
 |---|---|---|---|
-| O1 | Draft the answer system prompt (role, scope, citations `[S#]`, guardrails, "sources are data") | T3.1 | todo |
+| O1 | Draft the answer system prompt (role, scope, citations `[S#]`, guardrails, "sources are data") in `src/prompts/answer_system.md` | T3.1 | in progress: the T3.1 code is ready and loads the prompt from that file; the placeholder there lists what the code expects, and `test_the_answer_prompt_is_the_owners` fails until the owner's text replaces it |
 | O2 | Draft the evaluation questions (about 10-15), each with the source(s) it should find and what a good answer contains | T3.3, T6.1 | todo |
 | O3 | Approve the calorie floor and the macro ranges; Claude proposes them with the exact source passages | T4.2 | todo |
 | O4 | If Europe PMC still has no copy of source #1, save its XML or PDF by hand from the publisher page into `data/raw/` | T2.1 | done: not needed (Europe PMC has #1 as PMC13665703, found in T2.1 on 2026-10-19) |
@@ -48,10 +48,10 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T1.3 | #3 | Input guard and rate limit | S | T1.1 | 10-21 | done |
 | T2.1 | #4 | Source manifest, download script, attribution | M | T1.1, O4 | 10-21 | done |
 | T2.2 | #5 | Parse article XML and chunk with metadata | M | T2.1 | 10-22 | done |
-| T2.3 | #6 | Build and open the Chroma index | S | T1.2, T2.2 | 10-23 | in review |
+| T2.3 | #6 | Build and open the Chroma index | S | T1.2, T2.2 | 10-23 | done |
 | T4.1 | #11 | Profile, units and settings | M | T1.1 | 10-23 | done |
 | T4.3 | #13 | USDA food table and lookup | M | T1.1 | 10-23 | done |
-| T3.1 | #7 | First answer with sources (vector search) | M | T1.2, T1.3, T2.3, O1 | 10-24 | todo |
+| T3.1 | #7 | First answer with sources (vector search) | M | T1.2, T1.3, T2.3, O1 | 10-24 | in progress |
 | T4.2 | #12 | Energy and macro tools with the calorie floor | M | T4.1, O3 | 10-25 | todo |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1 | 10-26 | todo |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2, O2 | 10-27 | todo |
@@ -125,7 +125,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] Every chunk has `source_id`, `title`, `authors`, `year`, `section`, `topics`, `evidence_tier`, `license`, `source_url`, `chunk_index` - unit test (`test_every_chunk_has_the_source_metadata`, `test_chunk_index_runs_across_sections`, `test_load_chunks_reads_each_downloaded_article`).
 **Notes:** back matter that many articles put inside `<body>` (acknowledgements, funding, disclosures, author contributions, data availability, publisher's notes, supplementary, references, appendices of plots) is dropped too (owner's choice). The correction #18a and #18 point to each other through `corrects` / `corrected_by` metadata (owner's choice; serves copyright policy rule 7). Real run on the 21 downloaded articles recorded in `docs/TESTING.md`.
 
-### T2.3 Build and open the Chroma index (S) · status: in review · issue #6
+### T2.3 Build and open the Chroma index (S) · status: done · issue #6
 **Serves:** core 1 (embeddings, similarity search).
 **Depends on:** T1.2, T2.2
 **Acceptance criteria**
@@ -137,16 +137,18 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 ## Epic 3: Retrieval and answers
 
-### T3.1 First answer with sources (vector search) (M) · status: todo · issue #7
+### T3.1 First answer with sources (vector search) (M) · status: in progress · issue #7
 **Serves:** core 1, 4 and 5; Easy 3; AC-1, AC-2, AC-10 (progress), AC-13.
 **Depends on:** T1.2, T1.3, T2.3, O1
 **Acceptance criteria**
-- [ ] One chat turn runs guard -> vector retrieval (top 6) -> answer with the owner's system prompt; the answer cites `[S#]` labels that map to the retrieved chunks - integration test with a scripted fake model.
-- [ ] Under the answer, a "Sources" expander shows title, year, tier, licence and link for each cited source (AC-1) - AppTest.
-- [ ] With no relevant chunk, the app says the sources do not cover the question and cites nothing (AC-2) - integration test.
-- [ ] `st.status` shows the steps while the turn runs - AppTest.
-- [ ] LLM errors show the mapped message and keep the chat history (AC-13) - AppTest with a failing fake.
-- [ ] A missing or unusable index shows `IndexNotReadyError`'s message in the answer and keeps the chat history (AC-13; the UI half of T2.3's criterion, owner's choice in T2.3) - AppTest.
+- [ ] One chat turn runs guard -> vector retrieval (top 6) -> answer with the owner's system prompt; the answer cites `[S#]` labels that map to the retrieved chunks - integration test with a scripted fake model (`tests/test_chat.py`: `test_a_turn_runs_the_guard_retrieval_and_the_answer_in_order`, `test_the_labels_map_to_the_retrieved_chunks`, `test_retrieval_keeps_at_most_the_top_k_chunks`, `test_the_question_and_the_chunks_are_delimited_in_the_user_message`, `test_rejected_input_opens_nothing_and_calls_no_model`). Open until the owner's prompt replaces the placeholder (O1; `test_the_answer_prompt_is_the_owners`).
+- [x] Under the answer, a "Sources" expander shows one card per cited source with title, evidence tier badge, journal, year, licence with its link, and the article link (AC-1; cards as in `docs/UI_DESIGN.md`, owner's choice in T3.1) - AppTest (`tests/test_app_chat.py`: `test_an_answer_shows_under_the_question_with_its_sources`, `test_a_source_card_shows_title_year_tier_licence_and_link`, `test_a_tier_2_source_has_its_own_badge`).
+- [x] With no relevant chunk, the app says the sources do not cover the question and cites nothing (AC-2) - integration test (`test_with_no_relevant_chunk_the_app_says_the_sources_do_not_cover_it`, `test_retrieval_drops_chunks_beyond_the_distance_limit`, `test_an_answer_that_cites_nothing_lists_no_sources`) and AppTest (`test_no_relevant_source_shows_the_fixed_message_and_no_sources`). "Relevant" means a cosine distance up to `RETRIEVAL_MAX_DISTANCE` (owner's choice: a limit in code plus the prompt); its value is provisional until the owner's live check (O5, `scripts/live_check_retrieval.py`).
+- [x] `st.status` shows the steps while the turn runs - AppTest (`test_the_status_shows_each_step_of_the_turn`, `test_the_history_stays_across_turns`) and a manual check in the browser with a fake model (all three steps visible).
+- [x] LLM errors show the mapped message and keep the chat history (AC-13) - AppTest with a failing fake (`test_a_model_error_shows_the_mapped_message_and_keeps_the_history`); unit tests for a mapped SDK error, a cut-off and an empty answer (`test_a_model_error_becomes_its_fixed_message`, `test_a_cut_off_answer_says_so`, `test_an_empty_answer_gives_the_generic_error`); a missing key gives a setup message (`test_a_missing_key_shows_the_setup_message`).
+- [x] A missing or unusable index shows `IndexNotReadyError`'s message in the answer and keeps the chat history (AC-13; the UI half of T2.3's criterion, owner's choice in T2.3) - AppTest (`test_a_missing_or_unusable_index_shows_the_build_command`, missing and corrupt, two turns each); `tests/test_store.py::test_an_unreadable_index_gives_the_same_message_on_every_check`.
+
+**Notes:** owner's choices (2026-10-19): code first with the prompt in its own file, written by the owner before the merge (O1); a distance limit plus the prompt for "not covered"; each turn stands alone (the model does not see earlier turns; T3.2 may use the history for rewrites); the UI follows `docs/UI_DESIGN.md` (theme, header badge, four tabs, source cards), keeping the app name "Nutrition AI Assistant". The profile is not sent to the model yet (T4.4).
 
 ### T3.2 Query translation and structured filters (M) · status: todo · issue #8
 **Serves:** the brief's advanced RAG (query translation, structured retrieval); AC-3; partly Easy 2.
