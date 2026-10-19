@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-19 · T4.1 Profile, units and settings · PR pending (closes #11)
+## 2026-10-19 · T4.1 Profile, units and settings · #27 (closes #11)
 - **Brief:** PRD features 4 (profile) and 7 (units); AC-5, AC-8. Part of the core: the energy tools (core 2, T4.2) read this profile.
 - **What:**
   - `docs/UI_DESIGN.md` and `docs/ui/mockup-v5.html` (new, first commit): the UI the owner accepted on 2026-10-19 as the working design, with T4.1's decisions folded in.
