@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A tiny made-up article written for the tests; not a copy of any real article. -->
+<article xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:ali="http://www.niso.org/schemas/ali/1.0/" article-type="review-article">
+  <front>
+    <journal-meta><journal-title-group><journal-title>Journal of Made-up Results</journal-title></journal-title-group></journal-meta>
+    <article-meta>
+      <article-id pub-id-type="pmcid">PMC1234567</article-id>
+      <article-id pub-id-type="doi">10.1234/made-up.1</article-id>
+      <title-group><article-title>A made-up article about oats</article-title></title-group>
+      <permissions>
+        <copyright-statement>© The Author(s) 2024</copyright-statement>
+        <license>
+          <ali:license_ref>https://creativecommons.org/licenses/by/4.0/</ali:license_ref>
+          <license-p>This article is under the Creative Commons Attribution 4.0 licence (<ext-link ext-link-type="uri" xlink:href="http://creativecommons.org/licenses/by/4.0/">http://creativecommons.org/licenses/by/4.0/</ext-link>). The Creative Commons Public Domain Dedication waiver (<ext-link ext-link-type="uri" xlink:href="http://creativecommons.org/publicdomain/zero/1.0/">http://creativecommons.org/publicdomain/zero/1.0/</ext-link>) applies to the data in this article.</license-p>
+        </license>
+      </permissions>
+    </article-meta>
+  </front>
+  <body><sec><title>Oats</title><p>Oats are a grain. This sentence was written for a test.</p></sec></body>
+</article>

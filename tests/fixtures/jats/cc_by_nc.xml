@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A tiny made-up article written for the tests; not a copy of any real article. -->
+<article xmlns:xlink="http://www.w3.org/1999/xlink" article-type="review-article">
+  <front>
+    <article-meta>
+      <article-id pub-id-type="doi">10.1234/made-up.1</article-id>
+      <title-group><article-title>A made-up article about rice</article-title></title-group>
+      <permissions>
+        <copyright-statement>© The Author(s) 2024</copyright-statement>
+        <license license-type="open-access" xlink:href="https://creativecommons.org/licenses/by-nc/4.0/">
+          <license-p>This article is under the Creative Commons Attribution-NonCommercial 4.0 licence.</license-p>
+        </license>
+      </permissions>
+    </article-meta>
+  </front>
+  <body><sec><title>Rice</title><p>Rice is a grain. This sentence was written for a test.</p></sec></body>
+</article>
