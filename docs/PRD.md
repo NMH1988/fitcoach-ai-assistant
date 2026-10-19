@@ -31,7 +31,7 @@ A chatbot that gives adults who lift weights clear, evidence-based nutrition ans
 10. **Progress indicator** for each step of a turn. Serves core 5.
 11. **Security:** input validation, prompt injection protection, rate limit, the domain guardrails below. Serves core 3 and 4, Medium 3. Details in `docs/SECURITY.md`.
 
-**Optional tasks for maximum points:** Medium 3, 5 and 6; Hard 1. Medium 7 is an extra.
+**Optional tasks for maximum points** (done first, with the core): Medium 3 and 6; Hard 1. **Extras** (after the core, still wanted): Medium 5 and Medium 7.
 
 ## Domain guardrails (core 3, approved by the owner)
 

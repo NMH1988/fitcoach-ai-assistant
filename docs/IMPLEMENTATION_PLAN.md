@@ -38,11 +38,14 @@ The owner writes these first; Claude reviews (`.claude/rules/workflow.md`).
 
 Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
+**Core first, then extras** (owner's decision, 2026-10-19): the brief's core requirements and the optional tasks needed for maximum points (Medium 3, Medium 6, Hard 1) are finished first. The extras (Medium 5 token cost, Medium 7 PDF, the stretch tool) come after them and are still wanted, but never delay a core ticket. T6.2 comes last.
+
 | Ticket | Issue | Title | Size | Depends on | Target | Status |
 |---|---|---|---|---|---|---|
+| **Core** | | | | | | |
 | T1.1 | #1 | Project skeleton, config and CI | S | - | 10-20 | done |
-| T1.2 | #2 | OpenRouter clients and error mapping | S | T1.1 | 10-20 | in review |
-| T1.3 | #3 | Input guard and rate limit | S | T1.1 | 10-21 | todo |
+| T1.2 | #2 | OpenRouter clients and error mapping | S | T1.1 | 10-20 | done |
+| T1.3 | #3 | Input guard and rate limit | S | T1.1 | 10-21 | in progress |
 | T2.1 | #4 | Source manifest, download script, attribution | M | T1.1, O4 | 10-21 | todo |
 | T2.2 | #5 | Parse article XML and chunk with metadata | M | T2.1 | 10-22 | todo |
 | T2.3 | #6 | Build and open the Chroma index | S | T1.2, T2.2 | 10-23 | todo |
@@ -54,16 +57,18 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2, O2 | 10-27 | todo |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | todo |
 | T4.4 | #14 | Tool-calling loop and tool results UI | M | T3.1, T4.2, T4.3 | 10-28 | todo |
-| T5.1 | #16 | Token usage and cost | S | T3.2 | 10-29 | todo |
 | T5.3 | #18 | Domain guardrails | S | T3.1, T4.2 | 10-29 | todo |
-| T5.2 | #17 | Session summary PDF | M | T4.4 | 10-30 | todo |
-| T6.1 | #19 | Evaluation run and reflection | S | T3.3, T4.4, O2, O5 | 10-31 | todo |
-| T6.2 | #20 | README, final checks and transfer to the course repo | S | all, O6 | 11-01 | todo |
+| T6.1 | #19 | Evaluation run and reflection | S | T3.3, T4.4, O2, O5 | 10-30 | todo |
+| **Extras** | | | | | | |
+| T5.1 | #16 | Token usage and cost | S | T3.2 | 10-30 | todo |
+| T5.2 | #17 | Session summary PDF | M | T4.4 | 10-31 | todo |
 | T4.5 | #15 | `evaluate_meal_plan` tool (stretch) | S | T4.4 | only if ahead | todo |
+| **Last** | | | | | | |
+| T6.2 | #20 | README, final checks and transfer to the course repo | S | all, O6 | 11-01 | todo |
 
-**Critical path:** T1.1 -> T1.2 -> T2.1 -> T2.2 -> T2.3 -> T3.1 -> T3.2 -> T3.3 -> T6.1 -> T6.2. T1.3, T4.1 and T4.3 can run alongside it.
+**Critical path:** T1.1 -> T1.2 -> T2.1 -> T2.2 -> T2.3 -> T3.1 -> T3.2 -> T3.3 -> T6.1 -> T6.2. T1.3, T4.1 and T4.3 can run alongside it; the extras run after T6.1, or alongside it once their dependencies are done.
 
-**If time runs short, cut in this order:** T4.5, PDF styling (keep plain text layout), chart polish. The core requirements and the chosen optional tasks (Medium 3, 5, 6; Hard 1) stay.
+**If time runs short, cut in this order:** T4.5, then T5.2 (or keep it with a plain text layout), then T5.1, then chart polish. The core requirements and the optional tasks for maximum points (Medium 3, 6; Hard 1) stay.
 
 ---
 
@@ -80,7 +85,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] `CLAUDE.md` "Commands" lists the real commands.
 **Notes:** check every new package's licence (`.claude/rules/copyright.md` rule 9). Add `dependabot.yml` as in Sprint 1.
 
-### T1.2 OpenRouter clients and error mapping (S) · status: in review · issue #2
+### T1.2 OpenRouter clients and error mapping (S) · status: done · issue #2
 **Serves:** core 4 (LangChain with OpenRouter; error handling).
 **Depends on:** T1.1
 **Acceptance criteria**
@@ -88,7 +93,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] 401, 402, 429, timeout and 5xx map to distinct user-readable errors; retries are bounded; the key never appears in an error message - verified by unit tests with a mocked transport.
 - [x] One real chat call and one real embedding call succeed - owner live check (O5) with `python scripts/live_check_llm.py` on 2026-10-19, recorded in `docs/TESTING.md`.
 
-### T1.3 Input guard and rate limit (S) · status: todo · issue #3
+### T1.3 Input guard and rate limit (S) · status: in progress · issue #3
 **Serves:** core 4 (input validation), Medium 3, AC-11.
 **Depends on:** T1.1
 **Acceptance criteria**
@@ -208,7 +213,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 ## Epic 5: Cost, export and guardrails
 
 ### T5.1 Token usage and cost (S) · status: todo · issue #16
-**Serves:** Medium 5; AC-10.
+**Serves:** Medium 5 (extra, after the core); AC-10.
 **Depends on:** T3.2
 **Acceptance criteria**
 - [ ] `src/usage.py` sums tokens from every call of a turn (query translation, answer rounds, query embedding) and prices them from OpenRouter's models endpoint (cached a day; "price unknown" on failure) - unit tests with fake usage and prices.
