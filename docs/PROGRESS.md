@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-19 · T4.2 Energy and macro tools with the calorie floor · PR pending (closes #12)
+## 2026-10-19 · T4.2 Energy and macro tools with the calorie floor · #30 (closes #12)
 - **Brief:** core requirement 2 (tools 1 and 2), core requirement 3 (the calorie floor is a domain guardrail); AC-7. O3 done.
 - **What:**
   - `src/tools/energy.py` (new): `calculate_tdee(weight_kg, height_cm, age, sex, activity)` returns BMR and TDEE in kcal/day (Mifflin-St Jeor times an activity factor); `calculate_macro_targets(weight_kg, goal, tdee_kcal)` returns the kcal target, the kcal range the sources give for the goal, protein, carbohydrate and fat (g, % of kcal, g/kg), the protein range, whether the floor was applied, notes and the sources. Arguments are checked by `TdeeArgs` / `MacroArgs` (Pydantic, strict numbers, the profile ranges); bad input gives a result with status "invalid" and a fixed message naming the fields. `FORMULA_SOURCES` holds the credit for #22 and #23.
