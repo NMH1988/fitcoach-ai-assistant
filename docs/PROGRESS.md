@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-19 · T1.2 OpenRouter clients and error mapping · #<PR> (closes #2)
+## 2026-10-19 · T1.2 OpenRouter clients and error mapping · #24 (closes #2)
 - **Brief:** core requirement 4 (LangChain with OpenRouter; error handling).
 - **What:**
   - `src/llm.py` (new): `build_chat_model()` (`ChatOpenAI` on OpenRouter's base URL, allowlisted model only, `max_tokens` clamped to `MAX_TOKENS_CAP`, reasoning effort, timeout, retries, Chat Completions forced) and `build_embeddings()` (`OpenAIEmbeddings`, `qwen/qwen3-embedding-8b`, `check_embedding_ctx_length=False`). Both take the key from `get_api_key()` unless one is passed, and an optional `http_client` that the tests use for a mocked transport.
