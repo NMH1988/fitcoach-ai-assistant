@@ -122,7 +122,7 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 
 | Piece | Ticket |
 |---|---|
-| Theme file, page config, header, tabs skeleton | T3.1 (core) |
+| Theme file, page config, header, tabs skeleton | T3.1 (core); T4.1 already sets `metricValueFontSize`, which the sidebar tiles need |
 | Sidebar goal control, profile tiles, Edit details dialog, units | T4.1 (core) |
 | Sidebar daily target | T4.4 (core) |
 | Chat messages, progress steps, source cards | T3.1 (core) |

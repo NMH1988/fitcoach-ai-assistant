@@ -46,7 +46,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T2.1 | #4 | Source manifest, download script, attribution | M | T1.1, O4 | 10-21 | todo |
 | T2.2 | #5 | Parse article XML and chunk with metadata | M | T2.1 | 10-22 | todo |
 | T2.3 | #6 | Build and open the Chroma index | S | T1.2, T2.2 | 10-23 | todo |
-| T4.1 | #11 | Profile, units and settings | M | T1.1 | 10-23 | todo |
+| T4.1 | #11 | Profile, units and settings | M | T1.1 | 10-23 | in review |
 | T4.3 | #13 | USDA food table and lookup | M | T1.1 | 10-23 | todo |
 | T3.1 | #7 | First answer with sources (vector search) | M | T1.2, T1.3, T2.3, O1 | 10-24 | todo |
 | T4.2 | #12 | Energy and macro tools with the calorie floor | M | T4.1, O3 | 10-25 | todo |
@@ -167,13 +167,14 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 ## Epic 4: Profile and tools
 
-### T4.1 Profile, units and settings (M) · status: todo · issue #11
+### T4.1 Profile, units and settings (M) · status: in review · issue #11
 **Serves:** PRD features 4 and 7; AC-5, AC-8.
 **Depends on:** T1.1
 **Acceptance criteria**
-- [ ] `src/profile.py` validates weight, height, age (18+), sex, activity and goal with clear messages for out-of-range values (AC-5) - unit tests.
-- [ ] `src/units.py` converts kg/lb and cm/ft-in; a round trip returns the same value within rounding (AC-8) - unit tests.
-- [ ] The sidebar has a profile form and a units setting; changing units changes the inputs and displayed values; the profile lives in `st.session_state` only and is never logged - AppTest.
+- [x] `src/profile.py` validates weight, height, age (18+), sex, activity and goal with clear messages for out-of-range values (AC-5) - unit tests (`tests/test_profile.py`: `test_metric_weight_out_of_range_is_rejected`, `test_metric_height_out_of_range_is_rejected`, `test_imperial_weight_out_of_range_is_rejected_in_lb`, `test_imperial_height_out_of_range_is_rejected_in_ft_in`, `test_under_18_is_rejected_with_an_adults_only_message`, `test_choices_must_be_one_of_the_options`, `test_every_problem_is_reported_at_once` and the bound tests).
+- [x] `src/units.py` converts kg/lb and cm/ft-in; a round trip returns the same value within rounding (AC-8) - unit tests (`tests/test_units.py`: known values both ways, `test_weight_round_trip_is_exact`, `test_height_round_trip_is_exact`, `test_weight_round_trip_through_display_is_within_rounding`, `test_height_round_trip_through_display_is_within_rounding`; `tests/test_profile.py::test_convert_form_values_there_and_back_returns_the_same_values`).
+- [x] The sidebar has a profile form and a units setting; changing units changes the inputs and displayed values; the profile lives in `st.session_state` only and is never logged - AppTest (`tests/test_app_profile.py`: `test_a_valid_metric_profile_is_saved_and_shown`, `test_invalid_values_show_a_clear_message_and_nothing_is_saved`, `test_switching_units_converts_the_typed_values`, `test_saving_in_imperial_changes_the_displayed_values_and_back`, `test_the_profile_stays_in_the_session_and_out_of_logs_and_the_url`), plus a manual check in the browser on 2026-10-19 (`docs/PROGRESS.md`).
+**Notes:** owner's choices (2026-10-19): the form opens in an `st.dialog`; one Metric / Imperial switch; ranges 30-300 kg, 120-230 cm, 18-100 years; five activity levels with working labels, which T4.2 checks against the source of its activity factors.
 
 ### T4.2 Energy and macro tools with the calorie floor (M) · status: todo · issue #12
 **Serves:** core 2 (tools 1 and 2); AC-7.

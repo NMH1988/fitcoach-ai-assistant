@@ -25,6 +25,14 @@ ACTIVITY_LABELS: dict[ActivityLevel, str] = {
     "very_active": "Very active · 6-7 days a week",
     "extra_active": "Extra active · hard daily training or a physical job",
 }
+# For the sidebar tile, where the full label does not fit.
+ACTIVITY_SHORT_LABELS: dict[ActivityLevel, str] = {
+    "sedentary": "Sedentary",
+    "light": "Light · 1-3 days",
+    "moderate": "Moderate · 3-5 days",
+    "very_active": "Very active · 6-7 days",
+    "extra_active": "Extra active",
+}
 
 Goal = Literal["build_muscle", "lose_fat", "maintain"]
 GOAL_LABELS: dict[Goal, str] = {
@@ -62,7 +70,12 @@ class ProfileError(ValueError):
 
 def _is_number(value: Any) -> bool:
     """Return True for a finite int or float (not a bool)."""
-    return isinstance(value, int | float) and not isinstance(value, bool) and math.isfinite(value)
+    if not isinstance(value, int | float) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:  # an int too large for a float
+        return False
 
 
 # In imperial units the bounds are the kg and cm bounds rounded as the form shows them (0.1 lb,
@@ -115,7 +128,7 @@ def _height_cm(
         return float(height_cm), None
     if not _is_number(height_ft) or not _is_number(height_in):
         return None, "Enter your height in feet and inches."
-    if height_ft < 0 or not 0 <= height_in < units.INCHES_PER_FOOT:
+    if height_ft < 0 or height_ft != int(height_ft) or not 0 <= height_in < units.INCHES_PER_FOOT:
         return None, "Enter the height as whole feet and 0 to 11 inches."
     low, high = IMPERIAL_HEIGHT_RANGE_IN
     if not low <= height_ft * units.INCHES_PER_FOOT + height_in <= high:
@@ -139,10 +152,8 @@ def build_profile(
     activity: Any,
     goal: Any,
 ) -> UserProfile:
-    """Check the values entered in `units_system` and return the profile in kg and cm.
-
-    Raises `ProfileError` with one message per field to fix, in the user's units.
-    """
+    """Check the typed values; return the profile in kg and cm, or raise ProfileError."""
+    # ProfileError carries one message per field to fix, in the user's units.
     if units_system not in units.UNIT_SYSTEMS:
         raise ProfileError(["Choose metric or imperial units."])
     messages: list[str] = []
@@ -217,10 +228,8 @@ def _entered_cm(system: UnitSystem, height_cm: Any, height_ft: Any, height_in: A
 def convert_form_values(
     values: dict[str, Any], from_system: UnitSystem, to_system: UnitSystem
 ) -> dict[str, Any]:
-    """Return the form values with weight and height moved to another unit system.
-
-    Fields that are empty or not numbers stay empty; the other fields are unchanged.
-    """
+    """Return the form values with weight and height moved to another unit system."""
+    # Fields that are empty or not numbers stay empty; the other fields are unchanged.
     converted = dict(values)
     if from_system == to_system:
         return converted
@@ -240,3 +249,33 @@ def convert_form_values(
         else:
             converted["height_ft"], converted["height_in"] = units.cm_to_ft_in(cm)
     return converted
+
+
+# What the last units switch did: the system switched from, the values typed there, and the
+# converted values it showed. Lets a switch back restore exactly what was typed.
+FormMemory = tuple[UnitSystem, dict[str, Any], dict[str, Any]]
+
+
+def switch_form_units(
+    values: dict[str, Any],
+    from_system: UnitSystem,
+    to_system: UnitSystem,
+    memory: FormMemory | None,
+) -> tuple[dict[str, Any], FormMemory]:
+    """Convert the form to another unit system; switching back unedited restores what was typed."""
+    if memory is not None and memory[0] == to_system and memory[2] == values:
+        result = dict(memory[1])
+    else:
+        result = convert_form_values(values, from_system, to_system)
+    return result, (from_system, dict(values), dict(result))
+
+
+def save_profile(
+    values: dict[str, Any], system: UnitSystem, current: UserProfile | None
+) -> UserProfile:
+    """Return the saved form's profile, keeping the stored one if the shown values are unchanged."""
+    # Without this, saving after only a units switch would round the stored kg and cm to the
+    # precision the form shows.
+    if current is not None and values == form_values(current, system):
+        return current
+    return build_profile(units_system=system, **values)

@@ -37,7 +37,7 @@ def ft_in_to_cm(feet: float, inches: float) -> float:
 
 
 def cm_to_ft_in(cm: float) -> tuple[int, int]:
-    """Convert centimetres to whole feet and inches, rounded to the nearest inch."""
+    """Convert centimetres to whole feet and inches, rounded to the nearest inch (ties to even)."""
     feet, inches = divmod(round(cm / CM_PER_INCH), INCHES_PER_FOOT)
     return int(feet), int(inches)
 
@@ -64,7 +64,7 @@ def format_weight(kg: float, units: UnitSystem) -> str:
 
 
 def format_height(cm: float, units: UnitSystem) -> str:
-    """Show a height in the given unit system, e.g. "180 cm" or "5 ft 11 in"."""
+    """Show a height in a unit system, e.g. "180 cm" or "5 ft 11 in" (ties round to even)."""
     if units == "metric":
         return f"{round(cm)} cm"
     feet, inches = cm_to_ft_in(cm)

@@ -111,9 +111,9 @@ def test_imperial_height_out_of_range_is_rejected_in_ft_in(feet, inches):
     ]
 
 
-@pytest.mark.parametrize(("feet", "inches"), [(5, 12), (5, -1), (-1, 6)])
+@pytest.mark.parametrize(("feet", "inches"), [(5, 12), (5, -1), (-1, 6), (5.5, 0)])
 def test_imperial_height_with_bad_parts_is_rejected(feet, inches):
-    """Inches must be 0 to 11 and feet not negative."""
+    """Inches must be 0 to 11 and feet a whole number, not negative."""
     assert _imperial_messages(height_ft=feet, height_in=inches) == [
         "Enter the height as whole feet and 0 to 11 inches."
     ]
@@ -161,9 +161,9 @@ def test_age_must_be_a_whole_number(age):
     assert _messages(age=age) == ["Enter your age in whole years."]
 
 
-@pytest.mark.parametrize("weight", [None, "80", math.nan, math.inf, False])
+@pytest.mark.parametrize("weight", [None, "80", math.nan, math.inf, False, 10**400])
 def test_weight_must_be_a_finite_number(weight):
-    """Empty, text, NaN, infinite and boolean weights are rejected."""
+    """Empty, text, NaN, infinite, boolean and too-large weights are rejected, not a crash."""
     assert _messages(weight=weight) == ["Enter your weight in kg."]
 
 
@@ -233,6 +233,7 @@ def test_every_option_has_a_label():
     """Each sex, activity level and goal has a label for the form."""
     assert set(profile.SEX_LABELS) == set(get_args(profile.Sex))
     assert set(profile.ACTIVITY_LABELS) == set(get_args(profile.ActivityLevel))
+    assert set(profile.ACTIVITY_SHORT_LABELS) == set(get_args(profile.ActivityLevel))
     assert set(profile.GOAL_LABELS) == set(get_args(profile.Goal))
 
 
@@ -251,14 +252,79 @@ def test_form_values_show_the_profile_in_each_unit_system():
     assert metric["age"] == imperial["age"] == 30
 
 
-def test_convert_form_values_there_and_back_returns_the_same_values():
-    """Switching the form to imperial and back gives the values typed in metric (AC-8)."""
-    typed = profile.form_values(build_profile(**VALID_METRIC), "metric")
+def _typed_metric(weight: float, height_cm: int) -> dict:
+    """Return metric form values with this weight and height and the other fields filled in."""
+    return {
+        **profile.form_values(build_profile(**VALID_METRIC), "metric"),
+        "weight": weight,
+        "height_cm": height_cm,
+    }
+
+
+def test_convert_form_values_moves_weight_and_height_only():
+    """Converting fills the imperial fields, empties the metric ones and keeps the rest."""
+    typed = _typed_metric(80.0, 180)
     there = profile.convert_form_values(typed, "metric", "imperial")
-    back = profile.convert_form_values(there, "imperial", "metric")
     assert (there["weight"], there["height_ft"], there["height_in"]) == (176.4, 5, 11)
-    assert (there["height_cm"], back["height_ft"], back["height_in"]) == (None, None, None)
+    assert there["height_cm"] is None
+    assert {k: there[k] for k in ("age", "sex", "activity", "goal")} == {
+        k: typed[k] for k in ("age", "sex", "activity", "goal")
+    }
+
+
+@pytest.mark.parametrize(
+    ("weight", "height_cm"), [(80.0, 179), (80.1, 181), (91.3, 182), (55.5, 184), (120.0, 230)]
+)
+def test_convert_form_values_there_and_back_is_within_rounding(weight, height_cm):
+    """Plain conversion there and back moves values by at most the rounding (AC-8)."""
+    typed = _typed_metric(weight, height_cm)
+    back = profile.convert_form_values(
+        profile.convert_form_values(typed, "metric", "imperial"), "imperial", "metric"
+    )
+    assert abs(back["weight"] - weight) <= 0.1 + 1e-9
+    assert abs(back["height_cm"] - height_cm) <= units.CM_PER_INCH / 2
+
+
+@pytest.mark.parametrize(
+    ("weight", "height_cm"), [(80.0, 179), (80.1, 181), (91.3, 182), (55.5, 184), (120.0, 230)]
+)
+def test_switching_units_and_back_without_editing_restores_the_typed_values(weight, height_cm):
+    """A switch back with nothing edited in between gives exactly what was typed (AC-8)."""
+    typed = _typed_metric(weight, height_cm)
+    there, memory = profile.switch_form_units(typed, "metric", "imperial", None)
+    back, memory = profile.switch_form_units(there, "imperial", "metric", memory)
     assert back == typed
+    again, _ = profile.switch_form_units(back, "metric", "imperial", memory)
+    assert again == there
+
+
+def test_switching_back_after_an_edit_converts_the_edit():
+    """When a value was edited after the switch, switching back converts the edited values."""
+    there, memory = profile.switch_form_units(_typed_metric(80.0, 179), "metric", "imperial", None)
+    edited = {**there, "weight": 200.0}
+    back, _ = profile.switch_form_units(edited, "imperial", "metric", memory)
+    assert back["weight"] == pytest.approx(90.7)
+    assert abs(back["height_cm"] - 179) <= units.CM_PER_INCH / 2
+
+
+def test_saving_unchanged_values_keeps_the_stored_profile():
+    """Saving the form as shown (e.g. after a units switch only) does not round the profile."""
+    stored = UserProfile(
+        weight_kg=80.04, height_cm=190.5, age=30, sex="male", activity="moderate", goal="maintain"
+    )
+    for system in units.UNIT_SYSTEMS:
+        shown = profile.form_values(stored, system)
+        assert profile.save_profile(shown, system, stored) is stored
+
+
+def test_saving_changed_values_builds_a_new_profile():
+    """Saving edited values checks them and returns the new profile."""
+    stored = build_profile(**VALID_METRIC)
+    edited = {**profile.form_values(stored, "metric"), "weight": 82.5}
+    assert profile.save_profile(edited, "metric", stored).weight_kg == 82.5
+    with pytest.raises(ProfileError):
+        profile.save_profile({**edited, "age": 17}, "metric", stored)
+    assert profile.save_profile(edited, "metric", None).weight_kg == 82.5
 
 
 def test_convert_form_values_keeps_empty_and_out_of_range_fields():

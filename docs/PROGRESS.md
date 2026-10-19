@@ -15,6 +15,31 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-19 · T4.1 Profile, units and settings · PR pending (closes #11)
+- **Brief:** PRD features 4 (profile) and 7 (units); AC-5, AC-8. Part of the core: the energy tools (core 2, T4.2) read this profile.
+- **What:**
+  - `docs/UI_DESIGN.md` and `docs/ui/mockup-v5.html` (new, first commit): the UI the owner accepted on 2026-10-19 as the working design, with T4.1's decisions folded in.
+  - `src/units.py` (new): kg/lb and cm/ft-in conversion with the defined factors (0.45359237 kg per lb, 2.54 cm per inch), and how weights (0.1 kg or lb) and heights (whole cm, or whole feet and inches) are shown.
+  - `src/profile.py` (new): `UserProfile` (Pydantic, frozen, kg and cm, ranges enforced in the model too), `build_profile()` (checks values typed in either unit system and raises `ProfileError` with one message per field, in the user's units), the sex, activity and goal options and labels, and the form values for each unit system.
+  - `src/config.py`: `PROFILE_WEIGHT_KG_RANGE` (30-300), `PROFILE_HEIGHT_CM_RANGE` (120-230), `PROFILE_AGE_RANGE` (18-100), `DEFAULT_UNIT_SYSTEM`.
+  - `app.py`: the sidebar profile (goal segmented control, tiles in the chosen units, "Edit details") and the "Your details" dialog (Metric / Imperial switch, inputs, Save with the validation messages).
+  - `.streamlit/config.toml` (new): only `metricValueFontSize = "1.25rem"`; the rest of the theme comes with T3.1.
+  - Tests: `tests/test_units.py`, `tests/test_profile.py`, `tests/test_app_profile.py` (AppTest: add, reject, switch units, save in imperial and back, a switch there and back restores what was typed, goal change, dismiss, no profile values in logs, output or the URL). 248 tests pass.
+  - Docs: `docs/ARCHITECTURE.md` sections 7 and 8, plan (T4.1 in review).
+- **Why:** the profile is stored once in kg and cm and only converted at input and display. A save rounds to the precision the form shows (0.1 kg or lb, whole cm or inch), except when the shown values were not changed (e.g. only the units were switched): then the stored kg and cm are kept as they were. Validation sits in `src/profile.py`, not in the widgets: widget limits are enforced in the browser only, and the tools in T4.2 need the same checks.
+- **Decisions & gotchas:**
+  - Owner's choices (2026-10-19): the form opens in an `st.dialog` (the open question in `docs/UI_DESIGN.md`); one Metric / Imperial switch; ranges 30-300 kg, 120-230 cm, 18-100 years; five activity levels with working labels and no factors yet; sex is male or female because the planned energy equation (Mifflin-St Jeor) has only those two forms.
+  - The dialog is opened by a `session_state` flag and closed by `on_dismiss`, not by calling it from a button's `if`: with the button pattern, AppTest loses the dialog on the next rerun (checked), so it could not be tested.
+  - The dialog uses plain widgets, not `st.form`: form values are not in `session_state` until submit, so switching units would drop what was typed.
+  - Imperial bounds are the metric ones rounded as the form shows them (66.1-661.4 lb, 3 ft 11 in to 7 ft 7 in), and a value accepted that way is moved onto the metric bound. Without this, a 30 kg or 230 cm profile shown in imperial and saved again would be rejected.
+  - Switching the form's units converts the typed values, which can move them by up to the rounding (179 cm -> 5 ft 10 in -> 178 cm). `switch_form_units()` remembers the last switch, so switching back with nothing edited restores exactly what was typed.
+  - With the default `metricValueFontSize` (2.25rem) the sidebar tiles cut off "176.4 lb" and "5 ft 11 in"; hence the one theme line.
+  - Manual check in the browser (Streamlit 1.66, 2026-10-19): add a profile, a missing field shows its message, switch to imperial (80 kg -> 176.4 lb, 180 cm -> 5 ft 11 in), save, the tiles show imperial, the sidebar goal changes the profile, closing the dialog with X does not reopen it; no console errors or server warnings.
+  - This branch starts from `main` without T1.3 (#25) and T2.1 (#26); all three edit `src/config.py` and `docs/IMPLEMENTATION_PLAN.md`, so whichever merges later resolves those by hand.
+  - Code review (round 1, before the PR): the form round trip above and keeping the stored profile on an unchanged save (both were "within rounding" only), one-line docstrings, form step and inch limit from the constants, the privacy note kept while errors show, a huge int or fractional feet rejected instead of crashing or being accepted, the log test now captures Streamlit's loggers at DEBUG. The `on_dismiss` wiring is shown by the browser check only (AppTest sets the flag the callback sets).
+  - Locally, `ruff check .` also reads other sessions' worktrees under `.claude/worktrees/` (untracked); CI checks a clean clone and is not affected.
+- **Follow-ups:** T4.2 checks the activity labels against the source of its activity factors and reads `st.session_state["profile"]`; T3.1 adds the full theme (the dialog's primary button is still Streamlit's default red) and the tabs; T4.4 adds the daily target to the sidebar.
+
 ## 2026-10-19 · T1.2 OpenRouter clients and error mapping · #24 (closes #2)
 - **Brief:** core requirement 4 (LangChain with OpenRouter; error handling).
 - **What:**
