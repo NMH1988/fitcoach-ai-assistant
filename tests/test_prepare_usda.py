@@ -220,6 +220,22 @@ def test_main_reports_a_broken_zip(tmp_path, monkeypatch, capsys):
     assert "Error:" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize("error", [RuntimeError, NotImplementedError])
+def test_main_reports_an_unreadable_member(tmp_path, monkeypatch, capsys, error):
+    """An encrypted or unsupported-compression member gives exit code 1, not a traceback."""
+
+    def refuse(*_, **__):
+        """Raise what zipfile raises for an encrypted or unsupported member."""
+        raise error("cannot read")
+
+    path = make_zip(tmp_path)
+    monkeypatch.setattr(zipfile.ZipFile, "open", refuse)
+    monkeypatch.setattr(config, "USDA_FOODS_PATH", tmp_path / "usda_foods.csv")
+    assert prepare_usda.main([str(path)]) == 1
+    assert "encrypted or uses an unsupported compression method" in capsys.readouterr().err
+    assert not (tmp_path / "usda_foods.csv").exists()
+
+
 def test_committed_table_is_valid_and_credits_usda():
     """data/usda_foods.csv loads, credits USDA FoodData Central and has no repeated names."""
     text = config.USDA_FOODS_PATH.read_text(encoding="utf-8")

@@ -94,7 +94,15 @@ def _member(archive: zipfile.ZipFile, name: str) -> zipfile.ZipInfo:
 
 def _rows(archive: zipfile.ZipFile, info: zipfile.ZipInfo):
     """Yield the rows of a CSV member as dicts, streaming it from the zip."""
-    with archive.open(info) as raw:
+    try:
+        raw = archive.open(info)
+    except RuntimeError, NotImplementedError:
+        # zipfile raises these for an encrypted member or an unsupported compression method.
+        raise PrepareError(
+            f"{PurePosixPath(info.filename).name} in the zip is encrypted or uses an "
+            "unsupported compression method."
+        ) from None
+    with raw:
         yield from csv.DictReader(io.TextIOWrapper(raw, encoding="utf-8-sig", newline=""))
 
 

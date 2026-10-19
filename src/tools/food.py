@@ -61,9 +61,13 @@ class FoodLookupArgs(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     food: str = Field(
-        min_length=1,
+        min_length=config.FOOD_MIN_NAME_CHARS,
         max_length=config.FOOD_MAX_NAME_CHARS,
-        description="One food in plain English, e.g. 'chicken breast raw' or 'rolled oats'.",
+        # A bare "chicken" or "rice" matches one variant chosen by name, not by nutrition.
+        description=(
+            "One food in plain English, as specific as possible (cut, form, raw or cooked), "
+            "e.g. 'chicken breast skinless raw' or 'rolled oats'."
+        ),
     )
     # Strict: a JSON number only (no strings or booleans); an int is accepted.
     grams: float = Field(
@@ -219,7 +223,10 @@ def _invalid_message(error: ValidationError) -> str:
     fields = {str(e["loc"][0]) for e in error.errors() if e["loc"]}
     parts = []
     if "food" in fields:
-        parts.append(f"give the name of one food in 1 to {config.FOOD_MAX_NAME_CHARS} characters")
+        parts.append(
+            f"give the name of one food in {config.FOOD_MIN_NAME_CHARS} to "
+            f"{config.FOOD_MAX_NAME_CHARS} characters"
+        )
     if "grams" in fields:
         parts.append(
             f"give the amount as a number of grams from {config.FOOD_MIN_GRAMS:g} to "

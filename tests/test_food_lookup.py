@@ -247,9 +247,11 @@ def test_invalid_grams_give_an_error_result(grams):
     assert "number of grams from 0.1 to 2000" in result.message
 
 
-@pytest.mark.parametrize("name", ["", "   ", "x" * (config.FOOD_MAX_NAME_CHARS + 1), None, 5])
+@pytest.mark.parametrize(
+    "name", ["", "   ", "a", " a ", "x" * (config.FOOD_MAX_NAME_CHARS + 1), None, 5]
+)
 def test_invalid_food_names_give_an_error_result(name):
-    """Empty, too long and non-text names are refused with a clear message."""
+    """Empty, one-letter, too long and non-text names are refused with a clear message."""
     result = lookup(name)
     assert result.status == "invalid"
     assert "name of one food" in result.message
