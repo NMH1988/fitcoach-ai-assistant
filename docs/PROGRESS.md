@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-19 · T2.1 Source manifest, download script, attribution · PR to come (closes #4)
+## 2026-10-19 · T2.1 Source manifest, download script, attribution · #26 (closes #4)
 - **Brief:** core requirements 1 and 3 (a relevant, focused knowledge base); AC-14. The strict licence checks serve the copyright policy (beyond the brief, owner's request).
 - **What:**
   - `data/sources.json` (new): the 21 approved articles (#1-#20 and the correction #18a) with title, authors, year, journal, DOI, PMCID, DOI URL, licence, licence URL, copyright notice, evidence tier and topics. Title, authors, DOI and the copyright notice (word for word) come from each article's own JATS front matter, read through the Europe PMC REST API; tiers from `docs/SOURCES.md`; topics as proposed and approved by the owner.
