@@ -50,39 +50,53 @@ _OWN_QUALIFIERS = r"(?:your|above|system|developer)"
 # Qualifiers that could also describe advice from someone else.
 _OTHER_QUALIFIERS = r"(?:previous|prior|earlier|preceding|all|these|those|initial|original)"
 _FILLER = (
-    r"(?:all|of|the|your|previous|prior|above|earlier|preceding|these|those|system|initial"
-    r"|original|developer|safety|current|existing|any|and|or)"
+    r"(?:all|of|about|the|your|previous|prior|above|earlier|preceding|these|those|system"
+    r"|initial|original|developer|safety|current|existing|any|and|or|following)"
 )
 # A few filler words between the parts, e.g. "ignore all of your previous instructions".
 _GAP = rf"(?: {_FILLER}){{0,3}}"
-# What follows "instructions" when they are someone else's: "... my dietitian gave me",
-# "... on the tub", "... from my coach".
+# The instructions are someone else's only when a third party is named right after the noun:
+# "... my dietitian gave me", "... that my coach wrote", "... from my coach", "... on the tub".
+# Anything else ("... in this conversation", "... that you received") still counts as an attack.
+_POSSESSIVES = r"(?:my|his|her|their|our)"
 _NOT_THIRD_PARTY = (
-    r"(?! (?:on|from|in|for|of|about|my|his|her|their|our|the|that|which|i|we|written"
-    r"|printed|given by|provided by)\b)"
+    rf"(?! (?:(?:that|which|i got|we got|i was given) )?{_POSSESSIVES}\b)"
+    rf"(?! (?:on|from|given by|provided by|printed on|written on) (?:the|an?|{_POSSESSIVES})\b)"
 )
+# After "instructions" or "rules": a how-to request ("your instructions for meal prepping").
+_NOT_HOW_TO = r"(?! (?:for|on|about|of|by|at|from)\b)"
+# "Above" as a word of its own, not "above-average".
+_ABOVE = r"above(?![\w-])"
 
 # Matched against the casefolded text with whitespace collapsed to single spaces.
 _FOLDED_PATTERNS = [
     # Overriding the instructions.
     rf"\b{_OVERRIDE_VERBS}{_GAP} {_OWN_QUALIFIERS}{_GAP} (?:{_STRONG_NOUNS}|{_WEAK_NOUNS})\b",
     rf"\b{_OVERRIDE_VERBS}{_GAP} {_OTHER_QUALIFIERS}{_GAP} {_STRONG_NOUNS}\b{_NOT_THIRD_PARTY}",
-    rf"\b{_OVERRIDE_VERBS} (?:the )?{_STRONG_NOUNS} (?:above|you were given)\b",
-    rf"\b{_OVERRIDE_VERBS} (?:the |everything |anything |all )?(?:above|before this)\b",
+    rf"\b{_OVERRIDE_VERBS} (?:the )?{_STRONG_NOUNS} (?:{_ABOVE}|you were given)",
+    # Also rejects a self-correction such as "ignore the above, I meant 80 kg": owner's choice in
+    # T1.3 (docs/SECURITY.md, known limits); the message asks the user to rephrase.
+    rf"\b{_OVERRIDE_VERBS} (?:the |everything |anything |all )?(?:{_ABOVE}|before this\b)",
     rf"\b{_OVERRIDE_VERBS} (?:what|everything|anything) you(?: were|'ve been| have been) told\b",
-    r"\b(?:rules|instructions|guidelines) you (?:were|have been) (?:given|told)\b",
-    r"\bnew instructions ?:",
+    rf"\b(?:rules|instructions|guidelines) you (?:were|have been) (?:given|told)\b{_NOT_HOW_TO}",
+    r"\b(?:stop following|do not follow|don't follow|dont follow) your "
+    r"(?:rules|instructions|guidelines|programming)\b",
+    r"\b(?:override|bypass|disable|turn off|switch off) (?:the |all |any |your )?"
+    r"(?:safety|content) (?:guidelines|restrictions|rules|filters?)\b",
+    r"\byour new instructions\b",
     # Asking for the hidden prompt.
     r"\b(?:system|developer|hidden|secret) prompt\b",
     r"\bdeveloper message\b",
     r"\b(?:hidden|secret) instructions\b",
     r"\byour (?:initial|original|hidden|secret|system) (?:instructions|prompt|message)\b",
     r"\b(?:reveal|repeat|print|show|output|display|leak|dump|recite|tell me) (?:me )?"
-    r"(?:all )?(?:of )?your (?:instructions|prompt|configuration)\b",
-    r"\bwhat (?:are|were) your instructions\b",
-    # Changing the assistant's role or switching off its rules.
+    rf"(?:all )?(?:of )?your (?:instructions|prompt|configuration|rules|guidelines)\b{_NOT_HOW_TO}",
+    rf"\bwhat (?:are|were) your instructions\b(?! to me){_NOT_HOW_TO}",
+    rf"\b(?:print|repeat|output|recite) (?:everything|all|the (?:text|words)) {_ABOVE}",
+    # Changing the assistant's role or switching off its rules. "Mode" is left out here, as
+    # "you're now in cutting mode" is gym talk; the jailbreak modes have their own pattern below.
     r"\byou(?: are|'re|re) now (?:an?|the|my|in) (?:\w+ ){0,2}?"
-    r"(?:ai|assistant|bot|chatbot|model|mode|character|persona)\b",
+    r"(?:ai|assistant|bot|chatbot|model|character|persona)\b",
     r"\byou(?: are|'re|re) now (?:dan|unrestricted|unfiltered|uncensored|jailbroken|free)\b",
     r"\bfrom now on,? you(?: will| must| should| are|'re| have)? (?:ignore|disregard|forget"
     r"|answer as|respond as|reply as|act as|answer without|respond without|not follow"
@@ -91,8 +105,8 @@ _FOLDED_PATTERNS = [
     r"\bjailbr(?:eak|oken)\b",
     r"\bdo anything now\b",
     r"\b(?:pretend|imagine) (?:that )?(?:you are|you're|to be) (?:an? )?"
-    r"(?:unrestricted|unfiltered|uncensored|different|evil|another|dan)\b",
-    r"\bact as (?:an? )?(?:unrestricted|unfiltered|uncensored|jailbroken|evil|different|dan)\b",
+    r"(?:unrestricted|unfiltered|uncensored|evil|dan)\b",
+    r"\bact as (?:an? )?(?:unrestricted|unfiltered|uncensored|jailbroken|evil|dan)\b",
     r"\b(?:no longer|not) (?:bound|restricted) by (?:your|any) "
     r"(?:rules|instructions|guidelines|restrictions|policies)\b",
 ]
@@ -105,7 +119,7 @@ _RAW_PATTERNS = [
     r"<\|[a-z_]+\|>",
     r"\[/?(?:inst|sys)\]",
     r"<<\s*(?:/\s*)?sys\s*>>",
-    r"(?m)^[ \t]*(?:#+[ \t]*)?(?:system|assistant|developer)[ \t]*:",
+    r"(?m)^[ \t]*(?:#+[ \t]*)?(?:system|assistant|developer|new instructions)[ \t]*:",
 ]
 
 _FOLDED_RE = [re.compile(p) for p in _FOLDED_PATTERNS]
@@ -114,9 +128,9 @@ _RAW_RE = [re.compile(p, re.IGNORECASE) for p in _RAW_PATTERNS]
 # Line breaks and tabs are the only control characters a question keeps; other line and
 # paragraph separators become "\n", so a role marker after one is still at the start of a line.
 _KEPT_CONTROLS = {"\n", "\t"}
-_LINE_BREAKS = str.maketrans(dict.fromkeys("\r\x0b\x0c\x85  ", "\n"))
+_LINE_BREAKS = str.maketrans(dict.fromkeys("\r\x0b\x0c\x85\u2028\u2029", "\n"))
 # Curly apostrophes (smart punctuation on phones) become "'", which the patterns use.
-_APOSTROPHES = str.maketrans(dict.fromkeys("‘’ʼ", "'"))
+_APOSTROPHES = str.maketrans(dict.fromkeys("\u2018\u2019\u02bc", "'"))
 # Invisible characters outside the "C" categories: the combining grapheme joiner, Hangul fillers,
 # Khmer inherent vowels, Mongolian and other variation selectors.
 _INVISIBLE = frozenset(
@@ -198,15 +212,16 @@ def session_limiter(state: MutableMapping[str, Any]) -> RateLimiter:
     return limiter
 
 
-def clean_input(text: str) -> str:
-    """Normalise Unicode (NFKC) and line breaks, drop control and invisible characters, trim."""
+def clean_input(text: str, dropped: str = "") -> str:
+    """Normalise Unicode and line breaks, swap control and invisible chars for `dropped`, trim."""
     text = unicodedata.normalize("NFKC", text).replace("\r\n", "\n")
     text = text.translate(_LINE_BREAKS).translate(_APOSTROPHES)
     kept = (
         ch
-        for ch in text
         if ch in _KEPT_CONTROLS
         or (unicodedata.category(ch)[0] != "C" and ord(ch) not in _INVISIBLE)
+        else dropped
+        for ch in text
     )
     return "".join(kept).strip()
 
@@ -226,7 +241,9 @@ def check_message(text: str, limiter: RateLimiter) -> GuardResult:
         return _reject(Rejection.EMPTY, EMPTY_MESSAGE)
     if len(cleaned) > config.MAX_INPUT_CHARS:
         return _reject(Rejection.TOO_LONG, TOO_LONG_MESSAGE)
-    if looks_like_injection(cleaned):
+    # An invisible character can hide a word ("Ign\u200bore") or stand in for a space
+    # ("Ignore\u200ball"), so the patterns see the text with it removed and with it as a space.
+    if looks_like_injection(cleaned) or looks_like_injection(clean_input(text, dropped=" ")):
         return _reject(Rejection.INJECTION, INJECTION_MESSAGE)
     rejection = limiter.try_acquire()
     if rejection is not None:
