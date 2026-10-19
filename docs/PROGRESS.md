@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-19 · T1.1 Project skeleton, config and CI · PR pending (closes #1)
+## 2026-10-19 · T1.1 Project skeleton, config and CI · #21 (closes #1)
 - **Brief:** core requirement 4 (technical base); CI as in Sprint 1.
 - **What:**
   - `pyproject.toml`: the runtime packages pinned as in `docs/ARCHITECTURE.md` section 12; the dev tools pinned too (pip-audit 2.10.1, pytest 9.1.1, pytest-cov 7.1.0, ruff 0.17.1) so a new tool release cannot break CI on an unrelated PR; ruff and pytest settings as in Sprint 1. `.python-version` 3.14.

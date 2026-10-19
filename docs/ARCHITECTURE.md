@@ -158,7 +158,7 @@ Checked on PyPI on 2026-10-19. Licences are permissive, as the copyright policy 
 | reportlab | 5.0.1 | BSD | PDF |
 | pydantic | 2.14.1 | MIT | schemas |
 
-Dev: pytest, pytest-cov, ruff, pip-audit (as in Sprint 1). Not chosen: fpdf2 (LGPL-3.0, not permissive). Python **3.14** as in Sprint 1; every package above has a wheel or pure-Python build for it.
+Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 7.1.0 (MIT), ruff 0.17.1 (MIT), pip-audit 2.10.1 (Apache-2.0). Not chosen: fpdf2 (LGPL-3.0, not permissive). Python **3.14** as in Sprint 1; every package above has a wheel or pure-Python build for it.
 
 ## 13. Decisions (approved by the owner on 2026-10-19)
 

@@ -34,7 +34,7 @@ def test_default_max_tokens_fits_the_cap():
 
 
 def test_input_and_rate_limits():
-    """Input length and rate limits are positive, with the per-minute limit below the session's."""
+    """Input and rate limits keep their Sprint 1 values; per-minute stays below per-session."""
     assert config.MAX_INPUT_CHARS == 2000
     assert config.RATE_LIMIT_PER_MINUTE == 10
     assert config.RATE_LIMIT_WINDOW_SECONDS == 60
