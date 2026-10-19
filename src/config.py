@@ -175,6 +175,46 @@ PROFILE_AGE_RANGE = (18, 100)
 # The units the profile form and the sidebar start in; the user can switch to imperial.
 DEFAULT_UNIT_SYSTEM = "metric"
 
+# USDA FoodData Central, Foundation Foods (docs/SOURCES.md #21; docs/ARCHITECTURE.md section 6).
+# The CSV zip from the USDA download page goes here by hand; gitignored.
+USDA_RAW_DIR = PROJECT_ROOT / "data" / "usda"
+# The trimmed per-100 g table the food tool reads; committed (CC0).
+USDA_FOODS_PATH = PROJECT_ROOT / "data" / "usda_foods.csv"
+# The largest CSV in the 2026-04-30 zip is about 10 MB unpacked; anything far bigger is refused.
+USDA_MAX_MEMBER_BYTES = 100_000_000
+# The credit for the table, used in its "#" lines and in ATTRIBUTION.md. The citation follows the
+# format USDA suggests on https://fdc.nal.usda.gov/; {release} is the release date (YYYY-MM-DD).
+USDA_CITATION = (
+    "U.S. Department of Agriculture, Agricultural Research Service, Beltsville Human Nutrition "
+    "Research Center. FoodData Central: Foundation Foods, release {release}. "
+    "https://fdc.nal.usda.gov/"
+)
+USDA_LICENSE = "CC0 1.0 Universal (public domain)"
+USDA_LICENSE_URL = "https://creativecommons.org/publicdomain/zero/1.0/"
+USDA_CHANGES = (
+    "Foundation foods only; values per 100 g: energy (kcal; Atwater specific factors where "
+    "reported, else general factors), protein, carbohydrate (by difference), total fat and total "
+    "dietary fiber. Foods without energy or a macronutrient are left out; a repeated name is kept "
+    "once (latest publication); negative values are set to 0; an empty fiber value means not "
+    "reported."
+)
+
+# lookup_food_nutrition: argument limits and fuzzy name matching (rapidfuzz scores, 0-100).
+# A one-letter name matches by chance ("a" scores 100 on "Eggs, Grade A, ..."), so the name, and
+# its longest word once punctuation is dropped, must have at least this many characters.
+FOOD_MIN_NAME_CHARS = 2
+FOOD_MAX_NAME_CHARS = 100
+# Grams per lookup; below 0.1 g every value rounds to zero.
+FOOD_MIN_GRAMS = 0.1
+FOOD_MAX_GRAMS = 2000
+# A food scoring at least this is taken as the match; tried on the real table in T4.3.
+FOOD_MATCH_MIN_SCORE = 80
+# Foods scoring at least this are offered as alternatives or "did you mean" suggestions.
+FOOD_SUGGESTION_MIN_SCORE = 60
+FOOD_MAX_ALTERNATIVES = 3
+# Decimal places of the scaled values (grams of nutrients); kcal are rounded to whole numbers.
+FOOD_DECIMALS = 1
+
 API_KEY_NAME = "OPENROUTER_API_KEY"
 
 

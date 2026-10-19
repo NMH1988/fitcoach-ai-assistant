@@ -53,7 +53,7 @@ CC BY 2.0 (#12) allows the same uses as CC BY 4.0 (copy, redistribute, adapt, in
 
 | # | Source | Licence | Checked via | Notes |
 |---|---|---|---|---|
-| 21 | USDA FoodData Central (Foundation Foods first) | CC0 1.0 / public domain | fdc.nal.usda.gov home page and API guide | No permission needed; USDA asks to credit "FoodData Central". Foundation Foods updates in April and October; SR Legacy stopped in 2018; Branded component data no longer updated by Label Insight after 2023-11-16. We download the CSV (no key needed); the API (data.gov key) is not used. Downloads: https://fdc.nal.usda.gov/download-datasets/ |
+| 21 | USDA FoodData Central (Foundation Foods first) | CC0 1.0 / public domain | fdc.nal.usda.gov home page and API guide | No permission needed; USDA asks to credit "FoodData Central". Foundation Foods updates in April and October; SR Legacy stopped in 2018; Branded component data no longer updated by Label Insight after 2023-11-16. We download the CSV (no key needed); the API (data.gov key) is not used. Downloads: https://fdc.nal.usda.gov/download-datasets/. In use (T4.3): Foundation Foods CSV, release 2026-04-30, downloaded 2026-10-19; the home page, read the same day, says the data are public domain, published under CC0 1.0, and asks users to list FoodData Central as the source (credit lines at the top of `data/usda_foods.csv` and under "Food data" in `ATTRIBUTION.md`). |
 
 ## Excluded
 
