@@ -223,7 +223,7 @@ def test_an_unknown_food_is_not_found_with_suggestions():
     assert "Did you mean" in result.message
 
 
-@pytest.mark.parametrize("query", ["whey protein", "tofu", "xyzzy", "!!!"])
+@pytest.mark.parametrize("query", ["whey protein", "tofu", "xyzzy"])
 def test_a_food_not_in_the_table_is_not_found_without_suggestions(query):
     """Nothing close: "not found", no suggestions, and a hint to use a plainer name."""
     result = lookup(query)
@@ -248,13 +248,32 @@ def test_invalid_grams_give_an_error_result(grams):
 
 
 @pytest.mark.parametrize(
-    "name", ["", "   ", "a", " a ", "x" * (config.FOOD_MAX_NAME_CHARS + 1), None, 5]
+    "name",
+    [
+        "",
+        "   ",
+        "a",
+        " a ",
+        "a.",
+        "-a",
+        "a a",
+        "!!!",
+        "x" * (config.FOOD_MAX_NAME_CHARS + 1),
+        None,
+        5,
+    ],
 )
 def test_invalid_food_names_give_an_error_result(name):
-    """Empty, one-letter, too long and non-text names are refused with a clear message."""
+    """Empty, one-letter (also after punctuation), too long and non-text names are refused."""
     result = lookup(name)
     assert result.status == "invalid"
     assert "name of one food" in result.message
+
+
+@pytest.mark.parametrize("name", ["of", "oats", "a oats"])
+def test_a_two_letter_word_is_enough(name):
+    """The minimum applies to the longest word: short words beside a real one are fine."""
+    assert lookup(name).status != "invalid"
 
 
 def test_the_error_message_does_not_repeat_the_input():

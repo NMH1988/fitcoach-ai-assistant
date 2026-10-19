@@ -115,7 +115,8 @@ USDA_CHANGES = (
 )
 
 # lookup_food_nutrition: argument limits and fuzzy name matching (rapidfuzz scores, 0-100).
-# A one-letter name matches by chance ("a" scores 100 on "Eggs, Grade A, ..."), so two at least.
+# A one-letter name matches by chance ("a" scores 100 on "Eggs, Grade A, ..."), so the name, and
+# its longest word once punctuation is dropped, must have at least this many characters.
 FOOD_MIN_NAME_CHARS = 2
 FOOD_MAX_NAME_CHARS = 100
 # Grams per lookup; below 0.1 g every value rounds to zero.

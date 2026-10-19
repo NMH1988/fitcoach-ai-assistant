@@ -218,9 +218,8 @@ def _scale(food: Food, grams: float) -> Nutrients:
     )
 
 
-def _invalid_message(error: ValidationError) -> str:
-    """Explain which argument is wrong, without repeating what was sent."""
-    fields = {str(e["loc"][0]) for e in error.errors() if e["loc"]}
+def _invalid_message(fields: set[str]) -> str:
+    """Explain which arguments are wrong, without repeating what was sent."""
     parts = []
     if "food" in fields:
         parts.append(
@@ -245,11 +244,17 @@ def lookup_food_nutrition(
     try:
         args = FoodLookupArgs(food=food, grams=grams)
     except ValidationError as exc:
-        return FoodLookupResult(status="invalid", message=_invalid_message(exc))
+        fields = {str(e["loc"][0]) for e in exc.errors() if e["loc"]}
+        return FoodLookupResult(status="invalid", message=_invalid_message(fields))
+
+    query = _normalise(args.food)
+    # The minimum also applies after punctuation is dropped: "a." or "a a" would otherwise match
+    # "Eggs, Grade A" by chance.
+    if max((len(word) for word in query.split()), default=0) < config.FOOD_MIN_NAME_CHARS:
+        return FoodLookupResult(status="invalid", message=_invalid_message({"food"}))
 
     foods = load_food_table() if table is None else table
-    query = _normalise(args.food)
-    ranked = _rank(query, foods) if query else []
+    ranked = _rank(query, foods)
     limit = config.FOOD_MAX_ALTERNATIVES
 
     if not ranked or ranked[0][1] < config.FOOD_MATCH_MIN_SCORE:
