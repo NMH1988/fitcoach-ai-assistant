@@ -8,6 +8,7 @@ from src import config
 from src.tools import food as food_module
 from src.tools.food import (
     Food,
+    FoodLookupArgs,
     FoodTableError,
     load_food_table,
     lookup_food_nutrition,
@@ -307,6 +308,13 @@ def test_a_bad_name_and_bad_grams_are_reported_together():
     assert result.status == "invalid"
     assert "name of one food" in result.message
     assert "number of grams" in result.message
+
+
+def test_the_schema_description_states_the_word_rule():
+    """The word rule is not in the JSON schema, so the food description the model sees says it."""
+    schema = FoodLookupArgs.model_json_schema()["properties"]["food"]
+    assert schema["minLength"] == config.FOOD_MIN_NAME_CHARS
+    assert "at least one real word" in schema["description"]
 
 
 def test_the_name_message_explains_the_word_rule():

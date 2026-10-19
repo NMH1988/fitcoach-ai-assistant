@@ -63,10 +63,12 @@ class FoodLookupArgs(BaseModel):
     food: str = Field(
         min_length=config.FOOD_MIN_NAME_CHARS,
         max_length=config.FOOD_MAX_NAME_CHARS,
-        # A bare "chicken" or "rice" matches one variant chosen by name, not by nutrition.
+        # A bare "chicken" or "rice" matches one variant chosen by name, not by nutrition. The word
+        # rule below is not in the JSON schema the model sees, so the description states it.
         description=(
-            "One food in plain English, as specific as possible (cut, form, raw or cooked), "
-            "e.g. 'chicken breast skinless raw' or 'rolled oats'."
+            "One food in plain English, with at least one real word (2 or more letters), as "
+            "specific as possible (cut, form, raw or cooked), e.g. 'chicken breast skinless raw' "
+            "or 'rolled oats'."
         ),
     )
     # Strict: a JSON number only (no strings or booleans); an int is accepted.
