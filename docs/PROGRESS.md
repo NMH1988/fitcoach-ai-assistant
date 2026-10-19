@@ -15,6 +15,30 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-19 · T1.2 OpenRouter clients and error mapping · #<PR> (closes #2)
+- **Brief:** core requirement 4 (LangChain with OpenRouter; error handling).
+- **What:**
+  - `src/llm.py` (new): `build_chat_model()` (`ChatOpenAI` on OpenRouter's base URL, allowlisted model only, `max_tokens` clamped to `MAX_TOKENS_CAP`, reasoning effort, timeout, retries, Chat Completions forced) and `build_embeddings()` (`OpenAIEmbeddings`, `qwen/qwen3-embedding-8b`, `check_embedding_ctx_length=False`). Both take the key from `get_api_key()` unless one is passed, and an optional `http_client` that the tests use for a mocked transport.
+  - Error mapping: `LLMError` and one subclass each for 401, 402, 429, timeout (ours or a 408), 5xx and an unreachable service, plus a generic one; each has a fixed message. A 200 reply that carries an error or no result (the provider failed mid-request) counts as "unavailable". Callers wrap a call in `with mapped_errors():`.
+  - `src/config.py`: `REASONING_EFFORT = "low"`, `LLM_TIMEOUT_SECONDS = 60`, `LLM_MAX_RETRIES = 2` (owner's choice).
+  - `scripts/live_check_llm.py` (new): the owner's live check O5, one real chat and one real embedding call.
+  - `pyproject.toml`: `openai==3.35.1` pinned (used directly; its retry policy is what the tests check) and `httpx2==2.14.0` in the dev extra (the tests' mock transport); both listed in `docs/ARCHITECTURE.md` section 12.
+  - Tests: `tests/test_llm.py` (settings, what goes on the wire, each status and timeout mapped, retry counts, malformed 200 replies, a server that echoes the key), `tests/test_live_check_llm.py` (the script with fake clients). 94 tests pass, coverage 99% (`pytest --cov=.`).
+  - Docs: `docs/ARCHITECTURE.md` sections 3, 10, 12 and 14; `docs/SECURITY.md` key row; `docs/TESTING.md` how to run the live check; T1.1 marked done in the plan (PR #21 had merged).
+- **Why:** retries are left to the OpenAI SDK (it already retries 408, 409, 429, 5xx and timeouts with back-off and does not retry 401/402 unless the server sends `x-should-retry: true`), so we only set the bound. Errors are mapped by the SDK's base classes, which covers both chat (langchain re-wraps them as subclasses) and embeddings (raw SDK errors). Fixed messages, raised `from None`, mean nothing from the server's reply can reach the user or a traceback.
+- **Decisions & gotchas:**
+  - The SDK (openai 3.35) uses `httpx2`, not `httpx`; mocks must be `httpx2.MockTransport` (BSD-3-Clause, pulled in by openai). Tests patch the SDK's `time.sleep` so retries run instantly.
+  - `use_responses_api=False` is set on purpose: langchain picks the Responses API for some model names, and OpenRouter is used through Chat Completions.
+  - `ChatOpenAI` sends `max_tokens` as `max_completion_tokens`; no `temperature` is sent (gpt-5).
+  - 401 and 402 now have separate messages (the ticket's criterion), so `docs/ARCHITECTURE.md` section 10 was updated.
+  - Malformed replies: langchain raises `ValueError`/`KeyError`/`TypeError` for them, so `mapped_errors()` maps those types only when the innermost frame is in `openai` or `langchain_openai`; the same errors from the caller's code pass through unchanged.
+  - Accepted risk: the SDK honours a server's `Retry-After` up to 2 minutes per retry, so one call can wait about 7 minutes at worst, and requests abandoned after our timeout may still be billed. Lower `LLM_MAX_RETRIES` or the timeout if that matters in practice.
+  - `mapped_errors()` uses `from None`: the original error is hidden from tracebacks but is still on `__context__`, and its request holds the key (a test shows it). Never log or show it; written into `docs/SECURITY.md`.
+  - The live check also fails if the reply used more tokens than `max_tokens`.
+  - Live check O5 run by the owner on 2026-10-19: both calls succeeded (chat 16 in / 86 out tokens, 94 reasoning reported; embedding 4096 dimensions), recorded in `docs/TESTING.md`. Reasoning tokens reported above output tokens: T5.1 must check how OpenRouter counts and bills them. The reply stayed far under the cap, so the cap being enforced is not shown, only accepted.
+  - Code review (round 1, before the PR): 408 mapped to the timeout error, malformed replies mapped, `openai` and `httpx2` pinned, the `__context__` caveat and the real worst-case wait documented.
+- **Follow-ups:** T5.1 checks how reasoning tokens are counted in the cost; T3.1 shows the mapped messages and the missing-key message in the UI (the 401 message points to the local secrets file; revisit if "bring your own key" is built); T2.3 uses `build_embeddings()`.
+
 ## 2026-10-19 · T1.1 Project skeleton, config and CI · #21 (closes #1)
 - **Brief:** core requirement 4 (technical base); CI as in Sprint 1.
 - **What:**

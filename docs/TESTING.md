@@ -35,4 +35,10 @@ No evaluation has been run yet.
 
 Record only what was actually run and observed: date, model, what was checked, result.
 
-None yet.
+How to run the T1.2 check (O5): from the repo root, with the key set up as in the README, `python scripts/live_check_llm.py` (on Windows without an activated venv: `.venv\Scripts\python.exe scripts/live_check_llm.py`). It prints the model, reply length, token use and embedding size (never the key), or the mapped error.
+
+| Date | Ticket | What was checked | Result |
+|---|---|---|---|
+| 2026-10-19 | T1.2 (O5) | One real chat call (`openai/gpt-5-mini`, reasoning effort `low`, `max_tokens` 4000) and one real embedding call (`qwen/qwen3-embedding-8b`, raw text) through OpenRouter, run by the owner | Both succeeded. Chat: 138-character reply, 16 input / 86 output tokens, 94 reasoning tokens reported. Embedding: 4096 dimensions. OpenRouter accepted `max_completion_tokens`, `reasoning_effort` and raw-text embedding input. |
+
+Notes on the T1.2 run: the reported reasoning tokens (94) are more than the output tokens (86), so OpenRouter's `completion_tokens` may not include reasoning; T5.1 must check how reasoning tokens are billed before computing cost. The reply was far below `max_tokens`, so this run does not show that the cap is enforced, only that the parameter is accepted.

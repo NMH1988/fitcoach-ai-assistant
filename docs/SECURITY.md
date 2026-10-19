@@ -18,7 +18,7 @@ This is a student portfolio project. If you find a security problem, contact the
 | Threat | Control | Where |
 |---|---|---|
 | Key leaked in the repo | Secrets files gitignored; only a placeholder example committed; GitHub secret scanning and push protection on | `.gitignore`, repo settings |
-| Key leaked by the app | Read only through `get_api_key()`; never logged, shown, stored in session state or put in errors | `src/config.py` |
+| Key leaked by the app | Read only through `get_api_key()`; never logged, shown, stored in session state or put in errors; API errors are replaced by fixed messages with the original dropped from the traceback (tested with a server that echoes the key); never log or show `LLMError.__context__` or an SDK error's `.request`, which hold the key | `src/config.py`, `src/llm.py` |
 | Strangers spending the key on a public deploy | "Bring your own key" or access gate plus spending limit; local only until then | `docs/DEPLOYMENT.md` |
 | Prompt injection in user input | Input guard (patterns, length); user text delimited in the user message, never in the system prompt; attack and benign test strings | `src/guard.py`, prompts |
 | Indirect injection in retrieved text | Retrieved chunks delimited as data; the system prompt says to ignore instructions inside them; only approved, licence-checked sources are indexed | `src/chat.py`, `docs/SOURCES.md` |

@@ -25,8 +25,17 @@ DEFAULT_ANSWER_MODEL = "openai/gpt-5-mini"
 QUERY_TRANSLATION_MODEL = "openai/gpt-5-nano"
 EMBEDDING_MODEL = "qwen/qwen3-embedding-8b"
 
+# gpt-5 reasoning effort for every chat call: answers are grounded in retrieved sources, so "low"
+# keeps cost and latency down without hurting them (owner's choice in T1.2).
+REASONING_EFFORT = "low"
+# Seconds one model or embedding request may take before it counts as a timeout.
+LLM_TIMEOUT_SECONDS = 60
+# Retries after a 408, 429, 5xx or a timeout; 401 and 402 are not retried by default. With the
+# timeout above this bounds one call, to about 7 minutes at worst: the SDK also honours a server's
+# Retry-After, up to 2 minutes per retry.
+LLM_MAX_RETRIES = 2
+
 # The token budget, input length and rate limits below are the values that worked in Sprint 1.
-# The reasoning effort setting comes with the model clients (T1.2).
 
 # gpt-5 models spend reasoning tokens from this budget too, so keep it generous: a low budget can
 # be used up by thinking alone and return no text (learned in Sprint 1).

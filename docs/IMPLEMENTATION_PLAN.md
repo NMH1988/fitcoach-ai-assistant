@@ -31,7 +31,7 @@ The owner writes these first; Claude reviews (`.claude/rules/workflow.md`).
 | O2 | Draft the evaluation questions (about 10-15), each with the source(s) it should find and what a good answer contains | T3.3, T6.1 | todo |
 | O3 | Approve the calorie floor and the macro ranges; Claude proposes them with the exact source passages | T4.2 | todo |
 | O4 | If Europe PMC still has no copy of source #1, save its XML or PDF by hand from the publisher page into `data/raw/` | T2.1 | todo |
-| O5 | Live checks with the real key: T1.2 (one chat and one embedding call), T2.3 (real index build), T6.1 (evaluation run) | T1.2, T2.3, T6.1 | todo |
+| O5 | Live checks with the real key: T1.2 (one chat and one embedding call), T2.3 (real index build), T6.1 (evaluation run) | T1.2, T2.3, T6.1 | in progress (T1.2 done 2026-10-19) |
 | O6 | Get the course repository URL and confirm how the reviewers read it (files only, or through PRs) | T6.2 | todo |
 
 ## Overview and order
@@ -40,8 +40,8 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 | Ticket | Issue | Title | Size | Depends on | Target | Status |
 |---|---|---|---|---|---|---|
-| T1.1 | #1 | Project skeleton, config and CI | S | - | 10-20 | in review |
-| T1.2 | #2 | OpenRouter clients and error mapping | S | T1.1 | 10-20 | todo |
+| T1.1 | #1 | Project skeleton, config and CI | S | - | 10-20 | done |
+| T1.2 | #2 | OpenRouter clients and error mapping | S | T1.1 | 10-20 | in review |
 | T1.3 | #3 | Input guard and rate limit | S | T1.1 | 10-21 | todo |
 | T2.1 | #4 | Source manifest, download script, attribution | M | T1.1, O4 | 10-21 | todo |
 | T2.2 | #5 | Parse article XML and chunk with metadata | M | T2.1 | 10-22 | todo |
@@ -69,7 +69,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 ## Epic 1: Foundation
 
-### T1.1 Project skeleton, config and CI (S) · status: in review · issue #1
+### T1.1 Project skeleton, config and CI (S) · status: done · issue #1
 **Serves:** core 4 (technical base); CI as in Sprint 1.
 **Depends on:** -
 **Acceptance criteria**
@@ -80,13 +80,13 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] `CLAUDE.md` "Commands" lists the real commands.
 **Notes:** check every new package's licence (`.claude/rules/copyright.md` rule 9). Add `dependabot.yml` as in Sprint 1.
 
-### T1.2 OpenRouter clients and error mapping (S) · status: todo · issue #2
+### T1.2 OpenRouter clients and error mapping (S) · status: in review · issue #2
 **Serves:** core 4 (LangChain with OpenRouter; error handling).
 **Depends on:** T1.1
 **Acceptance criteria**
-- [ ] `src/llm.py` builds the chat model (`ChatOpenAI` with OpenRouter's base URL, model from the allowlist, capped `max_tokens`) and the embeddings client (`OpenAIEmbeddings`, `qwen/qwen3-embedding-8b`, `check_embedding_ctx_length=False`) - verified by unit tests on the built objects' settings.
-- [ ] 401, 402, 429, timeout and 5xx map to distinct user-readable errors; retries are bounded; the key never appears in an error message - verified by unit tests with a mocked transport.
-- [ ] One real chat call and one real embedding call succeed - owner live check (O5), recorded in `docs/TESTING.md`.
+- [x] `src/llm.py` builds the chat model (`ChatOpenAI` with OpenRouter's base URL, model from the allowlist, capped `max_tokens`) and the embeddings client (`OpenAIEmbeddings`, `qwen/qwen3-embedding-8b`, `check_embedding_ctx_length=False`) - verified by unit tests on the built objects' settings.
+- [x] 401, 402, 429, timeout and 5xx map to distinct user-readable errors; retries are bounded; the key never appears in an error message - verified by unit tests with a mocked transport.
+- [x] One real chat call and one real embedding call succeed - owner live check (O5) with `python scripts/live_check_llm.py` on 2026-10-19, recorded in `docs/TESTING.md`.
 
 ### T1.3 Input guard and rate limit (S) · status: todo · issue #3
 **Serves:** core 4 (input validation), Medium 3, AC-11.
