@@ -84,8 +84,27 @@ def test_fixture_without_cc_by_or_cc0_is_refused(name):
         "</license-p></license>",
         '<license><license-p><uri xlink:href="http://creativecommons.org/licenses/by/4.0/">CC BY'
         "</uri></license-p></license>",
+        '<license xlink:href="https://creativecommons.org/licenses/by/4.0/deed.en_US"></license>',
+        '<license xlink:href="https://creativecommons.org/licenses/by/4.0/?ref=chooser-v1">'
+        "</license>",
+        '<license xlink:href="https://creativecommons.org/licenses/by/4.0/#ref-appropriate-credit">'
+        "</license>",
+        # Ordinary words that only look like the restrictive ones.
+        '<license xlink:href="https://creativecommons.org/licenses/by/4.0/"><license-p>Reuse is '
+        "permitted by anyone, including commercially, provided the work is cited (see Nondas "
+        "et al.).</license-p></license>",
     ],
-    ids=["license-href", "ali-ref", "ext-link-legalcode", "plain-text-deed", "uri"],
+    ids=[
+        "license-href",
+        "ali-ref",
+        "ext-link-legalcode",
+        "plain-text-deed",
+        "uri",
+        "deed-with-region",
+        "chooser-query",
+        "fragment",
+        "harmless-wording",
+    ],
 )
 def test_cc_by_is_found_in_every_markup(block):
     """CC BY 4.0 is read from an href, an ali:license_ref, a link or plain text."""
@@ -131,6 +150,17 @@ def test_cc0_alone_is_accepted():
         "Creative Commons Attribution-NonCommercial licence.</license-p></license>",
         '<license xlink:href="https://creativecommons.org/licenses/by/4.0/"><license-p>'
         "All rights reserved.</license-p></license>",
+        '<license xlink:href="https://creativecommons.org/licenses/by/4.0/"><license-p>'
+        "This article is licensed under CC BY-NC 4.0.</license-p></license>",
+        '<license xlink:href="https://creativecommons.org/licenses/by/4.0/"><license-p>'
+        "Creative Commons Attribution Non Commercial licence.</license-p></license>",
+        '<license xlink:href="https://creativecommons.org/licenses/by/4.0/"><license-p>'
+        "Attribution-Non‐Commercial-No‑Derivatives licence.</license-p></license>",
+        '<license xlink:href="https://creativecommons.org/licenses/by/4.0/"><license-p>'
+        "Licensed under CC BY SA 4.0.</license-p></license>",
+        '<license license-type="cc-by-nd" xlink:href="https://creativecommons.org/licenses/by/4.0/">'
+        "</license>",
+        '<license xlink:href="https://creativecommons.org/licenses/by/3.0/us/"></license>',
         '<license xlink:href="https://example.org/our-own-licence"></license>',
         "",
     ],
@@ -146,6 +176,12 @@ def test_cc0_alone_is_accepted():
         "second-license-publisher-ref",
         "noncommercial-wording",
         "all-rights-reserved-wording",
+        "by-nc-abbreviation",
+        "non-commercial-with-space",
+        "unicode-hyphens",
+        "by-sa-with-space",
+        "license-type-nd",
+        "ported-licence",
         "other-url",
         "none",
     ],

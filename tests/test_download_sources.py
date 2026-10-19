@@ -292,3 +292,16 @@ def test_a_file_that_cannot_be_written_is_reported(tmp_path):
     )
     assert report.failed and report.failed[0][0] == "1"
     assert "could not write the file" in report.failed[0][1]
+
+
+def test_an_older_copy_that_cannot_be_deleted_is_reported(tmp_path):
+    """A refused article whose older copy cannot be deleted is reported, not a crash."""
+    locked = tmp_path / "PMC1.xml"
+    locked.mkdir()  # a folder in its place: unlink fails as on a locked Windows file
+    (locked / "keep").write_text("x", encoding="utf-8")
+    fake = FakeFetch(default=(FIXTURES / "cc_by_nc.xml").read_bytes())
+    report = download_sources.download_all(
+        [made_up_source("1", "PMC1")], tmp_path, fetch=fake, sleep=FakeSleep()
+    )
+    assert [sid for sid, _ in report.refused] == ["1"]
+    assert report.failed and "could not delete the older copy" in report.failed[0][1]

@@ -102,8 +102,13 @@ def download_all(
         path = raw_path(source, raw_dir)
         reason = check_article(xml, source)
         if reason:
-            path.unlink(missing_ok=True)
             report.refused.append((source.id, reason))
+            try:
+                path.unlink(missing_ok=True)
+            except OSError as exc:
+                report.failed.append(
+                    (source.id, f"could not delete the older copy ({type(exc).__name__})")
+                )
             continue
         try:
             path.write_bytes(xml)

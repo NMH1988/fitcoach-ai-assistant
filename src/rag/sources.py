@@ -7,6 +7,7 @@ article XML is used only if its own licence block says CC BY or CC0 and matches 
 
 import json
 import re
+import urllib.parse
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,9 +34,13 @@ _XLINK_HREF = "{http://www.w3.org/1999/xlink}href"
 _CC_URL_IN_TEXT = re.compile(r"(?:https?://)?(?:www\.)?creativecommons\.org/[^\s<>\"')]+", re.I)
 _CC_BY = re.compile(r"creativecommons\.org/licenses/by/(\d+\.\d+)")
 _CC0 = re.compile(r"creativecommons\.org/publicdomain/zero/1\.0")
-# Licence wording that contradicts CC BY or CC0, e.g. a CC BY link next to "NonCommercial" text.
+# Licence wording that contradicts CC BY or CC0, e.g. a CC BY link next to "NonCommercial" or
+# "CC BY-NC" text. `\W?` accepts any separator or none: a hyphen (also Unicode ones such as U+2010,
+# which Wiley uses), a space or nothing.
 _RESTRICTIVE_WORDING = re.compile(
-    r"non-?commercial|no-?deriv\w*|share-?alike|all rights reserved", re.IGNORECASE
+    r"\bnon\W?commercial|\bno\W?deriv\w*|\bshare\W?alike|\ball\W+rights\W+reserved"
+    r"|\bby\W?(?:nc|nd|sa)\b",
+    re.IGNORECASE,
 )
 
 
@@ -123,11 +128,12 @@ class LicenseRefused(ValueError):
 
 
 def _normalise_cc_url(url: str) -> str:
-    """Reduce a Creative Commons URL to host and path, without scheme, `www.` or deed suffix."""
+    """Reduce a Creative Commons URL to host and path: no scheme, `www.`, query or deed suffix."""
     value = url.strip().casefold().rstrip(".,;")
+    value = re.sub(r"[?#].*$", "", value)  # e.g. "?ref=chooser-v1" from CC's licence chooser
     value = re.sub(r"^https?://", "", value).removeprefix("www.")
     value = value.rstrip("/")
-    value = re.sub(r"/(legalcode|deed)(\.[a-z-]+)?$", "", value)
+    value = re.sub(r"/(legalcode|deed)(\.[a-z_-]+)?$", "", value)  # also "deed.en_US"
     return value.rstrip("/")
 
 
@@ -163,7 +169,9 @@ def read_license(article: ET.Element) -> License:
         for value in _license_identifiers(el):
             if "creativecommons.org" not in value.casefold():
                 raise LicenseRefused(f"the licence is not a Creative Commons licence ({value})")
-        if words := _RESTRICTIVE_WORDING.search(" ".join(el.itertext())):
+        # The license-type attribute counts too (e.g. "cc-by-nc").
+        text = " ".join([el.get("license-type", ""), *el.itertext()])
+        if words := _RESTRICTIVE_WORDING.search(text):
             raise LicenseRefused(f"the licence text says {words.group(0)!r}")
     urls = set().union(*(_license_urls(el) for el in elements))
     by_versions = {m.group(1) for url in urls if (m := _CC_BY.fullmatch(url))}
@@ -211,6 +219,11 @@ def _md(text: str) -> str:
     return re.sub(r"([\\`*_\[\]<>])", r"\\\1", text)
 
 
+def _url(url: str) -> str:
+    """Percent-encode a URL so no character in it can be read as Markdown or HTML."""
+    return urllib.parse.quote(url, safe=":/%")
+
+
 def _sentence(text: str) -> str:
     """End the text with a full stop unless it already ends with one."""
     return text if text.endswith(".") else f"{text}."
@@ -237,9 +250,9 @@ def render_attribution(sources: list[Source]) -> str:
     for s in sources:
         lines.append(
             f"- **[{s.id}]** {_md(_sentence(', '.join(s.authors)))} *{_md(s.title)}*. "
-            f"{_md(s.journal)}, {s.year}. DOI: {s.doi} ({s.url}). "
+            f"{_md(s.journal)}, {s.year}. DOI: {_md(s.doi)} ({_url(s.url)}). "
             f"{_md(_sentence(s.copyright_notice))} "
-            f"Licensed under {s.license} ({s.license_url}). "
+            f"Licensed under {s.license} ({_url(s.license_url)}). "
             f"Changes: {CHANGES_MADE}. "
             "No endorsement by the authors or publisher is implied."
         )

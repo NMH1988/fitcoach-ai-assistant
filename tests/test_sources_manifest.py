@@ -27,7 +27,7 @@ def approved_rows() -> dict[str, dict]:
             rows[match.group(1)] = {
                 "tier": tier,
                 "year": int(re.match(r"\d{4}", cells[2]).group(0)),
-                "license": re.search(r"CC BY \d\.\d", line).group(0),
+                "license": re.search(r"CC BY \d\.\d|CC0 1\.0", line).group(0),
                 "pmcid": re.search(r"PMC\d+", cells[-1]).group(0),
             }
     return rows

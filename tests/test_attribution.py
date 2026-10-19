@@ -115,3 +115,14 @@ def test_main_returns_1_for_an_invalid_manifest(monkeypatch, tmp_path, capsys):
     assert generate_attribution.main() == 1
     assert "Error:" in capsys.readouterr().err
     assert not target.exists()
+
+
+def test_dois_and_urls_cannot_inject_markdown():
+    """A DOI with "<" or "*" is escaped as text and percent-encoded in the link."""
+    doi = "10.1002/(SICI)1097-4636<45:AID-JBM1>*x"
+    line = entry_line(
+        render_attribution([made_up_source(doi=doi, url=f"https://doi.org/{doi}")]), "7"
+    )
+    assert r"DOI: 10.1002/(SICI)1097-4636\<45:AID-JBM1\>\*x " in line
+    assert "(https://doi.org/10.1002/%28SICI%291097-4636%3C45:AID-JBM1%3E%2Ax)" in line
+    assert "<45" not in line.replace(r"\<45", "")
