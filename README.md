@@ -4,10 +4,19 @@ A chatbot that answers nutrition questions for adults who do recreational streng
 
 **Status:** planning. No code yet. Built as the Sprint 2 project of the Turing College AI Engineering course, deadline 2026-11-02.
 
-- Project brief and decisions: [`docs/BRIEF.md`](docs/BRIEF.md)
-- Knowledge base sources and their licences: [`docs/SOURCES.md`](docs/SOURCES.md)
-- Deployment notes: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
-- Progress log: [`docs/PROGRESS.md`](docs/PROGRESS.md)
+## Documentation
+
+| Document | Contents |
+|---|---|
+| [`docs/BRIEF.md`](docs/BRIEF.md) | Summary of the course brief |
+| [`docs/PRD.md`](docs/PRD.md) | What we build: features, guardrails, acceptance criteria |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Technical design and decisions |
+| [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) | Tickets, order and status |
+| [`docs/TESTING.md`](docs/TESTING.md) | Test strategy and evaluation results |
+| [`docs/SECURITY.md`](docs/SECURITY.md) | Threat model and controls |
+| [`docs/SOURCES.md`](docs/SOURCES.md) | Knowledge base sources and their licences |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Deployment notes |
+| [`docs/PROGRESS.md`](docs/PROGRESS.md) | What each change did and why |
 
 Planned stack: Python, Streamlit, LangChain, OpenRouter, Chroma, USDA FoodData Central.
 

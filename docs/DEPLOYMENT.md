@@ -39,6 +39,22 @@ Either way:
 4. Deploy, open the URL, and run the checks below.
 5. Optional: set the repo variable `APP_URL` and add the Sprint 1 style CD workflow that waits for CI on `main` and then calls `<APP_URL>/_stcore/health`.
 
+## Copying the repo to the course repository
+
+The work happens in `NMH1988/nutrition-ai-assistant`; when it is finished, it is copied into the repository the course provides, where the reviewers read it. Only files and commit history travel; issues, pull requests, PR descriptions and review comments stay behind.
+
+Before copying:
+1. `docs/IMPLEMENTATION_PLAN.md` shows every ticket's final status, and `docs/PROGRESS.md` has an entry for every merged PR.
+2. The README explains how to install, download the sources, build the index and run the app, and links the docs.
+3. CI is green on `main`; no secrets in the history (GitHub secret scanning shows no alerts).
+4. Docs refer to tickets by ID (`T1.2`); any remaining `#<n>` issue links are full URLs to the personal repo, or removed.
+
+Copying (keeps the full history):
+1. Clone the course repository and check that it is empty, or note what the course put there (e.g. its own README) so nothing of theirs is overwritten without asking.
+2. From the personal repo: `git remote add course <course repo URL>` and `git push course main` (add `--force` only if the course repo is empty apart from a placeholder and the course allows it).
+3. In the course repo: check that the README renders and CI runs. If the reviewers work through pull requests, disable or delete `.github/workflows/pr-checks.yml` there: it fails any PR that does not close an issue, and the course repo has no issues.
+4. Update the repo links in `docs/BRIEF.md` and this file if the reviewers should only see the course repo.
+
 ## After each deploy
 
 - The app loads and answers one question with sources.

@@ -17,5 +17,6 @@ Closes #
 - [ ] No new content, or every new source is an Approved row in `docs/SOURCES.md` and `ATTRIBUTION.md` is updated
 - [ ] No secrets, personal data or raw source documents committed
 
-## PROGRESS.md
+## Records
 - [ ] Entry added at the top of `docs/PROGRESS.md`
+- [ ] Ticket status updated in `docs/IMPLEMENTATION_PLAN.md`; ticket ID in the PR title and commits

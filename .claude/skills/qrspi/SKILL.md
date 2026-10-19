@@ -10,15 +10,15 @@ Run the five phases **in order** for every coding task. Do not write or edit cod
 Trivial edits (typo, comment, formatting, a one-line config change) may collapse Q-R-S-P into a single sentence, but must still state the plan before editing.
 
 ## 1. Question
-First read `CLAUDE.md` (rules and the copyright policy), `docs/BRIEF.md` (the project brief) and `docs/PROGRESS.md`, and run `gh pr list --state open`, so the brief, earlier decisions, open work and follow-ups shape the questions. If the task touches the knowledge base, data, prompts, tests, fixtures or docs content, also read `docs/SOURCES.md`. If `gh` is not installed or not logged in, say so and go on with only the log. Then break the task into clarifying questions.
+First read `CLAUDE.md` and `.claude/rules/` (rules and the copyright policy), `docs/BRIEF.md` (what the course asks), `docs/PRD.md` (what we build), the ticket's entry in `docs/IMPLEMENTATION_PLAN.md` and `docs/PROGRESS.md`, and run `gh pr list --state open`, so the brief, earlier decisions, open work and follow-ups shape the questions. If the task touches the knowledge base, data, prompts, tests, fixtures or docs content, also read `docs/SOURCES.md`. If `gh` is not installed or not logged in, say so and go on with only the log. Then break the task into clarifying questions.
 - List every unknown that affects the solution: scope, inputs/outputs, edge cases, acceptance criteria, constraints, affected files.
 - If the task comes from a GitHub issue, read it (`gh issue view <n>`) and turn each acceptance criterion into at least one question. A ticket without testable acceptance criteria is a **needs the user** question: propose criteria and get them approved before going on.
-- Name the brief's requirement or optional task the ticket serves, or write "beyond the brief (owner's request)" for work it does not cover (read the full brief when the exact wording matters; ask the owner for it if it is not at hand). If the ticket, `docs/PLAN.md` or the prompts **contradict** the brief or the copyright policy, or a choice changes **what the product does** (which users it serves, what advice it gives, what data it keeps), list it as a **needs the user** question instead of inferring an answer.
+- Name the brief's requirement or optional task the ticket serves, or write "beyond the brief (owner's request)" for work it does not cover (read the full brief when the exact wording matters; ask the owner for it if it is not at hand). If the ticket, `docs/IMPLEMENTATION_PLAN.md` or the prompts **contradict** the brief, `docs/PRD.md` or the copyright policy, or a choice changes **what the product does** (which users it serves, what advice it gives, what data it keeps), list it as a **needs the user** question instead of inferring an answer.
 - Mark each question as **answerable from the code/docs** or **needs the user**.
 - Ask the user the "needs the user" questions and wait for answers before moving on, unless a sensible default exists; if so, state the default explicitly. A brief or policy contradiction, or a choice that changes what the product does, is never settled by a default: always ask. When the user requested the change, still flag it if it contradicts the brief or goes beyond it ("beyond the brief (owner's request)"); a requested change in line with the brief needs no second question.
 
 ## 2. Research
-Answer each question **using only facts from the codebase or provided documents** (files, `docs/PLAN.md`, `docs/PROGRESS.md`, `docs/SOURCES.md`, issues, README, the user's messages).
+Answer each question **using only facts from the codebase or provided documents** (files, `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/PROGRESS.md`, `docs/SOURCES.md`, issues, README, the user's messages).
 - Read the relevant files; run read-only commands (grep, tests, `git log`) as needed.
 - For each answer, cite the source (`path:line`, issue number, or document).
 - Never answer from assumption or memory. If the repo does not contain the answer, write "Not found in codebase" and either ask the user or record it as an explicit assumption.
@@ -41,8 +41,8 @@ Produce a detailed implementation plan from the slices.
 Execute the plan step by step.
 - Work one slice at a time; after each slice run `ruff check .`, `ruff format --check .` and `python -m pytest -q` and fix failures before continuing.
 - Mock all LLM, embedding and network calls in tests; never put API keys in code or the repo.
-- Use only approved sources from `docs/SOURCES.md`; follow the copyright policy in `CLAUDE.md`.
+- Use only approved sources from `docs/SOURCES.md`; follow the copyright policy in `.claude/rules/copyright.md`.
 - Give every new function, method and class (tests and fixtures included) a one-line docstring saying what it does (review checks this; no test enforces it).
 - Stay inside the plan. If new information invalidates it, stop, go back to the relevant phase, and update the plan.
-- Add an entry at the top of `docs/PROGRESS.md` (format at the top of that file) in the same PR: what changed, why, decisions/gotchas, follow-ups.
+- Add an entry at the top of `docs/PROGRESS.md` (format at the top of that file) in the same PR: what changed, why, decisions/gotchas, follow-ups. Update the ticket's status in `docs/IMPLEMENTATION_PLAN.md`. Name the ticket ID (e.g. `T1.2`) in the branch, commits and PR title.
 - Finish by reporting which acceptance criteria are met (with the test or check for each), what was verified, and anything not done, followed by a plain-language "what I did and why" walkthrough (each changed file, what changed, why that choice). Commit/push only when the user asks.

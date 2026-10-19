@@ -1,6 +1,6 @@
 # Knowledge base sources
 
-The approved list for the knowledge base and data, under the copyright policy in `CLAUDE.md`. Only sources listed under **Approved** may be used. Nothing from the **Excluded** list goes into the project.
+The approved list for the knowledge base and data, under the copyright policy in `.claude/rules/copyright.md`. Only sources listed under **Approved** may be used. Nothing from the **Excluded** list goes into the project.
 
 **Verification status.** On 2026-10-19 the licence statement of every approved article was read from the article itself: the article page on PubMed Central (which reproduces the publisher's copyright and licence statement) or, for #1, the publisher's article XML on tandfonline.com. All 20 articles and the correction to #18 are CC BY. CC0 links on some BioMed Central articles apply to the article's data, not its text. Re-check a licence if a source is replaced by a new version.
 

@@ -1,0 +1,38 @@
+# Testing
+
+How the project is tested, and where evaluation results and live checks are recorded. The short rules for writing tests are in `.claude/rules/testing.md`.
+
+## Test levels
+
+| Level | What | How |
+|---|---|---|
+| Unit | Pure logic: TDEE and macro calculators, calorie floor, unit conversion, profile validation, input guard, JATS parsing and chunking, metadata filters, RRF, citation formatting, token cost, PDF content | pytest; known-answer tests (e.g. TDEE for a fixed profile), conversions tested both ways, RRF on a hand-computed example |
+| Integration | The pipeline end to end without the network: ingest -> Chroma -> query translation -> hybrid retrieval -> answer step with tools | `DeterministicFakeEmbedding` (langchain-core); Chroma in-memory or in a temp dir; a scripted fake chat model that returns fixed rewrites, tool calls and answers |
+| UI | Visible behaviour of `app.py`: chat, sources, tool results, progress, settings, profile form, PDF button, error messages | `streamlit.testing.v1.AppTest` with the pipeline faked. This is our end-to-end level |
+| Live (manual) | Real models and the real index | Run by the owner; results recorded below, never in CI |
+
+Browser end-to-end tests (e.g. Playwright) are not planned: AppTest covers the UI logic, and the deadline is short.
+
+## Rules
+
+- No real network in tests: OpenRouter, embeddings and USDA are always faked. The suite passes with no API key; test keys are obvious fakes like `sk-test-not-a-real-key`.
+- Every ticket's acceptance criteria map to tests or to named manual checks listed in the PR.
+- Guard tests use attack strings and benign strings, so both missed attacks and false positives are caught.
+- Test fixtures use only approved sources or text we wrote ourselves.
+
+## CI
+
+`.github/workflows/ci.yml` (added in the setup ticket, as in Sprint 1) runs on every push to `main` and every PR: `ruff check .`, `ruff format --check .`, `pytest` with coverage, and `pip-audit`.
+
+## Evaluation
+
+- **System prompt and answers:** the owner drafts the evaluation questions; results go here.
+- **Retrieval:** a small set of questions with the source each should find, comparing vector-only, keyword-only and hybrid retrieval. This checks the hybrid search (Hard 1); it is not the full RAG evaluation (Hard 7).
+
+No evaluation has been run yet.
+
+## Live checks
+
+Record only what was actually run and observed: date, model, what was checked, result.
+
+None yet.

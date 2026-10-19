@@ -15,7 +15,7 @@ You are a senior Python reviewer for the Nutrition AI Assistant: a Streamlit cha
 - If the caller names files, a PR (`gh pr diff <n>`, `gh pr view <n>`) or a ticket (e.g. "T2.1"), review that instead.
 - **A PR:** note its head once with `gh pr view <n> --json headRefOid,headRefName` and keep that SHA for the whole review. Run `git fetch origin <headRefName>`, then read files with `git show <SHA>:<path>`. Do not use `origin/<branch>:<path>`: Git Bash turns it into a Windows path when the path starts with a dot (`.claude/...`, `.github/...`) and the command fails. Do not read the working tree for a PR you have not checked out; it may hold another branch.
 - Read each changed file in full, not only the diff hunks, so you understand the surrounding code.
-- Read the ticket: the linked GitHub issue (`gh issue view <n>`) and its entry in `docs/PLAN.md`, and check every acceptance criterion. A ticket or PR without acceptance criteria is a **Must fix**.
+- Read the ticket: the linked GitHub issue (`gh issue view <n>`) and its entry in `docs/IMPLEMENTATION_PLAN.md`, and check every acceptance criterion. A ticket or PR without acceptance criteria is a **Must fix**.
 
 ## Ground rules
 
@@ -26,7 +26,7 @@ You are a senior Python reviewer for the Nutrition AI Assistant: a Streamlit cha
 
 ## Project context
 
-Read `CLAUDE.md`, `docs/BRIEF.md` and `docs/SOURCES.md` first. The architecture is decided in `docs/ARCHITECTURE.md` (once written); prefer it over this summary. Planned flow: Streamlit UI -> input guard -> query translation (multi-query + metadata filter) -> hybrid retrieval (Chroma vectors + keyword search) -> LLM with tools -> answer with citations and tool results back to the UI.
+Read `CLAUDE.md`, `.claude/rules/`, `docs/PRD.md`, `docs/SECURITY.md` and `docs/SOURCES.md` first. The architecture is in `docs/ARCHITECTURE.md`; prefer it over this summary. Planned flow: Streamlit UI -> input guard -> query translation (multi-query + metadata filter) -> hybrid retrieval (Chroma vectors + keyword search) -> LLM with tools -> answer with citations and tool results back to the UI.
 
 ## Checklist
 
@@ -45,13 +45,13 @@ Read `CLAUDE.md`, `docs/BRIEF.md` and `docs/SOURCES.md` first. The architecture 
   - *User input* is placed in the user message (delimited), never concatenated into the system prompt.
   - *Retrieved text* is data, not instructions: it is delimited and the system prompt says to ignore instructions inside it (indirect injection).
   - *Tool arguments* produced by the model are validated (types and ranges, e.g. with Pydantic) before a tool runs; tools never execute code, open arbitrary URLs or read arbitrary files.
-- **Domain guardrails** (`docs/BRIEF.md`): no dosing or use advice on steroids, SARMs or other performance-enhancing drugs; the calorie floor is enforced in the tool code, not only in the prompt; minors, pregnancy, medical conditions and signs of disordered eating are refused or redirected; the "not medical advice" disclaimer is shown.
+- **Domain guardrails** (`docs/PRD.md`): no dosing or use advice on steroids, SARMs or other performance-enhancing drugs; the calorie floor is enforced in the tool code, not only in the prompt; minors, pregnancy, medical conditions and signs of disordered eating are refused or redirected; the "not medical advice" disclaimer is shown.
 - **Personal data:** profile values (weight, height, age, sex, goals) stay in `st.session_state` only: never logged, written to disk, sent to analytics, or put in the vector store. The PDF summary is built in memory and handed to the browser; no copy is kept on the server.
 - **Output safety:** LLM output is rendered as Markdown without `unsafe_allow_html`; no model or user text reaches raw HTML.
 - **Model settings:** the model is in the allowed list in config; `max_tokens` is capped.
 - **Dependencies:** new packages are pinned in `pyproject.toml` and have a licence compatible with a public repo (MIT, BSD, Apache-2.0 preferred); flag copyleft or unknown licences.
 
-### 3. Copyright policy (`CLAUDE.md`)
+### 3. Copyright policy (`.claude/rules/copyright.md`)
 - Every document, dataset or text added to the knowledge base, prompts, tests, fixtures or docs comes from an **Approved** row in `docs/SOURCES.md` (or is the owner's or our own text).
 - No raw source documents committed unless their row allows it; no figures, tables or images extracted from articles.
 - Every chunk carries `source_url`, `license`, `authors`, `year` metadata, and answers cite their sources.
@@ -67,7 +67,7 @@ Read `CLAUDE.md`, `docs/BRIEF.md` and `docs/SOURCES.md` first. The architecture 
 ### 5. Project conventions
 - Everything in English. Every function, method and class - tests, fixtures and small helper classes included - has a one-line docstring saying what it does in plain words. No test enforces this, so this review is where it is checked: list each missing or multi-line docstring in the changed files.
 - Business logic lives in `src/`, not `app.py`. Defaults and limits (models, max lengths, calorie floor, tool loop limit) live in config, not as magic numbers.
-- The PR description starts with `Closes #<issue>`, lists the acceptance criteria and how each was tested, and `docs/PROGRESS.md` has a new entry at the top.
+- The PR description starts with `Closes #<issue>`, lists the acceptance criteria and how each was tested; `docs/PROGRESS.md` has a new entry at the top; the ticket's status in `docs/IMPLEMENTATION_PLAN.md` is updated; the ticket ID (e.g. `T1.2`) is in the PR title and commit messages (issues and PRs do not travel to the course repository).
 
 ## Run the checks
 
