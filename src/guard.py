@@ -1,8 +1,9 @@
 """Input guard: cleans and checks each user message before any model or embedding call.
 
-Checks run in this order: empty, too long, prompt-injection patterns, then the per-session rate
-limit. Only a message that passes every check counts against the rate limit (owner's choice in
-T1.3), and a rejected message never reaches a model: callers go through `run_guarded()`.
+Checks run in this order: too long (raw), empty, too long (cleaned), prompt-injection
+patterns, then the per-session rate limit. Only a message that passes every check counts
+against the rate limit (owner's choice in T1.3), and a rejected message never reaches a
+model: callers go through `run_guarded()`.
 """
 
 import math
@@ -88,10 +89,14 @@ _FOLDED_PATTERNS = [
     r"(?:safety|content) (?:guidelines|restrictions|rules|filters?)\b",
     r"\byour new instructions\b",
     # Asking for the hidden prompt.
-    r"\b(?:system|developer|hidden|secret) prompt\b",
+    # "Prompt" must be a noun: "does the immune system prompt inflammation?" passes.
+    r"\b(?:the|your|a|this|that|its|of|show|print|reveal|repeat|output|display|leak|dump"
+    r"|give me|tell me) (?:system|developer|hidden|secret) prompt\b",
     r"\bdeveloper message\b",
-    r"\b(?:hidden|secret) instructions\b",
-    r"\byour (?:initial|original|hidden|secret|system) (?:instructions|prompt|message)\b",
+    rf"\b(?:hidden|secret) instructions\b{_NOT_HOW_TO}",
+    r"\byour (?:initial|original|hidden|secret|system) (?:instructions|prompt)\b",
+    # Not "your original message": a follow-up may quote an earlier answer.
+    r"\byour (?:hidden|secret|system) message\b",
     r"\b(?:reveal|repeat|print|show|output|display|leak|dump|recite|tell me) (?:me )?"
     rf"(?:all )?(?:of )?your (?:instructions|prompt|configuration|rules|guidelines)\b{_NOT_HOW_TO}",
     rf"\bwhat (?:are|were) your instructions\b(?! to me){_NOT_HOW_TO}",
@@ -103,7 +108,8 @@ _FOLDED_PATTERNS = [
     r"\byou(?: are|'re|re) now (?:dan|unrestricted|unfiltered|uncensored|jailbroken|free)\b",
     r"\bfrom now on,? you(?: will| must| should| are|'re| have)? (?:ignore|disregard|forget"
     r"|answer as|respond as|reply as|act as|answer without|respond without|not follow"
-    r"|no longer|have no|dan\b|unrestricted|unfiltered)",
+    r"|no longer|have no (?:rules|restrictions|limits|filters|guidelines)|dan\b|unrestricted"
+    r"|unfiltered)",
     r"\b(?:developer|god|dan|debug|jailbreak|unrestricted|unfiltered|admin) mode\b",
     r"\bjailbr(?:eak|oken)\b",
     r"\bdo anything now\b",
@@ -135,9 +141,9 @@ _LINE_BREAKS = str.maketrans(dict.fromkeys("\r\x0b\x0c\x85\u2028\u2029", "\n"))
 # Curly apostrophes (smart punctuation on phones) become "'", which the patterns use.
 _APOSTROPHES = str.maketrans(dict.fromkeys("\u2018\u2019\u02bc", "'"))
 # Invisible characters outside the "C" categories: the combining grapheme joiner, Hangul fillers,
-# Khmer inherent vowels, Mongolian and other variation selectors.
+# Khmer inherent vowels, the blank Braille pattern, Mongolian and other variation selectors.
 _INVISIBLE = frozenset(
-    [0x034F, 0x115F, 0x1160, 0x17B4, 0x17B5, 0x3164, 0xFFA0]
+    [0x034F, 0x115F, 0x1160, 0x17B4, 0x17B5, 0x2800, 0x3164, 0xFFA0]
     + list(range(0x180B, 0x1810))
     + list(range(0xFE00, 0xFE10))
     + list(range(0xE0100, 0xE01F0))
@@ -215,9 +221,9 @@ def session_limiter(state: MutableMapping[str, Any]) -> RateLimiter:
     return limiter
 
 
-def clean_input(text: str, dropped: str = "") -> str:
-    """Normalise Unicode and line breaks, swap control and invisible chars for `dropped`, trim."""
-    text = unicodedata.normalize("NFKC", text).replace("\r\n", "\n")
+def clean_input(text: str, dropped: str = "", form: str = "NFC") -> str:
+    """Normalise Unicode (`form`) and line breaks, swap control and invisible chars, trim."""
+    text = unicodedata.normalize(form, text).replace("\r\n", "\n")
     text = text.translate(_LINE_BREAKS).translate(_APOSTROPHES)
     kept = (
         ch
@@ -227,6 +233,21 @@ def clean_input(text: str, dropped: str = "") -> str:
         for ch in text
     )
     return "".join(kept).strip()
+
+
+def _strip_marks(text: str) -> str:
+    """Decompose the text (NFKD) and drop combining marks, so an accented "ignore" reads plain."""
+    decomposed = unicodedata.normalize("NFKD", text)
+    return "".join(ch for ch in decomposed if unicodedata.category(ch) != "Mn")
+
+
+def detection_views(text: str) -> set[str]:
+    """Return the forms of the raw text that the injection patterns are run on."""
+    # NFKC folds full-width and other compatibility letters. An invisible character can hide a
+    # word ("Ign\u200bore") or stand in for a space ("Ignore\u200ball"), so it is both removed
+    # and turned into a space; accents and overlay marks ("Ig\u0301nore") are stripped too.
+    views = {clean_input(text, form="NFKC"), clean_input(text, dropped=" ", form="NFKC")}
+    return views | {_strip_marks(view) for view in views}
 
 
 def looks_like_injection(text: str) -> bool:
@@ -239,14 +260,15 @@ def looks_like_injection(text: str) -> bool:
 
 def check_message(text: str, limiter: RateLimiter) -> GuardResult:
     """Clean `text` and run every check; only an accepted message counts against `limiter`."""
+    if len(text) > config.MAX_RAW_INPUT_CHARS:
+        return _reject(Rejection.TOO_LONG, TOO_LONG_MESSAGE)
+    # The model gets NFC text, so "10\u00b3 kcal" stays as typed; NFKC is only for detection.
     cleaned = clean_input(text)
     if not cleaned:
         return _reject(Rejection.EMPTY, EMPTY_MESSAGE)
     if len(cleaned) > config.MAX_INPUT_CHARS:
         return _reject(Rejection.TOO_LONG, TOO_LONG_MESSAGE)
-    # An invisible character can hide a word ("Ign\u200bore") or stand in for a space
-    # ("Ignore\u200ball"), so the patterns see the text with it removed and with it as a space.
-    if looks_like_injection(cleaned) or looks_like_injection(clean_input(text, dropped=" ")):
+    if any(looks_like_injection(view) for view in detection_views(text)):
         return _reject(Rejection.INJECTION, INJECTION_MESSAGE)
     rejection = limiter.try_acquire()
     if rejection is not None:
