@@ -60,42 +60,63 @@ _GAP = rf"(?: {_FILLER}){{0,3}}"
 # "... my dietitian gave me", "... that my coach wrote", "... from my coach", "... on the tub".
 # Anything else ("... in this conversation", "... that you received") still counts as an attack.
 _POSSESSIVES = r"(?:my|his|her|their|our)"
-# Words that mean the chat itself, not someone else's advice.
+# Words that mean the chat itself, not someone else's advice. "Session" and "model" are gym and
+# science words too ("my session tomorrow", "a model of protein synthesis"), so they count only
+# after "this" or "our". A chat word that is part of a longer name ("AI-generated meal plan",
+# "the AI meal plan my app made", "a chatbot coach") is not the chat either.
 _CHAT_WORDS = (
-    r"(?:conversation|chat|session|prompt|message|thread|system|assistant|ai|bot|chatbot|model)"
+    r"(?:(?:conversation|chat|prompt|message|thread|system|assistant|chatbot|ai|bot)"
+    r"|(?:(?<=this )|(?<=our ))(?:session|model))"
+    r"(?![\w-]| (?:meal|meals|diet|plan|plans|app|apps|coach|tracker|nutrition|food|recipe"
+    r"|recipes|workout|training|program|programme|tool|calculator|scale|generated)\b)"
 )
-# "System prompt" is the assistant's prompt unless a body system comes first: "does the immune
-# system prompt inflammation?" uses "prompt" as a verb. One fixed-width lookbehind per word.
+# "System prompt" is the assistant's prompt unless a body or energy system comes first: "does the
+# immune system prompt inflammation?" uses "prompt" as a verb. One fixed-width lookbehind per
+# word, with a space or a hyphen ("immune-system").
 _BODY_SYSTEMS = (
     "immune",
     "nervous",
     "digestive",
     "endocrine",
     "hormonal",
+    "hormone",
     "reward",
+    "dopamine",
+    "limbic",
+    "satiety",
+    "gut",
     "lymphatic",
     "circulatory",
     "cardiovascular",
+    "vascular",
     "respiratory",
     "metabolic",
     "muscular",
     "skeletal",
     "renal",
+    "urinary",
+    "reproductive",
     "sympathetic",
     "parasympathetic",
+    "energy",
+    "aerobic",
+    "anaerobic",
+    "glycolytic",
+    "oxidative",
+    "phosphagen",
 )
-_NOT_BODY_SYSTEM = "".join(rf"(?<!{word} )" for word in _BODY_SYSTEMS)
+_NOT_BODY_SYSTEM = "".join(rf"(?<!{word}{sep})" for word in _BODY_SYSTEMS for sep in (" ", "-"))
 _NOT_THIRD_PARTY = (
     rf"(?! (?:(?:that|which|i got|we got|i was given) )?{_POSSESSIVES}\b)"
     rf"(?! (?:on|from|given by|provided by|printed on|written on) (?:the|an?|{_POSSESSIVES})\b)"
     # "... in the old WHO report", "... for this meal plan", but not "... in this conversation".
-    rf"(?! (?:in|for|about) (?:the|that|this|an?|my) (?!{_CHAT_WORDS}\b))"
+    rf"(?! (?:in|for|about) (?:the|that|this|an?|my) (?!{_CHAT_WORDS}))"
 )
 # After "instructions" or "rules": a how-to request ("your instructions for meal prepping"),
 # unless it points at the chat itself ("your instructions for this conversation").
 _NOT_HOW_TO = (
     r"(?! (?:for|on|about|of|by|at|from)\b"
-    rf"(?! (?:the |this |that |your |my |our )?{_CHAT_WORDS}\b))"
+    rf"(?! (?:the |this |that |your |my |our )?{_CHAT_WORDS}))"
 )
 # "Above" as a word of its own, not "above-average".
 _ABOVE = r"above(?![\w-])"
@@ -117,7 +138,8 @@ _FOLDED_PATTERNS = [
     r"(?:safety|content) (?:guidelines|restrictions|rules|filters?)\b",
     r"\byour new instructions\b",
     # Asking for the hidden prompt.
-    rf"{_NOT_BODY_SYSTEM}\bsystem prompts?\b",
+    # The lookahead first, so the many lookbehinds only run where "system prompt" starts.
+    rf"\b(?=system prompts?\b){_NOT_BODY_SYSTEM}system prompts?\b",
     r"\b(?:developer|hidden|secret) prompts?\b",
     r"\bdeveloper message\b",
     rf"\b(?:hidden|secret) instructions\b{_NOT_HOW_TO}",
