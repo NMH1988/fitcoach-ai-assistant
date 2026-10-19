@@ -9,9 +9,10 @@ import json
 import re
 import urllib.parse
 import xml.etree.ElementTree as ET
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import (
     BaseModel,
@@ -23,6 +24,9 @@ from pydantic import (
 )
 
 from src import config
+
+if TYPE_CHECKING:
+    from src.tools.energy import FormulaSource
 
 # The change made to every article, stated in the attribution as CC BY requires.
 CHANGES_MADE = "text extracted and split into chunks"
@@ -239,8 +243,16 @@ def _sentence(text: str) -> str:
     return text if text.endswith(".") else f"{text}."
 
 
-def render_attribution(sources: list[Source], usda_release: str | None = None) -> str:
-    """Return the text of ATTRIBUTION.md: the articles in manifest order, then the USDA data."""
+# The change made to the articles the energy tools take numbers from (T4.2).
+FORMULA_CHANGES_MADE = "only the equation coefficients or factors are used, in the app's code"
+
+
+def render_attribution(
+    sources: list[Source],
+    usda_release: str | None = None,
+    formula_sources: Sequence[FormulaSource] = (),
+) -> str:
+    """Return the text of ATTRIBUTION.md: the articles, the USDA data, then the formula sources."""
     lines = [
         "# Attribution",
         "",
@@ -281,4 +293,23 @@ def render_attribution(sources: list[Source], usda_release: str | None = None) -
             f"Licence: {config.USDA_LICENSE}, {_url(config.USDA_LICENSE_URL)}. "
             f"Changes: {_md(config.USDA_CHANGES)} No endorsement by USDA is implied.",
         ]
+    if formula_sources:
+        # The energy tools (T4.2) use numbers from these articles; none of their text is used.
+        lines += [
+            "",
+            "## Formula sources",
+            "",
+            "The energy tools (`src/tools/energy.py`) use an equation or factors from these "
+            "articles. They are not part of the knowledge base.",
+            "",
+        ]
+        for f in formula_sources:
+            lines.append(
+                f"- **[{f.id}]** {_md(_sentence(', '.join(f.authors)))} *{_md(f.title)}*. "
+                f"{_md(f.journal)}, {f.year}. DOI: {_md(f.doi)} "
+                f"({_url('https://doi.org/' + f.doi)}). {_md(_sentence(f.copyright_notice))} "
+                f"Licensed under {f.license} ({_url(f.license_url)}). "
+                f"Used for {_md(f.used_for)}. Changes: {FORMULA_CHANGES_MADE}. "
+                "No endorsement by the authors or publisher is implied."
+            )
     return "\n".join(lines) + "\n"

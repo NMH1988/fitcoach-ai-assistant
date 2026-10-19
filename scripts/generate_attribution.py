@@ -1,4 +1,4 @@
-"""Write ATTRIBUTION.md from the source manifest (data/sources.json) and the USDA foods table.
+"""Write ATTRIBUTION.md from the source manifest, the USDA foods table and the formula sources.
 
 Run from the repo root after changing the manifest or the foods table, and commit the result:
 
@@ -12,16 +12,19 @@ from pathlib import Path
 
 from src import config
 from src.rag.sources import ManifestError, load_manifest, render_attribution
+from src.tools.energy import FORMULA_SOURCES
 from src.tools.food import FoodTableError, read_usda_release
 
 
 def write_attribution(
     manifest: Path | None = None, target: Path | None = None, foods_table: Path | None = None
 ) -> int:
-    """Render the credits for every manifest source and the USDA table; return the source count."""
+    """Render every credit (articles, USDA table, formula sources); return the article count."""
     target = target or config.ATTRIBUTION_PATH
     sources = load_manifest(manifest)
-    text = render_attribution(sources, usda_release=read_usda_release(foods_table))
+    text = render_attribution(
+        sources, usda_release=read_usda_release(foods_table), formula_sources=FORMULA_SOURCES
+    )
     target.write_text(text, encoding="utf-8", newline="\n")
     return len(sources)
 

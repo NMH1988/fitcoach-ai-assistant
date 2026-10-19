@@ -186,6 +186,60 @@ PROFILE_AGE_RANGE = (18, 100)
 # The units the profile form and the sidebar start in; the user can switch to imperial.
 DEFAULT_UNIT_SYSTEM = "metric"
 
+# calculate_tdee (docs/ARCHITECTURE.md section 6). Values approved by the owner on 2026-10-19 (O3);
+# the numbers in brackets are source IDs in docs/SOURCES.md.
+# Mifflin-St Jeor resting energy in kcal/day: 10 x kg + 6.25 x cm - 5 x years, plus 5 for men or
+# minus 161 for women [22].
+MSJ_KCAL_PER_KG = 10.0
+MSJ_KCAL_PER_CM = 6.25
+MSJ_KCAL_PER_YEAR = 5.0
+MSJ_SEX_CONSTANT_KCAL: dict[str, float] = {"male": 5.0, "female": -161.0}
+# Physical activity level that multiplies the resting energy, by how often the user exercises:
+# under once a week, 1-3, 4-5, 6-7, and more than 7 times a week with extra heavy workouts [23].
+# Keys are src.profile.ActivityLevel.
+ACTIVITY_FACTORS: dict[str, float] = {
+    "sedentary": 1.2,
+    "light": 1.375,
+    "moderate": 1.55,
+    "very_active": 1.725,
+    "extra_active": 1.9,
+}
+
+# calculate_macro_targets. The calorie floor: no target is ever below it, whatever the profile and
+# goal (docs/PRD.md guardrails, AC-7). 1200 kcal/day is the top of the low-energy diet range
+# (800-1200 kcal/day) defined in [1] and [9], so a target is never below the top of that range. The
+# sources define the range; using its top as a floor is the project's choice.
+CALORIE_FLOOR_KCAL = 1200
+# Lose fat: a weekly weight loss of 0.5-1.0% of body weight [1], [12]; the target uses the lower,
+# slower end, as slower loss better keeps lean mass [9].
+FAT_LOSS_PCT_PER_WEEK_RANGE = (0.5, 1.0)
+FAT_LOSS_PCT_PER_WEEK = 0.5
+# Energy in a pound of pure body fat: approximately 3500 kcal [12]. [12] adds that a deficit gives
+# the matching loss only in theory, if all the weight lost is fat, so it is a rough estimate.
+KCAL_PER_LB_BODY_FAT = 3500
+# Build muscle: about 10-20% above maintenance [11]; the target uses 10%, the lower end, which [11]
+# advises advanced lifters to aim for, to limit fat gain.
+MUSCLE_GAIN_SURPLUS_PCT_RANGE = (10.0, 20.0)
+MUSCLE_GAIN_SURPLUS_PCT = 10.0
+# Protein in g per kg of body weight per day: 1.6-2.2 [1], [11]. The top for fat loss, as [1] finds
+# that 1.6-2.2 g/kg, or more in lean, resistance-trained people, can best keep lean mass in a
+# lasting energy deficit; the middle for the other goals.
+PROTEIN_G_PER_KG_RANGE = (1.6, 2.2)
+PROTEIN_G_PER_KG: dict[str, float] = {"lose_fat": 2.2, "build_muscle": 1.9, "maintain": 1.9}
+# Fat as a share of the kcal target: inside both 20-35% [11] and 15-30% for contest dieting [12],
+# i.e. their overlap below.
+FAT_PCT_OF_KCAL_RANGE = (20.0, 30.0)
+FAT_PCT_OF_KCAL = 25.0
+# Carbohydrate gets the kcal left after protein and fat [11]. Energy per gram uses the general
+# Atwater factors, the same ones USDA uses for its general-factor energy (docs/ARCHITECTURE.md
+# section 6): 4 kcal per g of protein and carbohydrate, 9 per g of fat.
+KCAL_PER_G_PROTEIN = 4
+KCAL_PER_G_CARBOHYDRATE = 4
+KCAL_PER_G_FAT = 9
+# The TDEE calculate_macro_targets accepts, in kcal/day. Covers every profile within the ranges
+# above (about 467 to 8270 kcal/day; tests/test_energy.py checks it), with room either side.
+MACRO_TDEE_KCAL_RANGE = (400, 9000)
+
 # USDA FoodData Central, Foundation Foods (docs/SOURCES.md #21; docs/ARCHITECTURE.md section 6).
 # The CSV zip from the USDA download page goes here by hand; gitignored.
 USDA_RAW_DIR = PROJECT_ROOT / "data" / "usda"
