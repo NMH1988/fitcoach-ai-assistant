@@ -60,15 +60,43 @@ _GAP = rf"(?: {_FILLER}){{0,3}}"
 # "... my dietitian gave me", "... that my coach wrote", "... from my coach", "... on the tub".
 # Anything else ("... in this conversation", "... that you received") still counts as an attack.
 _POSSESSIVES = r"(?:my|his|her|their|our)"
+# Words that mean the chat itself, not someone else's advice.
+_CHAT_WORDS = (
+    r"(?:conversation|chat|session|prompt|message|thread|system|assistant|ai|bot|chatbot|model)"
+)
+# "System prompt" is the assistant's prompt unless a body system comes first: "does the immune
+# system prompt inflammation?" uses "prompt" as a verb. One fixed-width lookbehind per word.
+_BODY_SYSTEMS = (
+    "immune",
+    "nervous",
+    "digestive",
+    "endocrine",
+    "hormonal",
+    "reward",
+    "lymphatic",
+    "circulatory",
+    "cardiovascular",
+    "respiratory",
+    "metabolic",
+    "muscular",
+    "skeletal",
+    "renal",
+    "sympathetic",
+    "parasympathetic",
+)
+_NOT_BODY_SYSTEM = "".join(rf"(?<!{word} )" for word in _BODY_SYSTEMS)
 _NOT_THIRD_PARTY = (
     rf"(?! (?:(?:that|which|i got|we got|i was given) )?{_POSSESSIVES}\b)"
     rf"(?! (?:on|from|given by|provided by|printed on|written on) (?:the|an?|{_POSSESSIVES})\b)"
     # "... in the old WHO report", "... for this meal plan", but not "... in this conversation".
-    r"(?! (?:in|for|about) (?:the|that|this|an?|my) "
-    r"(?!(?:conversation|chat|session|prompt|message|thread|system)\b))"
+    rf"(?! (?:in|for|about) (?:the|that|this|an?|my) (?!{_CHAT_WORDS}\b))"
 )
-# After "instructions" or "rules": a how-to request ("your instructions for meal prepping").
-_NOT_HOW_TO = r"(?! (?:for|on|about|of|by|at|from)\b)"
+# After "instructions" or "rules": a how-to request ("your instructions for meal prepping"),
+# unless it points at the chat itself ("your instructions for this conversation").
+_NOT_HOW_TO = (
+    r"(?! (?:for|on|about|of|by|at|from)\b"
+    rf"(?! (?:the |this |that |your |my |our )?{_CHAT_WORDS}\b))"
+)
 # "Above" as a word of its own, not "above-average".
 _ABOVE = r"above(?![\w-])"
 
@@ -89,12 +117,11 @@ _FOLDED_PATTERNS = [
     r"(?:safety|content) (?:guidelines|restrictions|rules|filters?)\b",
     r"\byour new instructions\b",
     # Asking for the hidden prompt.
-    # "Prompt" must be a noun: "does the immune system prompt inflammation?" passes.
-    r"\b(?:the|your|a|this|that|its|of|show|print|reveal|repeat|output|display|leak|dump"
-    r"|give me|tell me) (?:system|developer|hidden|secret) prompt\b",
+    rf"{_NOT_BODY_SYSTEM}\bsystem prompts?\b",
+    r"\b(?:developer|hidden|secret) prompts?\b",
     r"\bdeveloper message\b",
     rf"\b(?:hidden|secret) instructions\b{_NOT_HOW_TO}",
-    r"\byour (?:initial|original|hidden|secret|system) (?:instructions|prompt)\b",
+    r"\byour (?:initial|original|hidden|secret|system) (?:instructions|prompts?)\b",
     # Not "your original message": a follow-up may quote an earlier answer.
     r"\byour (?:hidden|secret|system) message\b",
     r"\b(?:reveal|repeat|print|show|output|display|leak|dump|recite|tell me) (?:me )?"
@@ -236,9 +263,10 @@ def clean_input(text: str, dropped: str = "", form: str = "NFC") -> str:
 
 
 def _strip_marks(text: str) -> str:
-    """Decompose the text (NFKD) and drop combining marks, so an accented "ignore" reads plain."""
+    """Decompose the text (NFKD) and drop every mark (M*), so an accented "ignore" reads plain."""
     decomposed = unicodedata.normalize("NFKD", text)
-    return "".join(ch for ch in decomposed if unicodedata.category(ch) != "Mn")
+    # All mark categories: non-spacing (accents, overlays), spacing and enclosing (circles).
+    return "".join(ch for ch in decomposed if unicodedata.category(ch)[0] != "M")
 
 
 def detection_views(text: str) -> set[str]:
