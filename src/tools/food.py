@@ -13,7 +13,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from rapidfuzz import fuzz, process, utils
 
 from src import config
@@ -77,6 +77,18 @@ class FoodLookupArgs(BaseModel):
         strict=True,
         description="Amount of the food in grams.",
     )
+
+    @field_validator("food")
+    @classmethod
+    def _has_a_real_word(cls, value: str) -> str:
+        """Refuse a name whose longest word, once punctuation is dropped, is too short."""
+        # "a.", "-a" or "a a" would otherwise match "Eggs, Grade A" by chance. Checked here, not
+        # after validation, so a bad name and bad grams are reported together.
+        if max((len(word) for word in _normalise(value).split()), default=0) < (
+            config.FOOD_MIN_NAME_CHARS
+        ):
+            raise ValueError("no word is long enough")
+        return value
 
 
 class Nutrients(BaseModel):
@@ -218,13 +230,15 @@ def _scale(food: Food, grams: float) -> Nutrients:
     )
 
 
-def _invalid_message(fields: set[str]) -> str:
+def _invalid_message(error: ValidationError) -> str:
     """Explain which arguments are wrong, without repeating what was sent."""
+    fields = {str(e["loc"][0]) for e in error.errors() if e["loc"]}
     parts = []
     if "food" in fields:
         parts.append(
             f"give the name of one food in {config.FOOD_MIN_NAME_CHARS} to "
-            f"{config.FOOD_MAX_NAME_CHARS} characters"
+            f"{config.FOOD_MAX_NAME_CHARS} characters, with at least one word of "
+            f"{config.FOOD_MIN_NAME_CHARS} or more letters or digits"
         )
     if "grams" in fields:
         parts.append(
@@ -244,15 +258,9 @@ def lookup_food_nutrition(
     try:
         args = FoodLookupArgs(food=food, grams=grams)
     except ValidationError as exc:
-        fields = {str(e["loc"][0]) for e in exc.errors() if e["loc"]}
-        return FoodLookupResult(status="invalid", message=_invalid_message(fields))
+        return FoodLookupResult(status="invalid", message=_invalid_message(exc))
 
     query = _normalise(args.food)
-    # The minimum also applies after punctuation is dropped: "a." or "a a" would otherwise match
-    # "Eggs, Grade A" by chance.
-    if max((len(word) for word in query.split()), default=0) < config.FOOD_MIN_NAME_CHARS:
-        return FoodLookupResult(status="invalid", message=_invalid_message({"food"}))
-
     foods = load_food_table() if table is None else table
     ranked = _rank(query, foods)
     limit = config.FOOD_MAX_ALTERNATIVES

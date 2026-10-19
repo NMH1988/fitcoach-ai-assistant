@@ -289,15 +289,30 @@ def test_amounts_at_the_limits_are_accepted(grams):
     assert lookup("oats", grams).status == "found"
 
 
-def test_invalid_arguments_never_read_the_table(monkeypatch):
-    """Arguments are checked before the table is loaded."""
+@pytest.mark.parametrize(("name", "grams"), [("oats", 0), ("a.", 100), ("a a", 100)])
+def test_invalid_arguments_never_read_the_table(monkeypatch, name, grams):
+    """Both arguments, including the word check on the name, are checked before the table loads."""
 
     def fail(*_):
         """Fail the test if the table is read."""
         raise AssertionError("table read")
 
     monkeypatch.setattr(food_module, "load_food_table", fail)
-    assert lookup_food_nutrition("oats", 0).status == "invalid"
+    assert lookup_food_nutrition(name, grams).status == "invalid"
+
+
+def test_a_bad_name_and_bad_grams_are_reported_together():
+    """One invalid result names both problems, so the model can fix them in one round."""
+    result = lookup("a.", -1)
+    assert result.status == "invalid"
+    assert "name of one food" in result.message
+    assert "number of grams" in result.message
+
+
+def test_the_name_message_explains_the_word_rule():
+    """A three-character name refused for its short words gets a message that says why."""
+    message = lookup("a a").message
+    assert f"at least one word of {config.FOOD_MIN_NAME_CHARS} or more letters" in message
 
 
 # --- the foods table loader ---
