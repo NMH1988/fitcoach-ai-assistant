@@ -31,7 +31,7 @@ The owner writes these first; Claude reviews (`.claude/rules/workflow.md`).
 | O2 | Draft the evaluation questions (about 10-15), each with the source(s) it should find and what a good answer contains | T3.3, T6.1 | todo |
 | O3 | Approve the calorie floor and the macro ranges; Claude proposes them with the exact source passages | T4.2 | done (2026-10-19, in T4.2: floor 1200 kcal/day; values in `src/config.py`) |
 | O4 | If Europe PMC still has no copy of source #1, save its XML or PDF by hand from the publisher page into `data/raw/` | T2.1 | done: not needed (Europe PMC has #1 as PMC13665703, found in T2.1 on 2026-10-19) |
-| O5 | Live checks with the real key: T1.2 (one chat and one embedding call), T2.3 (real index build), T6.1 (evaluation run) | T1.2, T2.3, T6.1 | in progress (T1.2 done 2026-10-19) |
+| O5 | Live checks with the real key: T1.2 (one chat and one embedding call), T2.3 (real index build), T6.1 (evaluation run) | T1.2, T2.3, T6.1 | in progress (T1.2 and T2.3 done 2026-10-19) |
 | O6 | Get the course repository URL and confirm how the reviewers read it (files only, or through PRs) | T6.2 | todo |
 
 ## Overview and order
@@ -48,7 +48,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T1.3 | #3 | Input guard and rate limit | S | T1.1 | 10-21 | done |
 | T2.1 | #4 | Source manifest, download script, attribution | M | T1.1, O4 | 10-21 | done |
 | T2.2 | #5 | Parse article XML and chunk with metadata | M | T2.1 | 10-22 | done |
-| T2.3 | #6 | Build and open the Chroma index | S | T1.2, T2.2 | 10-23 | todo |
+| T2.3 | #6 | Build and open the Chroma index | S | T1.2, T2.2 | 10-23 | done |
 | T4.1 | #11 | Profile, units and settings | M | T1.1 | 10-23 | done |
 | T4.3 | #13 | USDA food table and lookup | M | T1.1 | 10-23 | done |
 | T3.1 | #7 | First answer with sources (vector search) | M | T1.2, T1.3, T2.3, O1 | 10-24 | todo |
@@ -125,14 +125,15 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] Every chunk has `source_id`, `title`, `authors`, `year`, `section`, `topics`, `evidence_tier`, `license`, `source_url`, `chunk_index` - unit test (`test_every_chunk_has_the_source_metadata`, `test_chunk_index_runs_across_sections`, `test_load_chunks_reads_each_downloaded_article`).
 **Notes:** back matter that many articles put inside `<body>` (acknowledgements, funding, disclosures, author contributions, data availability, publisher's notes, supplementary, references, appendices of plots) is dropped too (owner's choice). The correction #18a and #18 point to each other through `corrects` / `corrected_by` metadata (owner's choice; serves copyright policy rule 7). Real run on the 21 downloaded articles recorded in `docs/TESTING.md`.
 
-### T2.3 Build and open the Chroma index (S) · status: todo · issue #6
+### T2.3 Build and open the Chroma index (S) · status: done · issue #6
 **Serves:** core 1 (embeddings, similarity search).
 **Depends on:** T1.2, T2.2
 **Acceptance criteria**
-- [ ] `scripts/build_index.py` embeds all chunks in batches and writes the persistent collection to `chroma/`; `src/rag/store.py` opens it - integration test with `DeterministicFakeEmbedding` in a temp dir.
-- [ ] A similarity search with a metadata filter returns only matching chunks - integration test.
-- [ ] If the index is missing, the app says to run the build script instead of crashing (AC-13) - unit test.
-- [ ] The real index is built once - owner live check (O5), with chunk count and cost recorded in `docs/TESTING.md`.
+- [x] `scripts/build_index.py` embeds all chunks in batches and writes the persistent collection to `chroma/`; `src/rag/store.py` opens it - integration test with `DeterministicFakeEmbedding` in a temp dir (`tests/test_store.py`: `test_build_writes_a_persistent_index_that_open_index_reads`, `test_chunks_are_embedded_in_batches`, `test_a_fresh_process_reads_the_index_from_disk`, `test_article_chunks_keep_their_list_metadata_in_the_index`, `test_a_rebuild_replaces_the_old_index`, `test_a_failed_rebuild_keeps_the_previous_index`; `tests/test_build_index.py::test_the_script_builds_the_index_and_prints_a_summary`).
+- [x] A similarity search with a metadata filter returns only matching chunks - integration test (`test_similarity_search_with_a_filter_returns_only_matching_chunks`: topic, minimum year, tier, source, topic and tier, no match).
+- [x] If the index is missing, the app says to run the build script instead of crashing (AC-13) - unit test (`test_a_missing_index_says_to_run_the_build_script`, `test_open_index_reports_a_missing_index_even_without_a_key`, plus a directory without the collection, an empty index, an index from another embedding model and an unreadable file). `src/rag/store.py` raises `IndexNotReadyError` with the fixed message; T3.1 shows it in the answer (`docs/UI_DESIGN.md`; owner's choice, 2026-10-19).
+- [x] The real index is built once - owner live check (O5), with chunk count and cost recorded in `docs/TESTING.md` (run by the owner on 2026-10-19: 1,810 chunks from 21 sources; cost estimated at about $0.003 from the character count, since langchain does not return the token use of embeddings and OpenRouter's activity chart shows only daily totals, under $0.01 that day; owner's choice to record the estimate).
+**Notes:** a build writes a staging collection and renames it only when complete, so a failed build keeps the old index; the collection records the embedding model, and an index from another model is refused. The build embeds approved source text, not user input, so the input guard does not apply to it.
 
 ## Epic 3: Retrieval and answers
 
@@ -145,6 +146,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] With no relevant chunk, the app says the sources do not cover the question and cites nothing (AC-2) - integration test.
 - [ ] `st.status` shows the steps while the turn runs - AppTest.
 - [ ] LLM errors show the mapped message and keep the chat history (AC-13) - AppTest with a failing fake.
+- [ ] A missing or unusable index shows `IndexNotReadyError`'s message in the answer and keeps the chat history (AC-13; the UI half of T2.3's criterion, owner's choice in T2.3) - AppTest.
 
 ### T3.2 Query translation and structured filters (M) · status: todo · issue #8
 **Serves:** the brief's advanced RAG (query translation, structured retrieval); AC-3; partly Easy 2.
