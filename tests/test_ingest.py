@@ -459,3 +459,43 @@ def test_symbol_and_bracketed_citation_superscripts(inner, expected):
     """A registered-mark superscript gets no "^", and one holding only a citation is removed."""
     article = parse_article(f"<article><body><p>{inner}</p></body></article>".encode())
     assert article.sections[0].text == expected
+
+
+@pytest.mark.parametrize(
+    ("inner", "expected"),
+    [
+        (
+            'Smith et al. (<xref ref-type="bibr" rid="r1">2020</xref>) found oats help.',
+            "Smith et al. (2020) found oats help.",
+        ),
+        (
+            'Oats help (Smith et al., <xref ref-type="bibr" rid="r1">2020a</xref>).',
+            "Oats help (Smith et al., 2020a).",
+        ),
+        ('Oats help [<xref ref-type="bibr" rid="r1">20</xref>].', "Oats help."),
+    ],
+)
+def test_a_citation_linked_on_its_year_keeps_the_year(inner, expected):
+    """A link on the year of an author-year citation keeps the year; numbered markers still go."""
+    article = parse_article(f"<article><body><p>{inner}</p></body></article>".encode())
+    assert article.sections[0].text == expected
+
+
+@pytest.mark.parametrize(
+    ("inner", "expected"),
+    [
+        ("the 20<sup>th</sup> century", "the 20th century"),
+        ("whey<sup>†</sup> and casein", "whey† and casein"),
+    ],
+)
+def test_ordinal_and_note_superscripts_get_no_caret(inner, expected):
+    """Ordinals and note marks in superscript are not exponents, so no "^" is added."""
+    article = parse_article(f"<article><body><p>{inner}</p></body></article>".encode())
+    assert article.sections[0].text == expected
+
+
+def test_chunks_never_share_a_list_of_extra_metadata(parsed):
+    """Each chunk gets its own copy of a list in the extra metadata (e.g. corrected_by)."""
+    chunks = chunk_article(parsed, make_source(), {"corrected_by": ["18a"]})
+    chunks[0].metadata["corrected_by"].append("changed")
+    assert all(c.metadata["corrected_by"] == ["18a"] for c in chunks[1:])

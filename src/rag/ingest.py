@@ -4,7 +4,7 @@ Keeps the article title, the abstract and the body sections. Drops figures, tabl
 formulas, supplementary material, the reference list, numeric citation markers, back matter and
 anything that carries its own <permissions> or <attrib> (third-party content), as the copyright
 policy requires (text only, rules 5 and 7). Inline formulas keep their plain text, with exponents,
-subscripts, brackets and accents written out ("I^2", "beta_x", "P(>0)", "R̂") so the numbers keep
+subscripts, brackets and accents written out ("I^2", "β_x", "P(>0)", "R̂") so the numbers keep
 their meaning (owner's choice in T2.2). Only the front matter's abstract and the <body> are read;
 <back>, <floats-group> and sub-articles never are.
 """
@@ -50,8 +50,8 @@ _BLOCK_TAGS = frozenset({"boxed-text", "def-list", "disp-quote", "list", "p", "s
 _SECTION_META_TAGS = frozenset({"label", "sec-meta", "title"})
 # Cross-references to notes we drop; their markers ("a", "b") would be stray letters.
 _DROPPED_XREF_TYPES = frozenset({"fn", "table-fn"})
-# Superscripts that are symbols, not exponents, so they get no "^".
-_PLAIN_SUPERSCRIPTS = frozenset({"®", "™"})
+# Superscripts that are symbols, ordinals or note marks, not exponents, so they get no "^".
+_PLAIN_SUPERSCRIPTS = frozenset({"®", "™", "†", "‡", "§", "*", "st", "nd", "rd", "th"})
 _MATHML = "{http://www.w3.org/1998/Math/MathML}"
 # Combining marks for MathML accents, so an R with a hat over it reads "R̂".
 _ACCENTS = {
@@ -69,6 +69,8 @@ _CITATION = "\x00"
 _SEPARATORS = r"\s,;–—-"
 # Reference markers that are numbers ("12", "3-5", "1, 2"); author-year text is kept.
 _NUMERIC_CITATION = re.compile(rf"[\d{_SEPARATORS}]*")
+# A link on the year alone, as in "Smith et al. (2020)": part of the sentence, so it is kept.
+_CITATION_YEAR = re.compile(r"\s*(?:19|20)\d{2}[a-z]?\s*")
 # Brackets that hold only removed markers and separators: "[1]", "[1, 2]", "(3-5)".
 _CITATION_BRACKETS = re.compile(
     rf"[\[(][{_SEPARATORS}]*{_CITATION}[{_CITATION}{_SEPARATORS}]*[\])]"
@@ -171,7 +173,8 @@ def _render_child(child: ET.Element) -> str:
     local = _local(child.tag)
     if local == "xref" and child.get("ref-type") == "bibr":
         text = "".join(child.itertext())
-        return _CITATION if _NUMERIC_CITATION.fullmatch(text) else _space(text)
+        numeric = _NUMERIC_CITATION.fullmatch(text) and not _CITATION_YEAR.fullmatch(text)
+        return _CITATION if numeric else _space(text)
     if child.tag.startswith(_MATHML) and (math := _render_math(child, local)) is not None:
         return math
     text = _render(child)
@@ -278,7 +281,11 @@ def chunk_article(
         for piece in splitter.split_text(section.text):
             # The ten required keys come last, so extra metadata can never overwrite them.
             metadata = {
-                **(extra_metadata or {}),
+                # Lists are copied, so changing one chunk's metadata never changes another's.
+                **{
+                    key: list(value) if isinstance(value, list) else value
+                    for key, value in (extra_metadata or {}).items()
+                },
                 "source_id": source.id,
                 "title": source.title,
                 "authors": list(source.authors),
