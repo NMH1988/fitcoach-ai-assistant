@@ -39,6 +39,7 @@ Python 3.14 (`.python-version`), in a local `.venv`.
 
 - Install: `pip install -e ".[dev]"`
 - Run: `streamlit run app.py`
+- USDA foods table: download the Foundation Foods CSV zip from https://fdc.nal.usda.gov/download-datasets/ into gitignored `data/usda/`, then `python scripts/prepare_usda.py` and commit `data/usda_foods.csv`
 - Lint/format: `ruff check .` / `ruff format .`
 - Test: `python -m pytest -q` (LLM, embedding and network calls must be mocked)
 - Audit: `pip-audit .` with the `--ignore-vuln` flags listed in `.github/workflows/ci.yml` (reasons in `docs/SECURITY.md`)

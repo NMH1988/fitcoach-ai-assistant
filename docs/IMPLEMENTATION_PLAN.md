@@ -47,7 +47,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T2.2 | #5 | Parse article XML and chunk with metadata | M | T2.1 | 10-22 | todo |
 | T2.3 | #6 | Build and open the Chroma index | S | T1.2, T2.2 | 10-23 | todo |
 | T4.1 | #11 | Profile, units and settings | M | T1.1 | 10-23 | todo |
-| T4.3 | #13 | USDA food table and lookup | M | T1.1 | 10-23 | todo |
+| T4.3 | #13 | USDA food table and lookup | M | T1.1 | 10-23 | in review |
 | T3.1 | #7 | First answer with sources (vector search) | M | T1.2, T1.3, T2.3, O1 | 10-24 | todo |
 | T4.2 | #12 | Energy and macro tools with the calorie floor | M | T4.1, O3 | 10-25 | todo |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1 | 10-26 | todo |
@@ -184,12 +184,13 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] No goal or profile produces a calorie target below the calorie floor (AC-7) - parametrised unit tests over extreme profiles.
 - [ ] Tool arguments are validated with Pydantic ranges; invalid input returns a clear error, not an exception - unit tests.
 
-### T4.3 USDA food table and lookup (M) · status: todo · issue #13
+### T4.3 USDA food table and lookup (M) · status: in review · issue #13
 **Serves:** core 2 (tool 3).
 **Depends on:** T1.1
 **Acceptance criteria**
-- [ ] `scripts/prepare_usda.py` turns the Foundation Foods CSV (from the USDA download page) into `data/usda_foods.csv` with description and per-100 g kcal, protein, carbohydrate, fat and fiber; the file credits "USDA FoodData Central" - unit test on a small fixture CSV we write.
-- [ ] `lookup_food_nutrition(food, grams)` returns the scaled values, the matched USDA name and close alternatives; an unknown food returns a clear "not found" with suggestions - unit tests.
+- [x] `scripts/prepare_usda.py` turns the Foundation Foods CSV (from the USDA download page) into `data/usda_foods.csv` with description and per-100 g kcal, protein, carbohydrate, fat and fiber; the file credits "USDA FoodData Central" - unit test on a small fixture CSV we write (`tests/test_prepare_usda.py` on made-up `tests/fixtures/usda/` CSVs zipped as USDA ships them: `test_only_complete_foundation_foods_are_written`, `test_values_come_from_the_preferred_nutrient_ids`, `test_the_file_credits_usda_fooddata_central`, plus missing, negative and repeated values, release date, refused zips and the CLI; `test_committed_table_is_valid_and_credits_usda` checks the committed file). Real run on release 2026-04-30 recorded in `docs/TESTING.md`.
+- [x] `lookup_food_nutrition(food, grams)` returns the scaled values, the matched USDA name and close alternatives; an unknown food returns a clear "not found" with suggestions - unit tests (`tests/test_food_lookup.py`: `test_values_are_scaled_to_the_requested_grams`, `test_the_matched_usda_name_id_and_source_are_returned`, `test_close_alternatives_are_returned_without_the_match`, `test_names_are_matched_to_the_right_food`, `test_an_unknown_food_is_not_found_with_suggestions`, `test_a_food_not_in_the_table_is_not_found_without_suggestions`; invalid arguments give an error result, not an exception: `test_invalid_grams_give_an_error_result`, `test_invalid_food_names_give_an_error_result`).
+**Notes:** owner's choices (2026-10-19): Foundation Foods only (no SR Legacy); energy from Atwater specific factors (nutrient 2048) first, then general factors (2047), then 1008; Claude downloaded the zip once; the branch starts from `main` because T2.1 was still in progress, so the USDA entry in `ATTRIBUTION.md` comes after #26 merges. The LangChain tool wrapper is T4.4's (`src/tools/registry.py`).
 
 ### T4.4 Tool-calling loop and tool results UI (M) · status: todo · issue #14
 **Serves:** core 2 and 5; Medium 6; AC-6.

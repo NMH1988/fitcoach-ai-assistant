@@ -1,8 +1,11 @@
 """App-wide settings: models, OpenRouter endpoint, limits, UI text and secrets loading."""
 
 import os
+from pathlib import Path
 
 import streamlit as st
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 APP_TITLE = "Nutrition AI Assistant"
 APP_INTRO = (
@@ -51,6 +54,27 @@ MAX_INPUT_CHARS = 2000
 RATE_LIMIT_PER_MINUTE = 10
 RATE_LIMIT_WINDOW_SECONDS = 60
 RATE_LIMIT_PER_SESSION = 50
+
+# USDA FoodData Central, Foundation Foods (docs/SOURCES.md #21; docs/ARCHITECTURE.md section 6).
+# The CSV zip from the USDA download page goes here by hand; gitignored.
+USDA_RAW_DIR = PROJECT_ROOT / "data" / "usda"
+# The trimmed per-100 g table the food tool reads; committed (CC0).
+USDA_FOODS_PATH = PROJECT_ROOT / "data" / "usda_foods.csv"
+# The largest CSV in the 2026-04-30 zip is about 10 MB unpacked; anything far bigger is refused.
+USDA_MAX_MEMBER_BYTES = 100_000_000
+
+# lookup_food_nutrition: argument limits and fuzzy name matching (rapidfuzz scores, 0-100).
+FOOD_MAX_NAME_CHARS = 100
+# Grams per lookup; below 0.1 g every value rounds to zero.
+FOOD_MIN_GRAMS = 0.1
+FOOD_MAX_GRAMS = 2000
+# A food scoring at least this is taken as the match; tried on the real table in T4.3.
+FOOD_MATCH_MIN_SCORE = 80
+# Foods scoring at least this are offered as alternatives or "did you mean" suggestions.
+FOOD_SUGGESTION_MIN_SCORE = 60
+FOOD_MAX_ALTERNATIVES = 3
+# Decimal places of the scaled values (grams of nutrients); kcal are rounded to whole numbers.
+FOOD_DECIMALS = 1
 
 API_KEY_NAME = "OPENROUTER_API_KEY"
 

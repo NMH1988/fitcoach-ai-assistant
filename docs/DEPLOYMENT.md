@@ -25,7 +25,7 @@ Either way:
 2. **Dependencies.** Runtime packages pinned in `pyproject.toml`. Check which dependency file and Python version the host reads, and set the Python version in the host's settings to match `.python-version`.
 3. **Secrets.** Only through the host's secrets settings (TOML, same names as `.streamlit/secrets.toml.example`). Never commit `.streamlit/secrets.toml`.
 4. **Knowledge base on an ephemeral disk.** The host's disk is reset on restart. Decide in `docs/ARCHITECTURE.md` whether the Chroma index is rebuilt at startup (embedding cost on every cold start) or a built index is committed (allowed only under the copyright policy: approved CC BY sources, attribution in place).
-5. **USDA data.** The Foundation Foods CSV (CC0) is downloaded at build time or a trimmed copy is committed (CC0 allows it).
+5. **USDA data.** A trimmed copy of the Foundation Foods CSV (CC0) is committed as `data/usda_foods.csv` (T4.3), so a deploy needs no download.
 6. **Limits.** Check the host's memory and CPU limits against Chroma, the embeddings and the PDF builder.
 7. **Personal data.** The profile and chat stay in the session only; logs contain no profile values or chat text.
 8. **Costs.** Default model `openai/gpt-5-mini`, `max_tokens` capped, rate limit on; the token and cost display works.
