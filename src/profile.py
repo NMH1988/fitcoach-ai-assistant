@@ -24,7 +24,7 @@ ACTIVITY_LABELS: dict[ActivityLevel, str] = {
     "light": "Light · exercise 1-3 times a week",
     "moderate": "Moderate · exercise 4-5 times a week",
     "very_active": "Very active · exercise 6-7 times a week",
-    "extra_active": "Extra active · more than 7 times a week, extra heavy workouts",
+    "extra_active": "Extra active · exercise more than 7 times a week, extra heavy workouts",
 }
 # For the sidebar tile, where the full label does not fit.
 ACTIVITY_SHORT_LABELS: dict[ActivityLevel, str] = {

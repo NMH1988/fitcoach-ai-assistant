@@ -307,7 +307,7 @@ def test_a_target_below_the_floor_is_raised_and_noted():
     assert "0.5%" not in result.message
     assert any("calorie floor" in note for note in result.notes)
     assert any("deficit is smaller" in note for note in result.notes)
-    assert not any("above the estimated daily energy needs" in note for note in result.notes)
+    assert not any("at or above the estimated daily energy needs" in note for note in result.notes)
 
 
 def test_a_floor_above_the_needs_says_it_will_not_lead_to_fat_loss():
@@ -318,9 +318,21 @@ def test_a_floor_above_the_needs_says_it_will_not_lead_to_fat_loss():
     assert result.kcal_target == 1200 and result.floor_applied
     assert "weekly loss" not in result.message and "0.5%" not in result.message
     assert "raised to the calorie floor" in result.message
-    [note] = [n for n in result.notes if "above the estimated daily energy needs" in n]
+    [note] = [n for n in result.notes if "at or above the estimated daily energy needs" in n]
     assert f"about {tdee} kcal/day" in note
     assert "will not lead to fat loss" in note and "registered dietitian" in note
+
+
+def test_a_floor_equal_to_the_needs_says_it_will_not_lead_to_fat_loss():
+    """Lose fat with needs exactly at the floor: no deficit, so no claim of a smaller one."""
+    # A 50.1 kg, 160 cm, 68-year-old sedentary woman: TDEE 1200 kcal/day, the floor itself.
+    tdee = calculate_tdee(50.1, 160, 68, "female", "sedentary").tdee_kcal
+    assert tdee == config.CALORIE_FLOOR_KCAL
+    for weight in (50.1, 70):
+        result = calculate_macro_targets(weight, "lose_fat", tdee)
+        assert result.kcal_target == 1200 and result.floor_applied
+        assert any("will not lead to fat loss" in note for note in result.notes)
+        assert not any("deficit is smaller" in note for note in result.notes)
 
 
 @pytest.mark.parametrize("goal", ["maintain", "build_muscle"])
@@ -330,7 +342,7 @@ def test_a_floor_above_the_needs_is_noted_for_the_other_goals(goal):
     assert result.kcal_target == 1200 and result.floor_applied
     assert "daily energy needs." not in result.message and "% above" not in result.message
     assert "raised to the calorie floor" in result.message
-    assert any("above the estimated daily energy needs" in note for note in result.notes)
+    assert any("at or above the estimated daily energy needs" in note for note in result.notes)
     assert not any("fat loss" in note for note in result.notes)
 
 

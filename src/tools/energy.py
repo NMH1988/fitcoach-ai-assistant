@@ -26,7 +26,7 @@ from src.profile import (
 )
 
 TDEE_MIN_KCAL, TDEE_MAX_KCAL = config.MACRO_TDEE_KCAL_RANGE
-# Energy in a kg of body fat, from the "about 3500 kcal per lb" estimate in [12].
+# Energy in a kg of body fat, from the estimate of approximately 3500 kcal per lb in [12].
 KCAL_PER_KG_BODY_FAT = config.KCAL_PER_LB_BODY_FAT / units.KG_PER_LB
 DAYS_PER_WEEK = 7
 
@@ -370,11 +370,11 @@ def calculate_macro_targets(weight_kg: float, goal: Goal, tdee_kcal: float) -> M
             f"The goal's estimate was below the calorie floor of {floor} kcal/day, so the target "
             "is set to the floor."
         )
-        if kcal_target > args.tdee_kcal:
-            # Small, older or less active profiles: the floor is above the estimated needs.
+        if kcal_target >= args.tdee_kcal:
+            # Small, older or less active profiles: the floor is at or above the estimated needs.
             effect = ", so it will not lead to fat loss" if args.goal == "lose_fat" else ""
             notes.append(
-                f"This target is above the estimated daily energy needs of about "
+                f"This target is at or above the estimated daily energy needs of about "
                 f"{round(args.tdee_kcal)} kcal/day{effect}. The app does not set targets below the "
                 "floor; ask a registered dietitian for personal targets."
             )
