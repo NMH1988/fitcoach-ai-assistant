@@ -48,6 +48,7 @@ src/
   usage.py                  token counting and cost from OpenRouter prices
   export_pdf.py             session summary PDF, built in memory
   rag/
+    sources.py              manifest model, licence and DOI check on article XML, ATTRIBUTION.md text
     ingest.py               JATS XML -> text sections -> chunks with metadata
     store.py                build and open the Chroma collection
     query_translation.py    rewrites + filters (structured output)
@@ -60,6 +61,7 @@ src/
     registry.py             LangChain tool wrappers and argument schemas
 scripts/
   download_sources.py       fetch article XML listed in the manifest, check the licence
+  generate_attribution.py   write ATTRIBUTION.md from the manifest
   build_index.py            chunk, embed and write the Chroma index
   prepare_usda.py           turn the USDA Foundation Foods CSV into a small foods table
   live_check_llm.py         owner's live check: one real chat and one real embedding call
@@ -74,13 +76,13 @@ tests/
 
 ## 4. Knowledge base pipeline
 
-**Manifest** (`data/sources.json`): one entry per approved source with `id`, `title`, `authors`, `year`, `journal`, `doi`, `pmcid`, `url`, `license`, `license_url`, `evidence_tier`, `topics`, `fetch_url`. `ATTRIBUTION.md` is generated from it.
+**Manifest** (`data/sources.json`): one entry per approved source with `id`, `title`, `authors`, `year`, `journal`, `doi`, `pmcid`, `url`, `license`, `license_url`, `copyright_notice`, `evidence_tier`, `topics` (`src/rag/sources.py` validates them). Title, authors, DOI and copyright notice come from each article's own front matter; `url` is the DOI link. There is no `fetch_url`: the script builds the Europe PMC URL from the checked PMCID, so the manifest cannot point it anywhere else. `ATTRIBUTION.md` is generated from it (`scripts/generate_attribution.py`); a test fails while the committed file is out of date.
 
 **Download** (`scripts/download_sources.py`):
 - Articles with a PMCID come from the Europe PMC REST API as JATS XML (`https://www.ebi.ac.uk/europepmc/webservices/rest/<PMCID>/fullTextXML`). Tested on 2026-10-19 for PMC5477153: HTTP 200, XML with a `<license>` element.
-- Source #1 (diets for body weight reduction, 2026) has no PMCID yet. Scripted access to tandfonline.com is not used. Fallback: retry Europe PMC later, or the owner saves the article from the browser into `data/raw/` once, by hand.
-- **Access terms:** the script uses only the Europe PMC REST API (allowed for automated retrieval by Europe PMC's copyright page); it never scrapes the PMC, Europe PMC or publisher websites. It sends a descriptive User-Agent and waits between requests.
-- **Copyright guard in code:** the script reads the `<license>` element of each file and refuses any file whose licence is not a CC BY or CC0 URL. Raw XML stays in `data/raw/` (gitignored).
+- Source #1 (diets for body weight reduction, 2026) had no PMCID at first; by T2.1 (2026-10-19) Europe PMC had it as PMC13665703, so it is downloaded like the others and the hand-saved fallback was dropped. Scripted access to tandfonline.com is never used.
+- **Access terms:** the script uses only the Europe PMC REST API (allowed for automated retrieval by Europe PMC's copyright page); it never scrapes the PMC, Europe PMC or publisher websites. It sends a descriptive User-Agent, waits between requests and never follows a redirect (a 3xx is an error), so no request leaves the REST API.
+- **Copyright guard in code:** the script reads the `<license>` element of the article's own front matter (a link, an `ali:license_ref` or a URL in the text) and refuses the file if it names any other Creative Commons licence (NC, ND, SA), a machine-readable licence ID (`license/@xlink:href`, `ali:license_ref`) that is not Creative Commons, wording that contradicts CC BY ("NonCommercial", "NoDerivatives", "ShareAlike", "All rights reserved", "BY-NC"/"BY-ND"/"BY-SA", with any hyphen, a space or nothing between the parts; the `license-type` attribute counts too), a ported licence (e.g. `/by/3.0/us/`), no CC BY or CC0 licence, a licence other than the manifest's, or a DOI other than the manifest's. CC BY wins over CC0 when both appear (BioMed Central's CC0 waiver covers the data, not the text). A refused file is never written, an older copy of it is deleted, and the run exits with 1. Raw XML stays in `data/raw/<PMCID>.xml` (gitignored).
 
 **Parsing** (`src/rag/ingest.py`, standard library `xml.etree`): keep the title, abstract and body sections (section titles and paragraphs). Drop figures, tables, formulas, supplementary material and the reference list, as the copyright policy requires (text only).
 
@@ -185,7 +187,7 @@ Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 
 ## 14. Risks and early checks
 
 - **Embeddings through OpenRouter with `OpenAIEmbeddings`:** by default it may send token arrays instead of text, which OpenRouter may not accept; set `check_embedding_ctx_length=False`. Set in T1.2 (`src/llm.py`, and a unit test checks the raw text goes out); confirmed by one live call run by the owner (O5, `scripts/live_check_llm.py`).
-- **Source #1 download:** see section 4.
+- **Source #1 download:** resolved in T2.1 (Europe PMC has it); see section 4.
 - **gpt-5 models:** no `temperature`; reasoning tokens add cost, so `max_tokens` and the reasoning effort (`low`, T1.2) are set in config.
 - **Long waits:** the OpenAI SDK honours a server's `Retry-After` up to 2 minutes per retry, so in the worst case one call waits about 7 minutes (3 timeouts of 60 s plus 2 waits of 120 s) before the error shows, and a turn makes several calls. The 60 s limit applies to each phase of a request (connect, each read), not the whole request: a server that keeps sending bytes (e.g. keep-alive whitespace) could keep one request open longer, so 7 minutes is not a hard limit. Not observed with OpenRouter so far. Abandoned requests after our timeout may still be billed by the provider. Accepted in T1.2; lower `LLM_MAX_RETRIES` or the timeout if it is a problem in practice.
 - **Deadline (2026-11-02, 14 days):** if time runs short, cut in this order: `evaluate_meal_plan`, the PDF (or its styling), token cost, chart polish. The core requirements and the optional tasks for maximum points (Medium 3, 6; Hard 1) come first (`docs/IMPLEMENTATION_PLAN.md`).

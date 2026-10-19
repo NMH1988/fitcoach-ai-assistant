@@ -39,6 +39,7 @@ Python 3.14 (`.python-version`), in a local `.venv`.
 
 - Install: `pip install -e ".[dev]"`
 - Run: `streamlit run app.py`
+- Download sources: `python scripts/download_sources.py` (Europe PMC REST API only, into gitignored `data/raw/`); after changing `data/sources.json`, `python scripts/generate_attribution.py`
 - Lint/format: `ruff check .` / `ruff format .`
 - Test: `python -m pytest -q` (LLM, embedding and network calls must be mocked)
 - Audit: `pip-audit .` with the `--ignore-vuln` flags listed in `.github/workflows/ci.yml` (reasons in `docs/SECURITY.md`)
