@@ -1,0 +1,5 @@
+# Streamlit settings. The full theme from docs/UI_DESIGN.md is added in T3.1.
+
+[theme]
+# The default 2.25rem cuts off the profile values in the sidebar tiles (T4.1).
+metricValueFontSize = "1.25rem"

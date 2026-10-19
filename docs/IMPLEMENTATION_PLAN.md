@@ -47,9 +47,9 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T1.2 | #2 | OpenRouter clients and error mapping | S | T1.1 | 10-20 | done |
 | T1.3 | #3 | Input guard and rate limit | S | T1.1 | 10-21 | done |
 | T2.1 | #4 | Source manifest, download script, attribution | M | T1.1, O4 | 10-21 | done |
-| T2.2 | #5 | Parse article XML and chunk with metadata | M | T2.1 | 10-22 | in review |
+| T2.2 | #5 | Parse article XML and chunk with metadata | M | T2.1 | 10-22 | done |
 | T2.3 | #6 | Build and open the Chroma index | S | T1.2, T2.2 | 10-23 | todo |
-| T4.1 | #11 | Profile, units and settings | M | T1.1 | 10-23 | todo |
+| T4.1 | #11 | Profile, units and settings | M | T1.1 | 10-23 | in review |
 | T4.3 | #13 | USDA food table and lookup | M | T1.1 | 10-23 | todo |
 | T3.1 | #7 | First answer with sources (vector search) | M | T1.2, T1.3, T2.3, O1 | 10-24 | todo |
 | T4.2 | #12 | Energy and macro tools with the calorie floor | M | T4.1, O3 | 10-25 | todo |
@@ -116,7 +116,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] `ATTRIBUTION.md` is generated from the manifest with authors, title, year, copyright notice, DOI, licence link and the change made - unit test on the generator (`tests/test_attribution.py`; `test_committed_attribution_credits_every_source` fails while the committed file is out of date).
 **Notes:** fixture XML is a tiny made-up document we write ourselves, never a copied article. The hand-saved fallback for #1 was dropped (owner's choice, 2026-10-19): every source now has a PMCID.
 
-### T2.2 Parse article XML and chunk with metadata (M) · status: in review · issue #5
+### T2.2 Parse article XML and chunk with metadata (M) · status: done · issue #5
 **Serves:** core 1 (chunking).
 **Depends on:** T2.1
 **Acceptance criteria**
@@ -173,13 +173,14 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 ## Epic 4: Profile and tools
 
-### T4.1 Profile, units and settings (M) · status: todo · issue #11
+### T4.1 Profile, units and settings (M) · status: in review · issue #11
 **Serves:** PRD features 4 and 7; AC-5, AC-8.
 **Depends on:** T1.1
 **Acceptance criteria**
-- [ ] `src/profile.py` validates weight, height, age (18+), sex, activity and goal with clear messages for out-of-range values (AC-5) - unit tests.
-- [ ] `src/units.py` converts kg/lb and cm/ft-in; a round trip returns the same value within rounding (AC-8) - unit tests.
-- [ ] The sidebar has a profile form and a units setting; changing units changes the inputs and displayed values; the profile lives in `st.session_state` only and is never logged - AppTest.
+- [x] `src/profile.py` validates weight, height, age (18+), sex, activity and goal with clear messages for out-of-range values (AC-5) - verified by `tests/test_profile.py`: `test_metric_weight_out_of_range_is_rejected`, `test_metric_height_out_of_range_is_rejected`, `test_imperial_weight_out_of_range_is_rejected_in_lb`, `test_imperial_height_out_of_range_is_rejected_in_ft_in`, `test_under_18_is_rejected_with_an_adults_only_message`, `test_choices_must_be_one_of_the_options`, `test_every_problem_is_reported_at_once`, the bound and type tests, and `test_user_profile_model_enforces_the_ranges_too`.
+- [x] `src/units.py` converts kg/lb and cm/ft-in; a round trip returns the same value within rounding (AC-8) - verified by `tests/test_units.py`: known values both ways, `test_weight_round_trip_is_exact`, `test_height_round_trip_is_exact`, `test_weight_round_trip_through_display_is_within_rounding`, `test_height_round_trip_through_display_is_within_rounding`; and `tests/test_profile.py`: `test_convert_form_values_there_and_back_is_within_rounding`, `test_switching_units_and_back_without_editing_restores_the_typed_values`, `test_first_unedited_switch_after_opening_shows_the_stored_profile`, `test_editing_another_field_between_switches_keeps_the_exact_restore`, `test_saving_with_only_another_field_edited_keeps_the_stored_weight_and_height`, `test_saving_an_edited_height_keeps_the_stored_weight`, `test_editing_the_weight_before_a_switch_still_restores_the_stored_height`, `test_editing_the_height_before_a_switch_still_restores_the_stored_weight`, `test_saving_an_edited_imperial_height_uses_the_typed_feet_and_inches`, `test_saving_the_imperial_form_with_only_the_goal_changed_keeps_the_stored_height`.
+- [x] The sidebar has a profile form and a units setting; changing units changes the inputs and displayed values; the profile lives in `st.session_state` only and is never logged - verified by AppTest in `tests/test_app_profile.py`: `test_a_valid_metric_profile_is_saved_and_shown`, `test_invalid_values_show_a_clear_message_and_nothing_is_saved`, `test_switching_units_converts_the_typed_values`, `test_switching_units_twice_gives_back_exactly_what_was_typed`, `test_saving_after_units_switches_only_keeps_the_weight_typed_in_lb`, `test_saving_in_imperial_changes_the_displayed_values_and_back`, `test_the_profile_stays_in_the_session_and_out_of_logs_and_the_url` (log records at DEBUG, stdout/stderr and the URL), plus `tests/test_profile.py::test_profile_module_never_logs_or_prints`. Closing the dialog with X (`on_dismiss`) is shown by the manual browser check (`docs/PROGRESS.md`); the AppTest sets the flag that callback sets.
+**Notes:** owner's choices (2026-10-19): the form opens in an `st.dialog`; one Metric / Imperial switch; ranges 30-300 kg, 120-230 cm, 18-100 years; five activity levels with working labels, which T4.2 checks against the source of its activity factors. The owner confirmed (2026-10-19, PR #27) that the units switch inside the dialog opened from the sidebar satisfies the third criterion; the sidebar itself has no separate switch, and its tiles change units on Save.
 
 ### T4.2 Energy and macro tools with the calorie floor (M) · status: todo · issue #12
 **Serves:** core 2 (tools 1 and 2); AC-7.
