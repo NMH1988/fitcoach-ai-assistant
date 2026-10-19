@@ -7,6 +7,7 @@ model and the user can see what was looked up.
 """
 
 import csv
+import re
 from collections.abc import Sequence
 from functools import lru_cache
 from pathlib import Path
@@ -28,6 +29,8 @@ TABLE_COLUMNS: tuple[str, ...] = (
     "fiber_g",
 )
 SOURCE = "USDA FoodData Central, Foundation Foods (CC0 1.0), https://fdc.nal.usda.gov/"
+# The release date in the table's credit line (config.USDA_CITATION).
+RELEASE_IN_CREDIT = re.compile(r"Foundation Foods, release (\d{4}-\d{2}-\d{2})\.")
 # Words that mark a processed form of a food ("Flour, almond", "Oat milk", "Egg, yolk, dried").
 # A name with one the query does not ask for ranks below the plain food.
 FORM_WORDS = frozenset({"flour", "oil", "juice", "dried", "powder", "milk", "butter"})
@@ -95,6 +98,22 @@ class FoodLookupResult(BaseModel):
     # Other close USDA names when found; "did you mean" suggestions when not found.
     alternatives: list[str] = Field(default_factory=list)
     source: str = SOURCE
+
+
+def read_usda_release(path: Path | None = None) -> str:
+    """Return the USDA release date (YYYY-MM-DD) named in the foods table's credit line."""
+    path = path or config.USDA_FOODS_PATH
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise FoodTableError(
+            f"{path.name} is missing; run python scripts/prepare_usda.py to make it."
+        ) from None
+    credit = " ".join(line for line in text.splitlines() if line.startswith("#"))
+    match = RELEASE_IN_CREDIT.search(credit)
+    if match is None:
+        raise FoodTableError(f"{path.name} does not name its USDA release.")
+    return match.group(1)
 
 
 def load_food_table(path: Path | None = None) -> tuple[Food, ...]:

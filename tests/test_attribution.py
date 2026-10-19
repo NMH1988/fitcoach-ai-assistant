@@ -5,6 +5,17 @@ import json
 from scripts import generate_attribution
 from src import config
 from src.rag.sources import CHANGES_MADE, Source, load_manifest, render_attribution
+from src.tools.food import read_usda_release
+
+USDA_LINE = "- **USDA FoodData Central.** "
+
+
+def made_up_foods_table(tmp_path, release="2025-12-18"):
+    """Write a foods table whose credit line names the given USDA release; return its path."""
+    path = tmp_path / "usda_foods.csv"
+    credit = config.USDA_CITATION.format(release=release)
+    path.write_text(f"# Source: {credit}\nfdc_id,description\n", encoding="utf-8")
+    return path
 
 
 def made_up_source(**changes) -> Source:
@@ -82,18 +93,46 @@ def test_write_attribution_writes_the_rendered_file(tmp_path):
         json.dumps([made_up_source().model_dump()], ensure_ascii=False), encoding="utf-8"
     )
     target = tmp_path / "ATTRIBUTION.md"
-    assert generate_attribution.write_attribution(manifest, target) == 1
-    assert target.read_bytes() == render_attribution([made_up_source()]).encode("utf-8")
+    foods = made_up_foods_table(tmp_path)
+    assert generate_attribution.write_attribution(manifest, target, foods) == 1
+    expected = render_attribution([made_up_source()], usda_release="2025-12-18")
+    assert target.read_bytes() == expected.encode("utf-8")
 
 
 def test_committed_attribution_credits_every_source():
     """ATTRIBUTION.md is up to date with the manifest and credits every approved source."""
     sources = load_manifest()
     committed = config.ATTRIBUTION_PATH.read_text(encoding="utf-8")
-    assert committed == render_attribution(sources), "run python scripts/generate_attribution.py"
+    expected = render_attribution(sources, usda_release=read_usda_release())
+    assert committed == expected, "run python scripts/generate_attribution.py"
     for source in sources:
         line = entry_line(committed, source.id)
         assert source.doi in line and source.license_url in line
+
+
+def test_committed_attribution_credits_usda_fooddata_central():
+    """ATTRIBUTION.md credits the USDA release that data/usda_foods.csv was made from."""
+    committed = config.ATTRIBUTION_PATH.read_text(encoding="utf-8")
+    [line] = [line for line in committed.splitlines() if line.startswith(USDA_LINE)]
+    assert f"FoodData Central: Foundation Foods, release {read_usda_release()}." in line
+
+
+def test_usda_entry_has_every_credit_element():
+    """The USDA entry carries the citation, release, CC0 link, changes and no endorsement."""
+    text = render_attribution([made_up_source()], usda_release="2026-04-30")
+    [line] = [line for line in text.splitlines() if line.startswith(USDA_LINE)]
+    assert "## Food data" in text
+    assert config.USDA_CITATION.format(release="2026-04-30") in line
+    assert f"Licence: {config.USDA_LICENSE}, {config.USDA_LICENSE_URL}." in line
+    assert f"Changes: {config.USDA_CHANGES}" in line
+    assert line.endswith("No endorsement by USDA is implied.")
+    assert text.index("## Sources") < text.index("## Food data")
+
+
+def test_no_usda_entry_without_a_release():
+    """Without a USDA release the file credits only the articles."""
+    text = render_attribution([made_up_source()])
+    assert "## Food data" not in text and USDA_LINE not in text
 
 
 def test_main_writes_the_file_and_returns_0(monkeypatch, tmp_path, capsys):
@@ -101,8 +140,19 @@ def test_main_writes_the_file_and_returns_0(monkeypatch, tmp_path, capsys):
     target = tmp_path / "ATTRIBUTION.md"
     monkeypatch.setattr(config, "ATTRIBUTION_PATH", target)
     assert generate_attribution.main() == 0
-    assert target.read_text(encoding="utf-8") == render_attribution(load_manifest())
+    expected = render_attribution(load_manifest(), usda_release=read_usda_release())
+    assert target.read_text(encoding="utf-8") == expected
     assert "with 21 sources" in capsys.readouterr().out
+
+
+def test_main_returns_1_without_the_foods_table(monkeypatch, tmp_path, capsys):
+    """A missing foods table gives an error message and exit code 1, and writes nothing."""
+    target = tmp_path / "ATTRIBUTION.md"
+    monkeypatch.setattr(config, "USDA_FOODS_PATH", tmp_path / "absent.csv")
+    monkeypatch.setattr(config, "ATTRIBUTION_PATH", target)
+    assert generate_attribution.main() == 1
+    assert "prepare_usda.py" in capsys.readouterr().err
+    assert not target.exists()
 
 
 def test_main_returns_1_for_an_invalid_manifest(monkeypatch, tmp_path, capsys):

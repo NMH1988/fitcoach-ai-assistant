@@ -229,8 +229,8 @@ def _sentence(text: str) -> str:
     return text if text.endswith(".") else f"{text}."
 
 
-def render_attribution(sources: list[Source]) -> str:
-    """Return the text of ATTRIBUTION.md: one CC BY credit per source, in manifest order."""
+def render_attribution(sources: list[Source], usda_release: str | None = None) -> str:
+    """Return the text of ATTRIBUTION.md: the articles in manifest order, then the USDA data."""
     lines = [
         "# Attribution",
         "",
@@ -256,4 +256,19 @@ def render_attribution(sources: list[Source]) -> str:
             f"Changes: {CHANGES_MADE}. "
             "No endorsement by the authors or publisher is implied."
         )
+    if usda_release is not None:
+        # The food lookup tool's table (T4.3); USDA asks users to list FoodData Central as the
+        # source, and CC0 needs no more, but the same credit elements are kept for consistency.
+        citation = config.USDA_CITATION.format(release=usda_release)
+        lines += [
+            "",
+            "## Food data",
+            "",
+            "The food lookup tool reads a trimmed copy of this dataset (`data/usda_foods.csv`, "
+            "made by `python scripts/prepare_usda.py`).",
+            "",
+            f"- **USDA FoodData Central.** {_md(citation)}. "
+            f"Licence: {config.USDA_LICENSE}, {_url(config.USDA_LICENSE_URL)}. "
+            f"Changes: {_md(config.USDA_CHANGES)} No endorsement by USDA is implied.",
+        ]
     return "\n".join(lines) + "\n"

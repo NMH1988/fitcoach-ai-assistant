@@ -11,6 +11,7 @@ from src.tools.food import (
     FoodTableError,
     load_food_table,
     lookup_food_nutrition,
+    read_usda_release,
 )
 
 # A small table in the shape of the USDA one; the values are round numbers we chose.
@@ -326,7 +327,28 @@ def test_a_malformed_table_is_refused(tmp_path, rows, header):
         load_food_table(write_table(tmp_path, *rows, header=header))
 
 
+def test_release_is_read_from_the_credit_line(tmp_path):
+    """The USDA release date comes from the table's '#' credit line."""
+    path = tmp_path / "foods.csv"
+    credit = config.USDA_CITATION.format(release="2025-12-18")
+    path.write_text(f"# Source: {credit}\n{HEADER}\n", encoding="utf-8")
+    assert read_usda_release(path) == "2025-12-18"
+
+
+def test_a_table_without_a_release_is_refused(tmp_path):
+    """No release in the credit lines (or no file): a clear FoodTableError."""
+    with pytest.raises(FoodTableError, match="does not name its USDA release"):
+        read_usda_release(write_table(tmp_path, "1,Milk,61,3.3,4.6,3.3,0"))
+    with pytest.raises(FoodTableError, match="prepare_usda.py"):
+        read_usda_release(tmp_path / "absent.csv")
+
+
 # --- the committed table ---
+
+
+def test_committed_table_names_its_release():
+    """The committed table names the USDA release it was made from."""
+    assert read_usda_release() == "2026-04-30"
 
 
 @pytest.mark.parametrize(

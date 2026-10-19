@@ -45,16 +45,10 @@ NUTRIENT_IDS: dict[str, tuple[str, ...]] = {
 REQUIRED_COLUMNS = ("kcal", "protein_g", "carbohydrate_g", "fat_g")
 
 CREDIT_LINES = (
-    "Source: U.S. Department of Agriculture, Agricultural Research Service, Beltsville Human "
-    "Nutrition Research Center. FoodData Central: Foundation Foods, release {release}. "
-    "https://fdc.nal.usda.gov/",
-    "Licence: CC0 1.0 Universal (public domain), "
-    "https://creativecommons.org/publicdomain/zero/1.0/. No endorsement by USDA is implied.",
-    "Changes: made by scripts/prepare_usda.py. Foundation foods only; values per 100 g: energy "
-    "(kcal; Atwater specific factors where reported, else general factors), protein, "
-    "carbohydrate (by difference), total fat and total dietary fiber. Foods "
-    "without energy or a macronutrient are left out; a repeated name is kept once (latest "
-    "publication); negative values are set to 0; an empty fiber value means not reported.",
+    f"Source: {config.USDA_CITATION}",
+    f"Licence: {config.USDA_LICENSE}, {config.USDA_LICENSE_URL}. "
+    "No endorsement by USDA is implied.",
+    f"Changes: made by scripts/prepare_usda.py. {config.USDA_CHANGES}",
 )
 
 

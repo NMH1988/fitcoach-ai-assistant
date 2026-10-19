@@ -92,6 +92,22 @@ USDA_RAW_DIR = PROJECT_ROOT / "data" / "usda"
 USDA_FOODS_PATH = PROJECT_ROOT / "data" / "usda_foods.csv"
 # The largest CSV in the 2026-04-30 zip is about 10 MB unpacked; anything far bigger is refused.
 USDA_MAX_MEMBER_BYTES = 100_000_000
+# The credit for the table, used in its "#" lines and in ATTRIBUTION.md. The citation follows the
+# format USDA suggests on https://fdc.nal.usda.gov/; {release} is the release date (YYYY-MM-DD).
+USDA_CITATION = (
+    "U.S. Department of Agriculture, Agricultural Research Service, Beltsville Human Nutrition "
+    "Research Center. FoodData Central: Foundation Foods, release {release}. "
+    "https://fdc.nal.usda.gov/"
+)
+USDA_LICENSE = "CC0 1.0 Universal (public domain)"
+USDA_LICENSE_URL = "https://creativecommons.org/publicdomain/zero/1.0/"
+USDA_CHANGES = (
+    "Foundation foods only; values per 100 g: energy (kcal; Atwater specific factors where "
+    "reported, else general factors), protein, carbohydrate (by difference), total fat and total "
+    "dietary fiber. Foods without energy or a macronutrient are left out; a repeated name is kept "
+    "once (latest publication); negative values are set to 0; an empty fiber value means not "
+    "reported."
+)
 
 # lookup_food_nutrition: argument limits and fuzzy name matching (rapidfuzz scores, 0-100).
 FOOD_MAX_NAME_CHARS = 100
