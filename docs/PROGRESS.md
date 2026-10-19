@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-19 · T2.3 Build and open the Chroma index · #<PR> (closes #6)
+## 2026-10-19 · T2.3 Build and open the Chroma index · #31 (closes #6)
 - **Brief:** core requirement 1 (embeddings, similarity search); AC-13 (missing index).
 - **What:**
   - `src/rag/store.py` (new): `build_index(chunks, embeddings, ...)` embeds the chunks in batches of `EMBEDDING_BATCH_SIZE` into a staging collection (cosine distance, the embedding model in its metadata) and renames it to `nutrition-sources` only when every chunk is in; `check_index()` returns the chunk count or raises `IndexNotReadyError` (missing, unreadable, empty, or built with another embedding model) with a fixed message that says to run `python scripts/build_index.py`; `open_index()` checks first, then opens the collection with our embeddings client; `chunk_id()` gives `<source_id>-<chunk_index>`.
