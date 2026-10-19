@@ -92,8 +92,9 @@ def test_manifest_matches_the_approved_list_per_article(manifest):
 def test_no_manifest_field_is_empty():
     """Every field of every raw manifest entry is present and not empty."""
     raw = json.loads(config.SOURCES_MANIFEST_PATH.read_text(encoding="utf-8"))
+    required = {name for name, field in Source.model_fields.items() if field.is_required()}
     for item in raw:
-        assert set(item) == set(Source.model_fields), item.get("id")
+        assert required <= set(item) <= set(Source.model_fields), item.get("id")
         for field, value in item.items():
             assert value not in ("", [], None), (item["id"], field)
             if isinstance(value, list):
@@ -112,6 +113,36 @@ def test_source_one_comes_from_europe_pmc(manifest):
     one = next(s for s in manifest if s.id == "1")
     assert one.pmcid == "PMC13665703"
     assert one.doi == "10.1080/15502783.2026.2740266"
+
+
+def test_corrections_match_the_approved_list(manifest):
+    """Exactly the rows marked "Correction to #N" in docs/SOURCES.md correct source N (#18a)."""
+    listed = dict(
+        re.findall(r"^\| (\d+a?) \| Correction to #(\d+)", SOURCES_MD.read_text("utf-8"), re.M)
+    )
+    assert listed == {"18a": "18"}
+    assert {s.id: s.corrects for s in manifest if s.corrects} == listed
+
+
+def test_a_correction_of_a_listed_source_loads(tmp_path):
+    """A correction that names another listed source loads with its `corrects` field."""
+    corrected = entry()
+    correction = entry(
+        id="1a",
+        pmcid="PMC7654321",
+        doi="10.1234/made-up.2",
+        url="https://doi.org/10.1234/made-up.2",
+    )
+    correction["corrects"] = "1"
+    loaded = load_manifest(write_manifest(tmp_path, [corrected, correction]))
+    assert [s.corrects for s in loaded] == [None, "1"]
+
+
+@pytest.mark.parametrize("corrects", ["1", "2", "#2", ""])
+def test_a_bad_correction_link_is_rejected(tmp_path, corrects):
+    """A source that corrects itself, an unlisted source or a malformed ID fails to load."""
+    with pytest.raises(ManifestError):
+        load_manifest(write_manifest(tmp_path, [entry(corrects=corrects)]))
 
 
 def test_a_valid_entry_loads(tmp_path):
