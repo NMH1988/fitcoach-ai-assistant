@@ -62,6 +62,9 @@ _POSSESSIVES = r"(?:my|his|her|their|our)"
 _NOT_THIRD_PARTY = (
     rf"(?! (?:(?:that|which|i got|we got|i was given) )?{_POSSESSIVES}\b)"
     rf"(?! (?:on|from|given by|provided by|printed on|written on) (?:the|an?|{_POSSESSIVES})\b)"
+    # "... in the old WHO report", "... for this meal plan", but not "... in this conversation".
+    r"(?! (?:in|for|about) (?:the|that|this|an?|my) "
+    r"(?!(?:conversation|chat|session|prompt|message|thread|system)\b))"
 )
 # After "instructions" or "rules": a how-to request ("your instructions for meal prepping").
 _NOT_HOW_TO = r"(?! (?:for|on|about|of|by|at|from)\b)"
