@@ -44,6 +44,7 @@ Found by `pip-audit` on 2026-10-19 against chromadb 1.5.9 (the latest release th
 
 ## Known limits
 
-- Pattern-based injection checks catch common attacks, not all of them; the delimiting and the system prompt are the second line.
+- Pattern-based injection checks catch common attacks, not all of them; the delimiting and the system prompt are the second line. The patterns are English only, and a rephrased attack, another language, or text split by punctuation (e.g. "i.g.n.o.r.e") gets through. They are kept narrow on purpose so nutrition questions that use words like "ignore", "rules", "system" or "act as" are not blocked (tested with benign questions); a few unusual benign phrasings may still be rejected, e.g. "ignore all instructions on the label".
+- The rate limit lives in the browser session, so reloading the page starts a new quota. It bounds what one session can spend, not what a determined visitor can; a public deployment still needs one of the options in `docs/DEPLOYMENT.md`.
 - The guardrails in the system prompt depend on the model following them; the ones in code (calorie floor, age limit, argument ranges) do not.
 - The app gives general information for healthy adults and is not medical advice.

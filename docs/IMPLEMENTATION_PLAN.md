@@ -45,7 +45,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | **Core** | | | | | | |
 | T1.1 | #1 | Project skeleton, config and CI | S | - | 10-20 | done |
 | T1.2 | #2 | OpenRouter clients and error mapping | S | T1.1 | 10-20 | done |
-| T1.3 | #3 | Input guard and rate limit | S | T1.1 | 10-21 | in progress |
+| T1.3 | #3 | Input guard and rate limit | S | T1.1 | 10-21 | in review |
 | T2.1 | #4 | Source manifest, download script, attribution | M | T1.1, O4 | 10-21 | todo |
 | T2.2 | #5 | Parse article XML and chunk with metadata | M | T2.1 | 10-22 | todo |
 | T2.3 | #6 | Build and open the Chroma index | S | T1.2, T2.2 | 10-23 | todo |
@@ -93,15 +93,15 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] 401, 402, 429, timeout and 5xx map to distinct user-readable errors; retries are bounded; the key never appears in an error message - verified by unit tests with a mocked transport.
 - [x] One real chat call and one real embedding call succeed - owner live check (O5) with `python scripts/live_check_llm.py` on 2026-10-19, recorded in `docs/TESTING.md`.
 
-### T1.3 Input guard and rate limit (S) · status: in progress · issue #3
+### T1.3 Input guard and rate limit (S) · status: in review · issue #3
 **Serves:** core 4 (input validation), Medium 3, AC-11.
 **Depends on:** T1.1
 **Acceptance criteria**
-- [ ] Empty or whitespace-only input and input over the configured length are rejected with a clear message - unit tests.
-- [ ] Common prompt-injection patterns are rejected; a set of benign nutrition questions passes (no false positives) - parametrised unit tests with attack and benign strings.
-- [ ] The per-session rate limit rejects requests above the limit - unit test with a fake clock.
-- [ ] A rejected input makes no LLM or embedding call - unit test with a spy client.
-**Notes:** the attack strings are written by us, not copied from other projects with unknown licences.
+- [x] Empty or whitespace-only input and input over the configured length are rejected with a clear message - unit tests (`tests/test_guard.py`: `test_empty_or_whitespace_is_rejected`, `test_input_over_the_limit_is_rejected`, `test_input_at_the_limit_passes`, `test_length_is_counted_after_cleaning`).
+- [x] Common prompt-injection patterns are rejected; a set of benign nutrition questions passes (no false positives) - parametrised unit tests with attack and benign strings (`test_injection_attempts_are_rejected`, 30 attacks; `test_benign_questions_pass`, 20 questions).
+- [x] The per-session rate limit rejects requests above the limit - unit test with a fake clock (`test_rate_limit_rejects_above_the_window_limit`, `test_rate_limit_window_rolls`, `test_rate_limit_rejects_above_the_session_limit`).
+- [x] A rejected input makes no LLM or embedding call - unit test with a spy client (`test_rejected_input_makes_no_api_call`, `test_rate_limited_input_makes_no_api_call`, with `test_accepted_input_reaches_the_clients` as the control).
+**Notes:** the attack strings are written by us, not copied from other projects with unknown licences. The rate limit counts accepted questions (one per turn), and rejected input does not count (owner's choice, 2026-10-19). T3.1 wires `run_guarded()` into the chat turn.
 
 ## Epic 2: Knowledge base
 
