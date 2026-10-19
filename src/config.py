@@ -72,6 +72,83 @@ TOPICS: tuple[str, ...] = (
 # 1 = ISSN position stand, 2 = other peer-reviewed review or meta-analysis (docs/SOURCES.md).
 EVIDENCE_TIERS: tuple[int, ...] = (1, 2)
 
+# Chunking of the article text (docs/ARCHITECTURE.md section 4). A chunk is at most CHUNK_SIZE
+# characters, its section title included; neighbouring chunks of a section share CHUNK_OVERLAP.
+CHUNK_SIZE = 1000
+CHUNK_OVERLAP = 150
+# Room always left for the text after a very long section title, so the splitter still works;
+# such a chunk may then be longer than CHUNK_SIZE (no approved article comes close). Must stay above
+# CHUNK_OVERLAP, or the splitter raises ValueError.
+CHUNK_MIN_BODY_CHARS = 400
+# Section title for paragraphs that sit directly in the body, outside any section (e.g. #18a).
+MAIN_TEXT_TITLE = "Main text"
+# Back matter that many articles put inside <body>: dropped, as it is not nutrition content (owner's
+# choice in T2.2). Matched on the section's sec-type, or on its title in lower case with numbering
+# and punctuation removed; a title starting with "appendix" is dropped too.
+INGEST_DROPPED_SEC_TYPES: frozenset[str] = frozenset(
+    {
+        "ack",
+        "ai-statement",
+        "app",
+        "associated-data",
+        "coi-statement",
+        "contrib-info",
+        "data-availability",
+        "data-availability-statement",
+        "disclaimer",
+        "display-objects",
+        "fn-group",
+        "history",
+        "kwd-group",
+        "ref-list",
+        "supplementary-material",
+        "supplementary-materials",
+    }
+)
+INGEST_DROPPED_SEC_TITLES: frozenset[str] = frozenset(
+    {
+        "abbreviations",
+        "acknowledgement",
+        "acknowledgements",
+        "acknowledgment",
+        "acknowledgments",
+        "associated data",
+        "author contributions",
+        "authors contributions",
+        "availability of data and materials",
+        "competing interests",
+        "conflict of interest",
+        "conflicts of interest",
+        "consent for publication",
+        "contributor information",
+        "correction note",
+        "data availability",
+        "data availability statement",
+        "declarations",
+        "disclaimer",
+        "disclaimer publishers note",
+        "disclosure",
+        "disclosure statement",
+        "ethics approval",
+        "ethics approval and consent to participate",
+        "ethics approval statement",
+        "footnotes",
+        "funding",
+        "funding statement",
+        "generative ai statement",
+        "infographic",
+        "informed consent statement",
+        "institutional review board statement",
+        "publishers note",
+        "references",
+        "supplemental material",
+        "supplementary information",
+        "supplementary material",
+        "supplementary materials",
+        "supporting information",
+    }
+)
+
 # Article XML comes only from the Europe PMC REST API, which allows automated retrieval
 # (copyright policy rule 10); the PMC, Europe PMC and publisher websites are never scripted.
 EUROPE_PMC_FULLTEXT_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/{pmcid}/fullTextXML"

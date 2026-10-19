@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A made-up article written for the ingest tests; not a copy of any real article. Words in
+     capitals mark text that must be dropped, so the tests can look for them. -->
+<article xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:mml="http://www.w3.org/1998/Math/MathML" article-type="review-article">
+  <front>
+    <journal-meta><journal-title-group><journal-title>Journal of Made-up Results</journal-title></journal-title-group></journal-meta>
+    <article-meta>
+      <article-id pub-id-type="doi">10.1234/made-up.1</article-id>
+      <title-group><article-title>Oats and <italic>made-up</italic> lifters</article-title></title-group>
+      <permissions>
+        <copyright-statement>© The Author(s) 2024</copyright-statement>
+        <license xlink:href="https://creativecommons.org/licenses/by/4.0/"><license-p>CC BY 4.0.</license-p></license>
+      </permissions>
+      <abstract>
+        <title>Abstract</title>
+        <sec><title>Background</title><p>Oats were eaten by made-up lifters.</p></sec>
+        <sec><title>Conclusions</title>
+          <p>Two points:</p>
+          <list list-type="bullet">
+            <list-item><label>•</label><p>Oats are fine.</p></list-item>
+            <list-item><label>•</label><p>Water is fine.</p></list-item>
+          </list>
+        </sec>
+      </abstract>
+      <kwd-group><kwd>KEYWORDTEXT</kwd></kwd-group>
+    </article-meta>
+  </front>
+  <body>
+    <sec sec-type="intro">
+      <label>1.</label>
+      <title>Introduction</title>
+      <p>Oats help [<xref ref-type="bibr" rid="r1">1</xref>, <xref ref-type="bibr" rid="r2">2</xref>]. Rice helps too<sup><xref ref-type="bibr" rid="r1">1</xref>,<xref ref-type="bibr" rid="r2">2</xref></sup>. See the oat counts (<xref ref-type="table" rid="t1">Table 1</xref>). Doses fell by 10<sup>-3</sup> units.</p>
+      <p>The effect was <inline-formula><mml:math><mml:mi>τ</mml:mi></mml:math></inline-formula> = 0.5<break/>overall.</p>
+      <p>Green tea
+        (-)-epicatechin was tested
+        (<xref ref-type="bibr" rid="r1">Example and Sample, 2020</xref>). Oats help ([<xref ref-type="bibr" rid="r1">1</xref>], [<xref ref-type="bibr" rid="r2">2</xref>]).</p>
+      <p>The model is: <disp-formula><mml:math><mml:mi>DISPLAYFORMULA</mml:mi></mml:math></disp-formula> where oats are fixed<xref ref-type="table-fn" rid="tf1">FOOTNOTEMARK</xref>.</p>
+      <p>Heterogeneity was <inline-formula><mml:math><mml:msup><mml:mi>I</mml:mi><mml:mn>2</mml:mn></mml:msup></mml:math></inline-formula> = 0%,
+        <inline-formula>
+          <mml:math>
+            <mml:mi>P</mml:mi>
+            <mml:mfenced><mml:mrow><mml:mo>&gt;</mml:mo><mml:mn>0</mml:mn></mml:mrow></mml:mfenced>
+            <mml:mo>=</mml:mo>
+          </mml:math>
+        </inline-formula> 0.8,
+        <inline-formula><mml:math><mml:mover accent="true"><mml:mrow><mml:mi>R</mml:mi></mml:mrow><mml:mo>^</mml:mo></mml:mover></mml:math></inline-formula> = 1.01 and
+        <inline-formula><mml:math><mml:msub><mml:mi>β</mml:mi><mml:mrow><mml:mi>oats</mml:mi></mml:mrow></mml:msub></mml:math></inline-formula> = 0.2 on a N(0, 100<sup>2</sup>) prior.</p>
+      <disp-quote><p>QUOTEDPASSAGE</p><attrib>A made-up poet</attrib></disp-quote>
+      <list list-type="bullet"><list-item><p>Grains</p><list><list-item><p>Oats</p></list-item></list></list-item></list>
+      <fig id="f1"><label>Figure 1</label><caption><p>FIGURECAPTION</p></caption><graphic xlink:href="f1.jpg"/></fig>
+      <table-wrap id="t1"><label>Table 1</label><caption><p>TABLECAPTION</p></caption><table><tr><td>TABLECELL</td></tr></table><table-wrap-foot><fn><p>TABLEFOOTNOTE</p></fn></table-wrap-foot></table-wrap>
+      <disp-formula id="e1"><mml:math><mml:mi>DISPLAYFORMULA</mml:mi></mml:math></disp-formula>
+      <supplementary-material id="s1"><caption><p>SUPPLEMENTCAPTION</p></caption></supplementary-material>
+      <boxed-text><caption><p>QUOTEDBOX from another book.</p></caption><permissions><copyright-statement>THIRDPARTY</copyright-statement></permissions></boxed-text>
+      <fn-group><fn><p>NOTETEXT</p></fn></fn-group>
+    </sec>
+    <sec sec-type="methods">
+      <title>Methods</title>
+      <p>We read made-up papers.</p>
+      <sec>
+        <label>2.1</label>
+        <title>Search</title>
+        <p>We searched a made-up library.</p>
+      </sec>
+      <p>Then we wrote it down.</p>
+    </sec>
+    <sec><title>Acknowledgments</title><p>ACKTEXT</p></sec>
+    <sec sec-type="COI-statement"><title>Interests</title><p>COITEXT</p></sec>
+    <sec><title>Funding Statement</title><p>FUNDINGTEXT</p></sec>
+    <sec><title>Publisher’s note</title><p>PUBLISHERNOTE</p></sec>
+    <sec><title>Appendix A Forest plots</title><p>APPENDIXTEXT</p></sec>
+    <sec sec-type="ref-list"><title>References</title><ref-list><ref id="r1"><mixed-citation>REFERENCETEXT</mixed-citation></ref></ref-list></sec>
+  </body>
+  <back>
+    <ack><p>BACKACK</p></ack>
+    <ref-list><ref id="r2"><mixed-citation>BACKREFERENCE</mixed-citation></ref></ref-list>
+  </back>
+  <floats-group><fig id="f2"><caption><p>FLOATCAPTION</p></caption></fig></floats-group>
+</article>
