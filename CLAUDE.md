@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Nutrition AI Assistant for Gym Enthusiasts: a domain-specialised RAG chatbot with tool calling (Turing College, Sprint 2 project, deadline 2026-11-02). Status: planning; no code yet.
+Nutrition AI Assistant for Gym Enthusiasts: a domain-specialised RAG chatbot with tool calling (Turing College, Sprint 2 project, deadline 2026-11-02). Status: in development; see `docs/IMPLEMENTATION_PLAN.md`.
 
 The owner writes in Vietnamese: reply in Vietnamese. Everything in the repo is in English: code, comments, docstrings, documentation, commit messages, issues and PRs.
 
@@ -35,4 +35,12 @@ The owner writes in Vietnamese: reply in Vietnamese. Everything in the repo is i
 
 ## Commands
 
-Added in the setup ticket, when `pyproject.toml` exists. Expected, as in Sprint 1: install `pip install -e ".[dev]"`, run `streamlit run app.py`, lint `ruff check .` / `ruff format .`, test `python -m pytest -q`.
+Python 3.14 (`.python-version`), in a local `.venv`.
+
+- Install: `pip install -e ".[dev]"`
+- Run: `streamlit run app.py`
+- Lint/format: `ruff check .` / `ruff format .`
+- Test: `python -m pytest -q` (LLM, embedding and network calls must be mocked)
+- Audit: `pip-audit .` with the `--ignore-vuln` flags listed in `.github/workflows/ci.yml` (reasons in `docs/SECURITY.md`)
+
+CI (`.github/workflows/ci.yml`) runs lint, tests with coverage and `pip-audit` on every push to `main` and every PR.

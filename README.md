@@ -2,7 +2,7 @@
 
 A chatbot that answers nutrition questions for adults who do recreational strength training. It combines retrieval-augmented generation over open-licensed sports nutrition research with tools for personal calculations (energy needs, macro targets) and food lookups.
 
-**Status:** planning. No code yet. Built as the Sprint 2 project of the Turing College AI Engineering course, deadline 2026-11-02.
+**Status:** in development (see [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)). Built as the Sprint 2 project of the Turing College AI Engineering course, deadline 2026-11-02.
 
 ## Documentation
 
@@ -18,7 +18,33 @@ A chatbot that answers nutrition questions for adults who do recreational streng
 | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Deployment notes |
 | [`docs/PROGRESS.md`](docs/PROGRESS.md) | What each change did and why |
 
-Planned stack: Python, Streamlit, LangChain, OpenRouter, Chroma, USDA FoodData Central.
+Stack: Python, Streamlit, LangChain, OpenRouter, Chroma, USDA FoodData Central.
+
+## Run locally
+
+Requires Python 3.14 and an [OpenRouter](https://openrouter.ai/keys) API key.
+
+```bash
+python3.14 -m venv .venv      # Windows: py -3.14 -m venv .venv
+source .venv/bin/activate     # Windows: .venv\Scripts\Activate.ps1 (PowerShell)
+                              # or source .venv/Scripts/activate (Git Bash)
+pip install -e ".[dev]"
+```
+
+Set the key in one of two ways (never commit it):
+
+- copy `.streamlit/secrets.toml.example` to `.streamlit/secrets.toml` (gitignored) and paste your key there, or
+- set the `OPENROUTER_API_KEY` environment variable.
+
+Then:
+
+```bash
+streamlit run app.py      # start the app
+python -m pytest -q       # run the tests (no key needed; all API calls are mocked)
+ruff check . && ruff format --check .   # lint and format check
+```
+
+The app runs locally only for now; a public deployment needs one of the options in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ## Content and licences
 

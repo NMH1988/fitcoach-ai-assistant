@@ -40,7 +40,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 | Ticket | Issue | Title | Size | Depends on | Target | Status |
 |---|---|---|---|---|---|---|
-| T1.1 | #1 | Project skeleton, config and CI | S | - | 10-20 | todo |
+| T1.1 | #1 | Project skeleton, config and CI | S | - | 10-20 | in review |
 | T1.2 | #2 | OpenRouter clients and error mapping | S | T1.1 | 10-20 | todo |
 | T1.3 | #3 | Input guard and rate limit | S | T1.1 | 10-21 | todo |
 | T2.1 | #4 | Source manifest, download script, attribution | M | T1.1, O4 | 10-21 | todo |
@@ -69,15 +69,15 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 ## Epic 1: Foundation
 
-### T1.1 Project skeleton, config and CI (S) · status: todo · issue #1
+### T1.1 Project skeleton, config and CI (S) · status: in review · issue #1
 **Serves:** core 4 (technical base); CI as in Sprint 1.
 **Depends on:** -
 **Acceptance criteria**
-- [ ] `pyproject.toml` pins the runtime packages from `docs/ARCHITECTURE.md` section 12 and the dev tools (pytest, pytest-cov, ruff, pip-audit); `.python-version` is 3.14; `pip install -e ".[dev]"` works on a clean venv - verified by CI install step.
-- [ ] `streamlit run app.py` shows the app title and the "not medical advice" disclaimer - verified by an AppTest smoke test.
-- [ ] `src/config.py` holds the model allowlist, default models (answer `openai/gpt-5-mini`, query translation `openai/gpt-5-nano`), limits and `get_api_key()`, which reads `st.secrets` or `OPENROUTER_API_KEY` and returns a clear "missing key" error without printing the key - verified by unit tests with a fake key and with no key.
-- [ ] `.github/workflows/ci.yml` runs `ruff check .`, `ruff format --check .`, `pytest` with coverage and `pip-audit` on push to `main` and on PRs, with no API key - verified by a green CI run.
-- [ ] `CLAUDE.md` "Commands" lists the real commands.
+- [x] `pyproject.toml` pins the runtime packages from `docs/ARCHITECTURE.md` section 12 and the dev tools (pytest, pytest-cov, ruff, pip-audit); `.python-version` is 3.14; `pip install -e ".[dev]"` works on a clean venv - verified by CI install step.
+- [x] `streamlit run app.py` shows the app title and the "not medical advice" disclaimer - verified by an AppTest smoke test.
+- [x] `src/config.py` holds the model allowlist, default models (answer `openai/gpt-5-mini`, query translation `openai/gpt-5-nano`), limits and `get_api_key()`, which reads `st.secrets` or `OPENROUTER_API_KEY` and returns a clear "missing key" error without printing the key - verified by unit tests with a fake key and with no key.
+- [x] `.github/workflows/ci.yml` runs `ruff check .`, `ruff format --check .`, `pytest` with coverage and `pip-audit` on push to `main` and on PRs, with no API key - verified by a green CI run.
+- [x] `CLAUDE.md` "Commands" lists the real commands.
 **Notes:** check every new package's licence (`.claude/rules/copyright.md` rule 9). Add `dependabot.yml` as in Sprint 1.
 
 ### T1.2 OpenRouter clients and error mapping (S) · status: todo · issue #2

@@ -13,6 +13,13 @@ Full threat model and controls: `docs/SECURITY.md`.
 - The user's profile (weight, height, age, sex, activity, goal) lives in `st.session_state` only for the session. It is never logged, written to disk, sent anywhere except the LLM call that needs it, or put in the vector store.
 - The PDF summary is built in memory and downloaded by the user; the server keeps no copy.
 
+## Chroma: embedded only
+
+chromadb has known, unfixed vulnerabilities in its HTTP server (accepted risk in `docs/SECURITY.md`; four advisories ignored in CI with reasons). They do not apply as long as:
+- Chroma runs only embedded in the app's process (`chromadb.PersistentClient` / `langchain_chroma.Chroma` with a local `persist_directory`). Never start a Chroma server (`chroma run`, Docker image), never use `HttpClient` or `AsyncHttpClient`, never expose Chroma on a port.
+- Embeddings come from our OpenRouter client. Never use Chroma's built-in embedding functions or pass `trust_remote_code`.
+- When a fixed chromadb release exists (Dependabot will propose it), upgrade and remove the matching `--ignore-vuln` lines from `.github/workflows/ci.yml`. Never add an ignore without a documented reason in `docs/SECURITY.md`.
+
 ## Guards
 
 - Every path that reaches the LLM or the embedding API goes through the input guard first; rejected input makes no API call.
