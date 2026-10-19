@@ -70,8 +70,9 @@ _COMPOUND = (
     rf"(?:{_FOOD_WORDS}|app|apps|coach|tracker|nutrition|fitness|tool|calculator|scale|generated)"
 )
 # A chat word owned by someone else: "the bot's meal plan", "the message from my dietitian",
-# "the chat with my trainer".
-_OWNED = r"'s\b| (?:(?:from|with|by|that|which) )?(?:my|his|her|their)\b"
+# "the chat with my trainer". "'s" counts only before a plan word, so "the assistant's role" or
+# "the bot's safety filter" still names the chat.
+_OWNED = rf"'s (?:{_FOOD_WORDS})\b| (?:(?:from|with|by|that|which) )?(?:my|his|her|their)\b"
 # After "this" or "our" a chat word (and "session" or "model", which are gym and science words
 # otherwise: "my session tomorrow", "a model of protein synthesis") means this chat, even inside
 # a longer name ("this chat app", "this AI tool"), unless it names a plan ("this AI meal plan").
