@@ -2,7 +2,7 @@
 
 The approved list for the knowledge base and data, under the copyright policy in `.claude/rules/copyright.md`. Only sources listed under **Approved** may be used. Nothing from the **Excluded** list goes into the project.
 
-**Verification status.** On 2026-10-19 the licence statement of every approved article was read from the article itself: the article page on PubMed Central (which reproduces the publisher's copyright and licence statement) or, for #1, the publisher's article XML on tandfonline.com. All 20 articles and the correction to #18 are CC BY. CC0 links on some BioMed Central articles apply to the article's data, not its text. Re-check a licence if a source is replaced by a new version.
+**Verification status.** On 2026-10-19 the licence statement of every approved article was read from the article itself: the article page on PubMed Central (which reproduces the publisher's copyright and licence statement) or, for #1, the publisher's article XML on tandfonline.com. #1 had no Europe PMC copy at first; by the T2.1 check the same day it had one (PMC13665703), and the licence block of that copy, read through the REST API, says the same (CC BY 4.0). All 20 articles and the correction to #18 are CC BY. CC0 links on some BioMed Central articles apply to the article's data, not its text. Re-check a licence if a source is replaced by a new version.
 
 **How the check was done, and a correction.** The PMC pages were read in one browser session, 20 of them by a short script. PMC's copyright page (read afterwards) forbids systematic or automated retrieval of batches of articles from its website, open access included. The check read only the licence lines and stored no article text, but it should have used the allowed services instead. From now on, automated access goes only through the Europe PMC REST API or PMC's OAI-PMH/FTP/Cloud services (`.claude/rules/copyright.md`, rule 10).
 
@@ -18,7 +18,7 @@ Journal of the International Society of Sports Nutrition.
 
 | # | Title (short) | Year | Licence (as stated in the article) | Checked on | ID |
 |---|---|---|---|---|---|
-| 1 | Diets for body weight reduction | 2026 | CC BY 4.0 | tandfonline.com article XML, 2026-10-19 | DOI 10.1080/15502783.2026.2740266 |
+| 1 | Diets for body weight reduction | 2026 | CC BY 4.0 | tandfonline.com article XML, 2026-10-19; Europe PMC article XML (REST API), 2026-10-19 | PMC13665703 (DOI 10.1080/15502783.2026.2740266) |
 | 2 | Effects of dietary antioxidants on exercise and sports performance | 2026 | CC BY 4.0 | PMC article page, 2026-10-19 | PMC12915426 |
 | 3 | Long-chain omega-3 polyunsaturated fatty acids | 2025 | CC BY 4.0 | PMC article page, 2026-10-19 | PMC11737053 |
 | 4 | β-hydroxy-β-methylbutyrate (HMB) | 2024 (vol. 2025) | CC BY 4.0 | PMC article page, 2026-10-19 | PMC11740297 |

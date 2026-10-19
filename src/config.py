@@ -1,8 +1,11 @@
 """App-wide settings: models, OpenRouter endpoint, limits, UI text and secrets loading."""
 
 import os
+from pathlib import Path
 
 import streamlit as st
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 APP_TITLE = "Nutrition AI Assistant"
 APP_INTRO = (
@@ -51,6 +54,36 @@ MAX_INPUT_CHARS = 2000
 RATE_LIMIT_PER_MINUTE = 10
 RATE_LIMIT_WINDOW_SECONDS = 60
 RATE_LIMIT_PER_SESSION = 50
+
+# Knowledge base sources (docs/SOURCES.md; docs/ARCHITECTURE.md section 4).
+SOURCES_MANIFEST_PATH = PROJECT_ROOT / "data" / "sources.json"
+# Downloaded article XML; gitignored (copyright policy rule 8).
+RAW_SOURCES_DIR = PROJECT_ROOT / "data" / "raw"
+ATTRIBUTION_PATH = PROJECT_ROOT / "ATTRIBUTION.md"
+# The topics a source can be tagged with; query translation filters on them (T3.2).
+TOPICS: tuple[str, ...] = (
+    "protein",
+    "carbohydrate",
+    "fat",
+    "energy_balance",
+    "nutrient_timing",
+    "supplements",
+)
+# 1 = ISSN position stand, 2 = other peer-reviewed review or meta-analysis (docs/SOURCES.md).
+EVIDENCE_TIERS: tuple[int, ...] = (1, 2)
+
+# Article XML comes only from the Europe PMC REST API, which allows automated retrieval
+# (copyright policy rule 10); the PMC, Europe PMC and publisher websites are never scripted.
+EUROPE_PMC_FULLTEXT_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/{pmcid}/fullTextXML"
+DOWNLOAD_USER_AGENT = (
+    "nutrition-ai-assistant/0.1 (study project; source download; "
+    "https://github.com/NMH1988/nutrition-ai-assistant)"
+)
+# Wait between two requests, to be polite to the API.
+DOWNLOAD_PAUSE_SECONDS = 1.0
+DOWNLOAD_TIMEOUT_SECONDS = 30
+# The largest approved article is under 1 MB; anything far bigger is not an article.
+DOWNLOAD_MAX_BYTES = 10_000_000
 
 API_KEY_NAME = "OPENROUTER_API_KEY"
 
