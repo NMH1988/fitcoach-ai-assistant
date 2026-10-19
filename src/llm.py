@@ -7,6 +7,7 @@ from typing import Any
 import openai
 import pydantic
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai.chat_models.base import OpenAIRefusalError
 
 from src import config
 
@@ -70,7 +71,7 @@ class ReplyCutOffError(LLMError):
 
 
 class InvalidReplyError(LLMError):
-    """A structured reply did not match its schema; callers may fall back instead of failing."""
+    """A structured reply was unusable (schema mismatch, refusal, empty); callers may fall back."""
 
     user_message = "The model's answer was not in the expected format. Please try again."
 
@@ -95,6 +96,8 @@ _STATUS_ERRORS: dict[int, type[LLMError]] = {
 # reply with Pydantic, whose ValidationError is a ValueError: that one is a bad answer from the
 # model, not an outage, so it gets InvalidReplyError.
 _CLIENT_PACKAGES = frozenset({"langchain_openai", "openai"})
+# langchain-openai's parser for structured output; it raises ValueError for an empty reply.
+_STRUCTURED_PARSER = "_oai_structured_outputs_parser"
 
 
 def _diagnostic(exc: BaseException) -> str:
@@ -125,6 +128,16 @@ def translate_error(exc: openai.OpenAIError) -> LLMError:
     return LLMServiceError(diagnostic=diagnostic)
 
 
+def _is_invalid_reply(exc: BaseException) -> bool:
+    """Return True for a structured reply that failed its schema or came back empty."""
+    if isinstance(exc, pydantic.ValidationError):
+        return True
+    tb = exc.__traceback__
+    while tb is not None and tb.tb_next is not None:
+        tb = tb.tb_next
+    return tb is not None and tb.tb_frame.f_code.co_name == _STRUCTURED_PARSER
+
+
 def _passed_through_client(exc: BaseException) -> bool:
     """Return True if any frame between the `with` block and the raise is in a client package."""
     tb = exc.__traceback__
@@ -146,6 +159,9 @@ def mapped_errors() -> Iterator[None]:
         yield
     except openai.OpenAIError as exc:
         raise translate_error(exc) from None
+    except OpenAIRefusalError as exc:
+        # The model declined to answer; its message is the refusal text.
+        raise InvalidReplyError(diagnostic=_diagnostic(exc)) from None
     except (ValueError, KeyError, TypeError) as exc:
         # Only errors raised while the client handled the call; the caller's own pass through.
         # A bug of ours that langchain raises (e.g. a bad message type) also lands here, which
@@ -153,7 +169,7 @@ def mapped_errors() -> Iterator[None]:
         if not _passed_through_client(exc):
             raise
         # Its message quotes the model's reply, so it is mapped (and hidden) too.
-        if isinstance(exc, pydantic.ValidationError):
+        if _is_invalid_reply(exc):
             raise InvalidReplyError(diagnostic=_diagnostic(exc)) from None
         raise ServiceUnavailableError(diagnostic=_diagnostic(exc)) from None
 

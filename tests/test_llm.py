@@ -484,3 +484,23 @@ def test_validation_error_from_our_own_code_passes_through():
     """A Pydantic ValidationError from our code inside the block is not renamed."""
     with pytest.raises(pydantic.ValidationError), llm.mapped_errors():
         _Answer.model_validate({"other": "field"})
+
+
+@pytest.mark.parametrize(
+    ("message", "raised_by"),
+    [
+        ({"role": "assistant", "content": None, "refusal": "I can't help."}, "OpenAIRefusalError"),
+        ({"role": "assistant", "content": ""}, "ValueError"),
+        ({"role": "assistant", "content": None}, "ValueError"),
+    ],
+    ids=["refusal", "empty-content", "null-content"],
+)
+def test_refused_or_empty_structured_reply_maps_to_invalid_reply(message, raised_by):
+    """A refusal or an empty structured reply is InvalidReplyError, so a caller can fall back."""
+    body = {**CHAT_OK, "choices": [{**CHAT_OK["choices"][0], "message": message}]}
+    structured = _chat(Recorder(body=body)).with_structured_output(_Answer)
+    with pytest.raises(llm.InvalidReplyError) as excinfo, llm.mapped_errors():
+        structured.invoke("Hi")
+    assert str(excinfo.value) == llm.InvalidReplyError.user_message
+    assert "help" not in str(excinfo.value)
+    assert excinfo.value.diagnostic.startswith(f"{raised_by} in langchain_openai.")

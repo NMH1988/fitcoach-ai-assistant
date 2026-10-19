@@ -136,7 +136,7 @@ Each LLM call (query translation, every answer round) reports its token use (`us
 | 429 / timeout (ours or a 408) / 5xx | Retried up to `LLM_MAX_RETRIES` (2) times by the OpenAI SDK, then a message of its own for each: too many requests, took too long, temporarily unavailable |
 | A 200 reply carrying an error, no result, or an empty or cut-off body (provider failed mid-request) | "Temporarily unavailable", like a 5xx |
 | Structured output stopped by the token limit | "The answer was cut off" |
-| Structured output that fails its schema (wrong or missing field, not JSON) | "Not in the expected format" (`InvalidReplyError`, separate from an outage so a caller can fall back) |
+| Structured output that fails its schema (wrong or missing field, not JSON), is refused by the model, or comes back empty | "Not in the expected format" (`InvalidReplyError`, separate from an outage so a caller can fall back) |
 | Service unreachable, other SDK errors (e.g. a content filter) | "Could not reach the model service" / a generic "try again" |
 | Chroma index missing | "Run `python scripts/build_index.py` first" |
 | No relevant chunks | "Our sources do not cover this"; no invented citation |
