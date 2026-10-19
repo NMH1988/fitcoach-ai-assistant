@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-19 · T4.3 USDA food table and lookup · #<PR> (closes #13)
+## 2026-10-19 · T4.3 USDA food table and lookup · #28 (closes #13)
 - **Brief:** core requirement 2 (the third tool).
 - **What:**
   - `scripts/prepare_usda.py` (new): reads `food.csv` and `food_nutrient.csv` straight from the Foundation Foods CSV zip (no unpacking, no network) and writes `data/usda_foods.csv`: FDC ID, description, and per-100 g kcal, protein, carbohydrate, fat and fiber, with USDA's suggested credit, the CC0 notice, "no endorsement" and the changes made as `#` lines on top.
