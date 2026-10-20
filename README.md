@@ -36,13 +36,19 @@ Set the key in one of two ways (never commit it):
 - copy `.streamlit/secrets.toml.example` to `.streamlit/secrets.toml` (gitignored) and paste your key there, or
 - set the `OPENROUTER_API_KEY` environment variable.
 
-Run every command below in a terminal where `.venv` is active: the prompt starts with `(.venv)`. A new terminal does not have it: activate it again (second line above), or call the venv's programs directly, e.g. `.venv\Scripts\streamlit.exe run app.py` on Windows or `.venv/bin/streamlit run app.py` on macOS and Linux. If the app fails with `ModuleNotFoundError: No module named 'langchain_chroma'`, it was started with another Python (the system one), not the venv's.
+Run every command below in a terminal where `.venv` is active: the prompt starts with `(.venv)`. A new terminal does not have it: activate it again (second line above), or call the venv's programs directly:
 
-Before the first question, build the knowledge base once (needs the key):
+- Windows (PowerShell or cmd): `.venv\Scripts\streamlit.exe run app.py`, `.venv\Scripts\python.exe scripts/build_index.py`
+- Windows (Git Bash): `.venv/Scripts/streamlit.exe run app.py`, `.venv/Scripts/python.exe scripts/build_index.py`
+- macOS and Linux: `.venv/bin/streamlit run app.py`, `.venv/bin/python scripts/build_index.py`
+
+If a command fails with a `ModuleNotFoundError`, such as `No module named 'langchain_chroma'` from the app or `No module named 'src'` from a script, it was started with another Python (the system one), not the venv's.
+
+Before the first question, build the knowledge base once:
 
 ```bash
-python scripts/download_sources.py   # fetch the approved articles from the Europe PMC API into data/raw/
-python scripts/build_index.py        # embed them into the local index in chroma/ (under one US cent)
+python scripts/download_sources.py   # fetch the approved articles from the Europe PMC API into data/raw/ (no key needed)
+python scripts/build_index.py        # embed them into the local index in chroma/ (needs the key; under one US cent at the 2026-10 price)
 ```
 
 Stop the app before rebuilding the index and start it again afterwards.
