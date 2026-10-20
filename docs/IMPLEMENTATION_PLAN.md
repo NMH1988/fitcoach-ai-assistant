@@ -55,7 +55,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T4.2 | #12 | Energy and macro tools with the calorie floor | M | T4.1, O3 | 10-25 | done |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1 | 10-26 | todo |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2, O2 | 10-27 | todo |
-| T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | todo |
+| T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | in review |
 | T4.4 | #14 | Tool-calling loop and tool results UI | M | T3.1, T4.2, T4.3 | 10-28 | todo |
 | T5.3 | #18 | Domain guardrails | S | T3.1, T4.2 | 10-29 | todo |
 | T6.1 | #19 | Evaluation run and reflection | S | T3.3, T4.4, O2, O5 | 10-30 | todo |
@@ -183,15 +183,15 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] A query with an exact term (e.g. "HMB") retrieves the HMB source (AC-4) - integration test on a small fixture index.
 - [ ] On the owner's evaluation questions (O2), vector-only, keyword-only and hybrid retrieval are compared and the hit rates recorded in `docs/TESTING.md` - owner live check (O5) or a run with the real index.
 
-### T3.4 Prompt injection hardening (S) · status: todo · issue #10
+### T3.4 Prompt injection hardening (S) · status: in review · issue #10
 **Serves:** Medium 3; AC-11.
 **Depends on:** T3.1
 **Acceptance criteria**
-- [ ] User text is sent only inside `<user_input>` in the user message, and retrieved text only inside `<sources>`; neither is ever concatenated into the system prompt - unit test on the built messages.
-- [ ] A retrieved chunk containing an instruction ("ignore previous instructions...") does not change the system prompt or tool use in the built request, and the system prompt tells the model to treat both blocks as data - unit test with a fixture chunk.
-- [ ] LLM output is rendered without `unsafe_allow_html` anywhere in the app - test scanning the app source, as in Sprint 1.
-- [ ] User text, chunk text and any chunk metadata put in the prompt are escaped before they are wrapped, so a delimiter look-alike (`</user_input>`, `</user-input>`, `<user_input id="2">`, `</sources lang="en">`, `<sources/>`) cannot close or open a block and a `**System:**` or `> System:` line stays data; user text is passed as message content, never as prompt-template text - parametrised unit test on the built messages (follow-up from the T1.4 security audit, finding 3).
-**Notes:** the owner decides whether the guard's delimiter patterns are widened too (T1.4 audit, finding 3).
+- [x] User text is sent only inside `<user_input>` in the user message, and retrieved text only inside `<sources>`; neither is ever concatenated into the system prompt - unit test on the built messages (`tests/test_prompt_injection.py`: `test_a_look_alike_in_the_question_stays_inside_user_input`, `test_a_look_alike_in_chunk_text_stays_inside_sources`, which check that the four delimiters are the only tags, in order, and that the system message is the prompt alone; `tests/test_chat.py::test_the_question_and_the_chunks_are_delimited_in_the_user_message`).
+- [x] A retrieved chunk containing an instruction ("ignore previous instructions...") does not change the system prompt or tool use in the built request, and the system prompt tells the model to treat both blocks as data - unit test with a fixture chunk (`test_an_injected_chunk_does_not_change_the_system_prompt_or_tool_use`: a turn on a fixture index with a made-up injected chunk sends the same system prompt and request shape as a clean one, with no tool calls, and the chunk only escaped inside `<sources>`; `test_the_answer_prompt_tells_the_model_both_blocks_are_data` on the owner's prompt).
+- [x] LLM output is rendered without `unsafe_allow_html` anywhere in the app - test scanning the app source, as in Sprint 1 (`test_nothing_in_the_app_renders_with_unsafe_allow_html`: an AST scan of `app.py` and `src/`, so comments do not count, for `unsafe_allow_html` and `unsafe_allow_javascript`; `test_the_app_uses_no_raw_html_components`).
+- [x] User text, chunk text and any chunk metadata put in the prompt are escaped before they are wrapped, so a delimiter look-alike (`</user_input>`, `</user-input>`, `<user_input id="2">`, `</sources lang="en">`, `<sources/>`) cannot close or open a block and a `**System:**` or `> System:` line stays data; user text is passed as message content, never as prompt-template text - parametrised unit test on the built messages (follow-up from the T1.4 security audit, finding 3) (the three `test_a_look_alike_in_...` tests over seven look-alikes each, in the question, the chunk text and the title and year; `test_the_escape_keeps_the_text_exact_and_marks_typed_entities`, `test_braces_in_the_question_are_passed_as_text_not_as_a_template`, `test_no_prompt_template_is_used_in_the_app`).
+**Notes:** owner's choices (2026-10-20): the guard's patterns are widened too (attributes, `-` or a space in "user input", a closing slash, `<source>`, role lines after `**`, `>` or `_`), with new attack and benign strings and a speed test in `tests/test_guard.py`; the answer prompt is not changed (it already says both blocks are data, and models read `&lt;` as `<`). Escaping is `html.escape` without quotes (`escape_prompt_data()` in `src/chat.py`), after folding full-width and small-form brackets (`test_full_width_and_small_form_brackets_in_a_chunk_are_escaped`). After code review round 1 the guard's tag pattern only counts attribute-shaped text, so comparisons such as "(<sources say 25%) and > 1200 kcal" pass, and the AC3 scan also flags `unsafe_allow_html` passed by position, `*` or `**` (`test_the_render_scan_finds_every_way_to_allow_html`).
 
 ## Epic 4: Profile and tools
 

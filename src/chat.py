@@ -2,10 +2,12 @@
 
 The user's question goes only inside <user_input> and the retrieved chunks only inside <sources>,
 both in the user message; neither is ever put into the system prompt
-(.claude/rules/security-privacy.md). Every error a user can cause or meet ends as a TurnResult with
-a fixed message, so the app shows it in the answer and keeps the chat history (AC-13).
+(.claude/rules/security-privacy.md). Both are escaped first, so no text can close or open a block
+(T3.4). Every error a user can cause or meet ends as a TurnResult with a fixed message, so the app
+shows it in the answer and keeps the chat history (AC-13).
 """
 
+import html
 import os
 import re
 import time
@@ -99,6 +101,12 @@ _PACED_WORD = re.compile(r"\s*\S+")
 # Characters Streamlit's Markdown would read as formatting, HTML, LaTeX, strikethrough (~) or an
 # emoji or icon shortcode (:) in a title.
 _MARKDOWN_SPECIAL = re.compile(r"([\\`*_\[\]<>$~:])")
+# Full-width and small-form "<", ">" and "&", which NFKC reads as the ASCII characters: folded
+# before escaping, so "＜/sources＞" in a chunk is escaped like "</sources>". Look-alikes NFKC does
+# not fold ("‹", "〈") are a known limit (docs/SECURITY.md).
+_PROMPT_BRACKET_FORMS = str.maketrans(
+    {"＜": "<", "﹤": "<", "＞": ">", "﹥": ">", "＆": "&", "﹠": "&"}
+)
 
 
 class PromptMissingError(RuntimeError):
@@ -159,13 +167,25 @@ def markdown_url(url: str) -> str:
     return urllib.parse.quote(url, safe=":/%#?=&")
 
 
+def escape_prompt_data(text: object) -> str:
+    """Escape &, < and > as HTML entities, so the text can never close or open a prompt block."""
+    # With no "<" or ">" left, no look-alike (</user-input>, <sources lang="en">, <sources/>) can
+    # end a block early; "&" too, so a typed "&lt;/sources&gt;" stays text. The model reads the
+    # entities as the characters, and html.unescape gives the exact text back. Full-width and
+    # small-form brackets are folded first: a chunk never passes the guard's NFKC check.
+    return html.escape(str(text).translate(_PROMPT_BRACKET_FORMS), quote=False)
+
+
 def format_sources(chunks: Sequence[RetrievedChunk]) -> str:
-    """Return the chunks as labelled blocks: [S#], title, year and tier, then the text."""
+    """Return the chunks as labelled blocks: [S#], title, year and tier, then the text, escaped."""
     blocks = []
     for number, chunk in enumerate(chunks, start=1):
         meta = chunk.metadata
         tier = config.EVIDENCE_TIER_LABELS.get(meta["evidence_tier"], config.UNKNOWN_TIER_LABEL)
-        blocks.append(f"[S{number}] {meta['title']} ({meta['year']}; {tier})\n{chunk.text}")
+        title, year, tier, text = (
+            escape_prompt_data(part) for part in (meta["title"], meta["year"], tier, chunk.text)
+        )
+        blocks.append(f"[S{number}] {title} ({year}; {tier})\n{text}")
     return "\n\n".join(blocks)
 
 
@@ -173,9 +193,10 @@ def build_messages(
     question: str, chunks: Sequence[RetrievedChunk], system_prompt: str
 ) -> list[BaseMessage]:
     """Return the system prompt and one user message holding <sources> and <user_input>."""
+    # Plain string content, never a prompt template: braces in the question stay as typed.
     user = (
         f"<sources>\n{format_sources(chunks)}\n</sources>\n\n"
-        f"<user_input>\n{question}\n</user_input>"
+        f"<user_input>\n{escape_prompt_data(question)}\n</user_input>"
     )
     return [SystemMessage(system_prompt), HumanMessage(user)]
 
