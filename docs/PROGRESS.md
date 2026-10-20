@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-20 · T5.3 Domain guardrails · #<PR> (closes #18)
+## 2026-10-20 · T5.3 Domain guardrails · #46 (closes #18)
 - **Brief:** core 3 (security measures relevant to the domain); AC-12.
 - **What:**
   - `src/guardrails.py` (new): `Concern` (`PED_DOSING`, `MINOR`, `PREGNANCY`, `MEDICAL`, `DISORDERED_EATING`), one fixed message per concern that names who to ask and never quotes the input, and `find_concern(text)` with English patterns: a performance-enhancing drug (steroids, SARMs, prohormones, named compounds, testosterone esters, HGH, clenbuterol, DNP...) together with a dose or use word is refused; under 18, pregnancy (with breastfeeding and the time after birth), medical conditions said about the user or a group, any medication, and signs of disordered eating (an intake per day below `config.CALORIE_FLOOR_KCAL` included, read at check time) are redirected. Drug dosing is checked first.
