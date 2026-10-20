@@ -10,7 +10,7 @@ A chatbot that gives adults who lift weights clear, evidence-based nutrition ans
 
 - **For:** healthy adults (18+) doing recreational strength training who want to gain muscle, lose fat or maintain.
 - **Out of scope:** minors, pregnancy, medical conditions and medication, competitive weight cuts, professional endurance sport, meal delivery or shopping.
-- **Language:** English (answers and sources).
+- **Language:** English first (answers, UI and sources). German UI and answers are an extra (Epic 7, owner's decision 2026-10-20); the sources stay English.
 - **Deadline:** submission on **2026-11-02**.
 
 ## Features (MVP)
@@ -30,8 +30,10 @@ A chatbot that gives adults who lift weights clear, evidence-based nutrition ans
 9. **Token usage and cost** per answer and per session. Serves Medium 5.
 10. **Progress indicator** for each step of a turn. Serves core 5.
 11. **Security:** input validation, prompt injection protection, rate limit, the domain guardrails below. Serves core 3 and 4, Medium 3. Details in `docs/SECURITY.md`.
+12. **English and German** (extra). A language switch in the header (EN | DE, default from the browser); UI text and answers in the chosen language, sources and food names in English; the guard and the guardrails work in both languages. Serves Hard 4.
+13. **Light and dark mode** (extra). Both themes are defined; users switch with Streamlit's built-in Settings menu, and a sidebar hint says where. Beyond the brief (owner's request).
 
-**Optional tasks for maximum points** (done first, with the core): Medium 3 and 6; Hard 1. **Extras** (after the core, still wanted): Medium 5 and Medium 7.
+**Optional tasks for maximum points** (done first, with the core): Medium 3 and 6; Hard 1. **Extras** (after the core, still wanted): Medium 5, Medium 7, Hard 4 (English and German), and light and dark mode.
 
 ## Domain guardrails (core 3, approved by the owner)
 
@@ -62,6 +64,8 @@ Each ticket in `docs/IMPLEMENTATION_PLAN.md` refines one or more of these into t
 | AC-13 | A missing or invalid key, rate limiting, timeouts and a missing index give a clear message, never a crash, and the chat history stays intact. |
 | AC-14 | Every knowledge base chunk comes from an approved CC BY source, `ATTRIBUTION.md` credits all of them, and the download script rejects a file without a CC BY or CC0 licence. |
 | AC-15 | `ruff check .`, `ruff format --check .` and `python -m pytest -q` pass in CI with no API key. |
+| AC-16 | (Extra) Switching EN/DE changes all UI text and the answer language; a German question retrieves English sources and cites them; German injection inputs and German high-risk requests are caught like English ones. |
+| AC-17 | (Extra) The app offers Light, Dark and System appearance through Streamlit's Settings menu, the UI says where to find it, and the main screens are readable in both modes. |
 
 ## Content ownership
 
@@ -71,6 +75,7 @@ The owner drafts the system prompt(s) and the evaluation questions; Claude revie
 
 - The repo is the owner's personal, public portfolio project, viewed by recruiters and possibly opened as open source later; it is copied into the course repository for the review.
 - Because of that, a strict copyright policy applies (`.claude/rules/copyright.md`): open licences only (public domain, CC0, CC BY), nothing that needs permission, licence checked on the article itself, text only, attribution, raw documents not committed. The brief only asks for a relevant knowledge base.
+- Light and dark mode (T7.3). German support (T7.1, T7.2) is an optional task in the brief (Hard 4) but goes beyond this PRD's original English-only scope.
 
 ## Open items
 
