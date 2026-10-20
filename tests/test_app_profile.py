@@ -285,6 +285,10 @@ def test_the_hint_is_the_first_line_of_the_dialog():
     first = _first_element(dialog)
     assert first.type == "caption"
     assert first.value == f":material/info: {config.PROFILE_FORM_HINT}"
+    # The exact sentence the owner approved for T4.6.
+    assert config.PROFILE_FORM_HINT == (
+        "Type your values, then press Save. Values are checked when you save."
+    )
 
 
 def test_the_css_is_drawn_only_while_the_dialog_is_open():
@@ -311,8 +315,9 @@ def test_the_dialog_css_is_one_fixed_rule_scoped_to_the_dialog():
 
 
 def test_st_html_is_used_only_with_the_fixed_dialog_css():
-    """app.py calls st.html once, with the constant: never with user or model text."""
-    source = APP.read_text(encoding="utf-8")
+    """The app calls st.html once, with the constant: never with user or model text."""
+    files = [APP, *sorted((APP.parent / "src").rglob("*.py"))]
+    source = "\n".join(path.read_text(encoding="utf-8") for path in files)
     assert source.count("st.html(") == 1
     assert "st.html(config.PROFILE_DIALOG_CSS)" in source
     assert "unsafe_allow_javascript" not in source

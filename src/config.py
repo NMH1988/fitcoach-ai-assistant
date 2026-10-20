@@ -246,6 +246,8 @@ PROFILE_FORM_HINT = "Type your values, then press Save. Values are checked when 
 # Streamlit 1.66 has no option for it outside st.form, and the form is not an st.form so the units
 # switch can convert typed values. A fixed string, never built from user or model text. If a later
 # Streamlit renames the test id, the text comes back and nothing breaks.
+# The same test id also shows a text_input's max_chars counter: a text field with max_chars added to
+# this dialog would lose its counter too.
 PROFILE_DIALOG_CSS = (
     '<style>[data-testid="stDialog"] [data-testid="InputInstructions"] { display: none; }</style>'
 )
