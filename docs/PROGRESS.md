@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-20 · T4.4 Tool-calling loop and tool results UI · PR pending (closes #14)
+## 2026-10-20 · T4.4 Tool-calling loop and tool results UI · #49 (closes #14)
 - **Brief:** core requirements 2 (three tools the model can call) and 5 (tool results shown); Medium 6 (tool results visualised); AC-6.
 - **What:**
   - `src/tools/registry.py` (new): `build_tools(profile)` gives the three tools as `StructuredTool`s with explicit argument schemas: `FoodLookupArgs` for the food lookup, `NoArgs` for `calculate_tdee` and `calculate_macro_targets`, which get the profile when built (the macro tool computes the TDEE itself and uses the profile's goal). `run_tool_call()` checks a call against its schema, runs it and returns the tool message (JSON) and a `ToolRun` for the UI; `refused_call()` answers a call that is not run. Without a profile the energy tools return "profile needed".
