@@ -1,5 +1,6 @@
 """UI tests for the session summary download button in the sidebar (T5.2, AC-9)."""
 
+import ast
 from pathlib import Path
 
 import pytest
@@ -140,29 +141,80 @@ def test_the_pdf_built_on_click_holds_the_turn_that_just_ran(monkeypatch):
     assert config.DISCLAIMER in text
 
 
-# What would let the app open an image: an upload or camera widget, st.image, Pillow itself, or an
-# image placed in the PDF (reportlab's Image, drawImage, ImageReader or an <img> tag).
-IMAGE_INPUTS = (
-    "file_uploader",
-    "camera_input",
-    "st.image",
-    "import PIL",
-    "from PIL",
-    "drawImage",
-    "ImageReader",
-    "<img",
-    "platypus import Image",
+# What would let the app open an image (docs/SECURITY.md, Accepted risks: the pillow 12.3.0
+# advisories need an untrusted image). Any call or attribute with these names, on st or on any
+# container ("st.sidebar.image", "col.image"), counts.
+IMAGE_ATTRIBUTES = frozenset(
+    {"image", "logo", "pyplot", "file_uploader", "camera_input", "drawImage", "drawInlineImage"}
 )
+# reportlab names that open an image file through Pillow.
+REPORTLAB_IMAGE_NAMES = frozenset({"Image", "ImageReader", "ImageAndFlowables"})
+
+
+def _image_inputs(source: str) -> list[str]:
+    """Return the image inputs in Python source: widgets, Pillow, reportlab images, <img> tags."""
+    found = []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Attribute) and node.attr in IMAGE_ATTRIBUTES:
+            found.append(f"line {node.lineno}: .{node.attr}")
+        elif isinstance(node, ast.Import):
+            found += [f"line {node.lineno}: import {a.name}" for a in node.names if _pillow(a.name)]
+        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            names = {alias.name for alias in node.names}
+            if _pillow(node.module) or (
+                node.module.startswith("reportlab") and names & REPORTLAB_IMAGE_NAMES
+            ):
+                found.append(f"line {node.lineno}: from {node.module} import {sorted(names)}")
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if "<img" in node.value.lower():
+                found.append(f"line {node.lineno}: <img in a string")
+    return found
+
+
+def _pillow(module: str) -> bool:
+    """Return True for Pillow's package or one of its modules."""
+    return module == "PIL" or module.startswith("PIL.")
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "st.image(x)",
+        "st.sidebar.image(x)",
+        "col.image(x)",
+        "st.logo(x)",
+        "st.pyplot(fig)",
+        "st.file_uploader('a')",
+        "st.camera_input('a')",
+        "import PIL",
+        "from PIL import Image",
+        "import PIL.Image as I",
+        "from reportlab.platypus import (\n    Paragraph,\n    Image,\n)",
+        "from reportlab.lib.utils import ImageReader",
+        "canvas.drawImage(path, 0, 0)",
+        "Paragraph('<img src=\"a.png\"/>')",
+    ],
+)
+def test_the_image_scan_finds_every_way_to_open_an_image(code):
+    """The scan flags image widgets on any container, Pillow, reportlab images and <img>."""
+    assert _image_inputs(code)
+
+
+@pytest.mark.parametrize(
+    "code",
+    ["st.markdown(x)", "from reportlab.platypus import Paragraph, Table", "remove_images(text)"],
+)
+def test_the_image_scan_ignores_other_code(code):
+    """Text, tables and the answer's image remover are not image inputs."""
+    assert _image_inputs(code) == []
 
 
 def test_the_app_opens_no_image_file():
-    """No image input anywhere in the app, so the ignored pillow advisories cannot be reached."""
-    # docs/SECURITY.md, Accepted risks: the pillow 12.3.0 advisories need an untrusted image.
+    """No image input in app.py or src/, so the ignored pillow advisories stay out of reach."""
     root = APP.parent
     files = [APP, *sorted((root / "src").rglob("*.py"))]
     found = {
-        str(path.relative_to(root)): [word for word in IMAGE_INPUTS if word in source]
+        str(path.relative_to(root)): _image_inputs(path.read_text(encoding="utf-8"))
         for path in files
-        if (source := path.read_text(encoding="utf-8"))
     }
-    assert {path: words for path, words in found.items() if words} == {}
+    assert {path: hits for path, hits in found.items() if hits} == {}

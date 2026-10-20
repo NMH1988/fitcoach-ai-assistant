@@ -88,14 +88,12 @@ TEXT = {
     "formula_sources": "Formula sources (the energy calculations use their equation or factors)",
     "food_data": "Food data",
     "font": "Font",
-    # The font's own notice goes with the font subsets embedded in every PDF (its licence asks for
-    # it with every copy; owner's choice in T5.2's review, 2026-10-20).
+    # Every PDF embeds subsets of the font, and its licence asks for its notices with every copy,
+    # so the licence follows this line word for word (owner's choices in T5.2's review, 2026-10-20).
     "font_credit": (
-        "Set in DejaVu Sans 2.37. Copyright (c) 2003 by Bitstream, Inc.; glyphs from the Arev "
-        "fonts copyright (c) 2006 by Tavmjong Bah; DejaVu changes are in the public domain. Used "
-        "under the Bitstream Vera and Arev font licences "
-        "(https://github.com/dejavu-fonts/dejavu-fonts/blob/master/LICENSE). Bitstream Vera is a "
-        "trademark of Bitstream, Inc."
+        "Set in DejaVu Sans 2.37 "
+        "(https://github.com/dejavu-fonts/dejavu-fonts/releases/tag/version_2_37). Its licence, "
+        "as published with the fonts:"
     ),
     "footer": f"{config.APP_TITLE} · Not medical advice · Page {{page}}",
 }
@@ -124,8 +122,10 @@ _EMPHASIS = re.compile(
     r"(?<![\w*])\*(?=\S)(.+?)(?<=\S)\*(?![\w*])|(?<!\w)_(?=\S)(.+?)(?<=\S)_(?!\w)"
 )
 _STRIKE = re.compile(r"~~(?=\S)(.+?)(?<=\S)~~")
-_CODE = re.compile(r"(`+)(.+?)\1")
-_BACKSLASH = re.compile(r"\\([\\`*_{}\[\]()#+\-.!|~<>])")
+# A code span, unless its first backtick is escaped (a backslash before it: plain text).
+_CODE = re.compile(r"(?<!\\)(`+)(.+?)\1")
+# A backslash before any ASCII punctuation escapes it (CommonMark).
+_BACKSLASH = re.compile(r"\\([!-/:-@\[-`{-~])")
 
 
 class PdfExportError(RuntimeError):
@@ -216,11 +216,12 @@ def _emphasis_free(text: str) -> str:
     return html.unescape(text)
 
 
-def _inline_text(text: str) -> str:
-    """Return text outside code spans with its escapes, links, URLs and emphasis made plain."""
-    # Backslash escapes, then links, then bare URLs are set aside in NUL-delimited slots before
-    # the emphasis rules, so "\*note\*" keeps its stars and a URL keeps its "__" (code review);
-    # the slots cannot clash with the text, as _plain() drops NUL.
+def _inline_markdown(text: str) -> str:
+    """Return one line with its code spans, escapes, links, URLs and emphasis made plain."""
+    # Code spans, then backslash escapes, then links, then bare URLs are set aside in NUL-delimited
+    # slots before the emphasis rules, so code stays as written (also in a link's text),
+    # "\*note\*" keeps its stars and a URL keeps its "__" (code review); the slots cannot clash
+    # with the text, as _plain() drops NUL.
     kept: list[str] = []
 
     def keep(value: str) -> str:
@@ -243,22 +244,12 @@ def _inline_text(text: str) -> str:
         """Put the kept pieces back, also those inside a kept piece (a link's escaped text)."""
         return _SLOT.sub(lambda m: restore(kept[int(m.group(1))]), value)
 
+    # A code span is shown as written, entities included, as in the app.
+    text = _CODE.sub(lambda m: keep(m.group(2)), text)
     text = _BACKSLASH.sub(lambda m: keep(m.group(1)), text)
     text = _LINK.sub(lambda m: keep(link(m)), text)
     text = _BARE_URL.sub(lambda m: keep(html.unescape(m.group(0))), text)
     return restore(_emphasis_free(text))
-
-
-def _inline_markdown(line: str) -> str:
-    """Return one line with its code spans, links, emphasis and escapes made plain."""
-    parts, start = [], 0
-    for code in _CODE.finditer(line):
-        parts.append(_inline_text(line[start : code.start()]))
-        # A code span is shown as written, entities included, as in the app.
-        parts.append(code.group(2))
-        start = code.end()
-    parts.append(_inline_text(line[start:]))
-    return "".join(parts)
 
 
 def _table_row(line: str) -> str | None:
@@ -602,7 +593,23 @@ def _credits(
     # Every PDF embeds the font, so its credit is always there.
     flowables.append(Paragraph(escape(TEXT["font"]), STYLES["h3"]))
     flowables.append(_para(TEXT["font_credit"], "small"))
+    flowables += [_para(paragraph, "small") for paragraph in font_licence_paragraphs()]
     return flowables
+
+
+@cache
+def font_licence_paragraphs() -> tuple[str, ...]:
+    """Return the fonts' licence (the part for DejaVu Sans), word for word, one paragraph each."""
+    # Read from the LICENSE committed with the fonts, so the PDF can never drift from it. A
+    # paragraph's wrapped lines are joined with spaces; the "-----" lines under titles are dropped.
+    text = config.PDF_FONT_LICENSE_PATH.read_text(encoding="utf-8")
+    part = text.split(config.PDF_FONT_LICENSE_END, 1)[0]
+    paragraphs = []
+    for block in re.split(r"\n\s*\n", part.replace("\r\n", "\n")):
+        lines = [line.strip() for line in block.split("\n") if not re.fullmatch(r"\s*-+\s*", line)]
+        if any(lines):
+            paragraphs.append(" ".join(line for line in lines if line))
+    return tuple(paragraphs)
 
 
 def _footer(canvas, doc) -> None:

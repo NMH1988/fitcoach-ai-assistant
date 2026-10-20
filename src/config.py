@@ -443,6 +443,11 @@ MACRO_COLORS: dict[str, str] = {
 # title has "β".
 PDF_FONT_PATH = PROJECT_ROOT / "assets" / "fonts" / "DejaVuSans.ttf"
 PDF_BOLD_FONT_PATH = PROJECT_ROOT / "assets" / "fonts" / "DejaVuSans-Bold.ttf"
+# The fonts' licence, printed word for word at the end of every PDF (owner's choice, 2026-10-20):
+# its notices go with every copy, and each PDF embeds the fonts. Only the part before this heading
+# is printed; the rest covers DejaVu's math font, which the app does not ship.
+PDF_FONT_LICENSE_PATH = PROJECT_ROOT / "assets" / "fonts" / "LICENSE"
+PDF_FONT_LICENSE_END = "TeX Gyre DJV Math"
 # The sidebar button that downloads it; {date} in the file name is the day (YYYY-MM-DD).
 PDF_BUTTON_LABEL = "Download summary (PDF)"
 PDF_BUTTON_HELP = (

@@ -47,7 +47,6 @@ This is a student portfolio project. If you find a security problem, contact the
 | PYSEC-2026-3814 / CVE-2026-45833 (GHSA-36p7-vc44-83pf) | chromadb >= 0.4.17: authenticated code injection through the server's collection update API | Same as above | Same |
 | PYSEC-2026-3815 / CVE-2026-45831 (GHSA-xph7-9rjv-w5fr) | chromadb >= 0.5.0: the server's `SimpleRBACAuthorizationProvider` ignores the tenant/database/collection scope of a permission | No server, no users, no tenants | Same |
 | PYSEC-2026-3813 / CVE-2026-45830 (GHSA-2wm9-hf6c-p5cr) | chromadb >= 0.4.17: the server lets any authenticated user act on any tenant's collections | No server, no users, no tenants | Same |
-
 | CVE-2026-112895 (GHSA-p4wg-p73j-c528) | pillow 12.3.0: `PdfParser` recurses without a bound when an image is appended to an existing PDF (`Image.save(..., append=True)`) | The app never saves images with Pillow; the summary PDF is written by reportlab, with text and fonts only | Remove the CI ignore once a streamlit release allows pillow >= 13.0.0 and it is installed |
 | CVE-2026-112400 (GHSA-65qm-jvmh-6pqg) | pillow 12.3.0: a small GIF keeps a rejected size after `DecompressionBombError` on seek (memory) | The app opens no image file from a user or the network: no `st.file_uploader`, `st.camera_input` or `st.image`, and nothing in `app.py` or `src/` imports Pillow (a source test in `tests/test_app_export.py` checks it) | Same |
 | CVE-2026-112397 (GHSA-58r4-6rv3-gfh8) | pillow 12.3.0: a zero-width PPM/PGM crashes `ImageMorph` | Same as above | Same |

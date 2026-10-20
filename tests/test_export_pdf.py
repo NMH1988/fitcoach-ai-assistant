@@ -405,6 +405,13 @@ def test_the_pdf_has_no_link_annotations_at_all():
         (r"\_note\_", [("_note_", 0)]),
         (r"\[x](y)", [("[x](y)", 0)]),
         (r"[a\_b](https://y.org)", [("a_b (https://y.org)", 0)]),
+        # An escaped backtick starts no code span; any ASCII punctuation can be escaped; code in a
+        # link's text stays code (PR #54 review, round 3).
+        (r"\`not code\`", [("`not code`", 0)]),
+        (r"\&amp; costs \$5\?", [("&amp; costs $5?", 0)]),
+        ("[`code`](https://u.org)", [("code (https://u.org)", 0)]),
+        ("``a ` b``", [("a ` b", 0)]),
+        (r"[a\]b](https://u.org)", [("a]b (https://u.org)", 0)]),
         # A bare URL right before a link keeps the link (PR #54 review).
         ("https://a.org[guide](https://b.org)", [("https://a.orgguide (https://b.org)", 0)]),
         # A URL in a link's text keeps its underscores too.
@@ -541,9 +548,31 @@ def test_two_pdfs_of_the_same_session_differ():
     assert _pdf() != _pdf()
 
 
-def test_the_credits_name_the_font_and_its_licence():
-    """Every PDF credits DejaVu Sans with its copyright notices and licences."""
+def test_the_credits_end_with_the_fonts_licence_word_for_word():
+    """Every PDF names DejaVu Sans and prints its licence's notices exactly as in LICENSE."""
     credits = pdf_text(_pdf(user=None)).split(export_pdf.TEXT["credits"], 1)[1]
+    # A page break puts the next page's footer inside the text read back.
+    footer = re.escape(export_pdf.TEXT["footer"]).replace(re.escape("{page}"), r"\d+")
+    credits = re.sub(rf"{footer} ", "", credits)
     assert " ".join(export_pdf.TEXT["font_credit"].split()) in credits
-    for part in ("Bitstream, Inc.", "Tavmjong Bah", "public domain", "Bitstream Vera and Arev"):
-        assert part in credits
+    # The whole part for DejaVu Sans, compared word for word with the committed file.
+    licence = config.PDF_FONT_LICENSE_PATH.read_text(encoding="utf-8")
+    part = licence.split(config.PDF_FONT_LICENSE_END, 1)[0]
+    words = " ".join(word for word in part.split() if set(word) != {"-"})
+    assert words in credits
+    for notice in (
+        "Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.",
+        "Bitstream Vera is a trademark of Bitstream, Inc.",
+        "Copyright (c) 2006 by Tavmjong Bah. All Rights Reserved.",
+        "this permission notice shall be included in all copies",
+    ):
+        assert notice in credits
+    assert config.PDF_FONT_LICENSE_END not in credits
+
+
+def test_the_font_licence_is_read_in_paragraphs_without_title_underlines():
+    """The licence's paragraphs are kept, joined into lines, with no "-----" line of their own."""
+    paragraphs = export_pdf.font_licence_paragraphs()
+    assert paragraphs[1] == "Bitstream Vera Fonts Copyright"
+    assert "Arev Fonts Copyright" in paragraphs
+    assert all(set(paragraph) != {"-"} and "\n" not in paragraph for paragraph in paragraphs)
