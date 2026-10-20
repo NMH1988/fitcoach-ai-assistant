@@ -16,7 +16,13 @@ from typing import Any, Literal
 
 from langchain_chroma import Chroma
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_core.messages import (
+    AIMessage,
+    AIMessageChunk,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+)
 
 from src import config, guard, llm
 from src.rag.retriever import RetrievedChunk, retrieve
@@ -87,6 +93,10 @@ _LABEL_OR_RANGE = re.compile(r"S(\d+)(?:\s*[-–]\s*S?(\d+))?")
 _MARKDOWN_IMAGE = re.compile(r"!\[([^\[\]]*)\](?:\((?:[^()]|\([^()]*\))*\)|\[[^\[\]]*\])?")
 # Characters Streamlit's Markdown would read as formatting, HTML or LaTeX in a title.
 _MARKDOWN_SPECIAL = re.compile(r"([\\`*_\[\]<>$])")
+
+
+class PromptMissingError(RuntimeError):
+    """The answer prompt file is missing, unreadable or empty."""
 
 
 def load_system_prompt(path: Path | None = None) -> str:
@@ -217,6 +227,24 @@ def _answer_text(reply: AIMessage) -> str:
     return text
 
 
+def stream_answer(
+    chat_model: BaseChatModel,
+    messages: Sequence[BaseMessage],
+    on_text: Callable[[str], None] | None = None,
+) -> str:
+    """Stream the model's answer, reporting the text so far as it grows; return the full text."""
+    reply: AIMessageChunk | None = None
+    with llm.mapped_errors():
+        for chunk in chat_model.stream(messages):
+            reply = chunk if reply is None else reply + chunk
+            if on_text is not None and chunk.text:
+                # Images are removed on every update: one completed mid-stream would load at once.
+                on_text(remove_images(reply.text))
+    if reply is None:
+        raise llm.LLMError(diagnostic="no answer chunks")
+    return _answer_text(reply)
+
+
 def answer_question(
     question: str,
     index: Chroma,
@@ -224,6 +252,7 @@ def answer_question(
     manifest: Mapping[str, Source],
     on_step: Callable[[Step], None],
     system_prompt: str,
+    on_text: Callable[[str], None] | None = None,
 ) -> TurnResult:
     """Retrieve the chunks for an accepted question and answer it from them, citing [S#]."""
     on_step(Step.SEARCH)
@@ -234,9 +263,7 @@ def answer_question(
         return TurnResult("no_sources", config.NO_SOURCES_MESSAGE)
     on_step(Step.ANSWER)
     messages = build_messages(question, chunks, system_prompt)
-    with llm.mapped_errors():
-        reply = chat_model.invoke(messages)
-    answer = _answer_text(reply)
+    answer = stream_answer(chat_model, messages, on_text)
     cards = source_cards(chunks, cited_labels(answer, len(chunks)), manifest)
     return TurnResult("answer", answer, cards)
 
@@ -249,8 +276,10 @@ def run_turn(
     chat_model: Callable[[], BaseChatModel],
     manifest: Mapping[str, Source] | None = None,
     on_step: Callable[[Step], None] | None = None,
+    on_text: Callable[[str], None] | None = None,
 ) -> TurnResult:
     """Run one chat turn: the guard first, then retrieval and the answer; never raise for errors."""
+    # on_step(step) is called as each step starts; on_text(text) as the answer streams in.
     steps: list[Step] = []
 
     def step(name: Step) -> None:
@@ -262,10 +291,15 @@ def run_turn(
     def answer(question: str) -> TurnResult:
         """Open the index and the model only for an accepted question, then answer it."""
         # Read before any API call, so a missing or empty prompt file costs nothing.
-        system_prompt = load_system_prompt()
+        try:
+            system_prompt = load_system_prompt()
+        except OSError, ValueError:
+            raise PromptMissingError from None
         # The index is opened first: a missing index is reported even when the key is missing.
         index = open_index()
-        return answer_question(question, index, chat_model(), manifest or {}, step, system_prompt)
+        return answer_question(
+            question, index, chat_model(), manifest or {}, step, system_prompt, on_text
+        )
 
     step(Step.CHECK)
     try:
@@ -275,9 +309,7 @@ def run_turn(
         return TurnResult("error", str(exc), steps=tuple(steps))
     except IndexNotReadyError as exc:
         return TurnResult("error", str(exc), steps=tuple(steps), index_not_ready=True)
-    except OSError, ValueError:
-        # Only load_system_prompt() raises these here: retrieval and model errors are mapped
-        # by mapped_errors() inside answer_question().
+    except PromptMissingError:
         return TurnResult("error", config.PROMPT_MISSING_MESSAGE, steps=tuple(steps))
     except config.SecretsFileError:
         return TurnResult("error", config.SECRETS_FILE_MESSAGE, steps=tuple(steps))

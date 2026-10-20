@@ -242,34 +242,45 @@ def _show_steps(result: chat.TurnResult) -> None:
             _step_box(step, state if number == len(result.steps) else "complete")
 
 
-def _run_turn(question: str) -> chat.TurnResult:
-    """Run one chat turn, showing each step in a status box while it runs (core 5, AC-10)."""
-    with st.status(f":shimmer[{chat.Step.CHECK.value}]", type="compact") as status:
-        boxes = []
+def _run_turn(question: str) -> None:
+    """Run one chat turn: steps in a status box, the answer as it streams in, then the result."""
+    status = st.status(f":shimmer[{chat.Step.CHECK.value}]", type="compact")
+    # Below the status: the answer while it streams, replaced by the full result at the end.
+    answer_slot = st.empty()
+    boxes = []
 
-        def on_step(step: chat.Step) -> None:
-            """Close the previous step and show the one starting now."""
-            if boxes:
-                boxes[-1].update(state="complete")
-            boxes.append(_step_box(step, "running"))
-            status.update(label=f":shimmer[{step.value}]")
-
-        result = chat.run_turn(
-            question,
-            guard.session_limiter(st.session_state),
-            open_index=_index,
-            chat_model=_chat_model,
-            manifest=_manifest(),
-            on_step=on_step,
-        )
-        if result.index_not_ready:
-            # Open the index again on the next turn, e.g. once the owner has rebuilt it.
-            _index.clear()
-        state = _final_state(result)
+    def on_step(step: chat.Step) -> None:
+        """Close the previous step and show the one starting now (core 5, AC-10)."""
         if boxes:
-            boxes[-1].update(state=state)
-        status.update(label=STATUS_LABELS[result.kind], state=state)
-    return result
+            boxes[-1].update(state="complete")
+        with status:
+            boxes.append(_step_box(step, "running"))
+        status.update(label=f":shimmer[{step.value}]")
+
+    def on_text(text: str) -> None:
+        """Show the answer so far, so the user reads it while the model is still writing."""
+        # Model output as Markdown, never with unsafe_allow_html (docs/SECURITY.md).
+        answer_slot.markdown(text)
+
+    result = chat.run_turn(
+        question,
+        guard.session_limiter(st.session_state),
+        open_index=_index,
+        chat_model=_chat_model,
+        manifest=_manifest(),
+        on_step=on_step,
+        on_text=on_text,
+    )
+    if result.index_not_ready:
+        # Open the index again on the next turn, e.g. once the owner has rebuilt it.
+        _index.clear()
+    state = _final_state(result)
+    if boxes:
+        boxes[-1].update(state=state)
+    status.update(label=STATUS_LABELS[result.kind], state=state)
+    with answer_slot.container():
+        _show_result(result)
+    st.session_state["messages"].append({"role": "assistant", "result": result})
 
 
 def _source_card(card: chat.SourceCard) -> None:
@@ -347,9 +358,7 @@ def _ask_tab() -> None:
     with box:
         _show_message(history[-1])
         with st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
-            result = _run_turn(question)
-            _show_result(result)
-    history.append({"role": "assistant", "result": result})
+            _run_turn(question)
 
 
 with st.sidebar:

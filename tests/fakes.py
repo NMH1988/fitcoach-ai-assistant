@@ -1,13 +1,15 @@
 """Fakes for chat-turn tests: keyword embeddings, a scripted chat model, a small fixture index."""
 
+import re
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, BaseMessage
-from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
+from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from pydantic import Field
 
 from src.rag import store
@@ -42,6 +44,8 @@ class ScriptedChatModel(BaseChatModel):
 
     replies: list[AIMessage] = Field(default_factory=list)
     error: Exception | None = None
+    # When set with error, streaming raises the error after this many chunks.
+    fail_after_chunks: int | None = None
     calls: list[list[BaseMessage]] = Field(default_factory=list)
 
     @property
@@ -55,6 +59,23 @@ class ScriptedChatModel(BaseChatModel):
         if self.error is not None:
             raise self.error
         return ChatResult(generations=[ChatGeneration(message=self.replies.pop(0))])
+
+    def _stream(
+        self, messages: list[BaseMessage], stop: Any = None, run_manager: Any = None, **kwargs: Any
+    ) -> Iterator[ChatGenerationChunk]:
+        """Record the messages, then yield the next reply word by word (or raise)."""
+        self.calls.append(list(messages))
+        if self.error is not None and self.fail_after_chunks is None:
+            raise self.error
+        reply = self.replies.pop(0)
+        pieces = re.findall(r"\S+\s*|\s+", reply.text) or [""]
+        for number, piece in enumerate(pieces):
+            if number == self.fail_after_chunks:
+                raise self.error
+            # The finish reason comes with the last chunk, as in OpenAI's stream.
+            last = number == len(pieces) - 1
+            metadata = reply.response_metadata if last else {}
+            yield ChatGenerationChunk(message=AIMessageChunk(piece, response_metadata=metadata))
 
 
 def chunk(source_id: str, index: int, text: str, **extra: Any) -> Document:
@@ -81,7 +102,7 @@ def chunk(source_id: str, index: int, text: str, **extra: Any) -> Document:
 CHUNKS = [
     chunk("1", 0, "Protein: spread protein over four meals."),
     chunk("1", 1, "Protein before sleep: casein protein supports overnight sleep recovery."),
-    chunk("2", 0, "Creatine: creatine with protein after training."),
+    chunk("2", 0, "Creatine with protein before sleep."),
     chunk("3", 0, "Carbohydrate: carbohydrate on heavy training days."),
     chunk("4", 0, "Fat: dietary fat and hormones."),
 ]

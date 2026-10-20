@@ -53,7 +53,7 @@ def _model(*answers: str, **metadata) -> ScriptedChatModel:
     )
 
 
-def _turn(text, index, model, *, limiter=None, manifest=None, on_step=None):
+def _turn(text, index, model, *, limiter=None, manifest=None, on_step=None, on_text=None):
     """Run one chat turn on the fixture index with the given model."""
     return chat.run_turn(
         text,
@@ -62,6 +62,7 @@ def _turn(text, index, model, *, limiter=None, manifest=None, on_step=None):
         chat_model=lambda: model,
         manifest=manifest,
         on_step=on_step,
+        on_text=on_text,
     )
 
 
@@ -351,6 +352,51 @@ def test_a_model_error_becomes_its_fixed_message(index, error):
     expected = llm.RateLimitedError if isinstance(error, llm.LLMError) else llm.LLMTimeoutError
     assert result.text == expected.user_message
     assert result.steps == (Step.CHECK, Step.SEARCH, Step.ANSWER)
+
+
+def test_the_answer_is_reported_as_it_streams_in(index):
+    """on_text gets the growing answer word by word, ending with the full answer."""
+    seen = []
+    answer = "Spread protein over four meals [S1]."
+    result = chat.run_turn(
+        QUESTION,
+        guard.RateLimiter(),
+        open_index=lambda: index,
+        chat_model=lambda: _model(answer),
+        on_text=seen.append,
+    )
+    assert result.text == answer
+    assert seen == [
+        "Spread ",
+        "Spread protein ",
+        "Spread protein over ",
+        "Spread protein over four ",
+        "Spread protein over four meals ",
+        answer,
+    ]
+
+
+def test_an_image_never_reaches_the_screen_while_streaming(index):
+    """No update of the streaming text contains an image, even once its syntax is complete."""
+    seen = []
+    model = _model("Eat oats ![x](https://evil.example/?q=1) daily [S1].")
+    result = _turn(QUESTION, index, model, on_text=seen.append)
+    assert seen
+    assert not any("](https://evil" in text for text in seen)
+    assert result.text == "Eat oats x daily [S1]."
+
+
+def test_an_error_mid_stream_ends_the_turn_with_its_message(index):
+    """A failure after part of the answer arrived gives the mapped message, not half an answer."""
+    model = _model("Spread protein over four meals [S1].")
+    model.error = llm.ServiceUnavailableError(503)
+    model.fail_after_chunks = 2
+    seen = []
+    result = _turn(QUESTION, index, model, on_text=seen.append)
+    assert seen == ["Spread ", "Spread protein "]
+    assert result.kind == "error"
+    assert result.text == llm.ServiceUnavailableError.user_message
+    assert result.sources == ()
 
 
 def test_a_cut_off_answer_says_so(index):

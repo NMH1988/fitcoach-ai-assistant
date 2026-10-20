@@ -82,7 +82,7 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 - User messages: `st.chat_message("user")`.
 - Assistant messages: `st.chat_message("assistant", avatar=":material/nutrition:")`, containing in order:
   1. **Progress** while the turn runs: `st.status(":shimmer[Searching sources]", type="compact")` with `type="step"` children (check input, rewrite question, search sources, answer, tools). Collapses to a static label when done (core 5). Each step holds a one-line caption on what it does: in Streamlit 1.66 a step without content ends the timeline and hides the steps after it (found in T3.1). Past turns show the same collapsed status.
-  2. **Answer** as Markdown with `[S#]` citations (no `unsafe_allow_html`).
+  2. **Answer** as Markdown with `[S#]` citations (no `unsafe_allow_html`), streamed in under the status box as the model writes it, then replaced by the full result (owner's request in T3.1).
   3. **Sources:** one `st.container(border=True)` per cited source: bold title, a caption with the first three authors and "et al." (owner's choice in T3.1, for the CC BY credit), `st.badge` for the evidence tier (green "ISSN position stand", violet "Peer-reviewed review"), caption with journal, year and licence, and a link "Open article" (AC-1).
   4. **Tool result:** a compact expander labelled with the headline result (e.g. ":material/calculate: Protein target: 160 g") that opens to the result table (AC-6, T4.4).
 - **Empty chat:** a one-line invitation and three suggested questions as `st.pills` in an `st.empty()` placeholder, sent through the same handler as typed input; hidden once the chat has a message.

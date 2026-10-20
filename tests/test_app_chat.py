@@ -238,6 +238,28 @@ def test_the_index_is_opened_again_after_it_was_not_ready(monkeypatch, tmp_path)
     assert len(opened) == 2
 
 
+def test_the_streamed_answer_is_replaced_by_the_full_result(monkeypatch):
+    """After streaming, the answer is shown once, with its Sources, under the status."""
+    _use_model(monkeypatch, _answers("Spread protein over four meals [S1]."))
+    message = _assistant(_ask(_start(), QUESTION))
+    answers = [m.value for m in message.markdown if "four meals" in m.value]
+    assert answers == ["Spread protein over four meals [S1]."]
+    assert message.expander[0].label == "Sources (1)"
+
+
+def test_an_error_mid_stream_shows_the_message_and_no_half_answer(monkeypatch):
+    """A failure after part of the answer streamed in leaves only the error, and the history."""
+    model = _use_model(monkeypatch, _answers("Four meals [S1].", "Spread protein over meals [S1]."))
+    at = _ask(_start(), QUESTION)
+    model.error = llm.ServiceUnavailableError(503)
+    model.fail_after_chunks = 2
+    at = _ask(at, "And protein per day?")
+    message = _assistant(at)
+    assert [e.value for e in message.error] == [llm.ServiceUnavailableError.user_message]
+    assert not [m.value for m in message.markdown if "Spread" in m.value]
+    assert _assistant(at, 0).markdown[0].value == "Four meals [S1]."
+
+
 def test_a_missing_key_shows_the_setup_message(monkeypatch):
     """With an index but no key, the answer says how to add the key; nothing crashes."""
     at = _ask(_start(), QUESTION)
