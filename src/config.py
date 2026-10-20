@@ -165,6 +165,59 @@ BUILD_INDEX_COMMAND = "python scripts/build_index.py"
 # loses little work and the build can show its progress.
 EMBEDDING_BATCH_SIZE = 64
 
+# Retrieval and answers for one chat turn (T3.1; query translation and hybrid search extend it in
+# T3.2 and T3.3). The nearest chunks given to the answer model, labelled [S1]...[S6].
+RETRIEVAL_TOP_K = 6
+# Cosine distance (0 = same meaning, up to 2) above which a chunk counts as not relevant to the
+# question. Measured on the real index (O5, 2026-10-20, 28 questions; docs/TESTING.md): questions
+# the sources cover, short or long, had their nearest chunk at 0.28-0.54; unrelated ones at 0.70
+# and above; near-domain ones (a dog's diet, running shoes, insulin) at 0.56-0.70. 0.62 sits midway
+# and favours answering: a near-domain question that passes costs one model call, which the
+# prompt declines or redirects, while a covered question that is blocked gets no answer at all.
+RETRIEVAL_MAX_DISTANCE = 0.62
+# The answer system prompt, written by the owner (O1; .claude/rules/workflow.md).
+ANSWER_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "answer_system.md"
+# Shown instead of an answer when no chunk is relevant; no model call is made (AC-2).
+NO_SOURCES_MESSAGE = (
+    "Our sources do not cover this question, so there is no answer from the research. Try a "
+    "question about protein, carbohydrate, fat, energy balance, nutrient timing or supplements "
+    "for strength training."
+)
+API_KEY_NAME = "OPENROUTER_API_KEY"
+
+# Shown in the answer when the key is not set up (AC-13).
+MISSING_KEY_MESSAGE = (
+    "The OpenRouter API key is missing. Add it to `.streamlit/secrets.toml` or set the "
+    f"{API_KEY_NAME} environment variable, then restart the app."
+)
+SECRETS_FILE_MESSAGE = (
+    f"`.streamlit/secrets.toml` could not be read. Fix the file or set the {API_KEY_NAME} "
+    "environment variable, then restart the app."
+)
+# Shown in the answer when the prompt file is missing or empty; no API call is made.
+PROMPT_MISSING_MESSAGE = (
+    "The answer prompt `src/prompts/answer_system.md` is missing or empty, so no answer can be "
+    "written. Restore the file and ask again."
+)
+# How the evidence tiers are named in the answer's sources (docs/UI_DESIGN.md).
+EVIDENCE_TIER_LABELS: dict[int, str] = {1: "ISSN position stand", 2: "Peer-reviewed review"}
+UNKNOWN_TIER_LABEL = "Review"
+# Authors named on a source card before "et al." (the full list is in ATTRIBUTION.md).
+CARD_AUTHORS_SHOWN = 3
+# Height of the scrolling message area in the Ask tab; tall enough to read a whole answer on a
+# desktop screen (owner's requests, 2026-10-20: 520, then 650, then 750 to fill a tall window).
+# On a short window the page scrolls to the chat input.
+CHAT_HEIGHT_PX = 750
+# Most words of the streamed answer shown per second. The real model sends its answer in fast
+# bursts, which looked as if it appeared all at once (owner's request, 2026-10-20). 20 read too
+# slowly in the owner's check; at 30 a 200-word answer takes about 7 s. 0 shows the text as it
+# arrives.
+ANSWER_WORDS_PER_SECOND = 30
+# The page uses the wide layout with the content in the middle column: these are the relative
+# widths of the left margin, the content and the right margin. The content takes about three
+# quarters of a large screen, without lines too long to read.
+PAGE_COLUMN_WEIGHTS = (1, 6, 1)
+
 # Article XML comes only from the Europe PMC REST API, which allows automated retrieval
 # (copyright policy rule 10); the PMC, Europe PMC and publisher websites are never scripted.
 EUROPE_PMC_FULLTEXT_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/{pmcid}/fullTextXML"
@@ -279,8 +332,6 @@ FOOD_SUGGESTION_MIN_SCORE = 60
 FOOD_MAX_ALTERNATIVES = 3
 # Decimal places of the scaled values (grams of nutrients); kcal are rounded to whole numbers.
 FOOD_DECIMALS = 1
-
-API_KEY_NAME = "OPENROUTER_API_KEY"
 
 
 class MissingAPIKeyError(RuntimeError):

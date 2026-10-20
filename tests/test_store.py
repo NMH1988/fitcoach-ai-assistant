@@ -347,3 +347,13 @@ def test_an_unreadable_index_says_to_rebuild_without_chroma_details(index_dir):
         store.check_index(index_dir)
     _assert_build_hint(caught.value, "could not be read")
     assert caught.value.__suppress_context__
+
+
+def test_an_unreadable_index_gives_the_same_message_on_every_check(index_dir):
+    """Checking a corrupt index again in the same process (the next chat turn) never crashes."""
+    index_dir.mkdir()
+    (index_dir / "chroma.sqlite3").write_bytes(b"this is not a database " * 50)
+    for _ in range(3):
+        with pytest.raises(IndexNotReadyError) as caught:
+            store.check_index(index_dir)
+        _assert_build_hint(caught.value, "could not be read")

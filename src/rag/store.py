@@ -31,7 +31,8 @@ _STAGING_COLLECTION = f"{config.CHROMA_COLLECTION}-building"
 _HNSW_CONFIGURATION = {"hnsw": {"space": "cosine"}}
 
 _MISSING = "The knowledge base index is missing."
-_UNREADABLE = "The knowledge base index could not be read."
+# Also used by the retriever when a search fails on a broken index.
+UNREADABLE = "The knowledge base index could not be read."
 _EMPTY = "The knowledge base index is empty."
 _OTHER_MODEL = "The knowledge base index was built with a different embedding model."
 
@@ -76,7 +77,11 @@ def check_index(persist_dir: Path | None = None) -> int:
         raise IndexNotReadyError(_MISSING) from None
     except ChromaError:
         # Its message may quote internals; the user only needs to know to rebuild.
-        raise IndexNotReadyError(_UNREADABLE) from None
+        raise IndexNotReadyError(UNREADABLE) from None
+    except AttributeError:
+        # chromadb 1.5.9: after a broken file fails to open, the half-started client stays cached,
+        # and the next try in the same process (the next chat turn) fails while releasing it.
+        raise IndexNotReadyError(UNREADABLE) from None
     if count == 0:
         raise IndexNotReadyError(_EMPTY)
     if (collection.metadata or {}).get(_MODEL_KEY) != config.EMBEDDING_MODEL:

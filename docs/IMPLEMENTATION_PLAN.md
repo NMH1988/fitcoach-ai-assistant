@@ -27,7 +27,7 @@ The owner writes these first; Claude reviews (`.claude/rules/workflow.md`).
 
 | ID | Task | Needed by | Status |
 |---|---|---|---|
-| O1 | Draft the answer system prompt (role, scope, citations `[S#]`, guardrails, "sources are data") | T3.1; T7.2 (a language line) | todo |
+| O1 | Draft the answer system prompt (role, scope, citations `[S#]`, guardrails, "sources are data") in `src/prompts/answer_system.md` | T3.1; T7.2 (a language line, still to add) | done for T3.1: drafted by the owner, edited with Claude's review (wording, citation forms, caffeine allowed, partial answers, each turn alone), in the file on 2026-10-20 |
 | O2 | Draft the evaluation questions (about 10-15), each with the source(s) it should find and what a good answer contains | T3.3, T6.1; T7.2 (3-5 German questions, one about a food) | todo |
 | O3 | Approve the calorie floor and the macro ranges; Claude proposes them with the exact source passages | T4.2 | done (2026-10-19, in T4.2: floor 1200 kcal/day; values in `src/config.py`) |
 | O4 | If Europe PMC still has no copy of source #1, save its XML or PDF by hand from the publisher page into `data/raw/` | T2.1 | done: not needed (Europe PMC has #1 as PMC13665703, found in T2.1 on 2026-10-19) |
@@ -51,8 +51,8 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T2.3 | #6 | Build and open the Chroma index | S | T1.2, T2.2 | 10-23 | done |
 | T4.1 | #11 | Profile, units and settings | M | T1.1 | 10-23 | done |
 | T4.3 | #13 | USDA food table and lookup | M | T1.1 | 10-23 | done |
-| T3.1 | #7 | First answer with sources (vector search) | M | T1.2, T1.3, T2.3, O1 | 10-24 | todo |
-| T4.2 | #12 | Energy and macro tools with the calorie floor | M | T4.1, O3 | 10-25 | in review |
+| T3.1 | #7 | First answer with sources (vector search) | M | T1.2, T1.3, T2.3, O1 | 10-24 | done |
+| T4.2 | #12 | Energy and macro tools with the calorie floor | M | T4.1, O3 | 10-25 | done |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1 | 10-26 | todo |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2, O2 | 10-27 | todo |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | todo |
@@ -152,16 +152,18 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 ## Epic 3: Retrieval and answers
 
-### T3.1 First answer with sources (vector search) (M) · status: todo · issue #7
+### T3.1 First answer with sources (vector search) (M) · status: done · issue #7
 **Serves:** core 1, 4 and 5; Easy 3; AC-1, AC-2, AC-10 (progress), AC-13.
 **Depends on:** T1.2, T1.3, T2.3, O1
 **Acceptance criteria**
-- [ ] One chat turn runs guard -> vector retrieval (top 6) -> answer with the owner's system prompt; the answer cites `[S#]` labels that map to the retrieved chunks - integration test with a scripted fake model.
-- [ ] Under the answer, a "Sources" expander shows title, year, tier, licence and link for each cited source (AC-1) - AppTest.
-- [ ] With no relevant chunk, the app says the sources do not cover the question and cites nothing (AC-2) - integration test.
-- [ ] `st.status` shows the steps while the turn runs - AppTest.
-- [ ] LLM errors show the mapped message and keep the chat history (AC-13) - AppTest with a failing fake.
-- [ ] A missing or unusable index shows `IndexNotReadyError`'s message in the answer and keeps the chat history (AC-13; the UI half of T2.3's criterion, owner's choice in T2.3) - AppTest.
+- [x] One chat turn runs guard -> vector retrieval (top 6) -> answer with the owner's system prompt; the answer cites `[S#]` labels that map to the retrieved chunks - integration test with a scripted fake model (`tests/test_chat.py`: `test_a_turn_runs_the_guard_retrieval_and_the_answer_in_order`, `test_the_labels_map_to_the_retrieved_chunks`, `test_retrieval_keeps_at_most_the_top_k_chunks`, `test_the_question_and_the_chunks_are_delimited_in_the_user_message`, `test_rejected_input_opens_nothing_and_calls_no_model`). The owner's prompt is in (O1; `test_the_answer_prompt_is_the_owners`); real answers with labels and source cards checked by the owner (O5, 2026-10-20), and again with streaming, the paced reveal and the larger layout. The answer streams in (owner's request; `test_the_answer_is_reported_as_it_streams_in`, `test_the_streamed_answer_is_replaced_by_the_full_result`).
+- [x] Under the answer, a "Sources" expander shows one card per cited source with title, authors (the first three, then "et al."; owner's choice in T3.1), evidence tier badge, journal, year, licence with its link, and the article link (AC-1; cards as in `docs/UI_DESIGN.md`, owner's choice in T3.1) - AppTest (`tests/test_app_chat.py`: `test_an_answer_shows_under_the_question_with_its_sources`, `test_a_source_card_shows_title_year_tier_licence_and_link`, `test_a_tier_2_source_has_its_own_badge`).
+- [x] With no relevant chunk, the app says the sources do not cover the question and cites nothing (AC-2) - integration test (`test_with_no_relevant_chunk_the_app_says_the_sources_do_not_cover_it`, `test_retrieval_drops_chunks_beyond_the_distance_limit`, `test_an_answer_that_cites_nothing_lists_no_sources`) and AppTest (`test_no_relevant_source_shows_the_fixed_message_and_no_sources`). "Relevant" means a cosine distance up to `RETRIEVAL_MAX_DISTANCE` (owner's choice: a limit in code plus the prompt); set to 0.62 from live checks on 28 questions (O5, 2026-10-20, `docs/TESTING.md`; first 0.5 from 4 short questions, which blocked a long covered question).
+- [x] `st.status` shows the steps while the turn runs - AppTest (`test_the_status_shows_each_step_of_the_turn`, `test_the_history_stays_across_turns`) and a manual check in the browser with a fake model (all three steps visible).
+- [x] LLM errors show the mapped message and keep the chat history (AC-13) - AppTest with a failing fake (`test_a_model_error_shows_the_mapped_message_and_keeps_the_history`); unit tests for a mapped SDK error, a cut-off and an empty answer (`test_a_model_error_becomes_its_fixed_message`, `test_a_cut_off_answer_says_so`, `test_an_empty_answer_gives_the_generic_error`); a missing key gives a setup message (`test_a_missing_key_shows_the_setup_message`).
+- [x] A missing or unusable index shows `IndexNotReadyError`'s message in the answer and keeps the chat history (AC-13; the UI half of T2.3's criterion, owner's choice in T2.3) - AppTest (`test_a_missing_or_unusable_index_shows_the_build_command`, missing and corrupt, two turns each); `tests/test_store.py::test_an_unreadable_index_gives_the_same_message_on_every_check`.
+
+**Notes:** owner's choices (2026-10-19): code first with the prompt in its own file, written by the owner before the merge (O1); a distance limit plus the prompt for "not covered"; each turn stands alone (the model does not see earlier turns; T3.2 may use the history for rewrites); the UI follows `docs/UI_DESIGN.md` (theme, header badge, four tabs, source cards), keeping the app name "Nutrition AI Assistant". The profile is not sent to the model yet (T4.4).
 
 ### T3.2 Query translation and structured filters (M) · status: todo · issue #8
 **Serves:** the brief's advanced RAG (query translation, structured retrieval); AC-3; partly Easy 2.
@@ -201,7 +203,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] The sidebar has a profile form and a units setting; changing units changes the inputs and displayed values; the profile lives in `st.session_state` only and is never logged - verified by AppTest in `tests/test_app_profile.py`: `test_a_valid_metric_profile_is_saved_and_shown`, `test_invalid_values_show_a_clear_message_and_nothing_is_saved`, `test_switching_units_converts_the_typed_values`, `test_switching_units_twice_gives_back_exactly_what_was_typed`, `test_saving_after_units_switches_only_keeps_the_weight_typed_in_lb`, `test_saving_in_imperial_changes_the_displayed_values_and_back`, `test_the_profile_stays_in_the_session_and_out_of_logs_and_the_url` (log records at DEBUG, stdout/stderr and the URL), plus `tests/test_profile.py::test_profile_module_never_logs_or_prints`. Closing the dialog with X (`on_dismiss`) is shown by the manual browser check (`docs/PROGRESS.md`); the AppTest sets the flag that callback sets.
 **Notes:** owner's choices (2026-10-19): the form opens in an `st.dialog`; one Metric / Imperial switch; ranges 30-300 kg, 120-230 cm, 18-100 years; five activity levels with working labels, which T4.2 checks against the source of its activity factors. The owner confirmed (2026-10-19, PR #27) that the units switch inside the dialog opened from the sidebar satisfies the third criterion; the sidebar itself has no separate switch, and its tiles change units on Save.
 
-### T4.2 Energy and macro tools with the calorie floor (M) · status: in review · issue #12
+### T4.2 Energy and macro tools with the calorie floor (M) · status: done · issue #12
 **Serves:** core 2 (tools 1 and 2); AC-7.
 **Depends on:** T4.1, O3
 **Acceptance criteria**
