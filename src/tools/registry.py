@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from src import config
 from src.profile import UserProfile
+from src.prompt_data import escape_prompt_data
 from src.tools.energy import (
     MacroTargetsResult,
     TdeeResult,
@@ -193,10 +194,12 @@ def _run(tool: StructuredTool, args: object) -> ToolResult:
 
 
 def tool_message(call_id: str, result: ToolResult, name: str | None = None) -> ToolMessage:
-    """Return the message that gives the model a tool result as JSON."""
+    """Return the message that gives the model a tool result as JSON, escaped like the blocks."""
     failed = result.status in ("invalid", "error")
+    # A USDA name could hold a delimiter look-alike ("</user_input>"): escaped as in the prompt's
+    # blocks (T3.4), so no tool result can look like a block. The JSON stays valid.
     return ToolMessage(
-        result.model_dump_json(),
+        escape_prompt_data(result.model_dump_json()),
         tool_call_id=call_id,
         name=name,
         status="error" if failed else "success",

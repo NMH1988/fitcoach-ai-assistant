@@ -256,10 +256,23 @@ def test_the_profile_stays_in_the_session_and_out_of_logs_and_the_url(caplog, ca
     assert not dict(at.query_params)
 
 
-def test_disclaimer_stays_visible_with_a_profile():
-    """The disclaimer is still shown once a profile exists."""
-    at = _add_metric_profile()
-    assert any("Not medical advice" in box.value for box in at.warning)
+@pytest.mark.parametrize(
+    "state",
+    [
+        lambda: _button(_start(), "Add your details").click().run(timeout=30),
+        lambda: _save(_fill_metric(_open_dialog(), age=15)),
+        _add_metric_profile,
+        lambda: _button(_add_metric_profile(), "Edit details").click().run(timeout=30),
+    ],
+    ids=["dialog open", "dialog with an error", "profile saved", "editing the profile"],
+)
+def test_disclaimer_stays_visible_in_every_profile_state(state):
+    """The badge and the full disclaimer box show with the dialog open and with a profile."""
+    at = state()
+    assert not at.exception
+    assert ":orange-badge[:material/info: Not medical advice]" in [m.value for m in at.markdown]
+    boxes = [box.value for box in at.warning]
+    assert boxes.count(f"**Not medical advice.** {config.DISCLAIMER}") == 1
 
 
 # --- T4.6: a hint instead of "Press Enter to apply" --------------------------------------------
@@ -332,3 +345,34 @@ def test_st_html_is_used_only_with_the_fixed_dialog_css():
     assert source.count("st.html(") == 1
     assert "st.html(config.PROFILE_DIALOG_CSS)" in source
     assert "unsafe_allow_javascript" not in source
+
+
+# --- T7.3: where to switch light or dark mode ---------------------------------------------------
+
+
+def _sidebar_captions(at: AppTest) -> list[str]:
+    """Return the text of every caption in the sidebar, in order."""
+    return [caption.value for caption in at.sidebar.caption]
+
+
+def test_the_theme_hint_is_in_the_sidebar_without_a_profile():
+    """Before a profile exists, the theme hint is the caption after the profile invitation."""
+    captions = _sidebar_captions(_start())
+    invitation = captions.index("Add your details to get personal targets.")
+    assert captions[invitation + 1] == config.THEME_HINT
+
+
+def test_the_theme_hint_follows_the_privacy_note_with_a_profile():
+    """With a profile, the theme hint is the caption right under the privacy note."""
+    captions = _sidebar_captions(_add_metric_profile())
+    privacy = captions.index(":material/lock: Kept for this session only")
+    assert captions[privacy + 1] == config.THEME_HINT
+
+
+def test_the_theme_hint_points_to_the_menu():
+    """The hint names light and dark mode and Streamlit's menu, with its icon, at the top right."""
+    assert config.THEME_HINT.startswith(":material/dark_mode: ")
+    for words in ("Light or dark mode", "menu", ":material/more_vert:", "top right"):
+        assert words in config.THEME_HINT
+    # Streamlit 1.66 shows System, Light and Dark at the top of its menu, with no Settings entry.
+    assert "Settings" not in config.THEME_HINT

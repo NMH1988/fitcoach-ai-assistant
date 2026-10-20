@@ -1,5 +1,6 @@
 """Tests for src/tools/registry.py: the tools' schemas, the profile and running calls (T4.4)."""
 
+import html
 import json
 
 import pytest
@@ -209,4 +210,7 @@ def test_usda_names_are_returned_inside_the_tool_message_as_data():
     """A USDA name with Markdown and a delimiter comes back unchanged inside the JSON result."""
     tool_message, run = _run(FOOD_TOOL, {"food": HOSTILE_FOOD_NAME, "grams": 100})
     assert run.result.matched_name == HOSTILE_FOOD_NAME
-    assert json.loads(tool_message.content)["matched_name"] == HOSTILE_FOOD_NAME
+    content = json.loads(tool_message.content)["matched_name"]
+    # Escaped like the prompt blocks (T3.4): the name comes back exact once unescaped.
+    assert html.unescape(content) == HOSTILE_FOOD_NAME
+    assert "<" not in tool_message.content and ">" not in tool_message.content

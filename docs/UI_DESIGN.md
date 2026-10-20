@@ -30,7 +30,7 @@ linkUnderline = false
 primaryColor = "#0F6E56"     # teal-green, dark enough for white button text (WCAG AA)
 backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F4F6F5"
-textColor = "#1F2328"
+textColor = "#14171B"        # dark enough that captions (60% opacity) meet WCAG AA (T7.3)
 borderColor = "#D8DEDB"
 greenColor = "#0F6E56"
 orangeColor = "#BA7517"
@@ -88,10 +88,11 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 
 ### Light and dark mode (T7.3, extra)
 
-- Both `[theme.light]` and `[theme.dark]` are defined (see "Theme"; T3.1 writes them, T7.3 adds the config test, the toolbar check and the hint), so Streamlit's own menu (top right -> Settings) offers Light, Dark and System. The choice is remembered by the browser.
+- Both `[theme.light]` and `[theme.dark]` are defined (see "Theme"; T3.1 writes them, T7.3 adds the config test, the toolbar check and the hint), so Streamlit's own menu (⋮, top right) offers System, Light and Dark at its top. Streamlit 1.66 has no separate Settings entry (seen in the browser, T7.3). The choice is remembered by the browser.
+- `[client] toolbarMode = "auto"` in `.streamlit/config.toml`: the switch stays for every visitor; the developer options (Rerun, Clear cache, Deploy) show only on localhost. "minimal" would hide the switch.
 - Streamlit 1.66 cannot change the theme from the script, and a custom CSS toggle would break the "native first" principle and break on upgrades, so there is no separate header icon (owner's decision, 2026-10-20).
-- A sidebar caption under the privacy note says where to switch: ":material/dark_mode: Light or dark mode: menu at the top right -> Settings".
-- Charts and badges are checked in both modes; chart colours come from the palette above, which reads on both backgrounds.
+- A sidebar caption says where to switch: `config.THEME_HINT`, ":material/dark_mode: Light or dark mode: menu :material/more_vert: at the top right" (the icon is the menu's own ⋮). It sits under the privacy note with a profile, and under the "Add your details" button before one exists.
+- Badges, source cards, the sidebar and the profile dialog are checked in both modes (T7.3, results in `docs/TESTING.md`); the charts and the tool result table are checked in T4.4. Chart colours come from the palette above, which reads on both backgrounds. `tests/test_theme.py` checks that body text and captions (drawn at 60% opacity) meet WCAG AA on both backgrounds in both modes; that is why the light text colour is #14171B. It also checks white text on the primary button and the primary colour as text on both backgrounds. The 60% caption opacity was measured on Streamlit 1.66: recheck it in the browser after a Streamlit upgrade (`CAPTION_OPACITY` in the test). Known limit (owner's choice): white text on the dark-mode primary button is 3.4:1, as a darker green would make the accent text on the dark background fall under AA instead.
 
 ### Tabs
 
@@ -108,6 +109,8 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
   4. **Tool results:** one expander "Tool results (n)" with `:material/calculate:`, like "Sources (n)" (owner's choice in T4.4, 2026-10-20, instead of one expander per result labelled with its headline). Inside, each result under a bold heading (Daily energy needs, Daily targets, Food lookup, or "Tool call not run") with its values in `st.dataframe` tables (AC-6); macro targets also as a horizontal stacked bar of the kcal from each macro (`st.bar_chart`, macro colours, the values in the table above it), and a food lookup with "Source: USDA FoodData Central". Tables use `st.dataframe`, never `st.table`, which reads Markdown in its cells in Streamlit 1.66, so a USDA name stays plain text. Without a profile, an energy result says the details are needed (`st.info`) with an "Add your details" button that opens the profile dialog. Tool messages are the English text the model got. Screenshot (fake model, sample values): `docs/ui/t4.4-tool-results.jpg`.
 - **Empty chat:** a one-line invitation and three suggested questions as `st.pills` in an `st.empty()` placeholder, sent through the same handler as typed input; hidden once the chat has a message.
 - **Errors:** a short `st.error` inside the assistant message saying what happened and what to do; the history stays (AC-13).
+- **Guard rejections:** `st.warning` with `:material/block:`; the status ends as an error, "Question not accepted".
+- **Domain guardrails (T5.3, AC-12):** a refused or redirected question gets its fixed message in `st.info` with `:material/health_and_safety:` and no answer; the status ends complete, "Not something this assistant can advise on", since nothing went wrong.
 
 #### My targets
 

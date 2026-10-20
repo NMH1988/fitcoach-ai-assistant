@@ -1,9 +1,9 @@
 """Input guard: cleans and checks each user message before any model or embedding call.
 
 Checks run in this order: too long (raw), empty, too long (cleaned), prompt-injection
-patterns, then the per-session rate limit. Only a message that passes every check counts
-against the rate limit (owner's choice in T1.3), and a rejected message never reaches a
-model: callers go through `run_guarded()`.
+patterns, the domain guardrails (`src/guardrails.py`, T5.3), then the per-session rate limit.
+Only a message that passes every check counts against the rate limit (owner's choice in T1.3),
+and a rejected message never reaches a model: callers go through `run_guarded()`.
 """
 
 import math
@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from src import config
+from src import config, guardrails
 
 # Fixed messages: they never quote the user's text back.
 EMPTY_MESSAGE = "Please type a question first."
@@ -193,12 +193,21 @@ _FOLDED_PATTERNS = [
 # Matched against the cleaned text with its line breaks: fake role markers and look-alikes of the
 # delimiters the answer step wraps around user text and sources (docs/ARCHITECTURE.md, step 5).
 # Written so no two unbounded repeats sit next to each other (linear time on any input).
+# The answer step escapes "<" and ">" anyway (T3.4), so these only stop an attempt before any API
+# call. A tag may carry up to five attributes (name=value, value quoted or not) and a closing
+# slash (<user_input id="2">, </sources lang="en">, <sources/>), and "user input" may be written
+# with "_", "-" or a space. Only attribute-shaped text counts, so "<" and ">" used as "less than"
+# and "more than" around a word ("(<sources say 25%) and > 1200 kcal") pass. A role line may follow
+# Markdown heading, quote, bold or italic markers (**System:**, > System:, __Assistant__:).
 _RAW_PATTERNS = [
-    r"<\s*(?:/\s*)?(?:system|user_input|sources|assistant|user|developer|instructions?)\s*>",
+    r"<\s*(?:/\s*)?(?:system|user[\s_-]*input|sources?|assistant|user|developer|instructions?)"
+    r"(?:\s+[\w:-]{1,40}\s*=\s*(?:\"[^\"<>\n]{0,100}\"|'[^'<>\n]{0,100}'|[^\s\"'<>]{1,100})){0,5}"
+    r"\s*(?:/\s*)?>",
     r"<\|[a-z_]+\|>",
     r"\[/?(?:inst|sys)\]",
     r"<<\s*(?:/\s*)?sys\s*>>",
-    r"(?m)^[ \t]*(?:#+[ \t]*)?(?:system|assistant|developer|new instructions)[ \t]*:",
+    r"(?m)^[ \t]*(?:[#>*_][ \t]*){0,10}(?:system|assistant|developer|new instructions)"
+    r"[ \t]*(?:[*_]{1,3}[ \t]*)?:",
 ]
 
 _FOLDED_RE = [re.compile(p) for p in _FOLDED_PATTERNS]
@@ -228,6 +237,8 @@ class Rejection(StrEnum):
     INJECTION = "injection"
     RATE_WINDOW = "rate_window"
     RATE_SESSION = "rate_session"
+    # A domain guardrail refuses or redirects the question (`GuardResult.concern` says which).
+    GUARDRAIL = "guardrail"
 
 
 @dataclass(frozen=True)
@@ -238,6 +249,7 @@ class GuardResult:
     text: str = ""
     reason: Rejection | None = None
     message: str | None = None
+    concern: guardrails.Concern | None = None
 
 
 def _reject(reason: Rejection, message: str) -> GuardResult:
@@ -329,6 +341,13 @@ def looks_like_injection(text: str) -> bool:
     return any(p.search(text) for p in _RAW_RE)
 
 
+def _first_concern(views: set[str]) -> guardrails.Concern | None:
+    """Return the guardrail any detection view falls under, drug dosing first, or None."""
+    found = {concern for view in views if (concern := guardrails.find_concern(view)) is not None}
+    # The order of Concern, so the same text always gets the same message.
+    return next((concern for concern in guardrails.Concern if concern in found), None)
+
+
 def check_message(text: str, limiter: RateLimiter) -> GuardResult:
     """Clean `text` and run every check; only an accepted message counts against `limiter`."""
     if len(text) > config.MAX_RAW_INPUT_CHARS:
@@ -339,8 +358,17 @@ def check_message(text: str, limiter: RateLimiter) -> GuardResult:
         return _reject(Rejection.EMPTY, EMPTY_MESSAGE)
     if len(cleaned) > config.MAX_INPUT_CHARS:
         return _reject(Rejection.TOO_LONG, TOO_LONG_MESSAGE)
-    if any(looks_like_injection(view) for view in detection_views(text)):
+    views = detection_views(text)
+    if any(looks_like_injection(view) for view in views):
         return _reject(Rejection.INJECTION, INJECTION_MESSAGE)
+    concern = _first_concern(views)
+    if concern is not None:
+        return GuardResult(
+            allowed=False,
+            reason=Rejection.GUARDRAIL,
+            message=guardrails.MESSAGES[concern],
+            concern=concern,
+        )
     rejection = limiter.try_acquire()
     if rejection is not None:
         return rejection

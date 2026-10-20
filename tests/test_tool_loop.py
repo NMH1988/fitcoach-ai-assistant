@@ -1,5 +1,6 @@
 """Integration tests for the answer step's tool loop with a scripted model (T4.4, AC 1, 2, 5)."""
 
+import html
 import json
 
 import httpx2
@@ -421,4 +422,4 @@ def test_a_usda_name_reaches_the_model_only_inside_the_tool_message(index):
     assert HOSTILE_FOOD_NAME not in system.content
     assert HOSTILE_FOOD_NAME not in user.content
     [reply] = _tool_messages(model)
-    assert _content(reply)["matched_name"] == HOSTILE_FOOD_NAME
+    assert html.unescape(_content(reply)["matched_name"]) == HOSTILE_FOOD_NAME

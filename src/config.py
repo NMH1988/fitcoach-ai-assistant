@@ -255,6 +255,10 @@ PROFILE_FORM_HINT = "Type your values, then press Save. Values are checked when 
 PROFILE_DIALOG_CSS = (
     '<style>[data-testid="stDialog"] [data-testid="InputInstructions"] { display: none; }</style>'
 )
+# The sidebar caption on where to switch light or dark mode (T7.3): Streamlit 1.66 cannot change the
+# theme from the script, so users pick System, Light or Dark at the top of Streamlit's own menu
+# (there is no Settings entry in 1.66).
+THEME_HINT = ":material/dark_mode: Light or dark mode: menu :material/more_vert: at the top right"
 
 # calculate_tdee (docs/ARCHITECTURE.md section 6). Values approved by the owner on 2026-10-19 (O3);
 # the numbers in brackets are source IDs in docs/SOURCES.md.

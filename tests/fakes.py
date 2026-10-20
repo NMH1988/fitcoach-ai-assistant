@@ -68,7 +68,7 @@ class ScriptedChatModel(BaseChatModel):
     def _generate(self, messages: list[BaseMessage], stop: Any = None, **kwargs: Any) -> ChatResult:
         """Record the messages, then raise the scripted error or return the next reply."""
         self.calls.append(list(messages))
-        self.call_kwargs.append(kwargs)
+        self.call_kwargs.append(dict(kwargs))
         if self.error is not None:
             raise self.error
         return ChatResult(generations=[ChatGeneration(message=self.replies.pop(0))])
@@ -78,7 +78,7 @@ class ScriptedChatModel(BaseChatModel):
     ) -> Iterator[ChatGenerationChunk]:
         """Record the messages, then yield the next reply word by word, then its tool calls."""
         self.calls.append(list(messages))
-        self.call_kwargs.append(kwargs)
+        self.call_kwargs.append(dict(kwargs))
         if self.fail_after_chunks is not None and self.error is None:
             raise ValueError("fail_after_chunks needs an error to raise.")
         if self.error is not None and self.fail_after_chunks is None:
