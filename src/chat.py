@@ -6,7 +6,9 @@ both in the user message; neither is ever put into the system prompt
 a fixed message, so the app shows it in the answer and keeps the chat history (AC-13).
 """
 
+import os
 import re
+import time
 import urllib.parse
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -92,6 +94,8 @@ _LABEL_OR_RANGE = re.compile(r"S(\d+)(?:\s*[-–]\s*S?(\d+))?")
 # its URL with no click, so an injected one could send text to another server. A bare ![alt]
 # is left to the escape in remove_images(), so "protein![S1]" keeps its citation.
 _MARKDOWN_IMAGE = re.compile(r"!\[([^\[\]]*)\](?:\((?:[^()]|\([^()]*\))*\)|\[[^\[\]]*\])")
+# One word of a paced answer with the spaces before it (or the rest of a word already begun).
+_PACED_WORD = re.compile(r"\s*\S+")
 # Characters Streamlit's Markdown would read as formatting, HTML or LaTeX in a title.
 _MARKDOWN_SPECIAL = re.compile(r"([\\`*_\[\]<>$])")
 
@@ -168,6 +172,36 @@ def cited_labels(answer: str, count: int) -> list[int]:
                 if number not in numbers:
                     numbers.append(number)
     return numbers
+
+
+class PacedWriter:
+    """Show a growing answer word by word, at most words_per_second, through show(text)."""
+
+    def __init__(
+        self,
+        show: Callable[[str], None],
+        words_per_second: float,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
+        """Keep the display function, the pause between words (0 = none) and the clock."""
+        self._show = show
+        self._pause = 1 / words_per_second if words_per_second > 0 else 0.0
+        self._sleep = sleep
+        self._shown = ""
+
+    def __call__(self, text: str) -> None:
+        """Reveal the words of text not shown yet, one at a time, pausing after each."""
+        if self._pause == 0:
+            self._shown = text
+            self._show(text)
+            return
+        # Usually the text only grows; if an earlier part changed (an image removed once its
+        # syntax was complete), the reveal starts where the shown text and the new text differ.
+        start = len(os.path.commonprefix([self._shown, text]))
+        for word in _PACED_WORD.finditer(text, start):
+            self._shown = text[: word.end()]
+            self._show(self._shown)
+            self._sleep(self._pause)
 
 
 def remove_images(answer: str) -> str:

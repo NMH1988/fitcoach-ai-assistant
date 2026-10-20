@@ -410,6 +410,53 @@ def test_the_answer_is_reported_as_it_streams_in(index):
     ]
 
 
+def _paced(words_per_second):
+    """Return a PacedWriter with a fake clock, the list of shown texts and the list of pauses."""
+    shown, pauses = [], []
+    return chat.PacedWriter(shown.append, words_per_second, pauses.append), shown, pauses
+
+
+def test_the_paced_writer_reveals_a_burst_word_by_word():
+    """A chunk of several words is shown one word at a time, with a pause after each."""
+    writer, shown, pauses = _paced(20)
+    writer("Spread protein over")
+    writer("Spread protein over four meals [S1].")
+    assert shown == [
+        "Spread",
+        "Spread protein",
+        "Spread protein over",
+        "Spread protein over four",
+        "Spread protein over four meals",
+        "Spread protein over four meals [S1].",
+    ]
+    assert pauses == [0.05] * 6
+
+
+def test_the_paced_writer_continues_a_word_cut_between_chunks():
+    """A word split across two chunks is finished before the next word is shown."""
+    writer, shown, _ = _paced(10)
+    writer("Prot")
+    writer("Protein first")
+    assert shown == ["Prot", "Protein", "Protein first"]
+
+
+def test_the_paced_writer_restarts_where_earlier_text_changed():
+    """When an earlier part changes (an image removed), the reveal resumes from the change."""
+    writer, shown, _ = _paced(10)
+    writer("Eat oats ![x](u")
+    writer("Eat oats x daily")
+    assert shown[-2:] == ["Eat oats x", "Eat oats x daily"]
+
+
+def test_a_rate_of_zero_shows_text_as_it_arrives():
+    """With pacing off, each update is shown whole and nothing waits."""
+    writer, shown, pauses = _paced(0)
+    writer("Spread protein")
+    writer("Spread protein over meals.")
+    assert shown == ["Spread protein", "Spread protein over meals."]
+    assert pauses == []
+
+
 def test_an_image_never_reaches_the_screen_while_streaming(index):
     """No update of the streaming text contains an image, even once its syntax is complete."""
     seen = []

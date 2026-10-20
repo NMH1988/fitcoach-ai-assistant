@@ -257,10 +257,13 @@ def _run_turn(question: str) -> None:
             boxes.append(_step_box(step, "running"))
         status.update(label=f":shimmer[{step.value}]")
 
-    def on_text(text: str) -> None:
+    def show_text(text: str) -> None:
         """Show the answer so far, so the user reads it while the model is still writing."""
         # Model output as Markdown, never with unsafe_allow_html (docs/SECURITY.md).
         answer_slot.markdown(text)
+
+    # The model sends its answer in fast bursts; reveal it at a steady, readable pace.
+    on_text = chat.PacedWriter(show_text, config.ANSWER_WORDS_PER_SECOND)
 
     result = chat.run_turn(
         question,

@@ -34,6 +34,8 @@ def fakes(tmp_path, monkeypatch, index_path):
     prompt = tmp_path / "prompt.md"
     prompt.write_text("Test system prompt.", encoding="utf-8")
     monkeypatch.setattr(config, "ANSWER_PROMPT_PATH", prompt)
+    # No pacing pauses in UI tests; tests/test_chat.py covers the pacing itself.
+    monkeypatch.setattr(config, "ANSWER_WORDS_PER_SECOND", 0)
     monkeypatch.setattr(store, "open_index", lambda: open_fixture_index(index_path))
     monkeypatch.setattr(
         chat, "manifest_by_id", lambda: {"1": make_source(journal="Journal of Made-up Results")}
@@ -236,6 +238,16 @@ def test_the_index_is_opened_again_after_it_was_not_ready(monkeypatch, tmp_path)
     at = _ask(at, QUESTION)
     assert _assistant(at).markdown[0].value == "Four meals [S1]."
     assert len(opened) == 2
+
+
+def test_a_paced_answer_ends_as_the_full_result(monkeypatch):
+    """With pacing on, the answer is still shown in full, once, with its Sources."""
+    monkeypatch.setattr(config, "ANSWER_WORDS_PER_SECOND", 1000)
+    _use_model(monkeypatch, _answers("Spread protein over four meals [S1]."))
+    message = _assistant(_ask(_start(), QUESTION))
+    answers = [m.value for m in message.markdown if "four meals" in m.value]
+    assert answers == ["Spread protein over four meals [S1]."]
+    assert message.expander[0].label == "Sources (1)"
 
 
 def test_the_streamed_answer_is_replaced_by_the_full_result(monkeypatch):
