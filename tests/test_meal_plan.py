@@ -184,11 +184,12 @@ def test_carbohydrate_and_fat_have_no_range_and_fiber_no_target():
 
 
 def test_a_plan_below_the_calorie_floor_says_so():
-    """A day's total under the floor gets a note with the total and the floor."""
+    """A day's total under the floor gets a note with the total, the floor and a dietitian."""
     result = _evaluate(DAY)
     assert (
         f"The plan's total of 544 kcal is below the calorie floor of {config.CALORIE_FLOOR_KCAL} "
-        "kcal/day." in result.notes
+        "kcal/day. The app does not suggest eating below the floor; ask a registered dietitian "
+        "for personal advice." in result.notes
     )
 
 
