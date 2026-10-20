@@ -17,9 +17,9 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ## 2026-10-20 · T1.6 Follow-up: PR #58's review fixes · #62 (closes #55)
 - **Brief:** core 3 and 4 (security measures; CI with a dependency audit).
-- **What:** the review fixes of PR #58 (commit e3fe265, cherry-picked): `docs/SECURITY.md` writes the PDF export (T5.2) as planned work, and the ignores must also be reviewed if it draws images or passes unescaped text to reportlab markup (an `<img src>` makes reportlab fetch and open the image with Pillow); `tests/test_ci_audit.py` matches whole advisory IDs and the `--ignore-vuln=ID` form; plan: T1.6 done.
-- **Why:** PR #58 was merged at 269d0cb, before these fixes were pushed to its branch, so they were missing from `main`. Issue #55 was reopened so this PR closes it again (`linked-issue` requires a PR to close an issue).
-- **Decisions & gotchas:** after a review round, check that a PR's head is the reviewed commit before merging it.
+- **What:** the review fixes of PR #58 (commit e3fe265, cherry-picked): `docs/SECURITY.md` says the ignores must also be reviewed if the PDF export (T5.2) draws images or passes unescaped text to reportlab markup (an `<img src>` makes reportlab fetch and open the image with Pillow); `tests/test_ci_audit.py` matches whole advisory IDs and the `--ignore-vuln=ID` form; plan: T1.6 done. `main` merged in (T3.3, T5.2): the `docs/SECURITY.md` conflict keeps `main`'s pillow paragraph, with the `test_the_app_opens_no_image_file` sentence, and adds only the reportlab trigger.
+- **Why:** PR #58 was merged at 269d0cb, before these fixes were pushed to its branch, so they were missing from `main`. `Closes #55` keeps the `linked-issue` check satisfied (it requires a PR to close an issue); #55 was reopened for this PR and then closed again by hand, so merging closes nothing new.
+- **Decisions & gotchas:** after a review round, check that a PR's head is the reviewed commit before merging it. e3fe265 also wrote T5.2 as planned work in `docs/SECURITY.md`; that change was dropped in the merge, because T5.2 merged first (#54) and the present tense is now right. A PR that conflicts with its base gets no CI run, so the first round of this PR had none.
 - **Follow-ups:** none.
 
 ## 2026-10-20 · T3.3 Hybrid search (BM25 + RRF) · #52 (closes #9)
