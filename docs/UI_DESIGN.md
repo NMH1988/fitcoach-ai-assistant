@@ -74,16 +74,17 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 
 ### Language (T7.1, T7.2, extra)
 
-- **Control:** a small `st.segmented_control` with the options `EN` and `DE` and a `:material/translate:` icon as its label (label collapsed, accessible name "Language"), at the right end of the header row.
-- **Default:** from the browser (`st.context.locale`): `de*` gives German, anything else English. The user's choice is kept in `st.session_state` for the session; nothing is stored.
+- **Control:** at the right end of the header row, a small `:material/translate:` icon (`st.markdown`) followed by `st.segmented_control(label="Language", options=["EN", "DE"], label_visibility="collapsed")`, both in the header's `st.container(horizontal=True)`. The collapsed label keeps "Language" as the accessible name.
+- **Default:** from the browser (`st.context.locale`): `de*` gives German, anything else (including `None`, as under AppTest) English. The user's choice is kept in `st.session_state` for the session; nothing is stored.
 - **What changes:** every UI string (from `src/i18n.py`, English and German), the disclaimer, error messages, the empty-state suggestions and the answer language. What stays English: source titles, journal names, licence names, USDA food names and the knowledge base itself.
-- **Food lookup in German:** a caption under the food input says to enter the food name in English (USDA names are English). In the chat this is not needed: the model passes English names to the tool.
+- **Food lookup in German:** a caption under the food input says to enter the food name in English (USDA names are English). In the chat the food tool's description tells the model to pass English names (checked in T7.2).
+- **Messages from `src/`** (guard, LLM errors, missing index, profile validation) come back as keys or codes and the UI translates them. Tool notes stay English, so what the UI shows matches what the model received.
 - **Answers in German:** the language is passed to the answer step as a fixed value (`en`/`de`), never read from user text. The question is rewritten into English for retrieval (T3.2), so both vector and keyword search match the English chunks. Source passages are summarised, never shown as translated quotes.
-- **Safety:** the input guard and the domain guardrails get German patterns and German test strings, so a German injection or a German high-risk request is caught like an English one.
+- **Safety:** the input guard and the domain guardrails get German patterns and German test strings in T7.1, together with the German UI, so a German injection or a German high-risk request is caught like an English one even if T7.2 is cut.
 
 ### Light and dark mode (T7.3, extra)
 
-- Both `[theme.light]` and `[theme.dark]` are defined (see "Theme"), so Streamlit's own menu (top right -> Settings) offers Light, Dark and System. The choice is remembered by the browser.
+- Both `[theme.light]` and `[theme.dark]` are defined (see "Theme"; T3.1 writes them, T7.3 adds the config test, the toolbar check and the hint), so Streamlit's own menu (top right -> Settings) offers Light, Dark and System. The choice is remembered by the browser.
 - Streamlit 1.66 cannot change the theme from the script, and a custom CSS toggle would break the "native first" principle and break on upgrades, so there is no separate header icon (owner's decision, 2026-10-20).
 - A sidebar caption under the privacy note says where to switch: ":material/dark_mode: Light or dark mode: menu at the top right -> Settings".
 - Charts and badges are checked in both modes; chart colours come from the palette above, which reads on both backgrounds.
@@ -147,8 +148,8 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 | Food lookup tab | T4.3 / T4.4 (core) |
 | Details tab: usage | T5.1 (extra) |
 | Light and dark mode hint, both themes checked | T7.3 (extra) |
-| Language control, German UI text | T7.1 (extra) |
-| German answers, German guard and guardrail patterns | T7.2 (extra) |
+| Language control, German UI text, German guard and guardrail patterns | T7.1 (extra) |
+| German answers, English rewrites for retrieval | T7.2 (extra) |
 | Empty-state suggestions, colour tuning, final polish | UI polish ticket (extra, beyond the brief, owner's request) |
 
 ## Open questions
