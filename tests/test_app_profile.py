@@ -302,6 +302,17 @@ def test_the_css_is_drawn_only_while_the_dialog_is_open():
     assert [h.value for h in at.html] == []
 
 
+def test_the_css_is_gone_after_the_dialog_is_dismissed():
+    """Closing the dialog with X, Esc or a click outside also removes the style rule."""
+    at = _open_dialog()
+    at.number_input(key=_key("weight")).set_value(81.5).run(timeout=30)
+    assert [h.value for h in at.html] == [config.PROFILE_DIALOG_CSS]
+    at.session_state["profile_form_open"] = False  # what the dialog's on_dismiss callback does
+    at.run(timeout=30)
+    assert not at.get("dialog")
+    assert [h.value for h in at.html] == []
+
+
 def test_the_dialog_css_is_one_fixed_rule_scoped_to_the_dialog():
     """The CSS hides only the input instructions inside the dialog and holds nothing else."""
     css = config.PROFILE_DIALOG_CSS
