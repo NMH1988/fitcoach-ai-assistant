@@ -63,7 +63,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T3.5 | #50 | Skip the answer call for off-topic questions with no source (owner's request after T4.4) | S | T4.4, T3.2, O7 | 10-29 | todo |
 | T5.3 | #18 | Domain guardrails | S | T3.1, T4.2 | 10-29 | done |
 | T3.6 | #51 | Retrieval comparison on the owner's evaluation questions (split from T3.3, owner's decision) | S | T3.3, O2, O5 | 10-30 | todo |
-| T6.1 | #19 | Evaluation run and reflection | S | T3.3, T4.4, O2, O5 | 10-30 | todo |
+| T6.1 | #19 | Evaluation run and reflection | S | T3.3, T3.6, T4.4, O2, O5 | 10-30 | todo |
 | **Extras** | | | | | | |
 | T1.4 | #32 | Security reviewer agent (beyond the brief; owner's request, done early as it is dev tooling with no product change) | S | T1.1 | 10-20 | done |
 | T5.1 | #16 | Token usage and cost | S | T3.2 | 10-30 | todo |
@@ -76,7 +76,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | **Last** | | | | | | |
 | T6.2 | #20 | README, final checks and transfer to the course repo | S | all, O6 | 11-01 | todo |
 
-**Critical path:** T1.1 -> T1.2 -> T2.1 -> T2.2 -> T2.3 -> T3.1 -> T3.2 -> T3.3 -> T6.1 -> T6.2. T1.3, T4.1 and T4.3 can run alongside it; the extras run after T6.1, or alongside it once their dependencies are done.
+**Critical path:** T1.1 -> T1.2 -> T2.1 -> T2.2 -> T2.3 -> T3.1 -> T3.2 -> T3.3 -> T3.6 -> T6.1 -> T6.2. T1.3, T4.1 and T4.3 can run alongside it; the extras run after T6.1, or alongside it once their dependencies are done.
 
 **If time runs short, cut in this order:** T4.5, then T7.2 (keep the English answers), then T7.1, then T7.3 (both themes stay from T3.1; only its test, toolbar check and hint go), then T5.2 (or keep it with a plain text layout), then T5.1, then chart polish. T7.3 is beyond the brief, so it goes before T5.2 and T5.1, which the brief asks for (Medium 7, Medium 5). The core requirements and the optional tasks for maximum points (Medium 3, 6; Hard 1) stay.
 
@@ -339,7 +339,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 ### T6.1 Evaluation run and reflection (S) · status: todo · issue #19
 **Serves:** evaluation criteria (reflection); supports Hard 1.
-**Depends on:** T3.3, T4.4, O2, O5
+**Depends on:** T3.3, T3.6 (the retrieval comparison its reflection uses; owner's decision, 2026-10-20), T4.4, O2, O5
 **Acceptance criteria**
 - [ ] The owner's evaluation questions are run against the real app; for each, the sources found, whether the answer cites them correctly, and any guardrail issue are recorded in `docs/TESTING.md` exactly as observed.
 - [ ] `docs/TESTING.md` lists the known problems and suggested improvements found.
