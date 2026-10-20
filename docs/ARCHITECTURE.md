@@ -75,6 +75,7 @@ data/
   usda_foods.csv            trimmed USDA table (committed, CC0)
   raw/                      downloaded article XML (gitignored)
 chroma/                     vector index (gitignored, rebuilt by the script)
+assets/fonts/               DejaVu Sans for the summary PDF, with its LICENSE and a README (T5.2)
 ATTRIBUTION.md              credits for every source and the USDA data, generated
 tests/
 ```
@@ -128,7 +129,7 @@ tests/
 - **Sidebar:** "Your profile": the goal as a segmented control, the profile as small tiles in the chosen units, and an "Edit details" button that opens the profile form in an `st.dialog` (T4.1, owner's choice). The form has one Metric / Imperial switch (kg and cm, or lb and ft/in); switching converts the values already typed, and Save checks them with `src/profile.py`. Later tickets may add a collapsed developer section with the model choice, the session token use and cost, and a link to the sources and credits. Where each piece sits is in `docs/UI_DESIGN.md`.
 - **Main area:** the chat. Under each answer: "Sources" and "Tool results (n)" (`st.dataframe` tables, which show cells as plain text, and a stacked bar of the macro split). "How this answer was found" (the searches and the filters of the last answer) is in the Details tab, with a summary card in the sidebar (T3.2, as in `docs/UI_DESIGN.md`).
 - **Progress:** `st.status` with the steps "Checking your question", "Rewriting the question", "Searching the research", "Writing the answer", "Using the tools" (once per tool round, then "Writing the answer" again).
-- **PDF download:** a button builds the session summary (profile in the chosen units, computed targets, the questions and answers with their sources, the disclaimer, the credits) with reportlab in memory and hands it to `st.download_button`.
+- **PDF download (T5.2):** "Download summary (PDF)" in the sidebar, after the theme hint. `src/export_pdf.py` builds the session summary with reportlab in memory: the profile in the chosen units, the daily targets computed from the profile with no model call (`registry.macro_targets()`), every chat turn as in the chat (the question, then the answer with its sources, their correction notices and its tool results, or the fixed message of a turn without one), the disclaimer on the first page and in every page's footer, and credits for every source the PDF uses (cited articles in full with their copyright notices and their linked correction notices, the articles behind the targets' ranges, the formula sources, USDA when a food was looked up). The button's `data` is a function, so the PDF is built only on a click; Streamlit keeps the bytes in memory, never on disk. Its slot is filled after the main area, so the turn that just ran is in it. Answers have their Markdown made plain text (`clean_answer()`: no `**`, `#` or backticks; list items as bullets; table rows as cells joined by " · "; a link as its text and URL; code and URLs as written), then entities decoded with `html.unescape` in the inline text only (as CommonMark, so "&gt; 5 g" is not read as a quote, and code keeps them), and every text that is not ours is escaped for reportlab's markup (`xml.sax.saxutils.escape`), so model text cannot add formatting or a link. The PDF holds no link annotations; URLs are printed as text. Fonts: DejaVu Sans 2.37 (`assets/fonts/`), as reportlab's own fonts have no Greek letters; characters outside the BMP (emoji) or missing from the font become U+FFFD, as reportlab 5.0.1 writes a broken text map for the first.
 
 ## 8. Security
 
@@ -180,9 +181,10 @@ Checked on PyPI on 2026-10-19. Licences are permissive, as the copyright policy 
 | rank-bm25 | 0.2.2 | Apache-2.0 | BM25 (small and stable; last release 2022) |
 | rapidfuzz | 3.14.6 | MIT | fuzzy food-name match |
 | reportlab | 5.0.1 | BSD | PDF |
+| DejaVu Sans fonts | 2.37 | Bitstream Vera and Arev font licences (free to use, copy and redistribute with software, notice kept, not sold alone); DejaVu changes public domain | the PDF's text (`assets/fonts/`, committed with `LICENSE` and a README with the source and SHA-256; checked 2026-10-20, T5.2) |
 | pydantic | 2.14.1 | MIT | schemas |
 
-Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 7.1.0 (MIT), ruff 0.17.1 (MIT), pip-audit 2.10.1 (Apache-2.0), and httpx2 2.14.0 (BSD-3-Clause; the OpenAI SDK's HTTP library, whose `MockTransport` the T1.2 tests use). Not chosen: fpdf2 (LGPL-3.0, not permissive). Python **3.14** as in Sprint 1; every package above has a wheel or pure-Python build for it.
+Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 7.1.0 (MIT), ruff 0.17.1 (MIT), pip-audit 2.10.1 (Apache-2.0), httpx2 2.14.0 (BSD-3-Clause; the OpenAI SDK's HTTP library, whose `MockTransport` the T1.2 tests use), and pypdf 6.21.1 (BSD-3-Clause, no dependencies; reads the summary PDF's text back in the T5.2 tests; checked 2026-10-20). Not chosen: fpdf2 (LGPL-3.0, not permissive). Python **3.14** as in Sprint 1; every package above has a wheel or pure-Python build for it.
 
 ## 13. Decisions (approved by the owner on 2026-10-19)
 

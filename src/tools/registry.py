@@ -108,6 +108,19 @@ def _energy_needs(profile: UserProfile) -> TdeeResult:
     )
 
 
+def macro_targets(profile: UserProfile) -> MacroToolResult | ToolNotice:
+    """Return the daily targets for the profile's goal with its energy needs; no model call."""
+    # Shared by calculate_macro_targets and the app's own views (the summary PDF, T5.2).
+    needs = _energy_needs(profile)
+    if needs.tdee_kcal is None:
+        # Not reached for a validated profile: its ranges are the tools' ranges.
+        return ToolNotice(status="error", message=config.TOOL_FAILED_MESSAGE)
+    targets = calculate_macro_targets(profile.weight_kg, profile.goal, needs.tdee_kcal)
+    return MacroToolResult(
+        status=targets.status, message=targets.message, energy_needs=needs, targets=targets
+    )
+
+
 def _no_arguments_message(_: ValidationError) -> str:
     """Return the fixed message for an energy tool called with any argument."""
     return config.NO_ARGUMENTS_MESSAGE
@@ -127,16 +140,7 @@ def build_tools(
 
     def macros() -> MacroToolResult | ToolNotice:
         """Return the daily targets for the profile's goal, or "profile needed"."""
-        if profile is None:
-            return _profile_needed()
-        needs = _energy_needs(profile)
-        if needs.tdee_kcal is None:
-            # Not reached for a validated profile: its ranges are the tools' ranges.
-            return ToolNotice(status="error", message=config.TOOL_FAILED_MESSAGE)
-        targets = calculate_macro_targets(profile.weight_kg, profile.goal, needs.tdee_kcal)
-        return MacroToolResult(
-            status=targets.status, message=targets.message, energy_needs=needs, targets=targets
-        )
+        return _profile_needed() if profile is None else macro_targets(profile)
 
     def food(food: str, grams: float) -> FoodLookupResult:
         """Return the nutrients of the food for the grams."""

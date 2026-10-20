@@ -1,11 +1,12 @@
 """Streamlit entry point: page layout only; the logic lives in src/."""
 
 import re
+from datetime import date
 from typing import get_args
 
 import streamlit as st
 
-from src import chat, config, guard, llm, profile, units
+from src import chat, config, export_pdf, guard, llm, profile, units
 from src.rag import store
 from src.rag.sources import ARTICLE_CHANGES_NOTE
 from src.tools import registry
@@ -60,10 +61,6 @@ TIER_COLORS = {1: "green", 2: "violet"}
 _LINE_START = re.compile(r"^(\d*)([#+=.)-])")
 # How an evidence tier filter is named in "How this answer was found".
 TIER_FILTER_LABELS = {1: "ISSN position stands only", 2: "Peer-reviewed reviews only"}
-CORRECTION_LABELS = {
-    "corrected_by": "A correction to this article was published",
-    "corrects": "This notice corrects",
-}
 
 
 def _form_key(field: str) -> str:
@@ -350,7 +347,7 @@ def _source_card(card: chat.SourceCard) -> None:
         st.caption(" · ".join(meta))
         st.markdown(f"[:material/open_in_new: Open article]({chat.markdown_url(card.url)})")
         for correction in card.corrections:
-            relation = CORRECTION_LABELS[correction.relation]
+            relation = config.CORRECTION_LABELS[correction.relation]
             st.caption(
                 f":material/edit_note: {relation}: "
                 f"[{chat.escape_markdown(correction.title)}]({chat.markdown_url(correction.url)})"
@@ -491,7 +488,7 @@ def _show_food(result: FoodLookupResult) -> None:
     if result.alternatives:
         rows["Close alternatives"] = "; ".join(result.alternatives)
     _table(rows)
-    st.caption("Source: USDA FoodData Central, Foundation Foods (CC0). Values per 100 g, scaled.")
+    st.caption(config.USDA_SOURCE_LINE)
 
 
 def _show_tool_run(run: registry.ToolRun, key: str) -> None:
@@ -713,6 +710,37 @@ def _about_sidebar() -> None:
         )
 
 
+def _summary_download() -> None:
+    """Offer the session summary as a PDF, built in memory only when clicked (AC-9)."""
+    # Drawn after the main area, so the turn that just ran is in it. The PDF is built from this
+    # run's snapshot when the user clicks; Streamlit keeps the bytes in memory, never on disk.
+    turns = export_pdf.session_turns(st.session_state["messages"])
+    user = st.session_state.get("profile")
+    system = st.session_state["units"]
+    manifest = _manifest()
+    # One date for the file name and the PDF, even if the click comes after midnight.
+    today = date.today()
+
+    def build() -> bytes:
+        """Build the PDF from this run's session."""
+        return export_pdf.build_summary_pdf(turns, user, system, manifest, today)
+
+    empty = user is None and not turns
+    st.download_button(
+        config.PDF_BUTTON_LABEL,
+        data=build,
+        file_name=config.PDF_FILE_NAME.format(date=today.isoformat()),
+        mime="application/pdf",
+        icon=":material/download:",
+        # The download needs no rerun of the app.
+        on_click="ignore",
+        disabled=empty,
+        help=config.PDF_BUTTON_EMPTY_HELP if empty else config.PDF_BUTTON_HELP,
+        key="summary_pdf",
+        width="stretch",
+    )
+
+
 def _main_area() -> None:
     """Show the header, the disclaimer and the four tabs."""
     with st.container(
@@ -747,9 +775,10 @@ def _main_area() -> None:
 with st.sidebar:
     _profile_sidebar()
     st.caption(config.THEME_HINT)
-    # Filled after the main area, so it shows the turn that just ran; until then the page keeps
-    # the previous run's card. Drawn once per run: a slot drawn twice in one run keeps the first
-    # draw's extra elements (e.g. a badge the new turn does not have; found in the browser).
+    # Both slots are filled after the main area, so they hold the turn that just ran (the PDF too);
+    # until then the page keeps the previous run's card. Drawn once per run: a slot drawn twice in
+    # one run keeps the first draw's extra elements (e.g. a badge the new turn does not have).
+    download_slot = st.empty()
     last_answer_slot = st.empty()
     _about_sidebar()
 if st.session_state.get("profile_form_open"):
@@ -760,5 +789,7 @@ if st.session_state.get("profile_form_open"):
 _, main, _ = st.columns(config.PAGE_COLUMN_WEIGHTS)
 with main:
     _main_area()
+with download_slot.container():
+    _summary_download()
 with last_answer_slot.container():
     _last_answer_card()
