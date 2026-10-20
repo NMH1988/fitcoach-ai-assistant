@@ -208,9 +208,10 @@ CARD_AUTHORS_SHOWN = 3
 # enough to read a whole answer on a desktop screen (owner's request, 2026-10-20).
 CHAT_HEIGHT_PX = 650
 # Most words of the streamed answer shown per second. The real model sends its answer in fast
-# bursts, which looked as if it appeared all at once (owner's request, 2026-10-20); at 20 a
-# 200-word answer takes about 10 s to appear. 0 shows the text as it arrives.
-ANSWER_WORDS_PER_SECOND = 20
+# bursts, which looked as if it appeared all at once (owner's request, 2026-10-20). 20 read too
+# slowly in the owner's check; at 30 a 200-word answer takes about 7 s. 0 shows the text as it
+# arrives.
+ANSWER_WORDS_PER_SECOND = 30
 # The page uses the wide layout with the content in the middle column: these are the relative
 # widths of the left margin, the content and the right margin. The content takes about three
 # quarters of a large screen, without lines too long to read.
