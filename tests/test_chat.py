@@ -268,6 +268,16 @@ def test_manifest_by_id_is_empty_when_the_manifest_cannot_be_read(monkeypatch):
         ("Shortcut ![x] done", "Shortcut x done"),
         ("A link [S1](https://doi.org/x) stays.", "A link [S1](https://doi.org/x) stays."),
         ("No image! [S1]", "No image! [S1]"),
+        # Nested brackets in the alt text, which the pattern misses: the "![" is escaped.
+        (
+            "![a[b]c](https://evil.example/x?q=1) done",
+            r"!\[a[b]c](https://evil.example/x?q=1) done",
+        ),
+        ("![x[y]][r]\n\n[r]: https://evil.example/", "!\\[x[y]][r]\n\n[r]: https://evil.example/"),
+        (
+            "![![x](https://evil.example/in)](https://evil.example/out)",
+            r"!\[x](https://evil.example/out)",
+        ),
     ],
 )
 def test_remove_images_keeps_only_the_alt_text(answer, shown):

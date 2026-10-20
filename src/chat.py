@@ -170,8 +170,11 @@ def cited_labels(answer: str, count: int) -> list[int]:
 
 
 def remove_images(answer: str) -> str:
-    """Replace each Markdown image in the answer with its alt text, so no image URL is loaded."""
-    return _MARKDOWN_IMAGE.sub(lambda image: image.group(1), answer)
+    """Replace each Markdown image with its alt text, then escape any "![" left, so none loads."""
+    without_images = _MARKDOWN_IMAGE.sub(lambda image: image.group(1), answer)
+    # The pattern misses alt text with nested brackets (![a[b]c](url)), which CommonMark still
+    # reads as an image; with its bracket escaped, any "![" left is plain text.
+    return without_images.replace("![", "!\\[")
 
 
 def _corrections(meta: Mapping[str, Any], manifest: Mapping[str, Source]) -> tuple[Correction, ...]:
