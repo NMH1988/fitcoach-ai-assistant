@@ -34,9 +34,10 @@ from langchain_core.tools import StructuredTool
 
 from src import config, guard, llm, profile, units
 from src.prompt_data import escape_prompt_data
-from src.rag import query_translation
+from src.rag import hybrid, query_translation
+from src.rag.hybrid import KeywordIndex
 from src.rag.query_translation import QueryPlan
-from src.rag.retriever import RetrievedChunk, embed_queries, search
+from src.rag.retriever import RetrievedChunk, embed_queries
 from src.rag.sources import ManifestError, Source, license_url_for, load_manifest
 from src.rag.store import IndexNotReadyError
 from src.tools import registry
@@ -203,17 +204,23 @@ def search_queries(question: str, plan: QueryPlan | None) -> tuple[str, ...]:
 
 
 def find_chunks(
-    question: str, plan: QueryPlan | None, index: Chroma
+    question: str,
+    plan: QueryPlan | None,
+    index: Chroma,
+    keyword_index: Callable[[Chroma], KeywordIndex] = hybrid.build_keyword_index,
 ) -> tuple[list[RetrievedChunk], SearchDetails]:
-    """Search the question and its rewrites with the plan's filter, then without it if nothing."""
+    """Search the question and its rewrites by meaning and by keyword, merged with RRF (T3.3)."""
     rewrites = search_queries(question, plan)
+    queries = (question, *rewrites)
     where = query_translation.build_filter(plan)
     # One embedding call for all the queries; the vectors serve the retry too.
-    vectors = embed_queries(index, (question, *rewrites))
-    chunks = search(index, vectors, where)
+    vectors = embed_queries(index, queries)
+    chunks = hybrid.hybrid_search(index, queries, vectors, where, keyword_index)
+    # Empty only when no chunk is within the distance limit; a filter that keeps fewer but
+    # relevant chunks stays.
     filter_dropped = not chunks and where is not None
     if filter_dropped:
-        chunks = search(index, vectors)
+        chunks = hybrid.hybrid_search(index, queries, vectors, None, keyword_index)
     details = SearchDetails(
         question=question,
         rewrites=rewrites,
@@ -517,6 +524,8 @@ def answer_question(
     on_step: Callable[[Step], None],
     on_text: Callable[[str], None] | None = None,
     user: profile.UserProfile | None = None,
+    *,
+    keyword_index: Callable[[Chroma], KeywordIndex] = hybrid.build_keyword_index,
 ) -> TurnResult:
     """Rewrite an accepted question, retrieve its chunks and answer from them, citing [S#]."""
     on_step(Step.REWRITE)
@@ -525,7 +534,7 @@ def answer_question(
     )
     on_step(Step.SEARCH)
     with llm.mapped_errors():
-        chunks, details = find_chunks(question, plan, index)
+        chunks, details = find_chunks(question, plan, index, keyword_index)
     on_step(Step.ANSWER)
     # The user's own question, never the rewrites, goes to the answer model.
     messages = build_messages(question, chunks, models.system_prompt, user)
@@ -554,10 +563,12 @@ def run_turn(
     on_step: Callable[[Step], None] | None = None,
     on_text: Callable[[str], None] | None = None,
     user: profile.UserProfile | None = None,
+    keyword_index: Callable[[Chroma], KeywordIndex] = hybrid.build_keyword_index,
 ) -> TurnResult:
     """Run one chat turn: the guard first, then retrieval and the answer; never raise for errors."""
     # on_step(step) is called as each step starts; on_text(text) as the answer streams in. `user`
     # is the session's profile, for the energy tools and the model's <profile> block.
+    # keyword_index(index) gives the BM25 index of the opened index; the app passes a cached one.
     steps: list[Step] = []
 
     def step(name: Step) -> None:
@@ -576,7 +587,16 @@ def run_turn(
         # The index is opened first: a missing index is reported even when the key is missing.
         index = open_index()
         models = TurnModels(translation_model(), translation_prompt, chat_model(), system_prompt)
-        return answer_question(question, index, models, manifest or {}, step, on_text, user)
+        return answer_question(
+            question,
+            index,
+            models,
+            manifest or {},
+            step,
+            on_text,
+            user,
+            keyword_index=keyword_index,
+        )
 
     step(Step.CHECK)
     try:

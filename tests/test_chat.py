@@ -1,4 +1,4 @@
-"""Tests for src/chat.py and src/rag/retriever.py: one chat turn with fakes (T3.1, T3.2)."""
+"""Tests for src/chat.py and src/rag/retriever.py: one chat turn with fakes (T3.1-T3.3)."""
 
 import httpx2
 import openai
@@ -8,7 +8,8 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from src import chat, config, guard, guardrails, llm
 from src.chat import Step
-from src.rag import retriever
+from src.rag import hybrid, retriever
+from src.rag.query_translation import QueryPlan
 from src.rag.sources import ManifestError
 from src.rag.store import IndexNotReadyError
 from tests.fakes import (
@@ -62,7 +63,16 @@ def _model(*answers: str, **metadata) -> ScriptedChatModel:
 
 
 def _turn(
-    text, index, model, *, translator=None, limiter=None, manifest=None, on_step=None, on_text=None
+    text,
+    index,
+    model,
+    *,
+    translator=None,
+    limiter=None,
+    manifest=None,
+    on_step=None,
+    on_text=None,
+    keyword_index=hybrid.build_keyword_index,
 ):
     """Run one chat turn on the fixture index with the given models (rewrites repeat the text)."""
     translator = translator or ScriptedTranslator()
@@ -75,6 +85,7 @@ def _turn(
         manifest=manifest,
         on_step=on_step,
         on_text=on_text,
+        keyword_index=keyword_index,
     )
 
 
@@ -328,6 +339,137 @@ def test_a_search_keeps_at_most_the_top_k_chunks_over_all_queries(tmp_path):
     index = open_fixture_index(build_fixture_index(tmp_path / "chroma", many))
     vectors = retriever.embed_queries(index, ["protein", "sleep", "protein sleep"])
     assert len(retriever.search(index, vectors)) == config.RETRIEVAL_TOP_K
+
+
+# --- Hybrid search: vectors and BM25 merged with RRF (T3.3, AC-4) ---------------------------------
+
+
+class KeywordSpy:
+    """Records how a turn uses the keyword index: how often it is built and each search."""
+
+    def __init__(self) -> None:
+        """Start with no build and no search."""
+        self.builds = 0
+        self.searches: list[tuple[str, set[str] | None]] = []
+
+    def __call__(self, index):
+        """Build the real keyword index of the index, wrapping its search."""
+        self.builds += 1
+        keywords = hybrid.build_keyword_index(index)
+        search = keywords.search
+
+        def spy_search(query, allowed=None, k=None):
+            """Record the query and the allowed IDs, then search."""
+            self.searches.append((query, None if allowed is None else set(allowed)))
+            return search(query, allowed, k)
+
+        keywords.search = spy_search
+        return keywords
+
+
+def test_each_query_runs_vector_and_keyword_search_with_the_same_filter(index, monkeypatch):
+    """The question and each rewrite are searched by vector and by keyword, filtered alike."""
+    vectors = SearchSpy(index, monkeypatch)
+    keywords = KeywordSpy()
+    translator = ScriptedTranslator(plans=[plan_json(REWRITES, ["protein"])])
+    _turn(QUESTION, index, _model("A [S1]."), translator=translator, keyword_index=keywords)
+    where = {"topics": {"$contains": "protein"}}
+    assert vectors.filters == [where] * 4
+    protein_chunks = {"1-0", "1-1", "2-0"}
+    assert hybrid.filter_ids(index, where) == protein_chunks
+    assert keywords.searches == [(query, protein_chunks) for query in (QUESTION, *REWRITES)]
+    assert keywords.builds == 1
+
+
+def test_find_chunks_fuses_every_list_and_keeps_the_top_k_distinct_chunks(tmp_path):
+    """All vector and keyword lists go into RRF; at most RETRIEVAL_TOP_K distinct chunks remain."""
+    many = [chunk("5", n, f"Note {n}: " + "protein " * 10 + "sleep " * n) for n in range(9)]
+    # Far from every query by meaning ("creatine" vectors), so only keyword search finds them.
+    leucine = [
+        chunk("6", n, "Leucine threshold: leucine with creatine creatine.") for n in range(2)
+    ]
+    index = open_fixture_index(build_fixture_index(tmp_path / "chroma", [*many, *leucine]))
+    plan = QueryPlan.model_validate_json(
+        plan_json(["protein sleep", "leucine", "leucine threshold"])
+    )
+    found, details = chat.find_chunks("protein leucine", plan, index)
+    queries = details.queries
+    vectors = retriever.embed_queries(index, queries)
+    by_meaning = retriever.vector_lists(index, vectors)
+    keywords = hybrid.build_keyword_index(index)
+    by_keyword = [keywords.search(q) for q in queries]
+    assert all(c.metadata["source_id"] == "5" for found_list in by_meaning for c in found_list)
+    assert any(by_keyword)
+    assert found == hybrid.rrf([*by_meaning, *by_keyword])
+    keys = [retriever.chunk_key(c) for c in found]
+    assert len(keys) == config.RETRIEVAL_TOP_K == len(set(keys))
+    # By hand, from the eight lists (two vector lists hold notes only; the leucine queries find
+    # no vector within the limit): note 5-3 is 4th, 6th, 6th and 6th in four lists (0.0611);
+    # 6-0 is 1st in three keyword lists (3/61 = 0.0492), 6-1 2nd in them (3/62 = 0.0484); then
+    # 5-5 (0.0464), 5-4 (0.0462) and 5-8 (2/61 = 0.0328). The leucine chunks keep no distance.
+    assert keys == ["5-3", "6-0", "6-1", "5-5", "5-4", "5-8"]
+    assert [c.distance for c in found[1:3]] == [None, None]
+
+
+def test_with_the_filter_dropped_keyword_search_runs_unfiltered_too(index, monkeypatch):
+    """When no relevant chunk passes the filter, both searches run again without it."""
+    keywords = KeywordSpy()
+    plan = plan_json(REWRITES, ["fat"])
+    result = _turn(
+        QUESTION,
+        index,
+        _model("A [S1]."),
+        translator=ScriptedTranslator(plans=[plan]),
+        keyword_index=keywords,
+    )
+    assert result.search.filter_dropped
+    assert keywords.searches == [(query, None) for query in (QUESTION, *REWRITES)]
+
+
+def test_an_off_topic_question_runs_no_keyword_search(index):
+    """With no chunk within the distance limit, keyword search is not run (owner's choice)."""
+    keywords = KeywordSpy()
+    # "rule" and "football" match nothing, but the gate must not depend on that.
+    result = _turn(OFF_TOPIC, index, _model("Offside is a football rule."), keyword_index=keywords)
+    assert result.kind == "no_sources"
+    assert keywords.builds == 0 and keywords.searches == []
+
+
+def test_a_keyword_match_alone_does_not_make_a_question_covered(tmp_path):
+    """A chunk that shares a word but is far by meaning does not pass the gate by itself."""
+    far = chunk("5", 0, "Offside: creatine creatine creatine rule.", topics=["supplements"])
+    index = open_fixture_index(build_fixture_index(tmp_path / "chroma", [*CHUNKS, far]))
+    keywords = hybrid.build_keyword_index(index)
+    assert retriever.chunk_key(keywords.search("offside rule")[0]) == "5-0"
+    found, _ = chat.find_chunks("What is the offside rule in protein?", None, index)
+    # The question is near the protein chunks, so it is covered; the offside chunk joins by keyword.
+    assert "5-0" in [retriever.chunk_key(c) for c in found]
+    found, _ = chat.find_chunks("offside rule", None, index)
+    assert found == []
+
+
+def test_an_exact_term_finds_the_hmb_source_that_vector_search_misses(tmp_path):
+    """'HMB' finds the HMB article by keyword, though its vector is far from the question (AC-4)."""
+    # The fake embeddings see only five keywords, as a real model may miss a rare abbreviation:
+    # the HMB chunk is a "creatine" vector, far from a question with none of the five keywords,
+    # while seven notes with no keyword sit at distance 0 and fill the vector top k.
+    notes = [chunk("8", n, f"Note {n}: training volume and rest days.") for n in range(7)]
+    hmb = chunk(
+        "9",
+        0,
+        "HMB: beta-hydroxy-beta-methylbutyrate taken with creatine creatine.",
+        topics=["supplements"],
+    )
+    index = open_fixture_index(build_fixture_index(tmp_path / "chroma", [*notes, hmb]))
+    question = "Does HMB help recovery?"
+    by_vector = retriever.retrieve(index, question)
+    assert len(by_vector) == config.RETRIEVAL_TOP_K
+    assert all(c.metadata["source_id"] != "9" for c in by_vector)
+    model = _model("HMB may help [S2].")
+    result = _turn(question, index, model)
+    assert result.kind == "answer"
+    assert "Made-up article 9" in _user_message(model)
+    assert [card.title for card in result.sources] == ["Made-up article 9"]
 
 
 # --- No relevant chunk (AC 3) ---------------------------------------------------------------------

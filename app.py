@@ -6,7 +6,7 @@ from typing import get_args
 import streamlit as st
 
 from src import chat, config, guard, llm, profile, units
-from src.rag import store
+from src.rag import hybrid, store
 from src.rag.sources import ARTICLE_CHANGES_NOTE
 from src.tools import registry
 from src.tools.energy import Macro, TdeeResult
@@ -43,7 +43,10 @@ STEP_DETAILS = {
     chat.Step.REWRITE: (
         f"A small model rephrases the question {config.QUERY_REWRITES} ways and picks filters."
     ),
-    chat.Step.SEARCH: "Vector search over the approved research for the question and each rewrite.",
+    chat.Step.SEARCH: (
+        "Search by meaning and by keyword over the approved research for the question and each "
+        "rewrite, merged into one ranking."
+    ),
     chat.Step.ANSWER: "The model answers from the passages found and cites them.",
     chat.Step.TOOLS: "Calculations from your profile and the USDA food table.",
 }
@@ -237,6 +240,14 @@ def _index():
 
 
 @st.cache_resource(show_spinner=False)
+def _keyword_index(_chroma):
+    """Build the BM25 index of the knowledge base once per app process (T3.3)."""
+    # The leading underscore keeps Streamlit from hashing the Chroma object; the cache is cleared
+    # together with _index, so it always matches the index the app holds.
+    return hybrid.build_keyword_index(_chroma)
+
+
+@st.cache_resource(show_spinner=False)
 def _chat_model():
     """Build the answer model's client once per app process."""
     return llm.build_chat_model()
@@ -317,10 +328,12 @@ def _run_turn(question: str, turn: int) -> None:
         on_text=on_text,
         # The energy tools read the session's profile; the model cannot change it.
         user=st.session_state.get("profile"),
+        keyword_index=_keyword_index,
     )
     if result.index_not_ready:
         # Open the index again on the next turn, e.g. once the owner has rebuilt it.
         _index.clear()
+        _keyword_index.clear()
     state = _final_state(result)
     if boxes:
         boxes[-1].update(state=state)
@@ -691,8 +704,9 @@ def _about_sidebar() -> None:
             f"- **{summary.articles} open-access research articles**: "
             f"{summary.position_stands} ISSN position stands and {summary.reviews} peer-reviewed "
             f"reviews ({' and '.join(summary.licenses)}).\n"
-            f"- Each question is rephrased {config.QUERY_REWRITES} ways, the closest passages "
-            "are found, and the answer cites them as [S1], [S2]...\n"
+            f"- Each question is rephrased {config.QUERY_REWRITES} ways, passages are found by "
+            "meaning and by keyword and ranked together, and the answer cites them as "
+            "[S1], [S2]...\n"
             f"- Rephrased by `{config.QUERY_TRANSLATION_MODEL}` and written by "
             f"`{config.DEFAULT_ANSWER_MODEL}` through OpenRouter."
         )

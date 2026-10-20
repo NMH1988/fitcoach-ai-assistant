@@ -8,7 +8,7 @@ from langchain_core.messages import AIMessage
 from streamlit.testing.v1 import AppTest
 
 from src import chat, config, guard, guardrails, llm
-from src.rag import store
+from src.rag import hybrid, store
 from tests.fakes import (
     ScriptedChatModel,
     ScriptedTranslator,
@@ -89,6 +89,55 @@ def _ask(at: AppTest, text: str) -> AppTest:
 def _assistant(at: AppTest, turn: int = -1):
     """Return the assistant message of a turn (the last by default)."""
     return [m for m in at.chat_message if m.name == "assistant"][turn]
+
+
+# --- Hybrid search (T3.3) -------------------------------------------------------------------------
+
+
+def test_the_keyword_index_is_built_once_for_several_questions(monkeypatch):
+    """The BM25 index is cached for the app process, not rebuilt on every question."""
+    builds = []
+    build = hybrid.build_keyword_index
+
+    def counting_build(index):
+        """Count the builds, then build the real keyword index."""
+        builds.append(index)
+        return build(index)
+
+    monkeypatch.setattr(hybrid, "build_keyword_index", counting_build)
+    _use_model(monkeypatch, _answers(ANSWER, ANSWER))
+    at = _ask(_ask(_start(), QUESTION), "Is creatine safe with protein?")
+    assert not at.exception
+    assert len([m for m in at.chat_message if m.name == "assistant"]) == 2
+    assert len(builds) == 1
+
+
+def test_a_broken_index_clears_the_cached_keyword_index(monkeypatch):
+    """When the index stops working, the keyword index is built again with it on the next turn."""
+    builds = []
+    build = hybrid.build_keyword_index
+
+    def counting_build(index):
+        """Count the builds, then build the real keyword index."""
+        builds.append(index)
+        return build(index)
+
+    monkeypatch.setattr(hybrid, "build_keyword_index", counting_build)
+    _use_model(monkeypatch, _answers(ANSWER, ANSWER))
+    at = _ask(_start(), QUESTION)
+    with monkeypatch.context() as broken:
+        # What the retriever raises when a rebuild dropped the collection the app holds.
+        broken.setattr(chat, "embed_queries", _unreadable_index)
+        at = _ask(at, QUESTION)
+    assert _assistant(at).error[0].value.startswith("The knowledge base index could not be read.")
+    at = _ask(at, QUESTION)
+    assert _assistant(at).markdown[0].value == ANSWER
+    assert len(builds) == 2
+
+
+def _unreadable_index(index, queries):
+    """Fail as the retriever does when the index can no longer be read."""
+    raise store.IndexNotReadyError(store.UNREADABLE)
 
 
 # --- Answer and sources (AC 2) --------------------------------------------------------------------
