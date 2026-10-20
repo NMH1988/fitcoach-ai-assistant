@@ -60,6 +60,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T5.3 | #18 | Domain guardrails | S | T3.1, T4.2 | 10-29 | todo |
 | T6.1 | #19 | Evaluation run and reflection | S | T3.3, T4.4, O2, O5 | 10-30 | todo |
 | **Extras** | | | | | | |
+| T1.4 | #32 | Security reviewer agent (beyond the brief; owner's request, done early as it is dev tooling with no product change) | S | T1.1 | 10-20 | done |
 | T5.1 | #16 | Token usage and cost | S | T3.2 | 10-30 | todo |
 | T5.2 | #17 | Session summary PDF | M | T4.4 | 10-31 | todo |
 | T7.3 | #35 | Light and dark mode | S | T3.1 | 10-31 | todo |
@@ -105,6 +106,17 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] The per-session rate limit rejects requests above the limit - unit test with a fake clock (`test_rate_limit_rejects_above_the_window_limit`, `test_rate_limit_window_rolls`, `test_rate_limit_rejects_above_the_session_limit`).
 - [x] A rejected input makes no LLM or embedding call - unit test with a spy client (`test_rejected_input_makes_no_api_call`, `test_rate_limited_input_makes_no_api_call`, with `test_accepted_input_reaches_the_clients` as the control).
 **Notes:** the attack strings are written by us, not copied from other projects with unknown licences. The rate limit counts accepted questions (one per turn), and rejected input does not count (owner's choice, 2026-10-19). T3.1 wires `run_guarded()` into the chat turn.
+
+### T1.4 Security reviewer agent (S) · status: done · issue #32
+**Serves:** beyond the brief (owner's request); supports core 3 (security measures relevant to the domain) and Medium 3 (prompt injection protection).
+**Depends on:** T1.1
+**Acceptance criteria**
+- [x] `.claude/agents/security-reviewer.md` exists, with the same frontmatter fields and style as `.claude/agents/code-reviewer.md` - checked by the code-reviewer agent.
+- [x] The agent maps every path from user input, retrieved text and tool calls to the LLM, tools and UI, and for each surface (direct prompt injection, indirect injection through retrieved text, model-produced tool arguments, Markdown/HTML/link output injection, Chroma metadata/filter injection, path and command injection in scripts, guard before spend, key handling, personal-data leaks) checks the existing controls against `docs/SECURITY.md` and says what an attacker could still do - checked by reading the agent file (Step 1 and Step 2).
+- [x] Safety rules: read-only for the repo; never opens `.streamlit/secrets.toml` or `.env`, never prints a key, never calls OpenRouter or any other service (its only network use is GitHub, through `git` and `gh`); its own attack cases run only as offline tests with mocked LLM and embeddings in a scratch directory outside the repo and are never committed; new test cases are only proposed in its report - checked by reading the agent file (Ground rules, Step 3) and by `git status` showing no change after the run against `main`.
+- [x] The report gives each finding a severity, `path:line`, a concrete attack string or scenario, the impact and the smallest fix, plus a list of controls that held - checked by one run against `main` (recorded in `docs/PROGRESS.md`).
+- [x] `CLAUDE.md` ("Where things are") and `docs/SECURITY.md` name the agent - checked by reading them.
+**Notes:** owner's choices (2026-10-20): read-only (tests are only proposed), never a live run against the real model, optional tool (not added to `.claude/rules/workflow.md`); criterion 3 reworded to allow GitHub through `git`/`gh` (owner's choice in the PR #39 review). Attack strings are our own, not copied from other projects.
 
 ## Epic 2: Knowledge base
 
@@ -175,6 +187,8 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] User text is sent only inside `<user_input>` in the user message, and retrieved text only inside `<sources>`; neither is ever concatenated into the system prompt - unit test on the built messages.
 - [ ] A retrieved chunk containing an instruction ("ignore previous instructions...") does not change the system prompt or tool use in the built request, and the system prompt tells the model to treat both blocks as data - unit test with a fixture chunk.
 - [ ] LLM output is rendered without `unsafe_allow_html` anywhere in the app - test scanning the app source, as in Sprint 1.
+- [ ] User text, chunk text and any chunk metadata put in the prompt are escaped before they are wrapped, so a delimiter look-alike (`</user_input>`, `</user-input>`, `<user_input id="2">`, `</sources lang="en">`, `<sources/>`) cannot close or open a block and a `**System:**` or `> System:` line stays data; user text is passed as message content, never as prompt-template text - parametrised unit test on the built messages (follow-up from the T1.4 security audit, finding 3).
+**Notes:** the owner decides whether the guard's delimiter patterns are widened too (T1.4 audit, finding 3).
 
 ## Epic 4: Profile and tools
 
@@ -212,6 +226,8 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] The answer step binds the tools and runs at most 4 tool rounds; a tool error returns to the model as a message - integration tests with a scripted fake model (one tool, two tools, an error, the round limit).
 - [ ] Energy tools read the profile from the session; without a profile they return "profile needed" and the UI points to the form - unit and AppTest.
 - [ ] Each tool result appears in a "Tool results" expander as a table; macro targets also as a chart (AC-6) - AppTest.
+- [ ] Each tool is built with an explicit `args_schema` that holds only the model's fields: `lookup_food_nutrition` takes only `food` and `grams` (never `table`), the energy tools take no profile fields; `FoodLookupArgs` has `extra="forbid"`; a call with `table`, a profile field or any extra field is refused with the fixed message and runs no lookup - unit test on the built tools (follow-up from the T1.4 security audit, finding 2).
+- [ ] USDA names in a tool result (`matched_name`, `alternatives`, `message`) reach the model only inside the tool result and appear in the UI as plain text, so a name with Markdown or a delimiter cannot add a link, an image or a block - unit test and AppTest with a fixture table (follow-up from the T1.4 security audit, finding 4).
 
 ### T4.5 `evaluate_meal_plan` tool (stretch) (S) · status: todo · issue #15
 **Serves:** core 2 (extra tool). Only if ahead of schedule.
