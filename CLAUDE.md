@@ -25,6 +25,7 @@ The owner writes in Vietnamese: reply in Vietnamese. Everything in the repo is i
 | `docs/PROGRESS.md` | What each PR did and why, newest first |
 | `.claude/rules/` | Copyright, workflow, security and privacy, testing rules |
 | `.claude/skills/qrspi/`, `.claude/agents/code-reviewer.md` | The coding workflow and the reviewer |
+| `.claude/agents/security-reviewer.md` | Optional attacker-minded security audit (injection, guard before spend, key, personal data); read-only, offline only |
 
 ## Code conventions
 
