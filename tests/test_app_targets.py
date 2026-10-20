@@ -257,7 +257,7 @@ def test_imperial_users_see_the_protein_range_in_grams_per_lb():
     """The protein range next to a lowered target follows the unit system too."""
     at = _start(profile=HEAVY, system="imperial")
     [warning] = at.tabs[TARGETS_TAB].warning
-    assert "480-660 g a day (0.73 g/lb to 1.00 g/lb)" in warning.value
+    assert "480-660 g a day (0.73 g/lb to 1 g/lb)" in warning.value
 
 
 # --- Food lookup tab (AC 4) -----------------------------------------------------------------------

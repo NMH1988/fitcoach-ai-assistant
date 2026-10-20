@@ -219,21 +219,25 @@ def test_usda_names_are_returned_inside_the_tool_message_as_data():
 # --- The targets and the food lookup outside the chat (T4.7) --------------------------------------
 
 
-def test_daily_targets_are_the_macro_tools_result():
-    """The app's targets views and the macro tool give the same result for a profile."""
-    targets = registry.daily_targets(PROFILE)
-    message, run = _run(MACRO_TOOL, {})
-    assert targets == run.result
+def test_macro_targets_give_what_the_tool_gives_with_no_model():
+    """macro_targets() is the macro tool's result for the profile, for the app's own views."""
+    _, run = _run(MACRO_TOOL, {})
+    assert registry.macro_targets(PROFILE) == run.result
+
+
+def test_macro_targets_carry_the_kcal_the_needs_and_the_weight():
+    """The targets for the views hold the kcal, the energy needs and the weight they are for."""
+    targets = registry.macro_targets(PROFILE)
     assert targets.status == "ok" and targets.targets.kcal_target == 3035
     assert targets.energy_needs.tdee_kcal == 2759
-    # The weight the targets are for, so the app rounds grams per body weight once.
+    # The weight the targets are for, so the app rounds grams per body weight once (T4.7).
     assert targets.targets.weight_kg == 80.0
 
 
-def test_daily_targets_follow_the_goal():
+def test_macro_targets_follow_the_goal():
     """Another goal gives another target from the same energy needs."""
-    lose = registry.daily_targets(PROFILE.model_copy(update={"goal": "lose_fat"}))
-    keep = registry.daily_targets(PROFILE.model_copy(update={"goal": "maintain"}))
+    lose = registry.macro_targets(PROFILE.model_copy(update={"goal": "lose_fat"}))
+    keep = registry.macro_targets(PROFILE.model_copy(update={"goal": "maintain"}))
     assert keep.targets.kcal_target == 2759
     assert lose.targets.kcal_target < keep.targets.kcal_target
 
