@@ -240,6 +240,22 @@ QUERY_PROMPT_MISSING_MESSAGE = (
 # How the evidence tiers are named in the answer's sources (docs/UI_DESIGN.md).
 EVIDENCE_TIER_LABELS: dict[int, str] = {1: "ISSN position stand", 2: "Peer-reviewed review"}
 UNKNOWN_TIER_LABEL = "Review"
+# The label a turn's status box ends with, by the kind of result; the summary PDF uses the same
+# labels for turns with no answer.
+STATUS_LABELS: dict[str, str] = {
+    "answer": "Answered from the research",
+    # An answer that cites no label: the model said the research does not cover the question.
+    "answer_uncited": "Answered without citing the research",
+    "no_sources": "No matching research found",
+    "rejected": "Question not accepted",
+    "guardrail": "Not something this assistant can advise on",
+    "error": "Something went wrong",
+}
+# How a source card (and the summary PDF) names a correction notice linked to a cited article.
+CORRECTION_LABELS: dict[str, str] = {
+    "corrected_by": "A correction to this article was published",
+    "corrects": "This notice corrects",
+}
 # Authors named on a source card before "et al." (the full list is in ATTRIBUTION.md).
 CARD_AUTHORS_SHOWN = 3
 # Characters of the question shown on the sidebar's "Last answer" card before "…" (T3.2).
@@ -373,6 +389,10 @@ USDA_CHANGES = (
     "once (latest publication); negative values are set to 0; an empty fiber value means not "
     "reported."
 )
+# The line under a food lookup's values, in the app and the summary PDF.
+USDA_SOURCE_LINE = (
+    "Source: USDA FoodData Central, Foundation Foods (CC0). Values per 100 g, scaled."
+)
 
 # lookup_food_nutrition: argument limits and fuzzy name matching (rapidfuzz scores, 0-100).
 # A one-letter name matches by chance ("a" scores 100 on "Eggs, Grade A, ..."), so the name, and
@@ -425,6 +445,25 @@ MACRO_COLORS: dict[str, str] = {
     "Carbohydrate": "#5DCAA5",
     "Fat": "#EF9F27",
 }
+
+# The session summary PDF (T5.2; docs/ARCHITECTURE.md section 7). DejaVu Sans 2.37, committed with
+# its licence in assets/fonts/: ReportLab's own fonts have no Greek letters, and an approved source
+# title has "β".
+PDF_FONT_PATH = PROJECT_ROOT / "assets" / "fonts" / "DejaVuSans.ttf"
+PDF_BOLD_FONT_PATH = PROJECT_ROOT / "assets" / "fonts" / "DejaVuSans-Bold.ttf"
+# The fonts' licence, printed word for word at the end of every PDF (owner's choice, 2026-10-20):
+# its notices go with every copy, and each PDF embeds the fonts. Only the part before this heading
+# is printed; the rest covers DejaVu's math font, which the app does not ship.
+PDF_FONT_LICENSE_PATH = PROJECT_ROOT / "assets" / "fonts" / "LICENSE"
+PDF_FONT_LICENSE_END = "TeX Gyre DJV Math"
+# The sidebar button that downloads it; {date} in the file name is the day (YYYY-MM-DD).
+PDF_BUTTON_LABEL = "Download summary (PDF)"
+PDF_BUTTON_HELP = (
+    "Your profile, targets, questions and answers with their sources, as a PDF. Built when you "
+    "click; not saved on the server."
+)
+PDF_BUTTON_EMPTY_HELP = "Add your details or ask a question first."
+PDF_FILE_NAME = "nutrition-summary-{date}.pdf"
 
 
 class MissingAPIKeyError(RuntimeError):

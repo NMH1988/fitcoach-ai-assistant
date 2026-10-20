@@ -55,7 +55,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T3.1 | #7 | First answer with sources (vector search) | M | T1.2, T1.3, T2.3, O1 | 10-24 | done |
 | T4.2 | #12 | Energy and macro tools with the calorie floor | M | T4.1, O3 | 10-25 | done |
 | T1.5 | #42 | Docs: run commands use the project's venv | S | T1.1 | 10-20 | done |
-| T1.6 | #55 | CI: accept the pillow 12.3.0 advisories until Streamlit allows pillow 13 | S | T1.1 | 10-20 | in review |
+| T1.6 | #55 | CI: accept the pillow 12.3.0 advisories until Streamlit allows pillow 13 | S | T1.1 | 10-20 | done |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1, O7 | 10-26 | done |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2 | 10-27 | in review |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | done |
@@ -68,7 +68,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | **Extras** | | | | | | |
 | T1.4 | #32 | Security reviewer agent (beyond the brief; owner's request, done early as it is dev tooling with no product change) | S | T1.1 | 10-20 | done |
 | T5.1 | #16 | Token usage and cost | S | T3.2 | 10-30 | todo |
-| T5.2 | #17 | Session summary PDF | M | T4.4 | 10-31 | todo |
+| T5.2 | #17 | Session summary PDF | M | T4.4 | 10-31 | in review |
 | T7.3 | #35 | Light and dark mode | S | T3.1 | 10-31 | done |
 | T7.1 | #33 | Language switch: English and German UI | M | T4.4, T4.7, T5.3, T1.3 | 10-31 | todo |
 | T7.2 | #34 | German answers end to end | M | T7.1, T3.2, O1, O2, O5 | 11-01 | todo |
@@ -135,7 +135,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] The documented command `.venv\Scripts\streamlit.exe run app.py` is run in a new terminal and the app loads without error; CI passes - manual check done (2026-10-20: typed as written in a new PowerShell tab; the app loaded with its title and four tabs and no error; local ruff and pytest pass); CI green on PR #43, merged 2026-10-20.
 **Notes:** found on 2026-10-20 when the owner started the app with the system Python's `streamlit` (1.64, without the project's packages) after PR #41 merged.
 
-### T1.6 CI: accept the pillow 12.3.0 advisories until Streamlit allows pillow 13 (S) · status: in review · issue #55
+### T1.6 CI: accept the pillow 12.3.0 advisories until Streamlit allows pillow 13 (S) · status: done · issue #55
 **Serves:** core 3 and 4 (security measures, error-free CI with a dependency audit); `.claude/rules/security-privacy.md` (no ignore without a documented reason). Owner's request (2026-10-20), after CI's security job failed on PR #53 (T4.7) and on every branch.
 **Depends on:** T1.1
 **Acceptance criteria** (from the owner's request, 2026-10-20)
@@ -327,14 +327,15 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] `src/usage.py` sums tokens from every call of a turn (query translation, answer rounds, query embedding) and prices them from OpenRouter's models endpoint (cached a day; "price unknown" on failure) - unit tests with fake usage and prices.
 - [ ] The UI shows the turn's tokens and cost under the answer and the session totals in the sidebar - AppTest.
 
-### T5.2 Session summary PDF (M) · status: todo · issue #17
+### T5.2 Session summary PDF (M) · status: in review · issue #17
 **Serves:** Medium 7 and Easy 1 (extra); AC-9.
 **Depends on:** T4.4
 **Acceptance criteria**
-- [ ] `src/export_pdf.py` builds, in memory with reportlab, a PDF with the profile (in the chosen units), the targets, the questions and answers with their sources, the disclaimer and the credits - unit test reads the PDF text back.
-- [ ] A download button offers it; no file is written on the server - AppTest and a unit test that checks no file is created.
-- [ ] Non-Latin characters in source titles (e.g. "β") do not break the PDF - unit test.
-- [ ] Answers are unescaped with `html.unescape`, so an entity the model copied from the escaped prompt (`&lt;`, `&gt;`, `&amp;`) shows as the character, as it does in the app's Markdown; then, since reportlab's `Paragraph` reads its text as markup (`<b>`, `<font>`, `<link href=...>`), they are escaped for it with `xml.sax.saxutils.escape` before any `Paragraph` (or drawn as plain text), so a `<` cannot break the PDF and model text cannot add a link or formatting - unit test: an answer holding "p &lt; 0.05" reads back "p < 0.05", and a raw `<b>x</b>` or `<link href="https://example.com">x</link>` reads back as literal text with no link annotation (follow-up from T3.4; owner's choices, 2026-10-20).
+- [x] `src/export_pdf.py` builds, in memory with reportlab, a PDF with the profile (in the chosen units), the targets, the questions and answers with their sources, the disclaimer and the credits - unit test reads the PDF text back (`tests/test_export_pdf.py`, read back with pypdf: `test_the_pdf_has_the_title_date_and_disclaimer`, `test_every_page_has_the_disclaimer_in_its_footer`, `test_the_profile_is_shown_in_the_chosen_units` (metric and imperial), `test_the_targets_come_from_the_profile_in_the_chosen_units` (g/kg and g/lb), `test_the_targets_notes_are_shown`, `test_each_question_and_answer_is_in_the_pdf_with_its_sources`, `test_a_turn_without_an_answer_shows_its_question_and_message` (every kind), `test_the_tool_results_follow_their_answer`, `test_the_credits_name_every_cited_article_in_full`, `test_the_credits_name_the_sources_behind_the_targets_and_the_formulas`, `test_the_credits_name_usda_only_when_a_food_was_looked_up`; `tests/test_app_export.py`: `test_the_pdf_built_on_click_holds_the_turn_that_just_ran`).
+- [x] A download button offers it; no file is written on the server - AppTest and a unit test that checks no file is created (`tests/test_app_export.py`: `test_the_button_is_in_the_sidebar_and_off_in_an_empty_session`, `test_the_button_is_on_once_a_profile_is_added`, `test_the_button_is_on_after_a_question_without_a_profile`, `test_the_button_is_drawn_once_per_run_after_the_main_area`, `test_the_pdf_is_built_only_on_click_and_never_written`; `tests/test_export_pdf.py`: `test_building_the_pdf_writes_no_file` (no file opened for writing through `open`, `io.open` or `os.open`, the working folder stays empty); browser check with a fake model, `docs/TESTING.md`).
+- [x] Non-Latin characters in source titles (e.g. "β") do not break the PDF - unit test (`test_non_latin_characters_in_source_titles_read_back_exactly`: #4's "β" and #16's U+2010 read back exactly; `test_the_fonts_cover_every_character_of_the_approved_sources`; `test_characters_the_font_lacks_do_not_break_the_pdf`: emoji, CJK and control characters). Needed a font: reportlab's have no Greek, so DejaVu Sans 2.37 is committed in `assets/fonts/` (owner's choice, 2026-10-20).
+- [x] Answers are unescaped with `html.unescape`, so an entity the model copied from the escaped prompt (`&lt;`, `&gt;`, `&amp;`) shows as the character, as it does in the app's Markdown; then, since reportlab's `Paragraph` reads its text as markup (`<b>`, `<font>`, `<link href=...>`), they are escaped for it with `xml.sax.saxutils.escape` before any `Paragraph` (or drawn as plain text), so a `<` cannot break the PDF and model text cannot add a link or formatting - unit test: an answer holding "p &lt; 0.05" reads back "p < 0.05", and a raw `<b>x</b>` or `<link href="https://example.com">x</link>` reads back as literal text with no link annotation (follow-up from T3.4; owner's choices, 2026-10-20) (`test_an_entity_the_model_copied_reads_back_as_the_character`, `test_markup_in_an_answer_reads_back_as_literal_text_with_no_link` (`<b>`, `<link>`, `<a>`, `<font>`, an escaped `&lt;b&gt;` and a broken `<para>`), `test_markup_in_a_question_a_title_and_a_usda_name_stays_text`, `test_the_pdf_has_no_link_annotations_at_all`; a mutation check without the escape made 7 of them fail; after the code review the entities are decoded only in the inline text, after the Markdown cleanup, so "&gt; 5 g" stays "> 5 g" and is not read as a quote, and code keeps its entities as the app shows them: `test_an_entity_that_looks_like_markdown_reads_back_as_the_character` and the entity rows of `test_clean_answer_turns_markdown_into_plain_lines`).
+**Notes:** owner's choices (2026-10-20): DejaVu Sans for the fonts; the button in the sidebar; every turn in the PDF, as in the chat; answers as plain text (Markdown marks dropped, lists as bullets, links as text and URL). Defaults stated in the plan and kept: the targets computed from the profile with no model call (`registry.macro_targets()`), each answer's tool results under it, credits only for the sources the PDF uses, URLs as text with no link annotation, A4. In the review of PR #54 the owner chose to credit the font in every PDF and to print its licence (the Bitstream Vera and Arev parts of `assets/fonts/LICENSE`) word for word, as the licence asks for its notices with every copy (`test_the_credits_end_with_the_fonts_licence_word_for_word`). The app's own tool result tables still show g/kg in imperial; the PDF already follows the unit system (T4.7's criterion for the app).
 
 ### T5.3 Domain guardrails (S) · status: done · issue #18
 **Serves:** core 3 (domain security); AC-12.
