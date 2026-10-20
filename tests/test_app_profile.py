@@ -332,3 +332,34 @@ def test_st_html_is_used_only_with_the_fixed_dialog_css():
     assert source.count("st.html(") == 1
     assert "st.html(config.PROFILE_DIALOG_CSS)" in source
     assert "unsafe_allow_javascript" not in source
+
+
+# --- T7.3: where to switch light or dark mode ---------------------------------------------------
+
+
+def _sidebar_captions(at: AppTest) -> list[str]:
+    """Return the text of every caption in the sidebar, in order."""
+    return [caption.value for caption in at.sidebar.caption]
+
+
+def test_the_theme_hint_is_in_the_sidebar_without_a_profile():
+    """Before a profile exists, the theme hint is the caption after the profile invitation."""
+    captions = _sidebar_captions(_start())
+    invitation = captions.index("Add your details to get personal targets.")
+    assert captions[invitation + 1] == config.THEME_HINT
+
+
+def test_the_theme_hint_follows_the_privacy_note_with_a_profile():
+    """With a profile, the theme hint is the caption right under the privacy note."""
+    captions = _sidebar_captions(_add_metric_profile())
+    privacy = captions.index(":material/lock: Kept for this session only")
+    assert captions[privacy + 1] == config.THEME_HINT
+
+
+def test_the_theme_hint_points_to_the_menu():
+    """The hint names light and dark mode and Streamlit's menu, with its icon, at the top right."""
+    assert config.THEME_HINT.startswith(":material/dark_mode: ")
+    for words in ("Light or dark mode", "menu", ":material/more_vert:", "top right"):
+        assert words in config.THEME_HINT
+    # Streamlit 1.66 shows System, Light and Dark at the top of its menu, with no Settings entry.
+    assert "Settings" not in config.THEME_HINT

@@ -30,7 +30,7 @@ linkUnderline = false
 primaryColor = "#0F6E56"     # teal-green, dark enough for white button text (WCAG AA)
 backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F4F6F5"
-textColor = "#1F2328"
+textColor = "#14171B"        # dark enough that captions (60% opacity) meet WCAG AA (T7.3)
 borderColor = "#D8DEDB"
 greenColor = "#0F6E56"
 orangeColor = "#BA7517"
@@ -88,10 +88,11 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 
 ### Light and dark mode (T7.3, extra)
 
-- Both `[theme.light]` and `[theme.dark]` are defined (see "Theme"; T3.1 writes them, T7.3 adds the config test, the toolbar check and the hint), so Streamlit's own menu (top right -> Settings) offers Light, Dark and System. The choice is remembered by the browser.
+- Both `[theme.light]` and `[theme.dark]` are defined (see "Theme"; T3.1 writes them, T7.3 adds the config test, the toolbar check and the hint), so Streamlit's own menu (⋮, top right) offers System, Light and Dark at its top. Streamlit 1.66 has no separate Settings entry (seen in the browser, T7.3). The choice is remembered by the browser.
+- `[client] toolbarMode = "auto"` in `.streamlit/config.toml`: the switch stays for every visitor; the developer options (Rerun, Clear cache, Deploy) show only on localhost. "minimal" would hide the switch.
 - Streamlit 1.66 cannot change the theme from the script, and a custom CSS toggle would break the "native first" principle and break on upgrades, so there is no separate header icon (owner's decision, 2026-10-20).
-- A sidebar caption under the privacy note says where to switch: ":material/dark_mode: Light or dark mode: menu at the top right -> Settings".
-- Charts and badges are checked in both modes; chart colours come from the palette above, which reads on both backgrounds.
+- A sidebar caption says where to switch: `config.THEME_HINT`, ":material/dark_mode: Light or dark mode: menu :material/more_vert: at the top right" (the icon is the menu's own ⋮). It sits under the privacy note with a profile, and under the "Add your details" button before one exists.
+- Charts and badges are checked in both modes; chart colours come from the palette above, which reads on both backgrounds. Results in `docs/TESTING.md` (T7.3). `tests/test_theme.py` checks that body text and captions (drawn at 60% opacity) meet WCAG AA on both backgrounds in both modes; that is why the light text colour is #14171B. It also checks white text on the primary button and the primary colour as text on both backgrounds. The 60% caption opacity was measured on Streamlit 1.66: recheck it in the browser after a Streamlit upgrade (`CAPTION_OPACITY` in the test). Known limit (owner's choice): white text on the dark-mode primary button is 3.4:1, as a darker green would make the accent text on the dark background fall under AA instead.
 
 ### Tabs
 

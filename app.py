@@ -443,6 +443,7 @@ def _main_area() -> None:
 
 with st.sidebar:
     _profile_sidebar()
+    st.caption(config.THEME_HINT)
     _about_sidebar()
 if st.session_state.get("profile_form_open"):
     _profile_form()
