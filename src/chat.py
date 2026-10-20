@@ -2,12 +2,11 @@
 
 The user's question goes only inside <user_input> and the retrieved chunks only inside <sources>,
 both in the user message; neither is ever put into the system prompt
-(.claude/rules/security-privacy.md). Both are escaped first, so no text can close or open a block
-(T3.4). Every error a user can cause or meet ends as a TurnResult with a fixed message, so the app
-shows it in the answer and keeps the chat history (AC-13).
+(.claude/rules/security-privacy.md). Both are escaped first (`src/prompt_data.py`), so no text can
+close or open a block (T3.4). Every error a user can cause or meet ends as a TurnResult with a fixed
+message, so the app shows it in the answer and keeps the chat history (AC-13).
 """
 
-import html
 import os
 import re
 import time
@@ -29,6 +28,7 @@ from langchain_core.messages import (
 )
 
 from src import config, guard, llm
+from src.prompt_data import escape_prompt_data
 from src.rag.retriever import RetrievedChunk, retrieve
 from src.rag.sources import ManifestError, Source, license_url_for, load_manifest
 from src.rag.store import IndexNotReadyError
@@ -101,12 +101,6 @@ _PACED_WORD = re.compile(r"\s*\S+")
 # Characters Streamlit's Markdown would read as formatting, HTML, LaTeX, strikethrough (~) or an
 # emoji or icon shortcode (:) in a title.
 _MARKDOWN_SPECIAL = re.compile(r"([\\`*_\[\]<>$~:])")
-# Full-width and small-form "<", ">" and "&", which NFKC reads as the ASCII characters: folded
-# before escaping, so "＜/sources＞" in a chunk is escaped like "</sources>". Look-alikes NFKC does
-# not fold ("‹", "〈") are a known limit (docs/SECURITY.md).
-_PROMPT_BRACKET_FORMS = str.maketrans(
-    {"＜": "<", "﹤": "<", "＞": ">", "﹥": ">", "＆": "&", "﹠": "&"}
-)
 
 
 class PromptMissingError(RuntimeError):
@@ -165,15 +159,6 @@ def format_authors(authors: Sequence[str]) -> str:
 def markdown_url(url: str) -> str:
     """Percent-encode a URL so none of its characters can end a Markdown link early."""
     return urllib.parse.quote(url, safe=":/%#?=&")
-
-
-def escape_prompt_data(text: object) -> str:
-    """Escape &, < and > as HTML entities, so the text can never close or open a prompt block."""
-    # With no "<" or ">" left, no look-alike (</user-input>, <sources lang="en">, <sources/>) can
-    # end a block early; "&" too, so a typed "&lt;/sources&gt;" stays text. The model reads the
-    # entities as the characters, and html.unescape gives the exact text back. Full-width and
-    # small-form brackets are folded first: a chunk never passes the guard's NFKC check.
-    return html.escape(str(text).translate(_PROMPT_BRACKET_FORMS), quote=False)
 
 
 def format_sources(chunks: Sequence[RetrievedChunk]) -> str:
