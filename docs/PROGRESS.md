@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-20 · T3.3 Hybrid search (BM25 + RRF) · #<PR> (closes #9)
+## 2026-10-20 · T3.3 Hybrid search (BM25 + RRF) · #52 (closes #9)
 - **Brief:** Hard 1 (hybrid search); AC-4. Part of the advanced RAG requirement.
 - **What:**
   - `src/rag/hybrid.py` (new): `tokenize()` (lower-case letters and digits, no single characters, a short `STOPWORDS` list, no stemming); `KeywordIndex` (`rank_bm25.BM25Okapi` over every chunk, `search(query, allowed, k)` keeps scores above 0); `build_keyword_index()` reads the chunks from Chroma; `filter_ids()` asks Chroma for the IDs that pass the filter; `rrf_scores()` and `rrf()` (`1 / (RRF_K + rank)`, ties to the nearer chunk, then the first found; a chunk keeps its vector distance); `hybrid_search()` (vector lists, then keyword lists only if a vector hit passes the distance limit, all fused).
