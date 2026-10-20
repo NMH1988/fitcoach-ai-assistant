@@ -575,3 +575,26 @@ def test_the_disclaimer_is_visible_in_every_chat_state(monkeypatch, state):
     at = state(monkeypatch)
     assert not at.exception
     assert _shows_the_disclaimer(at)
+
+
+@pytest.mark.parametrize(
+    ("rewrite", "shown"),
+    [
+        ("# Big text", r"\# Big text"),
+        ("> a quote", r"\> a quote"),
+        ("- a list", r"\- a list"),
+        ("1. a list", r"1\. a list"),
+        ("2) a list", r"2\) a list"),
+        ("protein - per meal", "protein - per meal"),
+    ],
+)
+def test_details_shows_a_markdown_line_start_as_text(monkeypatch, rewrite, shown):
+    """A rewrite starting like a heading, quote or list is escaped in the Details list."""
+    plan = plan_json([rewrite, "protein per meal", "protein dose"])
+    _use_model(monkeypatch, _answers("A [S1]."), ScriptedTranslator(plans=[plan]))
+    [listing] = [
+        m.value
+        for m in _details_tab(_ask(_start(), QUESTION)).markdown
+        if m.value.startswith("1. ")
+    ]
+    assert f"\n2. {shown}\n" in listing

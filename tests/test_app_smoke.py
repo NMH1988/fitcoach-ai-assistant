@@ -67,13 +67,12 @@ def test_the_sidebar_says_what_the_answers_are_based_on():
     assert config.QUERY_TRANSLATION_MODEL in notes[0]
     [about] = [e for e in at.sidebar.expander if e.label == "About the answers"]
     assert "**:material/license: Sources and credits**" in [m.value for m in about.markdown]
-    credits = about
-    lines = [m.value for m in credits.markdown if "creativecommons.org" in m.value]
+    lines = [m.value for m in about.markdown if "creativecommons.org" in m.value]
     assert len(lines) == len(chat.manifest_by_id())
     assert all("creativecommons.org" in line and "https://doi.org/" in line for line in lines)
     first = next(iter(chat.manifest_by_id().values()))
     assert chat.escape_markdown(chat.format_authors(first.authors)) in lines[0]
     # The change made and the no-endorsement note, worded as in ATTRIBUTION.md (CC BY).
-    [note] = [c.value for c in credits.caption]
+    [note] = [c.value for c in about.caption]
     assert note.startswith(ARTICLE_CHANGES_NOTE)
     assert ARTICLE_CHANGES_NOTE in Path(config.ATTRIBUTION_PATH).read_text(encoding="utf-8")

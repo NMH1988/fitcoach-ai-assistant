@@ -30,7 +30,7 @@ linkUnderline = false
 primaryColor = "#0F6E56"     # teal-green, dark enough for white button text (WCAG AA)
 backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F4F6F5"
-textColor = "#1F2328"
+textColor = "#14171B"        # dark enough that captions (60% opacity) meet WCAG AA (T7.3)
 borderColor = "#D8DEDB"
 greenColor = "#0F6E56"
 orangeColor = "#BA7517"
@@ -66,8 +66,9 @@ Macro colours (charts, set in the Altair spec): protein `#0F6E56`, carbohydrate 
 | Edit details | `st.button("Edit details", icon=":material/edit:", width="stretch")` | Opens the profile form in an `st.dialog` (owner's choice in T4.1): a Metric / Imperial switch, then plain inputs and a Save button, not an `st.form`, so switching units converts the values already typed. Validation messages come from `src/profile.py` |
 | Daily target | `st.metric("Daily target", "3,010 kcal", border=True)` | Always visible, whatever tab is open; added with the targets (T4.4) |
 | My targets (summary card) | `st.container(border=True)`: a donut of the energy split (protein, carbohydrate, fat; Altair `mark_arc` with an inner radius, about 120-140 px) with the daily kcal in the middle, and each macro's grams and % as text beside it | The full view stays in the My targets tab. One donut, not one circle per value: the three macros are parts of the kcal total, and kcal is the total, not a fourth part. Text values carry the numbers, as angles are harder to compare than lengths and colour is never the only signal. Owner's choice, 2026-10-20 (T4.4) |
-| Details, last answer (summary card) | `st.container(border=True)`: "Last answer", how many ways the question was searched ("Searched 4 ways: your question and 3 rewrites.") and the filters as badges, a note when they were dropped (T3.2); the answer's tokens and cost and the session total (T5.1) | The full view stays in the Details tab. Owner's choice, 2026-10-20. Shown once a turn has searched. Its `st.empty()` slot is filled once per run, after the main area, so it shows the turn that just ran: a slot filled twice in one run kept the first draw's extra badges in the browser (AppTest does not show this; found in T3.2's browser check) |
 | Privacy note | `st.caption(":material/lock: Kept for this session only")` | |
+| Light or dark mode hint | `st.caption(config.THEME_HINT)` | Right after the privacy note (T7.3; its tests check the order) |
+| Details, last answer (summary card) | `st.container(border=True)`: "Last answer", how many ways the question was searched ("Searched 4 ways: your question and 3 rewrites.") and the filters as badges, a note when they were dropped (T3.2); the answer's tokens and cost and the session total (T5.1) | The full view stays in the Details tab. Owner's choice, 2026-10-20. Shown once a turn has searched. Its `st.empty()` slot is filled once per run, after the main area, so it shows the turn that just ran: a slot filled twice in one run kept the first draw's extra badges in the browser (AppTest does not show this; found in T3.2's browser check) |
 | About the answers | `st.divider`, then `st.expander("About the answers", icon=":material/menu_book:")` (folded since T3.2, when the summary card arrived): three bullets (article count by tier and licence from the manifest, how questions are rephrased and answers cite passages, the rewrite and answer models) and a bold "Sources and credits" heading (Streamlit cannot nest expanders) listing every source with its first three authors, title, year, journal, licence and article link, then the change made and the no-endorsement note (the same text as `ATTRIBUTION.md`) | Fills the empty sidebar and credits the sources (copyright policy rule 6); beyond the brief (owner's request, 2026-10-20) |
 
 Before a profile exists, the sidebar shows a short invitation and the "Add your details" button (same dialog) instead of the tiles.
@@ -88,10 +89,11 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 
 ### Light and dark mode (T7.3, extra)
 
-- Both `[theme.light]` and `[theme.dark]` are defined (see "Theme"; T3.1 writes them, T7.3 adds the config test, the toolbar check and the hint), so Streamlit's own menu (top right -> Settings) offers Light, Dark and System. The choice is remembered by the browser.
+- Both `[theme.light]` and `[theme.dark]` are defined (see "Theme"; T3.1 writes them, T7.3 adds the config test, the toolbar check and the hint), so Streamlit's own menu (⋮, top right) offers System, Light and Dark at its top. Streamlit 1.66 has no separate Settings entry (seen in the browser, T7.3). The choice is remembered by the browser.
+- `[client] toolbarMode = "auto"` in `.streamlit/config.toml`: the switch stays for every visitor; the developer options (Rerun, Clear cache, Deploy) show only on localhost. "minimal" would hide the switch.
 - Streamlit 1.66 cannot change the theme from the script, and a custom CSS toggle would break the "native first" principle and break on upgrades, so there is no separate header icon (owner's decision, 2026-10-20).
-- A sidebar caption under the privacy note says where to switch: ":material/dark_mode: Light or dark mode: menu at the top right -> Settings".
-- Charts and badges are checked in both modes; chart colours come from the palette above, which reads on both backgrounds.
+- A sidebar caption says where to switch: `config.THEME_HINT`, ":material/dark_mode: Light or dark mode: menu :material/more_vert: at the top right" (the icon is the menu's own ⋮). It sits under the privacy note with a profile, and under the "Add your details" button before one exists.
+- Badges, source cards, the sidebar and the profile dialog are checked in both modes (T7.3, results in `docs/TESTING.md`); the charts and the tool result table are checked in T4.4. Chart colours come from the palette above, which reads on both backgrounds. `tests/test_theme.py` checks that body text and captions (drawn at 60% opacity) meet WCAG AA on both backgrounds in both modes; that is why the light text colour is #14171B. It also checks white text on the primary button and the primary colour as text on both backgrounds. The 60% caption opacity was measured on Streamlit 1.66: recheck it in the browser after a Streamlit upgrade (`CAPTION_OPACITY` in the test). Known limit (owner's choice): white text on the dark-mode primary button is 3.4:1, as a darker green would make the accent text on the dark background fall under AA instead.
 
 ### Tabs
 
