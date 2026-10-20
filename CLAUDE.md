@@ -36,7 +36,7 @@ The owner writes in Vietnamese: reply in Vietnamese. Everything in the repo is i
 
 ## Commands
 
-Python 3.14 (`.python-version`), in a local `.venv`. Every command below assumes the venv is active; otherwise call its programs directly (`.venv\Scripts\python.exe` in PowerShell, `.venv/Scripts/python.exe` in Git Bash, `.venv/bin/python` on macOS and Linux). The system Python lacks the project's packages: the app then fails with `ModuleNotFoundError: No module named 'langchain_chroma'`, a script with `No module named 'src'`.
+Python 3.14 (`.python-version`), in a local `.venv`. Every command below assumes the venv is active; otherwise call its programs directly (`.venv\Scripts\python.exe` in PowerShell, `.venv/Scripts/python.exe` in Git Bash, `.venv/bin/python` on macOS and Linux). The system Python lacks the project's packages: the app then fails with `ModuleNotFoundError: No module named 'langchain_chroma'`, a script with a `ModuleNotFoundError` for its first import (e.g. `'chromadb'` or `'src'`).
 
 - Install: `pip install -e ".[dev]"`
 - Run: `streamlit run app.py` with `.venv` active, or `.venv\Scripts\streamlit.exe run app.py` (PowerShell), `.venv/Scripts/streamlit.exe run app.py` (Git Bash), `.venv/bin/streamlit run app.py` (macOS and Linux)

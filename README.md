@@ -42,7 +42,7 @@ Run every command below in a terminal where `.venv` is active: the prompt starts
 - Windows (Git Bash): `.venv/Scripts/streamlit.exe run app.py`, `.venv/Scripts/python.exe scripts/build_index.py`
 - macOS and Linux: `.venv/bin/streamlit run app.py`, `.venv/bin/python scripts/build_index.py`
 
-If a command fails with a `ModuleNotFoundError`, such as `No module named 'langchain_chroma'` from the app or `No module named 'src'` from a script, it was started with another Python (the system one), not the venv's.
+If a command fails with a `ModuleNotFoundError`, such as `No module named 'langchain_chroma'` from the app or `No module named 'chromadb'` or `'src'` from a script (whichever import comes first), it was started with another Python (the system one), not the venv's.
 
 Before the first question, build the knowledge base once:
 
