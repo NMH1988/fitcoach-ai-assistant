@@ -56,7 +56,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T1.5 | #42 | Docs: run commands use the project's venv | S | T1.1 | 10-20 | done |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1 | 10-26 | todo |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2, O2 | 10-27 | todo |
-| T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | todo |
+| T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | done |
 | T4.4 | #14 | Tool-calling loop and tool results UI | M | T3.1, T4.2, T4.3 | 10-28 | todo |
 | T5.3 | #18 | Domain guardrails | S | T3.1, T4.2 | 10-29 | in review |
 | T6.1 | #19 | Evaluation run and reflection | S | T3.3, T4.4, O2, O5 | 10-30 | todo |
@@ -127,7 +127,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] Right before the run commands, the README says they must run in a terminal with `.venv` active (`(.venv)` at the start of the prompt), gives the way without activating (`.venv\Scripts\streamlit.exe run app.py` on Windows, `.venv/bin/streamlit run app.py` on macOS and Linux), and names the symptom of the wrong Python (`ModuleNotFoundError: No module named 'langchain_chroma'`) - review.
 - [x] The README lists the steps before the first question: set the key, `python scripts/download_sources.py`, `python scripts/build_index.py`, then run the app, with the note to stop the app before rebuilding the index - review.
 - [x] The "Run" line in `CLAUDE.md` says to use the venv too - review.
-- [x] The documented command `.venv\Scripts\streamlit.exe run app.py` is run in a new terminal and the app loads without error; CI passes - manual check done (2026-10-20: typed as written in a new PowerShell tab; the app loaded with its title and four tabs and no error; local ruff and pytest pass); CI passed on PR #43 (lint, test, security), merged 2026-10-20.
+- [x] The documented command `.venv\Scripts\streamlit.exe run app.py` is run in a new terminal and the app loads without error; CI passes - manual check done (2026-10-20: typed as written in a new PowerShell tab; the app loaded with its title and four tabs and no error; local ruff and pytest pass); CI green on PR #43, merged 2026-10-20.
 **Notes:** found on 2026-10-20 when the owner started the app with the system Python's `streamlit` (1.64, without the project's packages) after PR #41 merged.
 
 ## Epic 2: Knowledge base
@@ -184,6 +184,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] One `openai/gpt-5-nano` call with structured output returns 3 rewrites and optional filters (`topics`, `min_year`, `evidence_tier`); invalid output falls back to the original question with no filter - unit tests with a fake model.
 - [ ] Retrieval runs for each rewrite with the filter; with no hits it retries without the filter - integration test.
 - [ ] "How this answer was found" shows the rewrites and filters (AC-3) - AppTest.
+- [ ] The query-translation call gets the question only inside `<user_input>` in the user message, escaped with `escape_prompt_data()`, never in its system prompt, so a delimiter look-alike or a `**System:**` line stays data; its messages are built with `SystemMessage` / `HumanMessage` like the answer step's, with no LangChain prompt template at all (no `PromptTemplate`, `ChatPromptTemplate`, `from_template`, `from_messages` or `MessagesPlaceholder` in `app.py` or `src/`) - parametrised unit test on the built messages, as in T3.4's `tests/test_prompt_injection.py`, and `test_no_prompt_template_is_used_in_the_app` still passing (follow-up from T3.4; owner's choices, 2026-10-20: the template ban stays, stricter than "never as template text", so both steps build messages one way).
 
 ### T3.3 Hybrid search (BM25 + RRF) (M) · status: todo · issue #9
 **Serves:** Hard 1; AC-4.
@@ -194,15 +195,15 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] A query with an exact term (e.g. "HMB") retrieves the HMB source (AC-4) - integration test on a small fixture index.
 - [ ] On the owner's evaluation questions (O2), vector-only, keyword-only and hybrid retrieval are compared and the hit rates recorded in `docs/TESTING.md` - owner live check (O5) or a run with the real index.
 
-### T3.4 Prompt injection hardening (S) · status: todo · issue #10
+### T3.4 Prompt injection hardening (S) · status: done · issue #10
 **Serves:** Medium 3; AC-11.
 **Depends on:** T3.1
 **Acceptance criteria**
-- [ ] User text is sent only inside `<user_input>` in the user message, and retrieved text only inside `<sources>`; neither is ever concatenated into the system prompt - unit test on the built messages.
-- [ ] A retrieved chunk containing an instruction ("ignore previous instructions...") does not change the system prompt or tool use in the built request, and the system prompt tells the model to treat both blocks as data - unit test with a fixture chunk.
-- [ ] LLM output is rendered without `unsafe_allow_html` anywhere in the app - test scanning the app source, as in Sprint 1.
-- [ ] User text, chunk text and any chunk metadata put in the prompt are escaped before they are wrapped, so a delimiter look-alike (`</user_input>`, `</user-input>`, `<user_input id="2">`, `</sources lang="en">`, `<sources/>`) cannot close or open a block and a `**System:**` or `> System:` line stays data; user text is passed as message content, never as prompt-template text - parametrised unit test on the built messages (follow-up from the T1.4 security audit, finding 3).
-**Notes:** the owner decides whether the guard's delimiter patterns are widened too (T1.4 audit, finding 3).
+- [x] User text is sent only inside `<user_input>` in the user message, and retrieved text only inside `<sources>`; neither is ever concatenated into the system prompt - unit test on the built messages (`tests/test_prompt_injection.py`: `test_a_look_alike_in_the_question_stays_inside_user_input`, `test_a_look_alike_in_chunk_text_stays_inside_sources`, which check that the four delimiters are the only tags, in order, and that the system message is the prompt alone; `tests/test_chat.py::test_the_question_and_the_chunks_are_delimited_in_the_user_message`).
+- [x] A retrieved chunk containing an instruction ("ignore previous instructions...") does not change the system prompt or tool use in the built request, and the system prompt tells the model to treat both blocks as data - unit test with a fixture chunk (`test_an_injected_chunk_does_not_change_the_system_prompt_or_tool_use`: a turn on a fixture index with a made-up injected chunk sends the same system prompt and request shape as a clean one, with no tool calls, and the chunk only escaped inside `<sources>`; `test_the_answer_prompt_tells_the_model_both_blocks_are_data` on the owner's prompt).
+- [x] LLM output is rendered without `unsafe_allow_html` anywhere in the app - test scanning the app source, as in Sprint 1 (`test_nothing_in_the_app_renders_with_unsafe_allow_html`: an AST scan of `app.py` and `src/`, so comments do not count, for `unsafe_allow_html` and `unsafe_allow_javascript`; `test_the_app_uses_no_raw_html_components`).
+- [x] User text, chunk text and any chunk metadata put in the prompt are escaped before they are wrapped, so a delimiter look-alike (`</user_input>`, `</user-input>`, `<user_input id="2">`, `</sources lang="en">`, `<sources/>`) cannot close or open a block and a `**System:**` or `> System:` line stays data; user text is passed as message content, never as prompt-template text - parametrised unit test on the built messages (follow-up from the T1.4 security audit, finding 3) (the three `test_a_look_alike_in_...` tests over seven look-alikes each, in the question, the chunk text and the title and year; `test_the_escape_keeps_the_text_exact_and_marks_typed_entities`, `test_braces_in_the_question_are_passed_as_text_not_as_a_template`, `test_no_prompt_template_is_used_in_the_app`).
+**Notes:** owner's choices (2026-10-20): the guard's patterns are widened too (attributes, `-` or a space in "user input", a closing slash, `<source>`, role lines after `**`, `>` or `_`), with new attack and benign strings and a speed test in `tests/test_guard.py`; the answer prompt is not changed (it already says both blocks are data, and models read `&lt;` as `<`). Escaping is `html.escape` without quotes (`escape_prompt_data()` in `src/prompt_data.py`, a module that imports nothing from `src`, so T3.2's query translation in `src/rag/` and T4.4's tool loop can use it without an import cycle; `test_the_escape_module_imports_nothing_from_src`), after folding full-width and small-form brackets (`test_full_width_and_small_form_brackets_in_a_chunk_are_escaped`). After code review round 1 the guard's tag pattern only counts attribute-shaped text, so comparisons such as "(<sources say 25%) and > 1200 kcal" pass, and the AC3 scan also flags `unsafe_allow_html` passed by position, `*` or `**` (`test_the_render_scan_finds_every_way_to_allow_html`).
 
 ## Epic 4: Profile and tools
 
@@ -242,6 +243,9 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] Each tool result appears in a "Tool results" expander as a table; macro targets also as a chart (AC-6) - AppTest.
 - [ ] Each tool is built with an explicit `args_schema` that holds only the model's fields: `lookup_food_nutrition` takes only `food` and `grams` (never `table`), the energy tools take no profile fields; `FoodLookupArgs` has `extra="forbid"`; a call with `table`, a profile field or any extra field is refused with the fixed message and runs no lookup - unit test on the built tools (follow-up from the T1.4 security audit, finding 2).
 - [ ] USDA names in a tool result (`matched_name`, `alternatives`, `message`) reach the model only inside the tool result and appear in the UI as plain text, so a name with Markdown or a delimiter cannot add a link, an image or a block - unit test and AppTest with a fixture table (follow-up from the T1.4 security audit, finding 4).
+- [ ] An instruction in a retrieved chunk does not change the tools bound or `tool_choice`: a clean and an injected turn pass the same tool arguments to the model - extend `tests/test_prompt_injection.py::test_an_injected_chunk_does_not_change_the_system_prompt_or_tool_use` to compare `ScriptedChatModel.call_kwargs` with tools bound (follow-up from T3.4; owner's choice, 2026-10-20).
+- [ ] The profile summary and tool results that go into the prompt are escaped with `escape_prompt_data()` and sit only in their own delimited block or tool message, never in the system prompt, so a look-alike in a USDA name cannot close or open a block - parametrised unit test on the built messages (follow-up from T3.4; owner's choice, 2026-10-20).
+**Notes:** `tests/fakes.py::ScriptedChatModel` must implement `bind_tools` (LangChain's `BaseChatModel.bind_tools` raises `NotImplementedError`) and keep recording the bound tools in `call_kwargs`, so the tool-use check above compares real arguments (PR #45 review, 2026-10-20). Import `escape_prompt_data()` from `src/prompt_data.py`.
 
 ### T4.5 `evaluate_meal_plan` tool (stretch) (S) · status: todo · issue #15
 **Serves:** core 2 (extra tool). Only if ahead of schedule.
@@ -277,6 +281,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] `src/export_pdf.py` builds, in memory with reportlab, a PDF with the profile (in the chosen units), the targets, the questions and answers with their sources, the disclaimer and the credits - unit test reads the PDF text back.
 - [ ] A download button offers it; no file is written on the server - AppTest and a unit test that checks no file is created.
 - [ ] Non-Latin characters in source titles (e.g. "β") do not break the PDF - unit test.
+- [ ] Answers are unescaped with `html.unescape`, so an entity the model copied from the escaped prompt (`&lt;`, `&gt;`, `&amp;`) shows as the character, as it does in the app's Markdown; then, since reportlab's `Paragraph` reads its text as markup (`<b>`, `<font>`, `<link href=...>`), they are escaped for it with `xml.sax.saxutils.escape` before any `Paragraph` (or drawn as plain text), so a `<` cannot break the PDF and model text cannot add a link or formatting - unit test: an answer holding "p &lt; 0.05" reads back "p < 0.05", and a raw `<b>x</b>` or `<link href="https://example.com">x</link>` reads back as literal text with no link annotation (follow-up from T3.4; owner's choices, 2026-10-20).
 
 ### T5.3 Domain guardrails (S) · status: in review · issue #18
 **Serves:** core 3 (domain security); AC-12.

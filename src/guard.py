@@ -193,12 +193,21 @@ _FOLDED_PATTERNS = [
 # Matched against the cleaned text with its line breaks: fake role markers and look-alikes of the
 # delimiters the answer step wraps around user text and sources (docs/ARCHITECTURE.md, step 5).
 # Written so no two unbounded repeats sit next to each other (linear time on any input).
+# The answer step escapes "<" and ">" anyway (T3.4), so these only stop an attempt before any API
+# call. A tag may carry up to five attributes (name=value, value quoted or not) and a closing
+# slash (<user_input id="2">, </sources lang="en">, <sources/>), and "user input" may be written
+# with "_", "-" or a space. Only attribute-shaped text counts, so "<" and ">" used as "less than"
+# and "more than" around a word ("(<sources say 25%) and > 1200 kcal") pass. A role line may follow
+# Markdown heading, quote, bold or italic markers (**System:**, > System:, __Assistant__:).
 _RAW_PATTERNS = [
-    r"<\s*(?:/\s*)?(?:system|user_input|sources|assistant|user|developer|instructions?)\s*>",
+    r"<\s*(?:/\s*)?(?:system|user[\s_-]*input|sources?|assistant|user|developer|instructions?)"
+    r"(?:\s+[\w:-]{1,40}\s*=\s*(?:\"[^\"<>\n]{0,100}\"|'[^'<>\n]{0,100}'|[^\s\"'<>]{1,100})){0,5}"
+    r"\s*(?:/\s*)?>",
     r"<\|[a-z_]+\|>",
     r"\[/?(?:inst|sys)\]",
     r"<<\s*(?:/\s*)?sys\s*>>",
-    r"(?m)^[ \t]*(?:#+[ \t]*)?(?:system|assistant|developer|new instructions)[ \t]*:",
+    r"(?m)^[ \t]*(?:[#>*_][ \t]*){0,10}(?:system|assistant|developer|new instructions)"
+    r"[ \t]*(?:[*_]{1,3}[ \t]*)?:",
 ]
 
 _FOLDED_RE = [re.compile(p) for p in _FOLDED_PATTERNS]
