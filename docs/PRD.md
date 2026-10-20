@@ -31,7 +31,7 @@ A chatbot that gives adults who lift weights clear, evidence-based nutrition ans
 10. **Progress indicator** for each step of a turn. Serves core 5.
 11. **Security:** input validation, prompt injection protection, rate limit, the domain guardrails below. Serves core 3 and 4, Medium 3. Details in `docs/SECURITY.md`.
 12. **English and German** (extra). A language switch in the header (EN | DE, default from the browser); UI text and answers in the chosen language, sources and food names in English; the guard and the guardrails work in both languages. Serves Hard 4.
-13. **Light and dark mode** (extra). Both themes are defined; users switch with Streamlit's built-in Settings menu, and a sidebar hint says where. Beyond the brief (owner's request).
+13. **Light and dark mode** (extra). Both themes are defined; users switch in Streamlit's built-in menu (top right), and a sidebar hint says where. Beyond the brief (owner's request).
 
 **Optional tasks for maximum points** (done first, with the core): Medium 3 and 6; Hard 1. **Extras** (after the core, still wanted): Medium 5, Medium 7, Hard 4 (English and German), and light and dark mode.
 
@@ -65,7 +65,7 @@ Each ticket in `docs/IMPLEMENTATION_PLAN.md` refines one or more of these into t
 | AC-14 | Every knowledge base chunk comes from an approved CC BY source, `ATTRIBUTION.md` credits all of them, and the download script rejects a file without a CC BY or CC0 licence. |
 | AC-15 | `ruff check .`, `ruff format --check .` and `python -m pytest -q` pass in CI with no API key. |
 | AC-16 | (Extra) Switching EN/DE changes all UI text and the answer language; a German question retrieves English sources and cites them; German injection inputs and German high-risk requests are caught like English ones. |
-| AC-17 | (Extra) The app offers Light, Dark and System appearance through Streamlit's Settings menu, the UI says where to find it, and the main screens are readable in both modes. |
+| AC-17 | (Extra) The app offers Light, Dark and System appearance through Streamlit's built-in menu, the UI says where to find it, and the main screens are readable in both modes. |
 
 ## Content ownership
 

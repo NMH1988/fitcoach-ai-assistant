@@ -15,6 +15,24 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-20 · T7.3 Light and dark mode · #47 (closes #35)
+- **Brief:** beyond the brief (owner's request, 2026-10-20); supports core 5 (intuitive UI); AC-17.
+- **What:**
+  - `.streamlit/config.toml`: `[client] toolbarMode = "auto"` set explicitly (it was the default) with why "minimal" must not be used; the light text colour is now #14171B (was #1F2328); a comment on the dark primary colour's known limit.
+  - `src/config.py`: `THEME_HINT`, ":material/dark_mode: Light or dark mode: menu :material/more_vert: at the top right"; `app.py` shows it as a sidebar caption after the profile block, so it sits under the privacy note with a profile and under "Add your details" without one.
+  - Tests: `tests/test_theme.py` (new) parses the config: both modes defined, `[theme]` equal to the TOML block in `docs/UI_DESIGN.md`, the core colours as hex, body text, captions (60% opacity) and accent text at WCAG AA (4.5:1) on both backgrounds in both modes, white button text at AA in light mode and at the documented 3:1 in dark mode, `toolbarMode` "auto" or "viewer" (not "minimal", which hides the switch, nor "developer", which shows Clear cache to every visitor); `tests/test_app_profile.py` checks the hint in both sidebar states and its wording. No new HTML scan: T4.6's `st.html` test and T3.4's AST scan already cover the last criterion. 1,132 tests pass.
+  - Docs: `docs/TESTING.md` (the browser check), `docs/UI_DESIGN.md` (menu, toolbar mode, hint, contrast, the new text colour), `docs/PRD.md` (feature 13 and AC-17 say "built-in menu", not "Settings menu"), plan (T7.3 in review, criteria with their tests).
+- **Why:** the owner chose Streamlit's built-in switch (Streamlit 1.66 cannot change the theme from the script); the ticket only had to make sure the switch stays, say where it is, and check both modes. Contrast is tested from the config (body text, captions, accent text, white text on the primary button), so a later colour change to these cannot quietly drop under the agreed levels.
+- **Decisions & gotchas:**
+  - Streamlit 1.66 has **no Settings entry**: System, Light and Dark are at the top of the ⋮ menu (seen in the browser). The planned hint ("-> Settings") would have been wrong, so it names the menu and its icon. The criterion's "Settings entry" now reads "theme switch" in the plan and issue #35 (owner's approval, 2026-10-20).
+  - `toolbarMode` "auto" keeps the switch for every visitor and shows Rerun, Clear cache and Deploy only on localhost; checked in the browser once with "viewer" (what a remote visitor gets): the switch stays.
+  - Owner's choices (2026-10-20): light text #14171B, so captions reach 4.70 on white and 4.58 on the sidebar (they were 4.25 and 4.13); keep the dark primary #1D9E75 although white button text on it is 3.4:1 (under AA for text, above 3:1), since a green dark enough for 4.5 would bring the accent text on the dark background from 5.5 to 3.9, and Streamlit has no option for the button's text colour.
+  - Worked in a separate worktree (`.claude/worktrees/t7.3-light-dark-mode`, branch from `origin/main` 96ddde5), as the main checkout had another session's T5.3 changes. For the browser check the app ran from the worktree with `--secrets.files` pointing at the main checkout's secrets (never opened) and a temporary junction to its `chroma/`; both removed afterwards, along with a temporary entry in the main checkout's untracked `.claude/launch.json`.
+  - One real question was asked (owner's approval) to see the source cards; its answer cited [S1]-[S5] and showed "Sources (2)": the sources are grouped by article ("cited as S1, S4"), not a bug of this ticket.
+  - The macro bar part of criterion 4 moved to a new T4.4 criterion (owner's choice, 2026-10-20), since T4.4 builds the bar and was in progress; T7.3 keeps the badges and source cards. T4.4's branch also edits its plan entry: whichever merges second may get a small conflict there (keep both).
+  - Merged `main` after T5.3 (#46): git merged cleanly (GitHub reported a conflict, likely `docs/PROGRESS.md`, as its editor ignores `merge=union`); the T7.3 entry stays above T5.3's; T5.3 marked done in the plan (#46 had merged); the merged suite (1,402 tests, T5.3's included) passes. Code review on PR #47 (round 1): no code finding; the merge and two doc fixes done (`docs/UI_DESIGN.md` no longer says the charts were checked, the TESTING row names the tool table too).
+- **Follow-ups:** T4.4 checks the macro bar, the donut and the tool table in both modes (its new criterion); T7.1 translates `THEME_HINT`; after a Streamlit upgrade, recheck the caption opacity (`CAPTION_OPACITY` in `tests/test_theme.py`).
+
 ## 2026-10-20 · T5.3 Domain guardrails · #46 (closes #18)
 - **Brief:** core 3 (security measures relevant to the domain); AC-12.
 - **What:**

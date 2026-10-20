@@ -58,13 +58,13 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2, O2 | 10-27 | todo |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | done |
 | T4.4 | #14 | Tool-calling loop and tool results UI | M | T3.1, T4.2, T4.3 | 10-28 | todo |
-| T5.3 | #18 | Domain guardrails | S | T3.1, T4.2 | 10-29 | in review |
+| T5.3 | #18 | Domain guardrails | S | T3.1, T4.2 | 10-29 | done |
 | T6.1 | #19 | Evaluation run and reflection | S | T3.3, T4.4, O2, O5 | 10-30 | todo |
 | **Extras** | | | | | | |
 | T1.4 | #32 | Security reviewer agent (beyond the brief; owner's request, done early as it is dev tooling with no product change) | S | T1.1 | 10-20 | done |
 | T5.1 | #16 | Token usage and cost | S | T3.2 | 10-30 | todo |
 | T5.2 | #17 | Session summary PDF | M | T4.4 | 10-31 | todo |
-| T7.3 | #35 | Light and dark mode | S | T3.1 | 10-31 | todo |
+| T7.3 | #35 | Light and dark mode | S | T3.1 | 10-31 | in review |
 | T7.1 | #33 | Language switch: English and German UI | M | T4.4, T5.3, T1.3 | 10-31 | todo |
 | T7.2 | #34 | German answers end to end | M | T7.1, T3.2, O1, O2, O5 | 11-01 | todo |
 | T4.5 | #15 | `evaluate_meal_plan` tool (stretch) | S | T4.4 | only if ahead | todo |
@@ -244,6 +244,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] Each tool is built with an explicit `args_schema` that holds only the model's fields: `lookup_food_nutrition` takes only `food` and `grams` (never `table`), the energy tools take no profile fields; `FoodLookupArgs` has `extra="forbid"`; a call with `table`, a profile field or any extra field is refused with the fixed message and runs no lookup - unit test on the built tools (follow-up from the T1.4 security audit, finding 2).
 - [ ] USDA names in a tool result (`matched_name`, `alternatives`, `message`) reach the model only inside the tool result and appear in the UI as plain text, so a name with Markdown or a delimiter cannot add a link, an image or a block - unit test and AppTest with a fixture table (follow-up from the T1.4 security audit, finding 4).
 - [ ] An instruction in a retrieved chunk does not change the tools bound or `tool_choice`: a clean and an injected turn pass the same tool arguments to the model - extend `tests/test_prompt_injection.py::test_an_injected_chunk_does_not_change_the_system_prompt_or_tool_use` to compare `ScriptedChatModel.call_kwargs` with tools bound (follow-up from T3.4; owner's choice, 2026-10-20).
+- [ ] The macro bar, the targets donut and the tool result table are readable in light and dark mode - manual check in both modes (Streamlit's menu, top right), recorded in `docs/TESTING.md` (moved from T7.3; owner's choice, 2026-10-20).
 - [ ] The profile summary and tool results that go into the prompt are escaped with `escape_prompt_data()` and sit only in their own delimited block or tool message, never in the system prompt, so a look-alike in a USDA name cannot close or open a block - parametrised unit test on the built messages (follow-up from T3.4; owner's choice, 2026-10-20).
 **Notes:** `tests/fakes.py::ScriptedChatModel` must implement `bind_tools` (LangChain's `BaseChatModel.bind_tools` raises `NotImplementedError`) and keep recording the bound tools in `call_kwargs`, so the tool-use check above compares real arguments (PR #45 review, 2026-10-20). Import `escape_prompt_data()` from `src/prompt_data.py`.
 
@@ -283,7 +284,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] Non-Latin characters in source titles (e.g. "β") do not break the PDF - unit test.
 - [ ] Answers are unescaped with `html.unescape`, so an entity the model copied from the escaped prompt (`&lt;`, `&gt;`, `&amp;`) shows as the character, as it does in the app's Markdown; then, since reportlab's `Paragraph` reads its text as markup (`<b>`, `<font>`, `<link href=...>`), they are escaped for it with `xml.sax.saxutils.escape` before any `Paragraph` (or drawn as plain text), so a `<` cannot break the PDF and model text cannot add a link or formatting - unit test: an answer holding "p &lt; 0.05" reads back "p < 0.05", and a raw `<b>x</b>` or `<link href="https://example.com">x</link>` reads back as literal text with no link annotation (follow-up from T3.4; owner's choices, 2026-10-20).
 
-### T5.3 Domain guardrails (S) · status: in review · issue #18
+### T5.3 Domain guardrails (S) · status: done · issue #18
 **Serves:** core 3 (domain security); AC-12.
 **Depends on:** T3.1, T4.2
 **Acceptance criteria**
@@ -343,14 +344,14 @@ Added by the owner on 2026-10-20. All three tickets are extras: they come after 
 - [ ] The owner's German evaluation questions are run against the real app and the results recorded in `docs/TESTING.md` - owner live check (O5).
 **Notes:** the knowledge base stays English.
 
-### T7.3 Light and dark mode (S) · status: todo · issue #35
+### T7.3 Light and dark mode (S) · status: in review · issue #35
 **Serves:** beyond the brief (owner's request, 2026-10-20); supports core 5 (intuitive UI); AC-17.
 **Depends on:** T3.1 (writes both themes in `.streamlit/config.toml`)
-**Decision (owner, 2026-10-20):** use Streamlit's built-in appearance switch (menu -> Settings -> Light / Dark / System). Streamlit 1.66 cannot change the theme from the script, and a custom CSS toggle would break the "no custom CSS" rule and be fragile.
+**Decision (owner, 2026-10-20):** use Streamlit's built-in appearance switch (System / Light / Dark at the top of the menu; Streamlit 1.66 has no separate Settings entry, found in T7.3). Streamlit 1.66 cannot change the theme from the script, and a custom CSS toggle would break the "no custom CSS" rule and be fragile.
 **Acceptance criteria**
-- [ ] `.streamlit/config.toml` defines both `[theme.light]` and `[theme.dark]` with the colours in `docs/UI_DESIGN.md`, so the settings menu offers Light, Dark and System - test that parses the config.
-- [ ] The toolbar setting (`client.toolbarMode`) keeps the Settings entry available to users - test on the config value plus a manual check.
-- [ ] A short hint in the sidebar tells users where to switch light or dark mode (in both languages once T7.1 is merged) - AppTest.
-- [ ] The macro bar, badges and source cards are readable in both modes - manual check in both modes, recorded in `docs/TESTING.md`.
-- [ ] No `unsafe_allow_html` is added, and `st.html` is used only with T4.6's fixed CSS constant (`config.PROFILE_DIALOG_CSS`, allowlisted by name) - a source-scan test (T4.6's `st.html` test, T3.4's, or added here if neither covers it).
+- [x] `.streamlit/config.toml` defines both `[theme.light]` and `[theme.dark]` with the colours in `docs/UI_DESIGN.md`, so the menu offers Light, Dark and System - test that parses the config (`tests/test_theme.py`: `test_the_config_defines_both_modes`, `test_the_themes_match_the_ui_design_doc`, `test_each_mode_sets_the_core_colours_as_hex`).
+- [x] The toolbar setting (`client.toolbarMode`) keeps the theme switch (the plan said "the Settings entry"; Streamlit 1.66 has none, reworded with the owner's approval, 2026-10-20) available to users - test on the config value plus a manual check (`test_the_toolbar_keeps_the_theme_switch`; browser check in "auto" and "viewer" mode, `docs/TESTING.md`).
+- [x] A short hint in the sidebar tells users where to switch light or dark mode (in both languages once T7.1 is merged) - AppTest (`tests/test_app_profile.py`: the hint without a profile, right under the privacy note with one, and its wording). The German text comes with T7.1.
+- [x] The badges and source cards are readable in both modes - manual check in both modes, recorded in `docs/TESTING.md` (2026-10-20), plus contrast tests in `tests/test_theme.py`. The macro bar, which T4.4 adds, moved to a T4.4 criterion (owner's choice, 2026-10-20).
+- [x] No `unsafe_allow_html` is added, and `st.html` is used only with T4.6's fixed CSS constant (`config.PROFILE_DIALOG_CSS`, allowlisted by name) - a source-scan test (T4.6's `st.html` test, T3.4's, or added here if neither covers it): both existing scans cover it (`test_st_html_is_used_only_with_the_fixed_dialog_css` and T3.4's `test_nothing_in_the_app_renders_with_unsafe_allow_html` and `test_the_app_uses_no_raw_html_components` in `tests/test_prompt_injection.py`), so none was added.
 **Notes:** T3.1 already writes both theme sections; this ticket adds the config test, the toolbar check, the hint and the two-mode check.

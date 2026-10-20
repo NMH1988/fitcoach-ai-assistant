@@ -1,4 +1,10 @@
-# Streamlit settings: the theme from docs/UI_DESIGN.md (T3.1).
+# Streamlit settings: the theme from docs/UI_DESIGN.md (T3.1), light and dark mode (T7.3).
+
+[client]
+# Users switch System, Light or Dark at the top of Streamlit's menu (top right) (T7.3). "auto"
+# keeps that switch for every visitor and shows the developer options only on localhost;
+# "minimal" would hide it.
+toolbarMode = "auto"
 
 [theme]
 # System font: no Google Fonts request, so visitors' IPs are not sent to Google.
@@ -18,13 +24,16 @@ linkUnderline = false
 primaryColor = "#0F6E56"
 backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F4F6F5"
-textColor = "#1F2328"
+# Dark enough that captions (drawn at 60% opacity) meet WCAG AA on both backgrounds (T7.3).
+textColor = "#14171B"
 borderColor = "#D8DEDB"
 greenColor = "#0F6E56"
 orangeColor = "#BA7517"
 violetColor = "#534AB7"
 
 [theme.dark]
+# White button text on this green is 3.4:1, under AA; a darker green would make the accent text
+# on the dark background fall under AA instead (owner kept it, T7.3; docs/TESTING.md).
 primaryColor = "#1D9E75"
 backgroundColor = "#0F1412"
 secondaryBackgroundColor = "#18201D"
