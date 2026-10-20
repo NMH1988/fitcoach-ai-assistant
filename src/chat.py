@@ -2,8 +2,9 @@
 
 The user's question goes only inside <user_input> and the retrieved chunks only inside <sources>,
 both in the user message; neither is ever put into the system prompt
-(.claude/rules/security-privacy.md). Every error a user can cause or meet ends as a TurnResult with
-a fixed message, so the app shows it in the answer and keeps the chat history (AC-13).
+(.claude/rules/security-privacy.md). Both are escaped first (`src/prompt_data.py`), so no text can
+close or open a block (T3.4). Every error a user can cause or meet ends as a TurnResult with a fixed
+message, so the app shows it in the answer and keeps the chat history (AC-13).
 """
 
 import os
@@ -27,6 +28,7 @@ from langchain_core.messages import (
 )
 
 from src import config, guard, llm
+from src.prompt_data import escape_prompt_data
 from src.rag.retriever import RetrievedChunk, retrieve
 from src.rag.sources import ManifestError, Source, license_url_for, load_manifest
 from src.rag.store import IndexNotReadyError
@@ -160,12 +162,15 @@ def markdown_url(url: str) -> str:
 
 
 def format_sources(chunks: Sequence[RetrievedChunk]) -> str:
-    """Return the chunks as labelled blocks: [S#], title, year and tier, then the text."""
+    """Return the chunks as labelled blocks: [S#], title, year and tier, then the text, escaped."""
     blocks = []
     for number, chunk in enumerate(chunks, start=1):
         meta = chunk.metadata
         tier = config.EVIDENCE_TIER_LABELS.get(meta["evidence_tier"], config.UNKNOWN_TIER_LABEL)
-        blocks.append(f"[S{number}] {meta['title']} ({meta['year']}; {tier})\n{chunk.text}")
+        title, year, tier, text = (
+            escape_prompt_data(part) for part in (meta["title"], meta["year"], tier, chunk.text)
+        )
+        blocks.append(f"[S{number}] {title} ({year}; {tier})\n{text}")
     return "\n\n".join(blocks)
 
 
@@ -173,9 +178,10 @@ def build_messages(
     question: str, chunks: Sequence[RetrievedChunk], system_prompt: str
 ) -> list[BaseMessage]:
     """Return the system prompt and one user message holding <sources> and <user_input>."""
+    # Plain string content, never a prompt template: braces in the question stay as typed.
     user = (
         f"<sources>\n{format_sources(chunks)}\n</sources>\n\n"
-        f"<user_input>\n{question}\n</user_input>"
+        f"<user_input>\n{escape_prompt_data(question)}\n</user_input>"
     )
     return [SystemMessage(system_prompt), HumanMessage(user)]
 
