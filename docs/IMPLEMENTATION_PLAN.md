@@ -184,6 +184,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] One `openai/gpt-5-nano` call with structured output returns 3 rewrites and optional filters (`topics`, `min_year`, `evidence_tier`); invalid output falls back to the original question with no filter - unit tests with a fake model.
 - [ ] Retrieval runs for each rewrite with the filter; with no hits it retries without the filter - integration test.
 - [ ] "How this answer was found" shows the rewrites and filters (AC-3) - AppTest.
+- [ ] The query-translation call gets the question only inside `<user_input>` in the user message, escaped with `escape_prompt_data()`, never in its system prompt and never as prompt-template text, so a delimiter look-alike or a `**System:**` line stays data - parametrised unit test on the built messages, as in T3.4's `tests/test_prompt_injection.py` (follow-up from T3.4; owner's choice, 2026-10-20).
 
 ### T3.3 Hybrid search (BM25 + RRF) (M) · status: todo · issue #9
 **Serves:** Hard 1; AC-4.
@@ -242,6 +243,8 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] Each tool result appears in a "Tool results" expander as a table; macro targets also as a chart (AC-6) - AppTest.
 - [ ] Each tool is built with an explicit `args_schema` that holds only the model's fields: `lookup_food_nutrition` takes only `food` and `grams` (never `table`), the energy tools take no profile fields; `FoodLookupArgs` has `extra="forbid"`; a call with `table`, a profile field or any extra field is refused with the fixed message and runs no lookup - unit test on the built tools (follow-up from the T1.4 security audit, finding 2).
 - [ ] USDA names in a tool result (`matched_name`, `alternatives`, `message`) reach the model only inside the tool result and appear in the UI as plain text, so a name with Markdown or a delimiter cannot add a link, an image or a block - unit test and AppTest with a fixture table (follow-up from the T1.4 security audit, finding 4).
+- [ ] An instruction in a retrieved chunk does not change the tools bound or `tool_choice`: a clean and an injected turn pass the same tool arguments to the model - extend `tests/test_prompt_injection.py::test_an_injected_chunk_does_not_change_the_system_prompt_or_tool_use` to compare `ScriptedChatModel.call_kwargs` with tools bound (follow-up from T3.4; owner's choice, 2026-10-20).
+- [ ] The profile summary and tool results that go into the prompt are escaped with `escape_prompt_data()` and sit only in their own delimited block or tool message, never in the system prompt, so a look-alike in a USDA name cannot close or open a block - parametrised unit test on the built messages (follow-up from T3.4; owner's choice, 2026-10-20).
 
 ### T4.5 `evaluate_meal_plan` tool (stretch) (S) · status: todo · issue #15
 **Serves:** core 2 (extra tool). Only if ahead of schedule.
@@ -277,6 +280,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] `src/export_pdf.py` builds, in memory with reportlab, a PDF with the profile (in the chosen units), the targets, the questions and answers with their sources, the disclaimer and the credits - unit test reads the PDF text back.
 - [ ] A download button offers it; no file is written on the server - AppTest and a unit test that checks no file is created.
 - [ ] Non-Latin characters in source titles (e.g. "β") do not break the PDF - unit test.
+- [ ] Answers go into the PDF through `html.unescape`, so an entity the model copied from the escaped prompt (`&lt;`, `&gt;`, `&amp;`) shows as the character, as it does in the app's Markdown - unit test with an answer holding "p &lt; 0.05" reads back "p < 0.05" (follow-up from T3.4; owner's choice, 2026-10-20).
 
 ### T5.3 Domain guardrails (S) · status: todo · issue #18
 **Serves:** core 3 (domain security); AC-12.
