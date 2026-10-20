@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-20 · T4.7 My targets: sidebar target, targets tab and Food lookup tab · PR to come (closes #44)
+## 2026-10-20 · T4.7 My targets: sidebar target, targets tab and Food lookup tab · #53 (closes #44)
 - **Brief:** core 5 (an intuitive UI that shows tool results), Medium 6 (visualising tool results), PRD features 5, 6 and 7 (AC-6, AC-8). The macro colour contrast is beyond the brief (owner's request).
 - **What:**
   - `src/tools/registry.py`: `daily_targets(profile)` (the macro tool's body, now shared with the app) and `run_food_lookup(food, grams)` (the food tool's checked run, with no model).
