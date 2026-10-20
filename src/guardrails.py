@@ -147,37 +147,40 @@ _PREGNANCY_PATTERNS = [
     r" (?:mother|mom|mum)\b",
 ]
 
-# --- Medical conditions (said about the user or a group) and medication (any mention) -------------
-_CONDITIONS = (
-    r"(?:(?:pre-?)?diabetes|type [12] diabetes|t[12]d|kidney (?:disease|failure|stones?|problems?"
-    r"|issues?|damage)|renal (?:disease|failure|insufficiency)|ckd|liver (?:disease|damage"
-    r"|problems?|issues?)|fatty liver|cirrhosis|hepatitis|heart (?:disease|failure|condition"
-    r"|problems?|issues?|attack)|cardiovascular disease|coronary artery disease"
-    r"|(?:high|low) blood pressure|hypertension|high cholesterol|hypercholesterolaemia"
-    r"|hypercholesterolemia|cancer|leukaemia|leukemia|pcos|polycystic ovar(?:y|ian) syndrome"
-    r"|(?:hypo|hyper)thyroid(?:ism)?|an? (?:under|over)active thyroid|hashimoto's|graves' disease"
-    r"|thyroid (?:condition|problems?|disease|issues?)|gout|crohn's|crohns|ulcerative colitis"
-    r"|ibd|ibs|irritable bowel syndrome|celiac(?: disease)?|coeliac(?: disease)?|epilepsy"
-    r"|seizures|anaemia|anemia|osteoporosis|arthritis|asthma|copd|hiv|lupus|multiple sclerosis"
-    r"|an autoimmune (?:disease|condition)|arrhythmia|afib|atrial fibrillation|gallstones"
+# --- Medical conditions and medication (any mention) --------------------------------------
+# A disease named anywhere is redirected, research questions too ("does sugar cause diabetes?"):
+# owner's choice in the review of PR #46, as diseases are out of scope (docs/PRD.md).
+_DISEASES = (
+    r"(?:(?:pre-?)?diabetes|type [12] diabetes|t[12]d|kidney (?:disease|failure|stones?)"
+    r"|renal (?:disease|failure|insufficiency)|ckd|liver disease|fatty liver|cirrhosis|hepatitis"
+    r"|heart (?:disease|failure|condition|attacks?)|cardiovascular disease"
+    r"|coronary artery disease|(?:high|low) blood pressure|hypertension|high cholesterol"
+    r"|hypercholesterolaemia|hypercholesterolemia|cancer|leukaemia|leukemia|pcos"
+    r"|polycystic ovar(?:y|ian) syndrome|(?:hypo|hyper)thyroid(?:ism)?|(?:under|over)active thyroid"
+    r"|hashimoto's|graves' disease|thyroid (?:condition|disease)|gout|crohn's|crohns"
+    r"|ulcerative colitis|ibd|ibs|irritable bowel syndrome|celiac|coeliac|epilepsy|seizures"
+    r"|anaemia|anemia|osteoporosis|arthritis|asthma|copd|hiv|lupus|multiple sclerosis"
+    r"|autoimmune (?:disease|condition)|arrhythmia|afib|atrial fibrillation|gallstones"
     r"|pancreatitis|gerd|sleep apnoea|sleep apnea|depression|bipolar(?: disorder)?|adhd"
-    r"|an? (?:medical|health|chronic|heart|kidney|liver|thyroid) (?:condition|illness|disease"
-    r"|problem))"
+    r"|(?:medical|health|chronic|heart|kidney|liver|thyroid) (?:condition|illness|disease))"
 )
+# Side effects a supplement question names about healthy people ("does creatine cause kidney
+# damage?", which the research covers) count only when said about the user or a group.
+_SIDE_EFFECTS = r"(?:(?:kidney|liver|heart|thyroid) (?:damage|problems?|issues?))"
 # Who has it: the user, someone named, or a group ("people with ...").
 _CONDITION_FRAME = (
     r"\b(?:i have|i've got|ive got|i've|ive|i got|i had|i've had|i was diagnosed with"
     r"|i've been diagnosed with|i'm diagnosed with|diagnosed with|i suffer from|suffering from"
     r"|i(?:'m| am|m) living with|living with|recovering from|history of|my"
-    # "Safe with ...", not a link in research ("is red meat associated with heart disease?").
+    # "Safe with ...", not a link in research ("is creatine linked with kidney damage?").
     r"|(?:he|she|they|we|my \w+) (?:has|have|had|got)"
     r"|(?:safe|ok|okay|fine|good|bad|healthy|dangerous|risky) (?:for|with)|with my"
     r"|(?:people|someone|anyone|those"
     r"|patients|a person|persons|men|women|lifters|athletes|adults) with|if you have)"
-    # Not a healthy user's prevention question ("how can I lower my diabetes risk?").
-    rf" (?:a |an |my |mild |severe |chronic |early |stage \d )?{_CONDITIONS}\b(?! risks?\b)"
+    rf" (?:a |an |my |mild |severe |chronic |early )?{_SIDE_EFFECTS}\b"
 )
 _MEDICAL_PATTERNS = [
+    rf"\b{_DISEASES}\b",
     _CONDITION_FRAME,
     r"\b(?:diabetics?|pre-?diabetic|hypertensives?|epileptics?|asthmatics?)\b",
     r"\bi(?:'m| am|m) (?:a )?(?:type [12] )?(?:diabetic|hypothyroid|hyperthyroid|anaemic|anemic"
