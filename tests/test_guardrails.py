@@ -22,6 +22,8 @@ FLAGGED = [
     ("I want to try anabolic steroids, how should I start?", Concern.PED_DOSING),
     ("How much DNP is safe to take for a cut?", Concern.PED_DOSING),
     ("ＨＯＷ ＭＵＣＨ ＴＲＥＮ should I take?", Concern.PED_DOSING),
+    # "Testosterone cycles" stays a drug term (owner's choice in the review of PR #46).
+    ("Do testosterone cycles in women change protein needs?", Concern.PED_DOSING),
     ("How much  \n tren​ should I take?", Concern.PED_DOSING),
     # Under 18 (redirected).
     ("I'm 16 and want to bulk, how much protein do I need?", Concern.MINOR),
@@ -47,7 +49,8 @@ FLAGGED = [
     ("I'm breastfeeding and want to lose fat.", Concern.PREGNANCY),
     ("Postpartum macros for weight loss?", Concern.PREGNANCY),
     ("We are trying to conceive, should I change my diet?", Concern.PREGNANCY),
-    # Medical conditions said about the user or a group, and any medication (redirected).
+    # Medical conditions (a disease anywhere; a side effect said about the user or a group) and
+    # any medication (redirected).
     ("I have type 1 diabetes, how many carbs before training?", Concern.MEDICAL),
     ("I've been diagnosed with kidney disease, is creatine safe?", Concern.MEDICAL),
     ("Is a high-protein diet ok for people with kidney disease?", Concern.MEDICAL),
@@ -76,6 +79,12 @@ FLAGGED = [
     # A side effect only when said about the user or a group.
     ("I have kidney damage, can I take creatine?", Concern.MEDICAL),
     ("Is creatine safe for people with liver problems?", Concern.MEDICAL),
+    ("Can I take creatine with kidney problems?", Concern.MEDICAL),
+    ("Can I take creatine with liver issues?", Concern.MEDICAL),
+    ("I have had kidney problems.", Concern.MEDICAL),
+    ("Is whey ok for someone with kidney-damage?", Concern.MEDICAL),
+    ("I have GERD, is coffee before training ok?", Concern.MEDICAL),
+    ("Does creatine cause kidney stones?", Concern.MEDICAL),
     # Signs of disordered eating and intakes below the calorie floor (redirected).
     ("I make myself throw up after eating, can I still gain?", Concern.DISORDERED_EATING),
     ("I've been starving myself to lose weight.", Concern.DISORDERED_EATING),
@@ -146,6 +155,9 @@ BENIGN = [
     "Is cheddar aged 2 years higher in protein?",
     "Is cheese aged 12+ months higher in protein?",
     "Is creatine linked with kidney damage?",
+    "Hi, I'm Gerd from Berlin, how much protein for a bulk?",
+    "Glycogen depression after training, how many carbs do I need?",
+    "Does caffeine cause depression of appetite?",
     # Side effects asked about healthy people: the research covers them (source #10).
     "Does creatine cause kidney damage?",
     "Can a high-protein diet cause liver problems?",

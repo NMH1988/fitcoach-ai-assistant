@@ -101,7 +101,8 @@ _SENTENCE_END = re.compile(r"[.?!;]+(?: |$)")
 # "I'm 16:8 fasting", "I'm 12-weeks out", "I'm 13 and a half stone").
 _NOT_A_UNIT = (
     r"(?![\w'\"%]|[.,:/]\d| %|(?: and a half| and a bit)?[ -]?(?:kgs?|kilos?|lbs?|pounds?|stone"
-    r"|st|cm|ft|feet|foot|in|inch|inches|percent|weeks?|days?|months?|hours?|hrs?|minutes?|mins?|times?|sets?|reps?|meals?|g|grams?"
+    r"|st|cm|ft|feet|foot|in|inch|inches|percent|weeks?|days?|months?|hours?|hrs?|minutes?"
+    r"|mins?|times?|sets?|reps?|meals?|g|grams?"
     r"|k?cals?|calories|servings?|scoops?|eggs?|x|sessions?|workouts?|miles?|km|steps|down"
     r"|over|under|pounds|plates?)\b)"
 )
@@ -151,30 +152,37 @@ _PREGNANCY_PATTERNS = [
 # A disease named anywhere is redirected, research questions too ("does sugar cause diabetes?"):
 # owner's choice in the review of PR #46, as diseases are out of scope (docs/PRD.md).
 _DISEASES = (
-    r"(?:(?:pre-?)?diabetes|type [12] diabetes|t[12]d|kidney (?:disease|failure|stones?)"
-    r"|renal (?:disease|failure|insufficiency)|ckd|liver disease|fatty liver|cirrhosis|hepatitis"
-    r"|heart (?:disease|failure|condition|attacks?)|cardiovascular disease"
+    r"(?:(?:pre-?)?diabetes|type [12] diabetes|t[12]d|kidney (?:failure|stones?)"
+    r"|renal (?:disease|failure|insufficiency)|ckd|fatty liver|cirrhosis|hepatitis"
+    r"|heart (?:failure|attacks?)|cardiovascular disease"
     r"|coronary artery disease|(?:high|low) blood pressure|hypertension|high cholesterol"
     r"|hypercholesterolaemia|hypercholesterolemia|cancer|leukaemia|leukemia|pcos"
     r"|polycystic ovar(?:y|ian) syndrome|(?:hypo|hyper)thyroid(?:ism)?|(?:under|over)active thyroid"
-    r"|hashimoto's|graves' disease|thyroid (?:condition|disease)|gout|crohn's|crohns"
+    r"|hashimoto's|graves' disease|gout|crohn's|crohns"
     r"|ulcerative colitis|ibd|ibs|irritable bowel syndrome|celiac|coeliac|epilepsy|seizures"
     r"|anaemia|anemia|osteoporosis|arthritis|asthma|copd|hiv|lupus|multiple sclerosis"
     r"|autoimmune (?:disease|condition)|arrhythmia|afib|atrial fibrillation|gallstones"
-    r"|pancreatitis|gerd|sleep apnoea|sleep apnea|depression|bipolar(?: disorder)?|adhd"
+    r"|pancreatitis|sleep apnoea|sleep apnea|bipolar(?: disorder)?|adhd"
+    # Not "glycogen depression" or "depression of appetite".
+    r"|(?<!glycogen )depression(?! of\b)"
     r"|(?:medical|health|chronic|heart|kidney|liver|thyroid) (?:condition|illness|disease))"
 )
 # Side effects a supplement question names about healthy people ("does creatine cause kidney
-# damage?", which the research covers) count only when said about the user or a group.
-_SIDE_EFFECTS = r"(?:(?:kidney|liver|heart|thyroid) (?:damage|problems?|issues?))"
+# damage?", which the research covers) count only when said about the user or a group, and so
+# does "GERD", which is also a German first name ("I'm Gerd from Berlin").
+_SIDE_EFFECTS = (
+    r"(?:(?:kidney|liver|heart|thyroid)[- ](?:damage|problems?|issues?)|gerd|acid reflux)"
+)
 # Who has it: the user, someone named, or a group ("people with ...").
 _CONDITION_FRAME = (
-    r"\b(?:i have|i've got|ive got|i've|ive|i got|i had|i've had|i was diagnosed with"
+    r"\b(?:i have|i've got|ive got|i've|ive|i got|i had|i've had|i have had|i was diagnosed with"
     r"|i've been diagnosed with|i'm diagnosed with|diagnosed with|i suffer from|suffering from"
     r"|i(?:'m| am|m) living with|living with|recovering from|history of|my"
     # "Safe with ...", not a link in research ("is creatine linked with kidney damage?").
     r"|(?:he|she|they|we|my \w+) (?:has|have|had|got)"
     r"|(?:safe|ok|okay|fine|good|bad|healthy|dangerous|risky) (?:for|with)|with my"
+    # "Can I take creatine with kidney problems?": the user's own condition.
+    r"|(?:take|taking|use|using|drink|drinking|eat|eating) \w+(?: \w+)? with"
     r"|(?:people|someone|anyone|those"
     r"|patients|a person|persons|men|women|lifters|athletes|adults) with|if you have)"
     rf" (?:a |an |my |mild |severe |chronic |early )?{_SIDE_EFFECTS}\b"
