@@ -11,6 +11,7 @@ from src.rag.sources import ARTICLE_CHANGES_NOTE
 from src.tools import registry
 from src.tools.energy import Macro, TdeeResult
 from src.tools.food import FoodLookupResult
+from src.tools.meal_plan import MealItem, MealPlanResult, NutrientCheck
 
 st.set_page_config(page_title=config.APP_TITLE, page_icon=":material/nutrition:", layout="wide")
 
@@ -52,6 +53,7 @@ TOOL_TITLES = {
     registry.TDEE_TOOL: ":material/local_fire_department: Daily energy needs",
     registry.MACRO_TOOL: ":material/target: Daily targets",
     registry.FOOD_TOOL: ":material/restaurant: Food lookup",
+    registry.MEAL_PLAN_TOOL: ":material/fact_check: Meal plan check",
     None: ":material/block: Tool call not run",
 }
 TIER_COLORS = {1: "green", 2: "violet"}
@@ -494,6 +496,94 @@ def _show_food(result: FoodLookupResult) -> None:
     st.caption("Source: USDA FoodData Central, Foundation Foods (CC0). Values per 100 g, scaled.")
 
 
+NUTRIENT_NAMES = {
+    "kcal": "Energy",
+    "protein": "Protein",
+    "carbohydrate": "Carbohydrate",
+    "fat": "Fat",
+}
+
+
+def _amount(value: float, unit: str) -> str:
+    """Return an amount with its unit, e.g. "3,035 kcal" or "55.6 g"."""
+    return f"{value:,g} {unit}"
+
+
+def _meal_item_cells(item: MealItem) -> list[str]:
+    """Return one food of the plan as table cells; a food not found has no values."""
+    nutrients = item.nutrients
+    if nutrients is None:
+        return ["Not found", _amount(item.grams, "g"), "-", "-", "-", "-", "-"]
+    fiber = "not reported" if nutrients.fiber_g is None else _amount(nutrients.fiber_g, "g")
+    return [
+        item.matched_name or "",
+        _amount(item.grams, "g"),
+        _amount(nutrients.kcal, "kcal"),
+        _amount(nutrients.protein_g, "g"),
+        _amount(nutrients.carbohydrate_g, "g"),
+        _amount(nutrients.fat_g, "g"),
+        fiber,
+    ]
+
+
+def _difference(check: NutrientCheck) -> str:
+    """Return the gap in words: how far the plan's total is below or above the target."""
+    if check.gap > 0:
+        return f"{_amount(check.gap, check.unit)} below the target"
+    if check.gap < 0:
+        return f"{_amount(-check.gap, check.unit)} above the target"
+    return "On the target"
+
+
+def _range_cell(check: NutrientCheck) -> str:
+    """Return where the total lies against the sources' range, or "-" without a range."""
+    if check.target_range is None or check.range_position is None:
+        return "-"
+    low, high = check.target_range
+    # "Maintain" has one value, not a range: "Below 2,759 kcal", not "Below 2,759-2,759 kcal".
+    span = f"{low:,}" if low == high else f"{low:,}-{high:,}"
+    return f"{check.range_position.capitalize()} {span} {check.unit}"
+
+
+def _show_meal_plan(result: MealPlanResult) -> None:
+    """Show a meal plan check: each food, then the totals against the daily targets (T4.5)."""
+    columns = ["USDA food", "Amount", "Energy", "Protein", "Carbohydrate", "Fat", "Fiber"]
+    cells = [_meal_item_cells(item) for item in result.items]
+    # The names asked for and the USDA names as table cells: plain text, never Markdown.
+    foods = {"Food asked": [item.requested for item in result.items]}
+    foods |= {name: [row[i] for row in cells] for i, name in enumerate(columns)}
+    foods["Other close USDA names"] = ["; ".join(item.alternatives) for item in result.items]
+    # A long name would take the whole width and push the values out of view; a capped column
+    # cuts it and shows it in full on hover.
+    names = {
+        column: st.column_config.TextColumn(width="medium")
+        for column in ("Food asked", "USDA food", "Other close USDA names")
+    }
+    st.dataframe(foods, hide_index=True, width="stretch", column_config=names)
+    if result.totals is not None:
+        checks = result.comparison
+        fiber = result.totals.fiber_g
+        st.dataframe(
+            {
+                "Nutrient": [NUTRIENT_NAMES[c.nutrient] for c in checks] + ["Fiber"],
+                "Plan total": [_amount(c.plan_total, c.unit) for c in checks]
+                + ["not reported" if fiber is None else _amount(fiber, "g")],
+                "Daily target": [_amount(c.target, c.unit) for c in checks] + ["No target"],
+                "Difference": [_difference(c) for c in checks] + ["-"],
+                "Range from the sources": [_range_cell(c) for c in checks] + ["-"],
+            },
+            hide_index=True,
+            width="stretch",
+        )
+    st.caption(result.message)
+    for note in result.notes:
+        st.caption(f":material/info: {note}")
+    st.caption(
+        "Source: USDA FoodData Central, Foundation Foods (CC0). Values per 100 g, scaled. "
+        "Targets: the daily targets from your details."
+    )
+
+
 def _show_tool_run(run: registry.ToolRun, key: str) -> None:
     """Show one tool result under its heading; without a profile, a button opens the form."""
     st.markdown(f"**{TOOL_TITLES.get(run.name, TOOL_TITLES[None])}**")
@@ -509,6 +599,8 @@ def _show_tool_run(run: registry.ToolRun, key: str) -> None:
         _show_macros(result)
     elif isinstance(result, FoodLookupResult) and result.status != "invalid":
         _show_food(result)
+    elif isinstance(result, MealPlanResult) and result.status != "invalid":
+        _show_meal_plan(result)
     else:
         # A refused or failed call: the fixed message the model got, never what it sent.
         st.caption(result.message)

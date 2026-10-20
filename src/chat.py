@@ -431,15 +431,24 @@ def stream_reply(
 def _run_round(
     tools: Mapping[str, StructuredTool], reply: AIMessageChunk
 ) -> list[tuple[ToolMessage, ToolRun]]:
-    """Run the reply's tool calls, at most MAX_TOOL_CALLS_PER_ROUND; refuse the rest."""
+    """Run the reply's tool calls, within the limits per round; refuse the rest."""
     # OpenAI models always send call ids; a call without one gets "", which the API would refuse
     # on the next request (shown as a service error).
     done = []
+    meal_plans = 0
     for number, call in enumerate(reply.tool_calls):
-        if number < config.MAX_TOOL_CALLS_PER_ROUND:
-            done.append(registry.run_tool_call(tools, call))
-        else:
+        if number >= config.MAX_TOOL_CALLS_PER_ROUND:
             done.append(registry.refused_call(call["id"] or "", config.TOO_MANY_TOOL_CALLS_MESSAGE))
+        elif call["name"] == registry.MEAL_PLAN_TOOL:
+            # Its result is long (up to MEAL_PLAN_MAX_ITEMS foods), so fewer of them run (T4.5).
+            meal_plans += 1
+            if meal_plans > config.MAX_MEAL_PLAN_CALLS_PER_ROUND:
+                message = config.TOO_MANY_MEAL_PLANS_MESSAGE
+                done.append(registry.refused_call(call["id"] or "", message))
+            else:
+                done.append(registry.run_tool_call(tools, call))
+        else:
+            done.append(registry.run_tool_call(tools, call))
     # Every call needs an answer, so arguments that are not valid JSON get one too.
     for call in reply.invalid_tool_calls:
         done.append(registry.refused_call(call["id"] or "", config.INVALID_TOOL_JSON_MESSAGE))

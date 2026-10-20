@@ -830,6 +830,8 @@ def test_the_answer_prompt_matches_the_code(monkeypatch):
     text = chat.load_system_prompt(config.PROJECT_ROOT / "src" / "prompts" / "answer_system.md")
     expected = ["<sources>", "<profile>", "<user_input>", "[S1]"]
     expected += [f"{config.CALORIE_FLOOR_KCAL:,} kcal", "matched_name", "profile_needed"]
+    # The meal plan tool (T4.5): the owner's lines on it (O1) block the merge until written.
+    expected += ["evaluate_meal_plan"]
     expected += list(config.EVIDENCE_TIER_LABELS.values())
     assert [phrase for phrase in expected if phrase not in text] == []
 

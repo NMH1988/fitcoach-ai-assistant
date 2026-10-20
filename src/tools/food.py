@@ -236,6 +236,14 @@ def _scale(food: Food, grams: float) -> Nutrients:
 def invalid_lookup_message(error: ValidationError) -> str:
     """State which arguments are wrong, as facts, without repeating what was sent."""
     fields = {str(e["loc"][0]) for e in error.errors() if e["loc"]}
+    parts = lookup_problems(fields)
+    return (
+        "Invalid food lookup: " + ("; ".join(parts) or "the arguments do not fit the schema") + "."
+    )
+
+
+def lookup_problems(fields: set[str]) -> list[str]:
+    """Return what is wrong with a food and grams pair, given the names of the failed fields."""
     parts = []
     if fields - set(FoodLookupArgs.model_fields):
         # Never names the extra field: it is the model's text.
@@ -251,9 +259,7 @@ def invalid_lookup_message(error: ValidationError) -> str:
             f"the amount must be a number of grams from {config.FOOD_MIN_GRAMS:g} to "
             f"{config.FOOD_MAX_GRAMS}"
         )
-    return (
-        "Invalid food lookup: " + ("; ".join(parts) or "the arguments do not fit the schema") + "."
-    )
+    return parts
 
 
 def lookup_food_nutrition(
