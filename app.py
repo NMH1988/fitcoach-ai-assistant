@@ -1,5 +1,6 @@
 """Streamlit entry point: page layout only; the logic lives in src/."""
 
+import re
 from typing import get_args
 
 import streamlit as st
@@ -39,7 +40,10 @@ STATUS_LABELS = {
 # What each step of a turn does, shown under it in the status box.
 STEP_DETAILS = {
     chat.Step.CHECK: "Length, prompt-injection patterns, safety topics and the question limit.",
-    chat.Step.SEARCH: "Vector search over the approved research articles.",
+    chat.Step.REWRITE: (
+        f"A small model rephrases the question {config.QUERY_REWRITES} ways and picks filters."
+    ),
+    chat.Step.SEARCH: "Vector search over the approved research for the question and each rewrite.",
     chat.Step.ANSWER: "The model answers from the passages found and cites them.",
     chat.Step.TOOLS: "Calculations from your profile and the USDA food table.",
 }
@@ -51,6 +55,11 @@ TOOL_TITLES = {
     None: ":material/block: Tool call not run",
 }
 TIER_COLORS = {1: "green", 2: "violet"}
+# The start of a line Markdown would read as a block: "#", "-", "+", "=" or "1." / "1)". A ">"
+# (quote) is not here: chat.escape_markdown() escapes it first, so keep both in step.
+_LINE_START = re.compile(r"^(\d*)([#+=.)-])")
+# How an evidence tier filter is named in "How this answer was found".
+TIER_FILTER_LABELS = {1: "ISSN position stands only", 2: "Peer-reviewed reviews only"}
 CORRECTION_LABELS = {
     "corrected_by": "A correction to this article was published",
     "corrects": "This notice corrects",
@@ -234,6 +243,12 @@ def _chat_model():
 
 
 @st.cache_resource(show_spinner=False)
+def _translation_model():
+    """Build the query translation model's client once per app process."""
+    return llm.build_chat_model(config.QUERY_TRANSLATION_MODEL, config.QUERY_TRANSLATION_MAX_TOKENS)
+
+
+@st.cache_resource(show_spinner=False)
 def _manifest():
     """Read the approved sources once, for the journal and corrections on the source cards."""
     return chat.manifest_by_id()
@@ -296,6 +311,7 @@ def _run_turn(question: str, turn: int) -> None:
         guard.session_limiter(st.session_state),
         open_index=_index,
         chat_model=_chat_model,
+        translation_model=_translation_model,
         manifest=_manifest(),
         on_step=on_step,
         on_text=on_text,
@@ -511,6 +527,100 @@ def _show_message(message: dict, turn: int) -> None:
         _show_result(message["result"], turn)
 
 
+def _last_search() -> chat.SearchDetails | None:
+    """Return how the latest turn that reached the search searched, or None before any."""
+    for message in reversed(st.session_state["messages"]):
+        if message["role"] == "assistant" and message["result"].search is not None:
+            return message["result"].search
+    return None
+
+
+def _one_line(text: str) -> str:
+    """Return text on one line, escaped, so it adds no formatting, image or link to a list."""
+    # GFM still links a bare "www." or e-mail address (no scheme, nothing to escape); it is shown,
+    # never loaded, and no raw HTML gets through.
+    line = chat.escape_markdown(" ".join(text.split()))
+    # A line start Markdown reads as a heading, quote, list or rule ("# Big", "> x", "1. x").
+    return _LINE_START.sub(r"\1\\\2", line)
+
+
+def _filter_badges(details: chat.SearchDetails) -> None:
+    """Show the filters the rewrite step chose as badges, or say there were none."""
+    if not details.has_filters:
+        st.badge("No filters", icon=":material/filter_alt_off:", color="gray")
+        return
+    with st.container(horizontal=True, gap="small"):
+        for topic in details.topics:
+            st.badge(config.TOPIC_LABELS.get(topic, topic), icon=":material/sell:", color="blue")
+        if details.min_year is not None:
+            st.badge(f"From {details.min_year}", icon=":material/calendar_month:", color="blue")
+        if details.evidence_tier is not None:
+            label = TIER_FILTER_LABELS.get(details.evidence_tier, config.UNKNOWN_TIER_LABEL)
+            st.badge(label, icon=":material/verified:", color="blue")
+
+
+def _search_notes(details: chat.SearchDetails) -> None:
+    """Say when the rewrite step gave nothing usable or the filters were dropped."""
+    if details.fell_back:
+        st.caption(
+            ":material/info: The rewrite step gave no usable result, so only your question "
+            "was searched, with no filters."
+        )
+    if details.filter_dropped:
+        st.caption(
+            ":material/filter_alt_off: No passage close enough matched these filters, so the "
+            "search ran again without them."
+        )
+
+
+def _details_tab() -> None:
+    """Show how the last answer was found: what was searched and the filters used (AC-3)."""
+    details = _last_search()
+    st.subheader(":material/manage_search: How this answer was found")
+    if details is None:
+        st.caption(
+            "Ask a question in the Ask tab to see how its answer was found: the searches run "
+            "and the filters used."
+        )
+        return
+    st.markdown("**Searched for**")
+    # The question is the user's text and the rewrites the model's: both shown escaped.
+    lines = [f"1. {_one_line(details.question)} *(your question)*"]
+    lines += [
+        f"{number}. {_one_line(rewrite)}" for number, rewrite in enumerate(details.rewrites, 2)
+    ]
+    st.markdown("\n".join(lines))
+    st.markdown("**Filters**")
+    _filter_badges(details)
+    _search_notes(details)
+
+
+def _last_answer_card() -> None:
+    """Show a short summary of how the last answer was found in the sidebar."""
+    details = _last_search()
+    if details is None:
+        return
+    with st.container(border=True):
+        st.markdown("**:material/manage_search: Last answer**")
+        # Names the question, as a rejected or failed turn leaves an earlier search here.
+        question = _one_line(details.question)
+        if len(question) > config.CARD_QUESTION_CHARS:
+            question = question[: config.CARD_QUESTION_CHARS].rstrip("\\ ") + "…"
+        st.caption(f"For: {question}")
+        if details.rewrites:
+            rewrites = len(details.rewrites)
+            st.caption(
+                f"Searched {len(details.queries)} ways: your question and {rewrites} "
+                f"{'rewrite' if rewrites == 1 else 'rewrites'}."
+            )
+        else:
+            st.caption("Searched for your question only.")
+        _filter_badges(details)
+        if details.filter_dropped:
+            st.caption("No match with these filters, so they were dropped.")
+        st.caption("More in the Details tab.")
+
+
 def _ask_tab() -> None:
     """Show the chat: the history, then the input; a new question runs one turn."""
     history = st.session_state["messages"]
@@ -542,18 +652,21 @@ def _about_sidebar() -> None:
         return
     summary = chat.knowledge_base_summary(manifest)
     st.divider()
-    st.header(":material/menu_book: About the answers")
-    st.markdown(
-        f"- **{summary.articles} open-access research articles**: "
-        f"{summary.position_stands} ISSN position stands and {summary.reviews} peer-reviewed "
-        f"reviews ({' and '.join(summary.licenses)}).\n"
-        "- Each question is matched to the closest passages, and the answer cites them as "
-        "[S1], [S2]...\n"
-        f"- Written by `{config.DEFAULT_ANSWER_MODEL}` through OpenRouter."
-    )
-    # Credits every source (copyright policy rule 6): authors, title, journal, licence, link, and
-    # the change made with the no-endorsement note, as in ATTRIBUTION.md.
-    with st.expander("Sources and credits", icon=":material/license:"):
+    # An expander since the last answer's card sits above it (docs/UI_DESIGN.md); Streamlit cannot
+    # nest expanders, so the credits are a section inside it.
+    with st.expander("About the answers", icon=":material/menu_book:"):
+        st.markdown(
+            f"- **{summary.articles} open-access research articles**: "
+            f"{summary.position_stands} ISSN position stands and {summary.reviews} peer-reviewed "
+            f"reviews ({' and '.join(summary.licenses)}).\n"
+            f"- Each question is rephrased {config.QUERY_REWRITES} ways, the closest passages "
+            "are found, and the answer cites them as [S1], [S2]...\n"
+            f"- Rephrased by `{config.QUERY_TRANSLATION_MODEL}` and written by "
+            f"`{config.DEFAULT_ANSWER_MODEL}` through OpenRouter."
+        )
+        # Credits every source (copyright policy rule 6): authors, title, journal, licence, link,
+        # and the change made with the no-endorsement note, as in ATTRIBUTION.md.
+        st.markdown("**:material/license: Sources and credits**")
         for source in manifest.values():
             st.markdown(
                 f"**{source.id}.** {chat.escape_markdown(chat.format_authors(source.authors))}. "
@@ -596,12 +709,16 @@ def _main_area() -> None:
     with food:
         st.caption("Looking up the nutrients of a food will be possible here in a later version.")
     with details:
-        st.caption("How each answer was found will appear here in a later version.")
+        _details_tab()
 
 
 with st.sidebar:
     _profile_sidebar()
     st.caption(config.THEME_HINT)
+    # Filled after the main area, so it shows the turn that just ran; until then the page keeps
+    # the previous run's card. Drawn once per run: a slot drawn twice in one run keeps the first
+    # draw's extra elements (e.g. a badge the new turn does not have; found in the browser).
+    last_answer_slot = st.empty()
     _about_sidebar()
 if st.session_state.get("profile_form_open"):
     _profile_form()
@@ -611,3 +728,5 @@ if st.session_state.get("profile_form_open"):
 _, main, _ = st.columns(config.PAGE_COLUMN_WEIGHTS)
 with main:
     _main_area()
+with last_answer_slot.container():
+    _last_answer_card()

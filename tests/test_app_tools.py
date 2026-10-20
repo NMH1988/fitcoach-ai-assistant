@@ -15,6 +15,7 @@ from tests.fakes import (
     HOSTILE_FOOD_NAME,
     PROFILE,
     ScriptedChatModel,
+    ScriptedTranslator,
     build_fixture_index,
     open_fixture_index,
     tool_reply,
@@ -41,6 +42,9 @@ def fakes(tmp_path, monkeypatch, index_path):
     prompt = tmp_path / "prompt.md"
     prompt.write_text("Test system prompt.", encoding="utf-8")
     monkeypatch.setattr(config, "ANSWER_PROMPT_PATH", prompt)
+    translation = tmp_path / "translation_prompt.md"
+    translation.write_text("Test query translation prompt.", encoding="utf-8")
+    monkeypatch.setattr(config, "QUERY_TRANSLATION_PROMPT_PATH", translation)
     monkeypatch.setattr(config, "ANSWER_WORDS_PER_SECOND", 0)
     monkeypatch.setattr(config, "USDA_FOODS_PATH", write_food_table(tmp_path / "foods.csv"))
     monkeypatch.setattr(store, "open_index", lambda: open_fixture_index(index_path))
@@ -51,9 +55,15 @@ def fakes(tmp_path, monkeypatch, index_path):
 
 
 def _use_model(monkeypatch, *replies: AIMessage) -> ScriptedChatModel:
-    """Make the app build a model scripted with these replies."""
+    """Make the app build a model scripted with these replies (rewrites repeat the question)."""
     model = ScriptedChatModel(replies=list(replies))
-    monkeypatch.setattr(llm, "build_chat_model", lambda: model)
+    translator = ScriptedTranslator()
+
+    def build(name: str = config.DEFAULT_ANSWER_MODEL, *args, **kwargs):
+        """Return the fake translator for the query translation model, else the answer fake."""
+        return translator if name == config.QUERY_TRANSLATION_MODEL else model
+
+    monkeypatch.setattr(llm, "build_chat_model", build)
     return model
 
 
@@ -161,6 +171,7 @@ def test_the_tool_step_shows_in_the_status(monkeypatch):
     message = _assistant(_ask())
     assert [s.label for s in message.status][1:] == [
         chat.Step.CHECK.value,
+        chat.Step.REWRITE.value,
         chat.Step.SEARCH.value,
         chat.Step.ANSWER.value,
         chat.Step.TOOLS.value,

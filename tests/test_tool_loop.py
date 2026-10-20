@@ -15,6 +15,7 @@ from tests.fakes import (
     HOSTILE_FOOD_NAME,
     PROFILE,
     ScriptedChatModel,
+    ScriptedTranslator,
     build_fixture_index,
     open_fixture_index,
     tool_reply,
@@ -34,6 +35,9 @@ def test_prompt(tmp_path, monkeypatch):
     path = tmp_path / "prompt.md"
     path.write_text("Test system prompt.", encoding="utf-8")
     monkeypatch.setattr(config, "ANSWER_PROMPT_PATH", path)
+    translation = tmp_path / "translation_prompt.md"
+    translation.write_text("Test query translation prompt.", encoding="utf-8")
+    monkeypatch.setattr(config, "QUERY_TRANSLATION_PROMPT_PATH", translation)
     monkeypatch.setattr(config, "USDA_FOODS_PATH", write_food_table(tmp_path / "foods.csv"))
 
 
@@ -57,6 +61,8 @@ def _turn(index, *replies: AIMessage, user=PROFILE, on_step=None, on_text=None, 
         guard.RateLimiter(),
         open_index=lambda: index,
         chat_model=lambda: model,
+        # Rewrites repeat the question (tests/fakes.py), so the search finds what it alone finds.
+        translation_model=ScriptedTranslator,
         on_step=on_step,
         on_text=on_text,
         user=user,
@@ -124,6 +130,7 @@ def test_rounds_follow_each_other_and_the_steps_show_them(index):
     assert len(_tool_messages(model)) == 2
     assert steps == [
         Step.CHECK,
+        Step.REWRITE,
         Step.SEARCH,
         Step.ANSWER,
         Step.TOOLS,

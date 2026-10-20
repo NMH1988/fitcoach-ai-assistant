@@ -1,4 +1,4 @@
-"""Tests for src/chat.py and src/rag/retriever.py: one chat turn with fakes (T3.1, AC-1, AC-2)."""
+"""Tests for src/chat.py and src/rag/retriever.py: one chat turn with fakes (T3.1, T3.2)."""
 
 import httpx2
 import openai
@@ -14,9 +14,11 @@ from src.rag.store import IndexNotReadyError
 from tests.fakes import (
     CHUNKS,
     ScriptedChatModel,
+    ScriptedTranslator,
     build_fixture_index,
     chunk,
     open_fixture_index,
+    plan_json,
 )
 from tests.test_ingest import make_source
 
@@ -25,9 +27,15 @@ QUESTION = "How much protein per meal?"
 OFF_TOPIC = "What is the offside rule in football?"
 
 
+TEST_TRANSLATION_PROMPT = "Test query translation prompt."
+
+
 @pytest.fixture(autouse=True)
 def test_prompt(tmp_path, monkeypatch):
-    """Point the answer prompt at a test file, so the tests do not depend on the owner's text."""
+    """Point both prompts at test files, so the tests do not depend on the owner's text."""
+    translation = tmp_path / "translation_prompt.md"
+    translation.write_text(TEST_TRANSLATION_PROMPT, encoding="utf-8")
+    monkeypatch.setattr(config, "QUERY_TRANSLATION_PROMPT_PATH", translation)
     path = tmp_path / "prompt.md"
     path.write_text(TEST_PROMPT, encoding="utf-8")
     monkeypatch.setattr(config, "ANSWER_PROMPT_PATH", path)
@@ -53,13 +61,17 @@ def _model(*answers: str, **metadata) -> ScriptedChatModel:
     )
 
 
-def _turn(text, index, model, *, limiter=None, manifest=None, on_step=None, on_text=None):
-    """Run one chat turn on the fixture index with the given model."""
+def _turn(
+    text, index, model, *, translator=None, limiter=None, manifest=None, on_step=None, on_text=None
+):
+    """Run one chat turn on the fixture index with the given models (rewrites repeat the text)."""
+    translator = translator or ScriptedTranslator()
     return chat.run_turn(
         text,
         limiter or guard.RateLimiter(),
         open_index=lambda: index,
         chat_model=lambda: model,
+        translation_model=lambda: translator,
         manifest=manifest,
         on_step=on_step,
         on_text=on_text,
@@ -82,8 +94,8 @@ def test_a_turn_runs_the_guard_retrieval_and_the_answer_in_order(index):
     result = _turn(QUESTION, index, model, on_step=reported.append)
     assert result.kind == "answer"
     assert result.text == "Spread it over four meals [S1]."
-    assert reported == [Step.CHECK, Step.SEARCH, Step.ANSWER]
-    assert result.steps == (Step.CHECK, Step.SEARCH, Step.ANSWER)
+    assert reported == [Step.CHECK, Step.REWRITE, Step.SEARCH, Step.ANSWER]
+    assert result.steps == (Step.CHECK, Step.REWRITE, Step.SEARCH, Step.ANSWER)
     [[system, user]] = model.calls
     assert isinstance(system, SystemMessage)
     assert system.content == TEST_PROMPT
@@ -143,11 +155,179 @@ def test_a_search_on_a_broken_index_reports_it_as_not_ready(index, monkeypatch):
         """Raise the error Chroma gives when the collection is gone."""
         raise ChromaError("internal detail")
 
-    monkeypatch.setattr(index, "similarity_search_with_score", fail)
+    monkeypatch.setattr(index, "similarity_search_by_vector_with_relevance_scores", fail)
     result = _turn(QUESTION, index, _model())
     assert result.kind == "error"
     assert result.text.startswith("The knowledge base index could not be read.")
     assert "internal detail" not in result.text
+
+
+# --- Query translation and filters (T3.2) ---------------------------------------------------------
+
+REWRITES = ["protein per meal for muscle", "protein dose in one sitting", "meal protein amount"]
+
+
+class SearchSpy:
+    """Records the embedding calls and the vector searches (with their filters) on an index."""
+
+    def __init__(self, index, monkeypatch) -> None:
+        """Wrap the index's embedding call and vector search, keeping the real behaviour."""
+        self.embedded: list[list[str]] = []
+        self.filters: list[dict | None] = []
+        embed, find = (
+            index.embeddings.embed_documents,
+            index.similarity_search_by_vector_with_relevance_scores,
+        )
+
+        def spy_embed(texts):
+            """Record the texts embedded in one call."""
+            self.embedded.append(list(texts))
+            return embed(texts)
+
+        def spy_find(vector, k=4, filter=None, **kwargs):
+            """Record the filter of one vector search."""
+            self.filters.append(filter)
+            return find(vector, k=k, filter=filter, **kwargs)
+
+        monkeypatch.setattr(index.embeddings, "embed_documents", spy_embed)
+        monkeypatch.setattr(index, "similarity_search_by_vector_with_relevance_scores", spy_find)
+
+
+def test_the_question_and_each_rewrite_are_searched_with_the_filter(index, monkeypatch):
+    """One embedding call for the question and its 3 rewrites, then one filtered search each."""
+    spy = SearchSpy(index, monkeypatch)
+    translator = ScriptedTranslator(plans=[plan_json(REWRITES, ["protein"])])
+    result = _turn(QUESTION, index, _model("Four meals [S1]."), translator=translator)
+    assert spy.embedded == [[QUESTION, *REWRITES]]
+    assert spy.filters == [{"topics": {"$contains": "protein"}}] * 4
+    assert result.search == chat.SearchDetails(
+        question=QUESTION, rewrites=tuple(REWRITES), topics=("protein",)
+    )
+    assert result.search.queries == (QUESTION, *REWRITES)
+    assert len(translator.calls) == 1
+
+
+def test_a_rewrite_finds_chunks_the_question_alone_misses(index):
+    """A vague question finds nothing by itself; its rewrites find the matching passages."""
+    vague = "What should I eat late at night?"
+    assert retriever.retrieve(index, vague) == []
+    plan = plan_json(["casein protein before sleep", "protein at night", "a snack before bed"])
+    model = _model("Casein before sleep [S1].")
+    result = _turn(vague, index, model, translator=ScriptedTranslator(plans=[plan]))
+    assert result.kind == "answer"
+    assert "Protein before sleep: casein" in _user_message(model)
+
+
+def test_the_filter_keeps_only_matching_chunks(index):
+    """With a tier filter only tier 1 chunks reach the model; the creatine review is left out."""
+    model = _model("Answer [S1].")
+    plan = plan_json(REWRITES, evidence_tier=1)
+    result = _turn(QUESTION, index, model, translator=ScriptedTranslator(plans=[plan]))
+    block = _user_message(model)
+    assert "Made-up article 1" in block and "Made-up article 2" not in block
+    assert not result.search.filter_dropped
+
+
+def test_with_no_hits_the_search_runs_again_without_the_filter(index, monkeypatch):
+    """A filter nothing relevant passes: the same vectors are searched again, unfiltered."""
+    spy = SearchSpy(index, monkeypatch)
+    model = _model("Four meals [S1].")
+    plan = plan_json(REWRITES, ["fat"])
+    result = _turn(QUESTION, index, model, translator=ScriptedTranslator(plans=[plan]))
+    assert spy.filters == [{"topics": {"$contains": "fat"}}] * 4 + [None] * 4
+    assert len(spy.embedded) == 1
+    assert result.kind == "answer"
+    assert result.search.filter_dropped
+    assert result.search.topics == ("fat",)
+    assert "Made-up article 1" in _user_message(model)
+
+
+def test_with_no_hits_even_without_the_filter_the_sources_do_not_cover_it(index, monkeypatch):
+    """Nothing filtered or unfiltered: no_sources and the search details kept."""
+    spy = SearchSpy(index, monkeypatch)
+    # With no chunk the answer model is still asked once, with the tools; it calls none (T4.4).
+    model = _model("Offside is a football rule.")
+    plan = plan_json(["football rules", "offside in soccer", "the offside law"], ["fat"])
+    result = _turn(OFF_TOPIC, index, model, translator=ScriptedTranslator(plans=[plan]))
+    assert result.kind == "no_sources"
+    assert result.search.filter_dropped
+    assert len(spy.filters) == 8
+    assert len(model.calls) == 1
+
+
+def test_without_a_filter_there_is_no_second_search(index, monkeypatch):
+    """With no filter and no hit, the search is not repeated."""
+    spy = SearchSpy(index, monkeypatch)
+    result = _turn(OFF_TOPIC, index, _model("Offside is a football rule."))
+    assert result.kind == "no_sources"
+    assert spy.filters == [None] * 4
+    assert not result.search.filter_dropped
+
+
+@pytest.mark.parametrize(
+    "plan", ["not JSON at all", plan_json(REWRITES[:2]), llm.InvalidReplyError()]
+)
+def test_an_unusable_plan_searches_the_question_alone_unfiltered(index, monkeypatch, plan):
+    """Invalid query translation output falls back to the original question with no filter."""
+    spy = SearchSpy(index, monkeypatch)
+    model = _model("Four meals [S1].")
+    result = _turn(QUESTION, index, model, translator=ScriptedTranslator(plans=[plan]))
+    assert spy.embedded == [[QUESTION]]
+    assert spy.filters == [None]
+    assert result.kind == "answer"
+    assert result.search == chat.SearchDetails(question=QUESTION, fell_back=True)
+
+
+def test_rewrites_that_repeat_the_question_are_searched_once(index, monkeypatch):
+    """A rewrite equal to the question or to another rewrite (ignoring case) is dropped."""
+    spy = SearchSpy(index, monkeypatch)
+    plan = plan_json([QUESTION.upper(), "protein per meal", "PROTEIN PER MEAL"])
+    _turn(QUESTION, index, _model("A [S1]."), translator=ScriptedTranslator(plans=[plan]))
+    assert spy.embedded == [[QUESTION, "protein per meal"]]
+
+
+def test_the_answer_model_gets_the_question_not_the_rewrites(index):
+    """The rewrites are only searched; the answer model sees the user's own question."""
+    model = _model("Four meals [S1].")
+    plan = plan_json(["protein rewrite alpha", "protein rewrite beta", "protein rewrite gamma"])
+    _turn(QUESTION, index, model, translator=ScriptedTranslator(plans=[plan]))
+    [[system, user]] = model.calls
+    for text in (system.content, user.content):
+        assert "rewrite" not in text
+    assert user.content.endswith(f"<user_input>\n{QUESTION}\n</user_input>")
+
+
+def test_a_translation_error_ends_the_turn_before_the_search(index, monkeypatch):
+    """A key, credit, rate limit or outage error in query translation ends the turn with it."""
+    spy = SearchSpy(index, monkeypatch)
+    model = _model()
+    translator = ScriptedTranslator(plans=[llm.RateLimitedError(429)])
+    result = _turn(QUESTION, index, model, translator=translator)
+    assert result.kind == "error"
+    assert result.text == llm.RateLimitedError.user_message
+    assert result.steps == (Step.CHECK, Step.REWRITE)
+    assert spy.embedded == [] and model.calls == []
+    assert result.search is None
+
+
+def test_a_search_merges_the_lists_keeping_each_chunk_once_at_its_nearest(index):
+    """A chunk found by several queries counts once, at its smallest distance, nearest first."""
+    vectors = retriever.embed_queries(index, ["protein", "casein protein before sleep"])
+    found = retriever.search(index, vectors)
+    keys = [retriever.chunk_key(c) for c in found]
+    assert len(keys) == len(set(keys))
+    alone = {retriever.chunk_key(c): c.distance for c in retriever.search(index, vectors[1:])}
+    for c in found:
+        assert c.distance <= alone.get(retriever.chunk_key(c), 2.0)
+    assert [c.distance for c in found] == sorted(c.distance for c in found)
+
+
+def test_a_search_keeps_at_most_the_top_k_chunks_over_all_queries(tmp_path):
+    """However many queries, at most RETRIEVAL_TOP_K chunks come back."""
+    many = [chunk("5", n, f"Note {n}: " + "protein " * 10 + "sleep " * n) for n in range(9)]
+    index = open_fixture_index(build_fixture_index(tmp_path / "chroma", many))
+    vectors = retriever.embed_queries(index, ["protein", "sleep", "protein sleep"])
+    assert len(retriever.search(index, vectors)) == config.RETRIEVAL_TOP_K
 
 
 # --- No relevant chunk (AC 3) ---------------------------------------------------------------------
@@ -161,7 +341,7 @@ def test_with_no_relevant_chunk_the_app_says_the_sources_do_not_cover_it(index):
     assert result.kind == "no_sources"
     assert result.text == config.NO_SOURCES_MESSAGE
     assert result.sources == ()
-    assert result.steps == (Step.CHECK, Step.SEARCH, Step.ANSWER)
+    assert result.steps == (Step.CHECK, Step.REWRITE, Step.SEARCH, Step.ANSWER)
     # One call with the tools, in case one could answer; its own text is never shown.
     [[_, user]] = model.calls
     assert f"<sources>\n{config.NO_SOURCES_BLOCK}\n</sources>" in user.content
@@ -375,6 +555,7 @@ def test_rejected_input_opens_nothing_and_calls_no_model():
         guard.RateLimiter(),
         open_index=lambda: opened.append("index"),
         chat_model=lambda: opened.append("model"),
+        translation_model=lambda: opened.append("translator"),
     )
     assert result.kind == "rejected"
     assert result.text == guard.INJECTION_MESSAGE
@@ -390,6 +571,7 @@ def test_a_guardrail_question_opens_nothing_and_calls_no_model():
         guard.RateLimiter(),
         open_index=lambda: opened.append("index"),
         chat_model=lambda: opened.append("model"),
+        translation_model=lambda: opened.append("translator"),
     )
     assert result.kind == "guardrail"
     assert result.text == guardrails.MESSAGES[guardrails.Concern.PED_DOSING]
@@ -423,7 +605,7 @@ def test_a_model_error_becomes_its_fixed_message(index, error):
     assert result.kind == "error"
     expected = llm.RateLimitedError if isinstance(error, llm.LLMError) else llm.LLMTimeoutError
     assert result.text == expected.user_message
-    assert result.steps == (Step.CHECK, Step.SEARCH, Step.ANSWER)
+    assert result.steps == (Step.CHECK, Step.REWRITE, Step.SEARCH, Step.ANSWER)
 
 
 def test_the_answer_is_reported_as_it_streams_in(index):
@@ -435,6 +617,7 @@ def test_the_answer_is_reported_as_it_streams_in(index):
         guard.RateLimiter(),
         open_index=lambda: index,
         chat_model=lambda: _model(answer),
+        translation_model=ScriptedTranslator,
         on_text=seen.append,
     )
     assert result.text == answer
@@ -554,9 +737,31 @@ def test_a_missing_or_empty_prompt_stops_the_turn_before_any_call(test_prompt, c
         guard.RateLimiter(),
         open_index=lambda: opened.append("index"),
         chat_model=lambda: opened.append("model"),
+        translation_model=lambda: opened.append("translator"),
     )
     assert result.kind == "error"
     assert result.text == config.PROMPT_MISSING_MESSAGE
+    assert opened == []
+
+
+@pytest.mark.parametrize("content", [None, "  \n"])
+def test_a_missing_or_empty_translation_prompt_stops_the_turn_before_any_call(content):
+    """Without the query translation prompt the turn ends with its own fixed message, no call."""
+    path = config.QUERY_TRANSLATION_PROMPT_PATH
+    if content is None:
+        path.unlink()
+    else:
+        path.write_text(content, encoding="utf-8")
+    opened = []
+    result = chat.run_turn(
+        QUESTION,
+        guard.RateLimiter(),
+        open_index=lambda: opened.append("index"),
+        chat_model=lambda: opened.append("model"),
+        translation_model=lambda: opened.append("translator"),
+    )
+    assert result.kind == "error"
+    assert result.text == config.QUERY_PROMPT_MISSING_MESSAGE
     assert opened == []
 
 
@@ -568,7 +773,11 @@ def test_a_missing_index_shows_the_build_command():
         raise IndexNotReadyError("The knowledge base index is missing.")
 
     result = chat.run_turn(
-        QUESTION, guard.RateLimiter(), open_index=missing, chat_model=lambda: _model()
+        QUESTION,
+        guard.RateLimiter(),
+        open_index=missing,
+        chat_model=lambda: _model(),
+        translation_model=ScriptedTranslator,
     )
     assert result.kind == "error"
     assert result.text == (
@@ -592,7 +801,11 @@ def test_a_missing_or_unreadable_key_gives_a_setup_message(index, error, message
         raise error
 
     result = chat.run_turn(
-        QUESTION, guard.RateLimiter(), open_index=lambda: index, chat_model=no_key
+        QUESTION,
+        guard.RateLimiter(),
+        open_index=lambda: index,
+        chat_model=no_key,
+        translation_model=no_key,
     )
     assert result.kind == "error"
     assert result.text == message
@@ -644,3 +857,15 @@ def test_the_answer_prompt_is_the_owners(monkeypatch):
     monkeypatch.undo()
     text = chat.load_system_prompt(config.PROJECT_ROOT / "src" / "prompts" / "answer_system.md")
     assert not text.startswith("TODO (owner)"), "The owner has not written the answer prompt yet."
+
+
+def test_a_chunk_found_only_by_a_rewrite_counts(index):
+    """The distance limit applies to each query: a chunk close to any rewrite reaches the model."""
+    # Pins the chosen merge: an off-topic question with an on-topic rewrite is answered from the
+    # chunks that rewrite finds, and the answer prompt is left to decline it (T3.2 review).
+    assert retriever.retrieve(index, OFF_TOPIC) == []
+    plan = plan_json(["protein for football players", "offside rule", "football laws"])
+    model = _model("The sources do not cover football rules.")
+    result = _turn(OFF_TOPIC, index, model, translator=ScriptedTranslator(plans=[plan]))
+    assert result.kind == "answer"
+    assert len(model.calls) == 1
