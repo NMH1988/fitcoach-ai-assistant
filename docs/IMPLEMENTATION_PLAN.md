@@ -53,6 +53,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T4.3 | #13 | USDA food table and lookup | M | T1.1 | 10-23 | done |
 | T3.1 | #7 | First answer with sources (vector search) | M | T1.2, T1.3, T2.3, O1 | 10-24 | done |
 | T4.2 | #12 | Energy and macro tools with the calorie floor | M | T4.1, O3 | 10-25 | done |
+| T1.5 | #42 | Docs: run commands use the project's venv | S | T1.1 | 10-20 | in review |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1 | 10-26 | todo |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2, O2 | 10-27 | todo |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | todo |
@@ -118,6 +119,16 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] The report gives each finding a severity, `path:line`, a concrete attack string or scenario, the impact and the smallest fix, plus a list of controls that held - checked by one run against `main` (recorded in `docs/PROGRESS.md`).
 - [x] `CLAUDE.md` ("Where things are") and `docs/SECURITY.md` name the agent - checked by reading them.
 **Notes:** owner's choices (2026-10-20): read-only (tests are only proposed), never a live run against the real model, optional tool (not added to `.claude/rules/workflow.md`); criterion 3 reworded to allow GitHub through `git`/`gh` (owner's choice in the PR #39 review). Attack strings are our own, not copied from other projects.
+
+### T1.5 Docs: run commands use the project's venv (S) · status: in review · issue #42
+**Serves:** the evaluation's technical item "the app works (you can chat and get answers)" (`docs/BRIEF.md`), when run as documented; prepares T6.2 (README).
+**Depends on:** T1.1
+**Acceptance criteria** (approved by the owner, 2026-10-20)
+- [x] Right before the run commands, the README says they must run in a terminal with `.venv` active (`(.venv)` at the start of the prompt), gives the way without activating (`.venv\Scripts\streamlit.exe run app.py` on Windows, `.venv/bin/streamlit run app.py` on macOS and Linux), and names the symptom of the wrong Python (`ModuleNotFoundError: No module named 'langchain_chroma'`) - review.
+- [x] The README lists the steps before the first question: set the key, `python scripts/download_sources.py`, `python scripts/build_index.py`, then run the app, with the note to stop the app before rebuilding the index - review.
+- [x] The "Run" line in `CLAUDE.md` says to use the venv too - review.
+- [ ] The documented command `.venv\Scripts\streamlit.exe run app.py` is run in a new terminal and the app loads without error; CI passes - manual check done (2026-10-20: typed as written in a new PowerShell tab; the app loaded with its title and four tabs and no error; local ruff and pytest pass); CI pending until the PR runs.
+**Notes:** found on 2026-10-20 when the owner started the app with the system Python's `streamlit` (1.64, without the project's packages) after PR #41 merged.
 
 ## Epic 2: Knowledge base
 

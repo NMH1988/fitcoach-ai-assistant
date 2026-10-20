@@ -15,6 +15,16 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-20 · T1.5 Docs: run commands use the project's venv · #43 (closes #42)
+- **Brief:** the evaluation's technical item "the app works (you can chat and get answers)" (`docs/BRIEF.md`), when run as documented; prepares T6.2 (README).
+- **What:**
+  - `README.md`: before the commands, a note that they run in a terminal with `.venv` active, how to call the venv's `streamlit` and `python` without activating it (PowerShell, Git Bash, macOS and Linux forms), and the symptoms of the wrong Python (`No module named 'langchain_chroma'` from the app; from a script, its first missing import, e.g. `'chromadb'` or `'src'`); the one-time knowledge base steps (`python scripts/download_sources.py`, no key needed; `python scripts/build_index.py`, needs the key, under one US cent) with the note to stop the app before rebuilding.
+  - `CLAUDE.md`: the venv note now opens the Commands section (it applies to every command), with the direct forms and both symptoms; the Run line lists the three direct forms.
+  - Plan: T1.5 added with the owner's criteria; T4.6 done (PR #41 merged).
+- **Why:** after PR #41 merged, the owner started the app in a new terminal with `streamlit run app.py`, which ran the system Python's Streamlit (1.64, without the project's packages): `ModuleNotFoundError: No module named 'langchain_chroma'`. The code was fine; the README only said to activate the venv once, at setup, and skipped the download and index steps the app needs before it can answer.
+- **Decisions & gotchas:** Code review (before the PR): added the Git Bash form (backslashes break there), the scripts' direct form and their symptom (the scripts import `src` through the venv's editable install; code review on the PR corrected the example: `build_index.py` stops at `chromadb` first, so any `ModuleNotFoundError` is the sign), "no key needed" for the download, and the price date; T1.5 moved to the core group with the evaluation item it serves. Claude stopped the app started with the system Python, at the owner's request to fix it, and restarted it with `.venv\Scripts\streamlit.exe run app.py`; it loaded without error.
+- **Follow-ups:** T6.2 reviews the whole README before the transfer to the course repository, including `ruff check . && ruff format --check .`, which Windows PowerShell 5.1 does not run (no `&&`).
+
 ## 2026-10-20 · Plan Epic 7: language and appearance (T7.1-T7.3) · #37 (closes #36)
 - **Brief:** planning record. T7.1 and T7.2 serve Hard 4 (multi-language support) as extras; T7.3 (light and dark mode) is beyond the brief (owner's request).
 - **What:** docs only, no code.
