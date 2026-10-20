@@ -50,8 +50,13 @@ def test_the_report_gives_each_methods_first_hit_and_hit_rate(tmp_path, capsys):
     assert "q1: expects #9" in hmb
     assert "vector   first hit  -" in hmb
     assert "keyword  first hit  1  #9\n" in hmb
-    # #9 scores 1/61, tied with the nearest note, which wins the tie by its distance.
-    assert "hybrid   first hit  2  #8 #9 #8" in hmb
+    # #9 scores 1/61, tied with the nearest note, which wins the tie by its distance; it is
+    # marked "*" as found by keyword only. The keyword row marks nothing.
+    assert "hybrid   first hit  2  #8 #9* #8 #8 #8 #8\n" in hmb
+    assert "*" not in hmb.split("hybrid")[0]
+    # q1's hybrid list holds one keyword-only chunk of 6; q2's 3 chunks were all found by vectors.
+    assert "hybrid   first hit  1  #1 #2 #1\n" in casein
+    assert "Hybrid chunks found by keyword only (* above): 1 of 9, over all questions" in rates
     assert "vector   first hit  1  #1" in casein
     assert f"Hit rate in the top {config.RETRIEVAL_TOP_K}, 2 scored questions:" in rates
     assert "vector   1 of 2 (50%)" in rates

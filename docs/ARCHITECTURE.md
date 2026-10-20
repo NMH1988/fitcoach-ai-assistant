@@ -70,11 +70,11 @@ scripts/
   prepare_usda.py           turn the USDA Foundation Foods CSV into a small foods table
   live_check_llm.py         owner's live check: one real chat and one real embedding call
   live_check_retrieval.py   owner's live check: distances of the nearest chunks, to set the limit
-  compare_retrieval.py      owner's live check: vector-only, keyword-only and hybrid hit rates (T3.3)
+  compare_retrieval.py      owner's live check: vector-only, keyword-only and hybrid hit rates (T3.3; run in T3.6)
 data/
   sources.json              manifest of approved sources (committed)
   usda_foods.csv            trimmed USDA table (committed, CC0)
-  eval_questions.json       the owner's evaluation questions and expected sources (O2; T3.3, T6.1)
+  eval_questions.json       the owner's evaluation questions and expected sources (O2; T3.6, T6.1)
   raw/                      downloaded article XML (gitignored)
 chroma/                     vector index (gitignored, rebuilt by the script)
 ATTRIBUTION.md              credits for every source and the USDA data, generated

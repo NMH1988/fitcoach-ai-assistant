@@ -114,11 +114,12 @@ def test_a_turn_runs_the_guard_retrieval_and_the_answer_in_order(index):
 
 
 def test_the_labels_map_to_the_retrieved_chunks(index):
-    """[S#] numbers the relevant chunks nearest first; the cited labels name their articles."""
+    """[S#] numbers the chunks in their RRF order; the cited labels name their articles."""
     model = _model("Four meals [S1]; creatine with protein [S3].")
     result = _turn(QUESTION, index, model)
     block = _user_message(model)
-    # Nearest first: the two protein chunks of article 1, then the creatine chunk of article 2.
+    # RRF order (here also the nearest first): the two protein chunks of article 1, then the
+    # creatine chunk of article 2.
     assert block.index("[S1] Made-up article 1") < block.index(CHUNKS[0].page_content)
     assert block.index("[S2] Made-up article 1") < block.index(CHUNKS[1].page_content)
     assert block.index("[S3] Made-up article 2") < block.index(CHUNKS[2].page_content)

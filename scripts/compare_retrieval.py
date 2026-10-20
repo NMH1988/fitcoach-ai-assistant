@@ -81,9 +81,18 @@ def retrieve_all(
     }
 
 
-def _sources(found: Sequence[RetrievedChunk]) -> str:
-    """Return the source IDs of the chunks found, in order, e.g. '#4 #4 #10'."""
-    return " ".join(f"#{chunk.metadata.get('source_id')}" for chunk in found) or "nothing"
+def _sources(found: Sequence[RetrievedChunk], mark_keyword_only: bool = False) -> str:
+    """Return the source IDs of the chunks found, in order, e.g. '#4 #4* #10'."""
+    # In the hybrid row a "*" marks a chunk found by keyword search only (no vector distance),
+    # so T3.6 can see how often such chunks reach the top (PR #52 review).
+    return (
+        " ".join(
+            f"#{chunk.metadata.get('source_id')}"
+            + ("*" if mark_keyword_only and chunk.distance is None else "")
+            for chunk in found
+        )
+        or "nothing"
+    )
 
 
 def compare(questions: Sequence[EvalQuestion], index, limiter: guard.RateLimiter) -> list[str]:
@@ -91,6 +100,8 @@ def compare(questions: Sequence[EvalQuestion], index, limiter: guard.RateLimiter
     keywords = hybrid.build_keyword_index(index)
     hits = dict.fromkeys(METHODS, 0)
     scored = 0
+    # Over every question searched, scored or not: hybrid chunks and those found by keyword only.
+    hybrid_chunks = keyword_only = 0
     lines = []
     for item in questions:
         decision = guard.check_message(item.question, limiter)
@@ -110,11 +121,18 @@ def compare(questions: Sequence[EvalQuestion], index, limiter: guard.RateLimiter
             if rank is not None:
                 hits[method] += 1
             shown = "-" if rank is None else str(rank)
-            lines.append(f"  {method:<8} first hit {shown:>2}  {_sources(found[method])}")
+            sources = _sources(found[method], mark_keyword_only=method == "hybrid")
+            lines.append(f"  {method:<8} first hit {shown:>2}  {sources}")
+        hybrid_chunks += len(found["hybrid"])
+        keyword_only += sum(chunk.distance is None for chunk in found["hybrid"])
     lines.append(f"Hit rate in the top {config.RETRIEVAL_TOP_K}, {scored} scored questions:")
     for method in METHODS:
         share = f" ({hits[method] / scored:.0%})" if scored else ""
         lines.append(f"  {method:<8} {hits[method]} of {scored}{share}")
+    lines.append(
+        f"Hybrid chunks found by keyword only (* above): {keyword_only} of {hybrid_chunks}, "
+        "over all questions searched"
+    )
     return lines
 
 

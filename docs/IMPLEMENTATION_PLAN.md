@@ -209,6 +209,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] The owner's evaluation questions (O2) are in `data/eval_questions.json` in the format described in `docs/TESTING.md`; a test checks that the file loads with `load_questions()` from `scripts/compare_retrieval.py` and that every expected source ID is in `data/sources.json`.
 - [ ] On those questions, vector-only, keyword-only and hybrid retrieval are compared with `python scripts/compare_retrieval.py`, and the hit rates and the run are recorded in `docs/TESTING.md` - owner live check (O5).
 - [ ] Any surprising result (e.g. hybrid below vector-only on a question) is noted in `docs/TESTING.md` with a suggested follow-up, for T6.1's reflection.
+**Notes:** from the review of PR #52 (T3.3): once a vector hit passes `RETRIEVAL_MAX_DISTANCE`, chunks found by keyword only join the fused list with no distance limit, so a general word ("help", "take", "day") could bring in a weak passage. The script marks such chunks with `*` in the hybrid row and counts them over all questions; include some near-domain questions in O2 and record how many keyword-only chunks reach the top 6, so T6.1 can judge whether they need a limit.
 
 ### T3.4 Prompt injection hardening (S) · status: done · issue #10
 **Serves:** Medium 3; AC-11.
