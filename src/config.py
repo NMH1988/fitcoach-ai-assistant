@@ -169,9 +169,12 @@ EMBEDDING_BATCH_SIZE = 64
 # T3.2 and T3.3). The nearest chunks given to the answer model, labelled [S1]...[S6].
 RETRIEVAL_TOP_K = 6
 # Cosine distance (0 = same meaning, up to 2) above which a chunk counts as not relevant to the
-# question. Calibrated on the real index with scripts/live_check_retrieval.py (O5, 2026-10-20):
-# questions the sources cover had nearest chunks at 0.29-0.36, off-topic ones at 0.585 and above.
-RETRIEVAL_MAX_DISTANCE = 0.5
+# question. Measured on the real index (O5, 2026-10-20, 28 questions; docs/TESTING.md): questions
+# the sources cover, short or long, had their nearest chunk at 0.28-0.54; unrelated ones at 0.70
+# and above; near-domain ones (a dog's diet, running shoes, insulin) at 0.56-0.70. 0.62 sits midway
+# and favours answering: a near-domain question that passes costs one model call, which the
+# prompt declines or redirects, while a covered question that is blocked gets no answer at all.
+RETRIEVAL_MAX_DISTANCE = 0.62
 # The answer system prompt, written by the owner (O1; .claude/rules/workflow.md).
 ANSWER_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "answer_system.md"
 # Shown instead of an answer when no chunk is relevant; no model call is made (AC-2).
