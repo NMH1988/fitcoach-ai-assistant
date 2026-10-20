@@ -138,3 +138,31 @@ def test_the_pdf_built_on_click_holds_the_turn_that_just_ran(monkeypatch):
     assert "Question 1 How much protein per meal? Answer Four meals [S1]." in text
     assert "Weight 80 kg" in text
     assert config.DISCLAIMER in text
+
+
+# What would let the app open an image: an upload or camera widget, st.image, Pillow itself, or an
+# image placed in the PDF (reportlab's Image, drawImage, ImageReader or an <img> tag).
+IMAGE_INPUTS = (
+    "file_uploader",
+    "camera_input",
+    "st.image",
+    "import PIL",
+    "from PIL",
+    "drawImage",
+    "ImageReader",
+    "<img",
+    "platypus import Image",
+)
+
+
+def test_the_app_opens_no_image_file():
+    """No image input anywhere in the app, so the ignored pillow advisories cannot be reached."""
+    # docs/SECURITY.md, Accepted risks: the pillow 12.3.0 advisories need an untrusted image.
+    root = APP.parent
+    files = [APP, *sorted((root / "src").rglob("*.py"))]
+    found = {
+        str(path.relative_to(root)): [word for word in IMAGE_INPUTS if word in source]
+        for path in files
+        if (source := path.read_text(encoding="utf-8"))
+    }
+    assert {path: words for path, words in found.items() if words} == {}

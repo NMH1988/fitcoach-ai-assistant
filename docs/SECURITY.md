@@ -48,7 +48,16 @@ This is a student portfolio project. If you find a security problem, contact the
 | PYSEC-2026-3815 / CVE-2026-45831 (GHSA-xph7-9rjv-w5fr) | chromadb >= 0.5.0: the server's `SimpleRBACAuthorizationProvider` ignores the tenant/database/collection scope of a permission | No server, no users, no tenants | Same |
 | PYSEC-2026-3813 / CVE-2026-45830 (GHSA-2wm9-hf6c-p5cr) | chromadb >= 0.4.17: the server lets any authenticated user act on any tenant's collections | No server, no users, no tenants | Same |
 
-Found by `pip-audit` on 2026-10-19 against chromadb 1.5.9 (the latest release that day); no fixed version was listed. The four are ignored by ID in `.github/workflows/ci.yml`, with the reason next to them. Any other advisory still fails CI.
+| CVE-2026-112895 (GHSA-p4wg-p73j-c528) | pillow 12.3.0: `PdfParser` recurses without a bound when an image is appended to an existing PDF (`Image.save(..., append=True)`) | The app never saves images with Pillow; the summary PDF is written by reportlab, with text and fonts only | Remove the CI ignore once a streamlit release allows pillow >= 13.0.0 and it is installed |
+| CVE-2026-112400 (GHSA-65qm-jvmh-6pqg) | pillow 12.3.0: a small GIF keeps a rejected size after `DecompressionBombError` on seek (memory) | The app opens no image file from a user or the network: no `st.file_uploader`, `st.camera_input` or `st.image`, and nothing in `app.py` or `src/` imports Pillow (a source test in `tests/test_app_export.py` checks it) | Same |
+| CVE-2026-112397 (GHSA-58r4-6rv3-gfh8) | pillow 12.3.0: a zero-width PPM/PGM crashes `ImageMorph` | Same as above | Same |
+| CVE-2026-112896 (GHSA-pchr-8j38-3x4p) | pillow 12.3.0: a TIFF with a ColorMap reads past its buffer when saved back to TIFF | Same as above | Same |
+| CVE-2026-112897 (GHSA-q45j-58j2-45rg) | pillow 12.3.0: TIFF JPEG strips return uninitialised memory as pixels | Same as above | Same |
+| CVE-2026-112395 (GHSA-462x-pgg6-55fp) | pillow 12.3.0: tiled TIFF decoding reads past the tile buffer | Same as above | Same |
+| CVE-2026-112404 (GHSA-c6hw-5grf-ff96) | pillow 12.3.0: TIFF tile and RGBA paths read past a heap buffer | Same as above | Same |
+| CVE-2026-112899 (GHSA-vx6w-vv9f-6gvg) | pillow 12.3.0: an EPS rendered through Ghostscript passes the decompression bomb limit | Same as above (and the app does not install Ghostscript) | Same |
+
+Found by `pip-audit` on 2026-10-19 against chromadb 1.5.9 (the latest release that day); no fixed version was listed. The four are ignored by ID in `.github/workflows/ci.yml`, with the reason next to them. The eight pillow advisories were found by CI on 2026-10-20 (PR #54, T5.2), against pillow 12.3.0, which streamlit 1.66.0 and reportlab 5.0.1 pull in; the fixed pillow 13.0.0 cannot be installed, as streamlit 1.66.0, the latest release that day, requires `pillow<13`. Any other advisory still fails CI.
 
 ## Known limits
 

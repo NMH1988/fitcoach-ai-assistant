@@ -58,9 +58,31 @@ jobs:
       #   PYSEC-2026-3814 = CVE-2026-45833 (authenticated code injection via the server API)
       #   PYSEC-2026-3815 = CVE-2026-45831 (server RBAC ignores tenant/database/collection scope)
       #   PYSEC-2026-3813 = CVE-2026-45830 (server lacks cross-tenant authorization checks)
+      # Accepted risk, documented in docs/SECURITY.md: these eight pillow 12.3.0 advisories (fixed in
+      # 13.0.0, which streamlit 1.66, the latest, does not allow: it needs pillow<13) are reached
+      # only by opening an untrusted image (GIF, PPM/PGM, TIFF, EPS) or appending to a PDF with
+      # Pillow. The app opens no image file: no upload, no st.image, and the summary PDF embeds no
+      # images (tests/test_app_export.py checks the source). Remove the lines once a streamlit
+      # release allows pillow>=13 and it is installed.
+      #   CVE-2026-112895 (GHSA-p4wg-p73j-c528: PdfParser recursion on Image.save(append=True))
+      #   CVE-2026-112400 (GHSA-65qm-jvmh-6pqg: GIF seek after a decompression bomb)
+      #   CVE-2026-112397 (GHSA-58r4-6rv3-gfh8: zero-width PPM/PGM in ImageMorph)
+      #   CVE-2026-112896 (GHSA-pchr-8j38-3x4p: TIFF ColorMap read past the end on save)
+      #   CVE-2026-112897 (GHSA-q45j-58j2-45rg: TIFF JPEG strips return uninitialised memory)
+      #   CVE-2026-112395 (GHSA-462x-pgg6-55fp: tiled TIFF decode past the tile buffer)
+      #   CVE-2026-112404 (GHSA-c6hw-5grf-ff96: TIFF tile and RGBA paths read past the buffer)
+      #   CVE-2026-112899 (GHSA-vx6w-vv9f-6gvg: EPS through Ghostscript past the bomb limit)
       - run: >-
           pip-audit .
           --ignore-vuln PYSEC-2026-311
           --ignore-vuln PYSEC-2026-3814
           --ignore-vuln PYSEC-2026-3815
           --ignore-vuln PYSEC-2026-3813
+          --ignore-vuln CVE-2026-112895
+          --ignore-vuln CVE-2026-112400
+          --ignore-vuln CVE-2026-112397
+          --ignore-vuln CVE-2026-112896
+          --ignore-vuln CVE-2026-112897
+          --ignore-vuln CVE-2026-112395
+          --ignore-vuln CVE-2026-112404
+          --ignore-vuln CVE-2026-112899
