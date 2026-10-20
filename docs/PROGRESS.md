@@ -32,6 +32,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
   - The macro bar part of criterion 4 moved to a new T4.4 criterion (owner's choice, 2026-10-20), since T4.4 builds the bar and was in progress; T7.3 keeps the badges and source cards. T4.4's branch also edits its plan entry: whichever merges second may get a small conflict there (keep both).
   - Merged `main` after T5.3 (#46): git merged cleanly (GitHub reported a conflict, likely `docs/PROGRESS.md`, as its editor ignores `merge=union`); the T7.3 entry stays above T5.3's; T5.3 marked done in the plan (#46 had merged); the merged suite (1,402 tests, T5.3's included) passes. Code review on PR #47 (round 1): no code finding; the merge and two doc fixes done (`docs/UI_DESIGN.md` no longer says the charts were checked, the TESTING row names the tool table too).
 - **Follow-ups:** T4.4 checks the macro bar, the donut and the tool table in both modes (its new criterion); T7.1 translates `THEME_HINT`; after a Streamlit upgrade, recheck the caption opacity (`CAPTION_OPACITY` in `tests/test_theme.py`).
+
 ## 2026-10-20 · T5.3 Domain guardrails · #46 (closes #18)
 - **Brief:** core 3 (security measures relevant to the domain); AC-12.
 - **What:**
