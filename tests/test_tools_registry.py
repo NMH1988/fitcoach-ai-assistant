@@ -285,3 +285,9 @@ def test_the_meal_plan_description_keeps_single_meals_to_the_food_lookup():
     description = registry.build_tools(PROFILE)[MEAL_PLAN_TOOL].description
     assert description.startswith("For a whole day's food only")
     assert FOOD_TOOL in description
+
+
+def test_macro_targets_give_what_the_tool_gives_with_no_model():
+    """macro_targets() is the macro tool's result for the profile, for the app's own views."""
+    _, run = _run(MACRO_TOOL, {})
+    assert registry.macro_targets(PROFILE) == run.result

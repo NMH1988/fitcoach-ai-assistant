@@ -19,6 +19,8 @@ INCHES_PER_FOOT = 12
 
 # Weights are shown to 0.1 kg or lb; heights to the whole cm or inch.
 WEIGHT_DECIMALS = 1
+# Grams per lb of body weight are shown to 0.01 g, as they are under half the per-kg value.
+PER_LB_DECIMALS = 2
 
 
 def kg_to_lb(kg: float) -> float:
@@ -61,6 +63,14 @@ def weight_unit(units: UnitSystem) -> str:
 def format_weight(kg: float, units: UnitSystem) -> str:
     """Show a weight in the given unit system, e.g. "80.5 kg" or "177.5 lb"."""
     return f"{weight_in(kg, units):g} {weight_unit(units)}"
+
+
+def format_per_body_weight(g_per_kg: float, units: UnitSystem) -> str:
+    """Show grams per body weight in a unit system, e.g. "1.9 g/kg" or "0.86 g/lb"."""
+    if units == "metric":
+        return f"{g_per_kg:g} g/kg"
+    # Per lb is per kg times the kg in one lb.
+    return f"{round(g_per_kg * KG_PER_LB, PER_LB_DECIMALS):g} g/lb"
 
 
 def format_height(cm: float, units: UnitSystem) -> str:

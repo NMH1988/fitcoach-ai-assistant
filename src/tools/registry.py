@@ -78,6 +78,15 @@ MEAL_PLAN_DESCRIPTION = (
     "details, the result says so."
 )
 
+# The heading of each tool's result in the app and the summary PDF; None is a refused call.
+TOOL_TITLES: dict[str | None, str] = {
+    TDEE_TOOL: "Daily energy needs",
+    MACRO_TOOL: "Daily targets",
+    FOOD_TOOL: "Food lookup",
+    MEAL_PLAN_TOOL: "Meal plan check",
+    None: "Tool call not run",
+}
+
 ToolStatus = Literal["ok", "found", "not_found", "invalid", "profile_needed", "error"]
 
 
@@ -128,8 +137,10 @@ def _energy_needs(profile: UserProfile) -> TdeeResult:
     )
 
 
-def _daily_targets(profile: UserProfile) -> MacroToolResult | ToolNotice:
-    """Return the energy needs and the daily targets for the profile's goal."""
+def macro_targets(profile: UserProfile) -> MacroToolResult | ToolNotice:
+    """Return the daily targets for the profile's goal with its energy needs; no model call."""
+    # Shared by calculate_macro_targets, evaluate_meal_plan (T4.5) and the app's own views (the
+    # summary PDF, T5.2).
     needs = _energy_needs(profile)
     if needs.tdee_kcal is None:
         # Not reached for a validated profile: its ranges are the tools' ranges.
@@ -159,7 +170,7 @@ def build_tools(
 
     def macros() -> MacroToolResult | ToolNotice:
         """Return the daily targets for the profile's goal, or "profile needed"."""
-        return _profile_needed() if profile is None else _daily_targets(profile)
+        return _profile_needed() if profile is None else macro_targets(profile)
 
     def food(food: str, grams: float) -> FoodLookupResult:
         """Return the nutrients of the food for the grams."""
@@ -169,7 +180,7 @@ def build_tools(
         """Return the foods' totals against the profile's daily targets, or "profile needed"."""
         if profile is None:
             return _profile_needed()
-        daily = _daily_targets(profile)
+        daily = macro_targets(profile)
         if not isinstance(daily, MacroToolResult) or daily.status != "ok":
             # Not reached for a validated profile, as above.
             return ToolNotice(status="error", message=config.TOOL_FAILED_MESSAGE)

@@ -64,6 +64,7 @@ jobs:
       # takes no image from users and its code never imports Pillow, which comes only with
       # streamlit and reportlab. Remove these lines once a streamlit release allows pillow 13 and
       # pillow is upgraded.
+      # tests/test_app_export.py (T5.2) fails if the app gains an image input.
       #   CVE-2026-112895 = GHSA-p4wg-p73j-c528 (PDF page tree or trailer recursion)
       #   CVE-2026-112400 = GHSA-65qm-jvmh-6pqg (GIF seek past a decompression bomb)
       #   CVE-2026-112397 = GHSA-58r4-6rv3-gfh8 (ImageMorph out of bounds on a zero-width image)

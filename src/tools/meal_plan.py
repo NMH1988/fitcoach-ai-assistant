@@ -258,3 +258,91 @@ def evaluate_meal_plan(
         partial=bool(missing),
         notes=notes,
     )
+
+
+# --- Text for the tables in the app and the summary PDF ------------------------------------------
+
+FOOD_COLUMNS = (
+    "Food asked",
+    "USDA food",
+    "Amount",
+    "Energy",
+    "Protein",
+    "Carbohydrate",
+    "Fat",
+    "Fiber",
+)
+COMPARISON_COLUMNS = (
+    "Nutrient",
+    "Plan total",
+    "Daily target",
+    "Difference",
+    "Range from the sources",
+)
+NUTRIENT_NAMES = {
+    "kcal": "Energy",
+    "protein": "Protein",
+    "carbohydrate": "Carbohydrate",
+    "fat": "Fat",
+}
+
+
+def amount(value: float, unit: str) -> str:
+    """Return an amount with its unit, e.g. "3,035 kcal" or "55.6 g"."""
+    return f"{value:,g} {unit}"
+
+
+def food_row(item: MealItem) -> list[str]:
+    """Return one food of the plan as cells under FOOD_COLUMNS; a food not found has no values."""
+    nutrients = item.nutrients
+    if nutrients is None:
+        return [item.requested, "Not found", amount(item.grams, "g"), "-", "-", "-", "-", "-"]
+    fiber = "not reported" if nutrients.fiber_g is None else amount(nutrients.fiber_g, "g")
+    return [
+        item.requested,
+        item.matched_name or "",
+        amount(item.grams, "g"),
+        amount(nutrients.kcal, "kcal"),
+        amount(nutrients.protein_g, "g"),
+        amount(nutrients.carbohydrate_g, "g"),
+        amount(nutrients.fat_g, "g"),
+        fiber,
+    ]
+
+
+def difference_text(check: NutrientCheck) -> str:
+    """Return the gap in words: how far the plan's total is below or above the target."""
+    if check.gap > 0:
+        return f"{amount(check.gap, check.unit)} below the target"
+    if check.gap < 0:
+        return f"{amount(-check.gap, check.unit)} above the target"
+    return "On the target"
+
+
+def range_text(check: NutrientCheck) -> str:
+    """Return where the total lies against the sources' range, or "-" without a range."""
+    if check.target_range is None or check.range_position is None:
+        return "-"
+    low, high = check.target_range
+    # "Maintain" has one value, not a range: "Below 2,759 kcal", not "Below 2,759-2,759 kcal".
+    span = f"{low:,}" if low == high else f"{low:,}-{high:,}"
+    return f"{check.range_position.capitalize()} {span} {check.unit}"
+
+
+def comparison_rows(result: MealPlanResult) -> list[list[str]]:
+    """Return the plan against the daily targets as cells under COMPARISON_COLUMNS, fiber last."""
+    if result.totals is None:
+        return []
+    rows = [
+        [
+            NUTRIENT_NAMES[check.nutrient],
+            amount(check.plan_total, check.unit),
+            amount(check.target, check.unit),
+            difference_text(check),
+            range_text(check),
+        ]
+        for check in result.comparison
+    ]
+    fiber = result.totals.fiber_g
+    plan_fiber = "not reported" if fiber is None else amount(fiber, "g")
+    return [*rows, ["Fiber", plan_fiber, "No target", "-", "-"]]
