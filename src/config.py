@@ -175,7 +175,8 @@ BUILD_INDEX_COMMAND = "python scripts/build_index.py"
 EMBEDDING_BATCH_SIZE = 64
 
 # Retrieval and answers for one chat turn (T3.1; query translation and hybrid search extend it in
-# T3.2 and T3.3). The nearest chunks given to the answer model, labelled [S1]...[S6].
+# T3.2 and T3.3). The best chunks after RRF given to the answer model, labelled [S1]...[S6]; also
+# the length of each vector and keyword list that RRF merges.
 RETRIEVAL_TOP_K = 6
 # Cosine distance (0 = same meaning, up to 2) above which a chunk counts as not relevant to the
 # question. Measured on the real index (O5, 2026-10-20, 28 questions; docs/TESTING.md): questions
@@ -184,6 +185,13 @@ RETRIEVAL_TOP_K = 6
 # and favours answering: a near-domain question that passes costs one model call, which the
 # prompt declines or redirects, while a covered question that is blocked gets no answer at all.
 RETRIEVAL_MAX_DISTANCE = 0.62
+# Reciprocal Rank Fusion (T3.3, Hard 1): a chunk scores the sum of 1 / (RRF_K + rank) over the
+# ranked lists it is in (rank 1 is the top). 60 is the constant of the original RRF paper; it
+# keeps one list's top rank from outweighing a chunk that several lists rank a little lower.
+RRF_K = 60
+# The owner's evaluation questions (O2), each with the sources it should find; read by
+# scripts/compare_retrieval.py (T3.3) and the evaluation run (T6.1).
+EVAL_QUESTIONS_PATH = PROJECT_ROOT / "data" / "eval_questions.json"
 # The answer system prompt, written by the owner (O1; .claude/rules/workflow.md).
 ANSWER_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "answer_system.md"
 
