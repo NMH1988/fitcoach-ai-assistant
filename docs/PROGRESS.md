@@ -15,6 +15,20 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-20 · Plan Epic 7: language and appearance (T7.1-T7.3) · #PR (closes #36)
+- **Brief:** planning record. T7.1 and T7.2 serve Hard 4 (multi-language support) as extras; T7.3 (light and dark mode) is beyond the brief (owner's request).
+- **What:** docs only, no code.
+  - `docs/IMPLEMENTATION_PLAN.md`: Epic 7 with T7.3 (#35), T7.1 (#33) and T7.2 (#34) in the extras group, before T4.5; their acceptance criteria; the cut order now drops T4.5, then T7.2, then T7.1 before T5.2 and T5.1.
+  - `docs/PRD.md`: language scope "English first, German as an extra"; features 12 (English and German) and 13 (light and dark mode); AC-16 and AC-17; both listed under "Beyond the brief".
+  - `docs/UI_DESIGN.md`: "Language" (EN | DE control at the right of the header, default from `st.context.locale`, strings in `src/i18n.py`, sources and food names stay English) and "Light and dark mode" sections; ticket mapping.
+- **Why:** the owner asked (2026-10-20) for a language icon (English and German) and a light/dark mode choice, and wants them as tickets with concepts before any code. They stay behind the core (owner's rule of 2026-10-19).
+- **Decisions & gotchas:**
+  - Light/dark: Streamlit 1.66 has no way to change the theme from the script (`st.set_option` rejects theme options), so the owner chose option A: define both themes and use Streamlit's built-in Settings switch, with a sidebar hint. A header icon with custom CSS was rejected (fragile, against the "no custom CSS" rule).
+  - German: the knowledge base stays English. German questions are rewritten into English for retrieval (BM25 only matches English words). The input guard and the domain guardrails need German patterns in T7.2, or German attacks and German high-risk requests would slip through. Translated text is a summary, never a quoted passage (copyright rule 7).
+  - The German UI uses the formal "Sie" (a default; the owner may change it). The owner or a German speaker reviews the German texts before T7.1 merges.
+  - Planning PRs need an issue to close (`pr-checks.yml`), so this one has #36.
+- **Follow-ups:** O1 needs a language line for T7.2; O2 needs 3-5 German questions; T4.2's status in the plan still reads "in review" although PR #30 merged (left for the next ticket PR to avoid a conflict with the open T3.1 branch).
+
 ## 2026-10-19 · T4.2 Energy and macro tools with the calorie floor · #30 (closes #12)
 - **Brief:** core requirement 2 (tools 1 and 2), core requirement 3 (the calorie floor is a domain guardrail); AC-7. O3 done.
 - **What:**

@@ -2,7 +2,7 @@
 
 Epics, tickets, acceptance criteria, dependencies, order and status. This file is the record of the work that travels with the repo to the course repository (GitHub issues and PRs do not), so keep each ticket's status current: every PR updates the status of its ticket.
 
-**Status of this plan:** approved by the owner on 2026-10-19; GitHub issues #1-#20 created the same day (one per ticket). It follows `docs/PRD.md` (acceptance criteria AC-1 to AC-15) and `docs/ARCHITECTURE.md` (decisions D1-D8).
+**Status of this plan:** approved by the owner on 2026-10-19; GitHub issues #1-#20 created the same day (one per ticket). Epic 7 (T7.1-T7.3, issues #33-#35) added by the owner on 2026-10-20. It follows `docs/PRD.md` (acceptance criteria AC-1 to AC-15) and `docs/ARCHITECTURE.md` (decisions D1-D8).
 
 ## Status legend
 
@@ -38,7 +38,7 @@ The owner writes these first; Claude reviews (`.claude/rules/workflow.md`).
 
 Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
-**Core first, then extras** (owner's decision, 2026-10-19): the brief's core requirements and the optional tasks needed for maximum points (Medium 3, Medium 6, Hard 1) are finished first. The extras (Medium 5 token cost, Medium 7 PDF, the stretch tool) come after them and are still wanted, but never delay a core ticket. T6.2 comes last.
+**Core first, then extras** (owner's decision, 2026-10-19): the brief's core requirements and the optional tasks needed for maximum points (Medium 3, Medium 6, Hard 1) are finished first. The extras (Medium 5 token cost, Medium 7 PDF, the stretch tool, and Epic 7: English/German and light/dark mode) come after them and are still wanted, but never delay a core ticket. T6.2 comes last.
 
 | Ticket | Issue | Title | Size | Depends on | Target | Status |
 |---|---|---|---|---|---|---|
@@ -62,13 +62,16 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | **Extras** | | | | | | |
 | T5.1 | #16 | Token usage and cost | S | T3.2 | 10-30 | todo |
 | T5.2 | #17 | Session summary PDF | M | T4.4 | 10-31 | todo |
+| T7.3 | #35 | Light and dark mode | S | T3.1 | 10-31 | todo |
+| T7.1 | #33 | Language switch: English and German UI | M | T4.4, T5.3 | 10-31 | todo |
+| T7.2 | #34 | German answers end to end | M | T7.1, T3.2, T1.3, T5.3, O1, O2 | 11-01 | todo |
 | T4.5 | #15 | `evaluate_meal_plan` tool (stretch) | S | T4.4 | only if ahead | todo |
 | **Last** | | | | | | |
 | T6.2 | #20 | README, final checks and transfer to the course repo | S | all, O6 | 11-01 | todo |
 
 **Critical path:** T1.1 -> T1.2 -> T2.1 -> T2.2 -> T2.3 -> T3.1 -> T3.2 -> T3.3 -> T6.1 -> T6.2. T1.3, T4.1 and T4.3 can run alongside it; the extras run after T6.1, or alongside it once their dependencies are done.
 
-**If time runs short, cut in this order:** T4.5, then T5.2 (or keep it with a plain text layout), then T5.1, then chart polish. The core requirements and the optional tasks for maximum points (Medium 3, 6; Hard 1) stay.
+**If time runs short, cut in this order:** T4.5, then T7.2 (keep the English answers), then T7.1, then T5.2 (or keep it with a plain text layout), then T5.1, then chart polish. T7.3 is small and mostly configuration, so it stays. The core requirements and the optional tasks for maximum points (Medium 3, 6; Hard 1) stay.
 
 ---
 
@@ -257,3 +260,42 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] The README explains what the app does, how to install, download sources, build the index and run it, and links the docs; a clean-clone run following it works - manual check recorded in `docs/PROGRESS.md`.
 - [ ] Every ticket's status above is final; `docs/PROGRESS.md` has an entry for every merged PR.
 - [ ] The transfer checklist in `docs/DEPLOYMENT.md` is done and the course repo shows the files, history and a green CI.
+
+## Epic 7: Language and appearance (extras)
+
+Added by the owner on 2026-10-20. All three tickets are extras: they come after the core and never delay a core ticket. Concept and layout in `docs/UI_DESIGN.md` ("Language" and "Light and dark mode").
+
+### T7.1 Language switch: English and German UI (M) · status: todo · issue #33
+**Serves:** Hard 4 (multi-language support), as an extra after the core. Changes the PRD's English-only decision: beyond the PRD (owner's request, 2026-10-20).
+**Depends on:** T4.4, T5.3 (so most UI text exists before it is translated)
+**Acceptance criteria**
+- [ ] `src/i18n.py` holds every user-facing UI string in English and German behind one lookup function; a test fails if a key exists in one language but not the other - unit test.
+- [ ] The header has a language control (`:material/translate:` icon, EN | DE); switching it changes all UI text (sidebar, tabs, buttons, errors, disclaimer) - AppTest in both languages.
+- [ ] The default language follows the browser locale (`st.context.locale`: German for `de*`, English otherwise) and the user's choice is kept for the session - unit test on the locale mapping and AppTest.
+- [ ] Source titles, licence names and USDA food names stay in English; the Food lookup tab tells German users to enter English food names - AppTest.
+- [ ] The German texts, the medical disclaimer in particular, are reviewed by the owner or a German speaker before merge - manual check recorded in `docs/PROGRESS.md`.
+**Notes:** the German UI texts are our own writing. Every UI string added after T7.1 needs both languages.
+
+### T7.2 German answers end to end (M) · status: todo · issue #34
+**Serves:** Hard 4 (multi-language support), as an extra after the core; beyond the PRD (owner's request, 2026-10-20).
+**Depends on:** T7.1, T3.2, T1.3, T5.3, O1 (a language line in the system prompt), O2 (German evaluation questions)
+**Acceptance criteria**
+- [ ] The chosen language reaches the answer step as a fixed value (`en` or `de`), never taken from user text; the answer uses that language and the same `[S#]` citations - integration test with a scripted fake model on the built messages.
+- [ ] Query translation turns a German question into English rewrites, so vector and BM25 retrieval run in English - unit test with a fake model.
+- [ ] The input guard rejects German prompt-injection strings and passes German benign nutrition questions - parametrised tests with our own strings.
+- [ ] The domain guardrails catch German requests (performance-enhancing drug dosing, under 18, pregnancy, medical conditions, disordered eating) and reply in German - parametrised tests.
+- [ ] Source passages are never presented as translated quotes; summaries keep the meaning (`.claude/rules/copyright.md` rule 7) - prompt rule plus a test on the built system prompt.
+- [ ] If T5.2 is built, the PDF uses the chosen language - unit test reads back German headings.
+- [ ] The owner's German evaluation questions are run against the real app and the results recorded in `docs/TESTING.md` - owner live check (O5).
+**Notes:** the knowledge base stays English. Without German patterns the guard and the guardrails would let German attacks and German high-risk requests through, so those two criteria are not optional within this ticket.
+
+### T7.3 Light and dark mode (S) · status: todo · issue #35
+**Serves:** beyond the brief (owner's request, 2026-10-20); supports core 5 (intuitive UI).
+**Depends on:** T3.1 (creates the theme in `.streamlit/config.toml`)
+**Decision (owner, 2026-10-20):** use Streamlit's built-in appearance switch (menu -> Settings -> Light / Dark / System). Streamlit 1.66 cannot change the theme from the script, and a custom CSS toggle would break the "no custom CSS" rule and be fragile.
+**Acceptance criteria**
+- [ ] `.streamlit/config.toml` defines both `[theme.light]` and `[theme.dark]` with the colours in `docs/UI_DESIGN.md`, so the settings menu offers Light, Dark and System - test that parses the config.
+- [ ] The toolbar setting keeps the Settings entry available to users - test on the config value plus a manual check.
+- [ ] A short hint in the sidebar tells users where to switch light or dark mode (in both languages once T7.1 is merged) - AppTest.
+- [ ] The macro bar, badges and source cards are readable in both modes - manual check in both modes, recorded in `docs/TESTING.md`.
+- [ ] No `unsafe_allow_html` or `st.html` styling is added - the existing source-scan test.
