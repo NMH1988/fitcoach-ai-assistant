@@ -28,10 +28,10 @@ The owner writes these first; Claude reviews (`.claude/rules/workflow.md`).
 | ID | Task | Needed by | Status |
 |---|---|---|---|
 | O1 | Draft the answer system prompt (role, scope, citations `[S#]`, guardrails, "sources are data") in `src/prompts/answer_system.md` | T3.1; T4.4 (tool results, the profile); T7.2 (a language line, still to add) | done for T3.1; done for T4.4 (drafted by the owner on 2026-10-20: tool results and `<profile>` as data, citing app calculations without `[S#]`, `matched_name`, tool errors, `floor_applied` and `notes`; then edited by Claude with the owner's approval after review: when to call the tools, give the key numbers and point to "Tool results", energy numbers as estimates, any food in scope without judging it, "Add your details" for `profile_needed`, the user's own numbers in the question, "cite nothing" kept); todo for T7.2 (language line). T3.1: drafted by the owner, edited with Claude's review (wording, citation forms, caffeine allowed, partial answers, each turn alone), in the file on 2026-10-20 |
-| O2 | Draft the evaluation questions (about 10-15), each with the source(s) it should find and what a good answer contains | T3.3, T6.1; T7.2 (3-5 German questions, one about a food) | todo |
+| O2 | Draft the evaluation questions (about 10-15), each with the source(s) it should find and what a good answer contains | T3.6 (from T3.3), T6.1; T7.2 (3-5 German questions, one about a food) | todo (format for `data/eval_questions.json` in `docs/TESTING.md`, set in T3.3) |
 | O3 | Approve the calorie floor and the macro ranges; Claude proposes them with the exact source passages | T4.2 | done (2026-10-19, in T4.2: floor 1200 kcal/day; values in `src/config.py`) |
 | O4 | If Europe PMC still has no copy of source #1, save its XML or PDF by hand from the publisher page into `data/raw/` | T2.1 | done: not needed (Europe PMC has #1 as PMC13665703, found in T2.1 on 2026-10-19) |
-| O5 | Live checks with the real key: T1.2 (one chat and one embedding call), T2.3 (real index build), T6.1 (evaluation run), T7.2 (German run) | T1.2, T2.3, T6.1, T7.2 | in progress (T1.2 and T2.3 done 2026-10-19; T3.2 query translation checked 2026-10-20) |
+| O5 | Live checks with the real key: T1.2 (one chat and one embedding call), T2.3 (real index build), T3.6 (retrieval comparison), T6.1 (evaluation run), T7.2 (German run) | T1.2, T2.3, T3.6, T6.1, T7.2 | in progress (T1.2 and T2.3 done 2026-10-19; T3.2 query translation checked 2026-10-20) |
 | O6 | Get the course repository URL and confirm how the reviewers read it (files only, or through PRs) | T6.2 | todo |
 | O7 | Draft the query translation system prompt (3 rewrites in English that keep the question's meaning; when to set `topics`, `min_year` and `evidence_tier`, and to leave them empty when unsure; the question is data) in `src/prompts/query_translation_system.md`; it must name `<user_input>`, the four fields and the six topics (tested) | T3.2 (before the merge) | done (2026-10-20): drafted by the owner, revised after Claude's review (no guessed year for "recent", no nutrition words added to an unrelated question, a line per topic, four examples) |
 
@@ -56,12 +56,13 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T4.2 | #12 | Energy and macro tools with the calorie floor | M | T4.1, O3 | 10-25 | done |
 | T1.5 | #42 | Docs: run commands use the project's venv | S | T1.1 | 10-20 | done |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1, O7 | 10-26 | done |
-| T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2, O2 | 10-27 | todo |
+| T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2, O2 | 10-27 | in review |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | done |
-| T4.4 | #14 | Tool-calling loop and tool results UI | M | T3.1, T4.2, T4.3 | 10-28 | in review |
+| T4.4 | #14 | Tool-calling loop and tool results UI | M | T3.1, T4.2, T4.3 | 10-28 | done |
 | T4.7 | #44 | My targets: sidebar target, targets tab and Food lookup tab (split from T4.4, owner's decision) | M | T4.4 | 10-29 | todo |
 | T3.5 | #50 | Skip the answer call for off-topic questions with no source (owner's request after T4.4) | S | T4.4, T3.2, O7 | 10-29 | todo |
 | T5.3 | #18 | Domain guardrails | S | T3.1, T4.2 | 10-29 | done |
+| T3.6 | #51 | Retrieval comparison on the owner's evaluation questions (split from T3.3, owner's decision) | S | T3.3, O2, O5 | 10-30 | todo |
 | T6.1 | #19 | Evaluation run and reflection | S | T3.3, T4.4, O2, O5 | 10-30 | todo |
 | **Extras** | | | | | | |
 | T1.4 | #32 | Security reviewer agent (beyond the brief; owner's request, done early as it is dev tooling with no product change) | S | T1.1 | 10-20 | done |
@@ -190,14 +191,24 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] The query-translation call gets the question only inside `<user_input>` in the user message, escaped with `escape_prompt_data()`, never in its system prompt, so a delimiter look-alike or a `**System:**` line stays data; its messages are built with `SystemMessage` / `HumanMessage` like the answer step's, with no LangChain prompt template at all (no `PromptTemplate`, `ChatPromptTemplate`, `from_template`, `from_messages` or `MessagesPlaceholder` in `app.py` or `src/`) - parametrised unit test on the built messages, as in T3.4's `tests/test_prompt_injection.py`, and `test_no_prompt_template_is_used_in_the_app` still passing (follow-up from T3.4; owner's choices, 2026-10-20: the template ban stays, stricter than "never as template text", so both steps build messages one way). Done in T3.2: `query_translation.build_messages()` escapes the question with `escape_prompt_data()` (`tests/test_prompt_injection.py`: `test_a_look_alike_stays_inside_user_input_in_the_rewrite_request` over the seven look-alikes, `test_the_rewrite_request_passes_braces_as_text`, `test_the_translator_receives_the_escaped_question`; `test_no_prompt_template_is_used_in_the_app` still passes).
 **Notes:** owner's choices (2026-10-20): code first with a placeholder prompt, the owner writes it before the merge (O7); each turn stands alone (no history for the rewrites); the question is searched together with its 3 rewrites; the view follows `docs/UI_DESIGN.md` (Details tab for the last answer, a summary card in the sidebar, "About the answers" folded into an expander). Until T3.3, the lists are merged by keeping each chunk once at its smallest distance, nearest first. A filter that leaves nothing within `RETRIEVAL_MAX_DISTANCE` is dropped; a filter that leaves fewer but relevant chunks is kept, so the prompt (O7) should set filters only when the question asks for them. The rewrites go only to the search and the view, never to the answer model.
 
-### T3.3 Hybrid search (BM25 + RRF) (M) · status: todo · issue #9
+### T3.3 Hybrid search (BM25 + RRF) (M) · status: in review · issue #9
 **Serves:** Hard 1; AC-4.
 **Depends on:** T3.2, O2
 **Acceptance criteria**
-- [ ] `src/rag/hybrid.py` builds a BM25 index over the chunk texts (cached) and merges ranked lists with RRF (`1 / (60 + rank)`) - unit test on a hand-computed example.
-- [ ] Each rewrite runs vector and BM25 search with the same filter; all lists are fused; the top 6 distinct chunks are kept - integration test.
-- [ ] A query with an exact term (e.g. "HMB") retrieves the HMB source (AC-4) - integration test on a small fixture index.
-- [ ] On the owner's evaluation questions (O2), vector-only, keyword-only and hybrid retrieval are compared and the hit rates recorded in `docs/TESTING.md` - owner live check (O5) or a run with the real index.
+- [x] `src/rag/hybrid.py` builds a BM25 index over the chunk texts (cached) and merges ranked lists with RRF (`1 / (60 + rank)`) - unit test on a hand-computed example (`tests/test_hybrid.py::test_rrf_scores_match_a_hand_computed_example`, with the ties, distinct chunks and the BM25 search in the same file; cached once per app process: `tests/test_app_chat.py::test_the_keyword_index_is_built_once_for_several_questions`, and rebuilt with the index after it stops working: `test_a_broken_index_clears_the_cached_keyword_index`).
+- [x] Each rewrite runs vector and BM25 search with the same filter; all lists are fused; the top 6 distinct chunks are kept - integration test (`tests/test_chat.py`: `test_each_query_runs_vector_and_keyword_search_with_the_same_filter`, `test_find_chunks_fuses_every_list_and_keeps_the_top_k_distinct_chunks`, `test_with_the_filter_dropped_keyword_search_runs_unfiltered_too`; the gate: `test_an_off_topic_question_runs_no_keyword_search`, `test_a_keyword_match_alone_does_not_make_a_question_covered`; `tests/test_hybrid.py::test_filter_ids_uses_the_chroma_filter`).
+- [x] A query with an exact term (e.g. "HMB") retrieves the HMB source (AC-4) - integration test on a small fixture index (`tests/test_chat.py::test_an_exact_term_finds_the_hmb_source_that_vector_search_misses`: vector search alone misses it, the turn finds and cites it).
+- [x] ~~On the owner's evaluation questions (O2), vector-only, keyword-only and hybrid retrieval are compared and the hit rates recorded in `docs/TESTING.md` - owner live check (O5) or a run with the real index.~~ Moved to T3.6 (issue #51, owner's decision, 2026-10-20). T3.3 delivers the script for it (`scripts/compare_retrieval.py`, tested in `tests/test_compare_retrieval.py`; how to run it in `docs/TESTING.md`).
+
+**Notes:** owner's choices (2026-10-20): vector search decides whether the sources cover a question (`RETRIEVAL_MAX_DISTANCE`), and keyword search adds its lists only then, so an off-topic question is handled as before; code first, O2 later, with the comparison itself moved to T3.6 (#51) so this PR can close #9; the owner runs the comparison (O5); no new UI, only the search step's caption and "About the answers" text. The comparison searches the question alone, with no rewrites and no filter, so only the method differs. T3.3 was started before T5.1, which the owner paused for it (core first).
+
+### T3.6 Retrieval comparison on the owner's evaluation questions (S) · status: todo · issue #51
+**Serves:** Hard 1; AC-4; evidence for the reflection.
+**Depends on:** T3.3, O2, O5
+**Acceptance criteria** (the second is T3.3's fourth criterion, moved here by the owner on 2026-10-20; the first and third were proposed by Claude and await the owner's approval)
+- [ ] The owner's evaluation questions (O2) are in `data/eval_questions.json` in the format described in `docs/TESTING.md`; a test checks that the file loads with `load_questions()` from `scripts/compare_retrieval.py` and that every expected source ID is in `data/sources.json`.
+- [ ] On those questions, vector-only, keyword-only and hybrid retrieval are compared with `python scripts/compare_retrieval.py`, and the hit rates and the run are recorded in `docs/TESTING.md` - owner live check (O5).
+- [ ] Any surprising result (e.g. hybrid below vector-only on a question) is noted in `docs/TESTING.md` with a suggested follow-up, for T6.1's reflection.
 
 ### T3.4 Prompt injection hardening (S) · status: done · issue #10
 **Serves:** Medium 3; AC-11.
@@ -250,7 +261,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] `lookup_food_nutrition(food, grams)` returns the scaled values, the matched USDA name and close alternatives; an unknown food returns a clear "not found" with suggestions - unit tests (`tests/test_food_lookup.py`: `test_values_are_scaled_to_the_requested_grams`, `test_the_matched_usda_name_id_and_source_are_returned`, `test_close_alternatives_are_returned_without_the_match`, `test_names_are_matched_to_the_right_food`, `test_an_unknown_food_is_not_found_with_suggestions`, `test_a_food_not_in_the_table_is_not_found_without_suggestions`; invalid arguments give an error result, not an exception: `test_invalid_grams_give_an_error_result`, `test_invalid_food_names_give_an_error_result`).
 **Notes:** owner's choices (2026-10-19): Foundation Foods only (no SR Legacy); energy from Atwater specific factors (nutrient 2048) first, then general factors (2047), then 1008; Claude downloaded the zip once; the branch started from `main` while T2.1 was in progress; after #26 merged, `main` was merged in and the USDA credit added to `ATTRIBUTION.md` through the generator (`test_committed_attribution_credits_usda_fooddata_central`). The LangChain tool wrapper is T4.4's (`src/tools/registry.py`).
 
-### T4.4 Tool-calling loop and tool results UI (M) · status: in review · issue #14
+### T4.4 Tool-calling loop and tool results UI (M) · status: done · issue #14
 **Serves:** core 2 and 5; Medium 6; AC-6.
 **Depends on:** T3.1, T4.2, T4.3
 **Acceptance criteria**

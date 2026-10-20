@@ -31,6 +31,8 @@ Browser end-to-end tests (e.g. Playwright) are not planned: AppTest covers the U
 
 No evaluation has been run yet.
 
+How to run the retrieval comparison (T3.3, O5): the owner writes the evaluation questions (O2) into `data/eval_questions.json`, a JSON list of objects such as `{"id": "q1", "question": "...", "expected_sources": ["4"], "good_answer": "..."}` (`expected_sources` are source IDs from `data/sources.json`; an empty list marks a question the sources should not cover, shown but not scored; `good_answer` is for T6.1 and ignored here). Then, with the index built and the key set up, `python scripts/compare_retrieval.py` (or `.venv\Scripts\python.exe scripts/compare_retrieval.py`, optionally with another file's path). Each question goes through the guard and costs one embedding call; it is searched alone, with no rewrites and no filter, so only the method differs: vector search with the distance limit, BM25, and the app's hybrid search. The script prints, per question, the rank of the first expected source in each method's top 6 and the sources found, then each method's hit rate (never the key). Record the hit rates and the run in the "Live checks" table below, with a T3.3 (O5) row.
+
 ## Live checks
 
 Record only what was actually run and observed: date, model, what was checked, result.
