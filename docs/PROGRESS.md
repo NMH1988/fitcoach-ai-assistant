@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-20 · T1.6 Follow-up: PR #58's review fixes · PR to come (closes #55)
+## 2026-10-20 · T1.6 Follow-up: PR #58's review fixes · #62 (closes #55)
 - **Brief:** core 3 and 4 (security measures; CI with a dependency audit).
 - **What:** the review fixes of PR #58 (commit e3fe265, cherry-picked): `docs/SECURITY.md` writes the PDF export (T5.2) as planned work, and the ignores must also be reviewed if it draws images or passes unescaped text to reportlab markup (an `<img src>` makes reportlab fetch and open the image with Pillow); `tests/test_ci_audit.py` matches whole advisory IDs and the `--ignore-vuln=ID` form; plan: T1.6 done.
 - **Why:** PR #58 was merged at 269d0cb, before these fixes were pushed to its branch, so they were missing from `main`. Issue #55 was reopened so this PR closes it again (`linked-issue` requires a PR to close an issue).
