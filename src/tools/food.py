@@ -234,24 +234,26 @@ def _scale(food: Food, grams: float) -> Nutrients:
 
 
 def invalid_lookup_message(error: ValidationError) -> str:
-    """Explain which arguments are wrong, without repeating what was sent."""
+    """State which arguments are wrong, as facts, without repeating what was sent."""
     fields = {str(e["loc"][0]) for e in error.errors() if e["loc"]}
     parts = []
     if fields - set(FoodLookupArgs.model_fields):
         # Never names the extra field: it is the model's text.
-        parts.append("use only the arguments food and grams")
+        parts.append("only the arguments food and grams are accepted")
     if "food" in fields:
         parts.append(
-            f"give the name of one food in {config.FOOD_MIN_NAME_CHARS} to "
+            f"food must be the name of one food in {config.FOOD_MIN_NAME_CHARS} to "
             f"{config.FOOD_MAX_NAME_CHARS} characters, with at least one word of "
             f"{config.FOOD_MIN_NAME_CHARS} or more letters or digits"
         )
     if "grams" in fields:
         parts.append(
-            f"give the amount as a number of grams from {config.FOOD_MIN_GRAMS:g} to "
+            f"the amount must be a number of grams from {config.FOOD_MIN_GRAMS:g} to "
             f"{config.FOOD_MAX_GRAMS}"
         )
-    return "Invalid food lookup: " + ("; ".join(parts) or "check the arguments") + "."
+    return (
+        "Invalid food lookup: " + ("; ".join(parts) or "the arguments do not fit the schema") + "."
+    )
 
 
 def lookup_food_nutrition(
@@ -276,9 +278,12 @@ def lookup_food_nutrition(
         suggestions = [f.description for f, _ in ranked[:limit]]
         message = "No close match in the USDA Foundation Foods table."
         if suggestions:
-            message += " Did you mean one of the alternatives? Look it up by that name."
+            message += " Did you mean one of the alternatives? They are the closest names in it."
         else:
-            message += " Try a plainer name of a single, unprocessed food (e.g. 'rolled oats')."
+            message += (
+                " No similar name: the table holds single, unprocessed foods under plainer names "
+                "(e.g. 'rolled oats')."
+            )
         return FoodLookupResult(
             status="not_found", message=message, grams=args.grams, alternatives=suggestions
         )

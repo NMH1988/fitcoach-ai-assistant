@@ -391,10 +391,11 @@ MAX_TOOL_ROUNDS = 4
 # is sent back to the model with every later call, so this bounds the tokens a turn can use.
 MAX_TOOL_CALLS_PER_ROUND = 6
 # Tool messages are data for the model, in English (docs/UI_DESIGN.md, "Language"); the UI shows
-# the same text. None of them repeats what the model sent.
+# the same text. None of them repeats what the model sent, and none gives the model orders: they
+# state facts, and the owner's prompt says what to do with them (it treats tool results as data).
 PROFILE_NEEDED_MESSAGE = (
-    "Profile needed: the user has not added their details, so this cannot be calculated. Ask them "
-    "to add their details with the 'Add your details' button in the sidebar, then ask again."
+    "Profile needed: the user has not added their details, so this cannot be calculated. The "
+    "details are added with the 'Add your details' button in the sidebar."
 )
 NO_ARGUMENTS_MESSAGE = (
     "Invalid call: this tool takes no arguments; the app supplies the user's profile."
@@ -404,12 +405,12 @@ INVALID_TOOL_JSON_MESSAGE = "Invalid call: the arguments were not valid JSON."
 TOO_MANY_TOOL_CALLS_MESSAGE = (
     f"Not run: at most {MAX_TOOL_CALLS_PER_ROUND} tool calls are run from one reply."
 )
-TOOL_FAILED_MESSAGE = (
-    "The tool could not run. Answer without its result and say that this calculation is not "
-    "available right now."
-)
+TOOL_FAILED_MESSAGE = "Not available: the tool could not run, so there is no result."
 # Shown in the Tool results when an energy tool had no profile, above the "Add your details" button.
 PROFILE_NEEDED_HINT = "This calculation needs your details. Add them, then ask again."
+# Height of the macro chart in "Tool results", its axis and legend included: at 140 px the bar was a
+# hairline in the browser, at 220 px it is drawn clearly (checked with a fake model, T4.4).
+MACRO_CHART_HEIGHT_PX = 220
 # Macro colours in charts (docs/UI_DESIGN.md), in the order the macros are listed.
 MACRO_COLORS: dict[str, str] = {
     "Protein": "#0F6E56",

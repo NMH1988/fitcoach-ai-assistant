@@ -130,12 +130,21 @@ def test_each_tool_result_appears_in_the_tool_results_expander_as_a_table(monkey
 
 
 def test_macro_targets_also_appear_as_a_chart_in_the_macro_colours(monkeypatch):
-    """The macro result has a stacked bar of the energy split, in the design's colours."""
+    """The macro result has a stacked bar of the energy split, in the design's colours, from 0."""
     _use_model(monkeypatch, tool_reply((MACRO_TOOL, {})), AIMessage(ANSWER))
     [chart] = _tool_results(_ask()).get("vega_lite_chart")
     spec = json.loads(chart.proto.spec)
-    for color in config.MACRO_COLORS.values():
-        assert color in json.dumps(spec)
+    color = spec["encoding"]["color"]["scale"]
+    assert color == {
+        "domain": list(config.MACRO_COLORS),
+        "range": list(config.MACRO_COLORS.values()),
+    }
+    # The value axis starts at 0 (st.bar_chart's started at -500 in a narrow window).
+    assert spec["encoding"]["x"]["scale"] == {"domainMin": 0, "nice": True}
+    # The text alternative names every value, so the colours are never the only signal.
+    assert chart.proto.alt == (
+        "Energy split per day: Protein 608 kcal, Carbohydrate 1,672 kcal, Fat 756 kcal"
+    )
 
 
 def test_a_food_lookup_alone_draws_no_chart(monkeypatch):

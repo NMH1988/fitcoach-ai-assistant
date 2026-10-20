@@ -60,6 +60,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | done |
 | T4.4 | #14 | Tool-calling loop and tool results UI | M | T3.1, T4.2, T4.3 | 10-28 | in review |
 | T4.7 | #44 | My targets: sidebar target, targets tab and Food lookup tab (split from T4.4, owner's decision) | M | T4.4 | 10-29 | todo |
+| T3.5 | #50 | Skip the answer call for off-topic questions with no source (owner's request after T4.4) | S | T4.4, T3.2, O7 | 10-29 | todo |
 | T5.3 | #18 | Domain guardrails | S | T3.1, T4.2 | 10-29 | done |
 | T6.1 | #19 | Evaluation run and reflection | S | T3.3, T4.4, O2, O5 | 10-30 | todo |
 | **Extras** | | | | | | |
@@ -208,6 +209,17 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] User text, chunk text and any chunk metadata put in the prompt are escaped before they are wrapped, so a delimiter look-alike (`</user_input>`, `</user-input>`, `<user_input id="2">`, `</sources lang="en">`, `<sources/>`) cannot close or open a block and a `**System:**` or `> System:` line stays data; user text is passed as message content, never as prompt-template text - parametrised unit test on the built messages (follow-up from the T1.4 security audit, finding 3) (the three `test_a_look_alike_in_...` tests over seven look-alikes each, in the question, the chunk text and the title and year; `test_the_escape_keeps_the_text_exact_and_marks_typed_entities`, `test_braces_in_the_question_are_passed_as_text_not_as_a_template`, `test_no_prompt_template_is_used_in_the_app`).
 **Notes:** owner's choices (2026-10-20): the guard's patterns are widened too (attributes, `-` or a space in "user input", a closing slash, `<source>`, role lines after `**`, `>` or `_`), with new attack and benign strings and a speed test in `tests/test_guard.py`; the answer prompt is not changed (it already says both blocks are data, and models read `&lt;` as `<`). Escaping is `html.escape` without quotes (`escape_prompt_data()` in `src/prompt_data.py`, a module that imports nothing from `src`, so T3.2's query translation in `src/rag/` and T4.4's tool loop can use it without an import cycle; `test_the_escape_module_imports_nothing_from_src`), after folding full-width and small-form brackets (`test_full_width_and_small_form_brackets_in_a_chunk_are_escaped`). After code review round 1 the guard's tag pattern only counts attribute-shaped text, so comparisons such as "(<sources say 25%) and > 1200 kcal" pass, and the AC3 scan also flags `unsafe_allow_html` passed by position, `*` or `**` (`test_the_render_scan_finds_every_way_to_allow_html`).
 
+### T3.5 Skip the answer call for off-topic questions with no source (S) · status: todo · issue #50
+**Serves:** cost control (`docs/SECURITY.md`, "Runaway cost"), keeping AC-2 and AC-6; refines T4.4's no-sources path (B2) and T3.2's query translation. Owner's decision (2026-10-20, option A of: reuse the query translation call, a second distance limit, keywords, or keep B2).
+**Depends on:** T4.4, T3.2, O7 (the owner adds the rule to the query translation prompt)
+**Acceptance criteria** (proposed; the owner approves them before the ticket starts)
+- [ ] `QueryPlan` has a required boolean `needs_tool`: true when a calculation from the user's profile (energy needs, daily targets) or a food nutrient lookup could answer the question; the schema stays valid for OpenAI's strict mode - unit tests on the schema and on parsing.
+- [ ] When no chunk passes the distance limit, the answer model is called (with the tools, its first reply hidden, as in T4.4) only if the plan says `needs_tool`; when it does not, or when there is no usable plan, `NO_SOURCES_MESSAGE` is shown and no answer model call is made - integration tests: an off-topic question makes no answer call, a food question with `needs_tool` runs the tool loop, an invalid plan makes no answer call.
+- [ ] With relevant chunks the answer step is unchanged, whatever `needs_tool` says - integration test.
+- [ ] The owner adds the `needs_tool` rule to `src/prompts/query_translation_system.md` (O7, the owner writes first); a test checks that the prompt names `needs_tool`.
+- [ ] `docs/ARCHITECTURE.md`, `docs/SECURITY.md` and `docs/PROGRESS.md` say that an off-topic question makes no answer call again; owner live check (O5): "How many kcal are in 150 g of rolled oats?" is still answered from the food lookup, and "What is the offside rule in football?" makes no answer model call.
+**Notes:** the query translation call (`gpt-5-nano`) and the query embedding still run for every accepted question, off-topic ones included; telling a question is off-topic needs a step that reads it, and this one is already paid for.
+
 ## Epic 4: Profile and tools
 
 ### T4.1 Profile, units and settings (M) · status: done · issue #11
@@ -272,12 +284,13 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 ### T4.7 My targets: sidebar target, targets tab and Food lookup tab (M) · status: todo · issue #44
 **Serves:** core 5 (an intuitive UI that shows tool results), Medium 6, PRD features 5 and 6. Split from T4.4 by the owner (2026-10-20), as laid out in `docs/UI_DESIGN.md`.
 **Depends on:** T4.4
-**Acceptance criteria** (proposed; the owner approves them before the ticket starts)
+**Acceptance criteria** (approved by the owner, 2026-10-20)
 - [ ] With a profile, the sidebar shows a "Daily target" metric (kcal) and a "My targets" card: a donut of the energy split (protein, carbohydrate, fat) with the daily kcal in the middle and each macro's grams and % as text; without a profile neither is shown - AppTest.
 - [ ] The targets come from `calculate_macro_targets` on the session profile with no model call, and change when the goal or the profile changes - AppTest with a model that fails if called.
 - [ ] The My targets tab shows four metrics (daily kcal with the surplus or deficit as delta, protein, carbohydrate, fat), a horizontal stacked bar of the macro split, and a caption with the maintenance kcal, the method and the sources; without a profile it invites the user to add their details with the same dialog - AppTest.
 - [ ] The Food lookup tab takes a food and grams, runs `lookup_food_nutrition` with no model call, and shows the matched USDA name, kcal, protein, carbohydrate and fat, fibre ("not reported" when missing) and "Source: USDA FoodData Central"; "not found" shows the message and the suggestions; USDA names are shown as plain text - AppTest with a fixture table.
 - [ ] When protein was lowered (very heavy body, low target), the note and the protein range are shown next to the target - AppTest.
+- [ ] The macro colours have at least 3:1 contrast against the background in light and dark mode (shades per theme, or a border between the segments), in the donut, the My targets bar and T4.4's bar in "Tool results"; `docs/UI_DESIGN.md` updated - contrast measured and recorded in `docs/TESTING.md`, and a test on the colours used (owner's choice, 2026-10-20, after T4.4's light and dark check: carbohydrate 2.0:1 and fat 2.2:1 on the light background).
 - [ ] Charts carry a text alternative and colour is never the only signal (values as text) - AppTest.
 **Notes:** reuse T4.4's table and chart helpers in `app.py` and `src/tools/registry.py`'s results. USDA names must stay out of `st.table`, `st.markdown` and labels (`st.table` reads Markdown in cells in Streamlit 1.66).
 

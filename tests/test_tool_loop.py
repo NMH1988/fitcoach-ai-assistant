@@ -276,6 +276,55 @@ def test_with_no_source_and_no_tool_the_fixed_message_is_shown(index):
     assert shown == []
 
 
+@pytest.mark.parametrize(
+    "refused",
+    [
+        tool_reply(("web_search", {"q": "oats"})),
+        AIMessage(
+            "",
+            invalid_tool_calls=[{"name": FOOD_TOOL, "args": "oats", "id": "bad-1", "error": None}],
+            response_metadata={"finish_reason": "tool_calls"},
+        ),
+        tool_reply((FOOD_TOOL, {"food": "oats", "grams": "a lot"})),
+    ],
+    ids=["unknown tool", "not JSON", "bad arguments"],
+)
+def test_with_no_source_a_refused_call_does_not_count_as_a_tool(index, refused):
+    """A call that was refused runs no tool, so the next reply stays hidden; no answer is shown."""
+    shown = []
+    result, model = _turn(
+        index,
+        refused,
+        AIMessage("Oats have about 380 kcal per 100 g."),
+        question=FOOD_QUESTION,
+        on_text=shown.append,
+    )
+    assert (result.kind, result.text) == ("no_sources", config.NO_SOURCES_MESSAGE)
+    assert len(model.calls) == 2
+    assert not [text for text in shown if text]
+
+
+def test_with_no_source_a_retry_after_a_refused_call_is_shown(index):
+    """After a refused call, a tool that really runs makes the next reply the answer."""
+    answer = "The app's food lookup gives 304 kcal for 80 g of rolled oats."
+    result, _ = _turn(
+        index,
+        tool_reply(("web_search", {"q": "oats"})),
+        tool_reply((FOOD_TOOL, OATS)),
+        AIMessage(answer),
+        question=FOOD_QUESTION,
+    )
+    assert (result.kind, result.text) == ("answer", answer)
+    assert [run.status for run in result.tool_runs] == ["invalid", "found"]
+
+
+def test_with_no_source_a_cut_off_hidden_reply_says_not_covered(index):
+    """A hidden reply cut off by the token limit ends as "not covered", not as a cut-off error."""
+    cut = AIMessage("Oats have", response_metadata={"finish_reason": "length"})
+    result, _ = _turn(index, cut, question=FOOD_QUESTION)
+    assert (result.kind, result.text) == ("no_sources", config.NO_SOURCES_MESSAGE)
+
+
 # --- The profile (AC 2) ---------------------------------------------------------------------------
 
 
@@ -297,7 +346,7 @@ def test_without_a_profile_the_block_says_so(index):
     """With no profile the block says the user has not added their details."""
     _, model = _turn(index, AIMessage(ANSWER), user=None)
     [[_, user]] = model.calls
-    assert "<profile>\nNot given: the user has not added their details.\n</profile>" in user.content
+    assert "<profile>\nNot given\n</profile>" in user.content
 
 
 def test_without_a_profile_an_energy_tool_returns_profile_needed(index):

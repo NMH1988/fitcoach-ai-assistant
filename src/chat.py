@@ -270,7 +270,8 @@ def format_profile(user: profile.UserProfile | None) -> str:
     """Return the profile as lines of fixed labels and checked values, or say there is none."""
     # Only validated numbers and fixed labels: nothing here is text the user typed.
     if user is None:
-        return "Not given: the user has not added their details."
+        # The exact line the owner's prompt names for a missing profile.
+        return "Not given"
     return "\n".join(
         [
             f"Weight: {units.format_weight(user.weight_kg, 'metric')}",
@@ -455,17 +456,24 @@ def answer_with_tools(
     needs_tool: bool = False,
 ) -> tuple[str | None, tuple[ToolRun, ...]]:
     """Let the model call tools for at most MAX_TOOL_ROUNDS rounds; return its answer and runs."""
-    # needs_tool (no relevant source): the first reply is not shown, and if it calls no tool the
-    # answer is None, so the caller shows NO_SOURCES_MESSAGE instead of an answer with no basis.
+    # needs_tool (no relevant source): replies are not shown until a tool has really run (a refused
+    # call, e.g. an unknown tool or bad arguments, does not count), and a reply with no tool call
+    # before that gives None, so the caller shows NO_SOURCES_MESSAGE, never an answer with no basis.
     history = list(messages)
     runs: list[ToolRun] = []
     for round_number in range(config.MAX_TOOL_ROUNDS + 1):
         last = round_number == config.MAX_TOOL_ROUNDS
-        hidden = needs_tool and round_number == 0
+        hidden = needs_tool and all(run.status == "invalid" for run in runs)
         # Only the tools are bound (never the model or max_tokens; security-privacy.md). After the
         # last round the model must answer from the results it has.
         bound = chat_model.bind_tools(list(tools.values()), tool_choice="none" if last else None)
-        reply = stream_reply(bound, history, None if hidden else on_text)
+        try:
+            reply = stream_reply(bound, history, None if hidden else on_text)
+        except llm.ReplyCutOffError:
+            if hidden:
+                # Nothing was shown and no tool ran: the turn ends as "not covered".
+                return None, ()
+            raise
         if not reply.tool_calls and not reply.invalid_tool_calls:
             if hidden:
                 return None, ()

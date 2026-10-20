@@ -93,7 +93,7 @@ def test_the_extra_field_message_is_fixed():
     """The food refusal names the allowed arguments and nothing the model sent."""
     tool_message, _ = _run(FOOD_TOOL, {"food": "rolled oats", "grams": 100, "SECRET_KEY": "SECRET"})
     assert json.loads(tool_message.content)["message"] == (
-        "Invalid food lookup: use only the arguments food and grams."
+        "Invalid food lookup: only the arguments food and grams are accepted."
     )
     assert "SECRET" not in tool_message.content
 
@@ -102,7 +102,7 @@ def test_a_call_through_langchain_is_refused_too(no_tool_runs):
     """Invoked directly, the food tool still refuses `table` with the fixed message."""
     tool = registry.build_tools(PROFILE)[FOOD_TOOL]
     reply = tool.invoke({"food": "rolled oats", "grams": 100, "table": []})
-    assert reply == "Invalid food lookup: use only the arguments food and grams."
+    assert reply == "Invalid food lookup: only the arguments food and grams are accepted."
 
 
 @pytest.mark.parametrize(

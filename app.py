@@ -378,6 +378,46 @@ def _show_tdee(result: TdeeResult) -> None:
     st.caption(result.method)
 
 
+def _macro_bar(kcal: dict[str, int]) -> None:
+    """Draw the kcal of each macro as one horizontal stacked bar, in the macro colours."""
+    names = list(kcal)
+    # A Vega-Lite spec rather than st.bar_chart, so the value axis starts at 0 (st.bar_chart's
+    # started at -500 in a narrow window). `alt` is the chart's text alternative.
+    alt = "Energy split per day: " + ", ".join(
+        f"{name} {value:,} kcal" for name, value in kcal.items()
+    )
+    spec = {
+        "mark": {"type": "bar"},
+        "encoding": {
+            "x": {
+                "field": "kcal",
+                "type": "quantitative",
+                "stack": "zero",
+                # From 0 to the next round value, so the bar never ends at the chart's edge.
+                "scale": {"domainMin": 0, "nice": True},
+                "title": "kcal per day",
+            },
+            "y": {"field": "split", "type": "nominal", "title": None},
+            "color": {
+                "field": "macro",
+                "type": "nominal",
+                "sort": names,
+                "scale": {"domain": names, "range": [config.MACRO_COLORS[n] for n in names]},
+                "legend": {"orient": "bottom", "title": None},
+            },
+            "order": {"field": "position"},
+            "tooltip": [{"field": "macro"}, {"field": "kcal", "format": ","}],
+        },
+    }
+    data = {
+        "macro": names,
+        "kcal": list(kcal.values()),
+        "split": ["Energy"] * len(names),
+        "position": list(range(len(names))),
+    }
+    st.vega_lite_chart(data, spec, width="stretch", height=config.MACRO_CHART_HEIGHT_PX, alt=alt)
+
+
 def _macro_cells(macro: Macro) -> list[str]:
     """Return one macro's grams, share of the kcal and grams per kg, as table cells."""
     return [f"{macro.grams:,} g", f"{macro.percent}%", f"{macro.g_per_kg:g} g/kg"]
@@ -419,19 +459,7 @@ def _show_macros(result: registry.MacroToolResult) -> None:
     )
     # The energy split as one stacked bar; the numbers are in the table above, so colour is never
     # the only signal (docs/UI_DESIGN.md, Accessibility).
-    split = {name: [macro.grams * kcal_per_g] for name, (macro, kcal_per_g) in macros.items()}
-    st.bar_chart(
-        {"Split": ["Energy"], **split},
-        x="Split",
-        y=list(split),
-        horizontal=True,
-        stack=True,
-        color=list(config.MACRO_COLORS.values()),
-        # Horizontal: x_label names the bar axis and y_label the value axis.
-        x_label="",
-        y_label="kcal per day",
-        height=220,
-    )
+    _macro_bar({name: macro.grams * kcal_per_g for name, (macro, kcal_per_g) in macros.items()})
     st.caption(result.message)
     for note in targets.notes:
         st.caption(f":material/info: {note}")
