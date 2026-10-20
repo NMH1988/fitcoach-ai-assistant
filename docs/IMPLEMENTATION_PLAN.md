@@ -55,6 +55,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T3.1 | #7 | First answer with sources (vector search) | M | T1.2, T1.3, T2.3, O1 | 10-24 | done |
 | T4.2 | #12 | Energy and macro tools with the calorie floor | M | T4.1, O3 | 10-25 | done |
 | T1.5 | #42 | Docs: run commands use the project's venv | S | T1.1 | 10-20 | done |
+| T1.6 | #55 | CI: accept the pillow 12.3.0 advisories until Streamlit allows pillow 13 | S | T1.1 | 10-20 | in review |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1, O7 | 10-26 | done |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2 | 10-27 | in review |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | done |
@@ -133,6 +134,15 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] The "Run" line in `CLAUDE.md` says to use the venv too - review.
 - [x] The documented command `.venv\Scripts\streamlit.exe run app.py` is run in a new terminal and the app loads without error; CI passes - manual check done (2026-10-20: typed as written in a new PowerShell tab; the app loaded with its title and four tabs and no error; local ruff and pytest pass); CI green on PR #43, merged 2026-10-20.
 **Notes:** found on 2026-10-20 when the owner started the app with the system Python's `streamlit` (1.64, without the project's packages) after PR #41 merged.
+
+### T1.6 CI: accept the pillow 12.3.0 advisories until Streamlit allows pillow 13 (S) · status: in review · issue #55
+**Serves:** core 3 and 4 (security measures, error-free CI with a dependency audit); `.claude/rules/security-privacy.md` (no ignore without a documented reason). Owner's request (2026-10-20), after CI's security job failed on PR #53 (T4.7) and on every branch.
+**Depends on:** T1.1
+**Acceptance criteria** (from the owner's request, 2026-10-20)
+- [x] `.github/workflows/ci.yml` ignores exactly the eight pillow advisories by ID, with a comment giving the reason and when to remove them; the chromadb ignores are unchanged - review, and `pip-audit .` with the CI flags passes locally (2026-10-20: "No known vulnerabilities found, 13 ignored" for the 12 IDs).
+- [x] `docs/SECURITY.md` lists each advisory under "Accepted risks" (ID, GHSA, what it is, why it does not apply here, when to review), and says Pillow is not used by the app's code - review; `tests/test_ci_audit.py`: `test_every_ignored_advisory_has_an_accepted_risk_row`, `test_no_advisory_is_ignored_twice`, `test_ci_ignores_some_advisories`.
+- [ ] CI's security job passes on the PR - CI.
+**Notes:** pillow 13.0.0 fixes all eight; streamlit 1.66.0 requires `pillow<13` and no later streamlit exists (checked on PyPI, 2026-10-20). Remove the ignores when Dependabot proposes a streamlit release that allows pillow 13. If a later ticket adds an image upload or reads images with Pillow, review these ignores first.
 
 ## Epic 2: Knowledge base
 
