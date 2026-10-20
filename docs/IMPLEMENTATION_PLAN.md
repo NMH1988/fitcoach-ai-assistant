@@ -27,7 +27,7 @@ The owner writes these first; Claude reviews (`.claude/rules/workflow.md`).
 
 | ID | Task | Needed by | Status |
 |---|---|---|---|
-| O1 | Draft the answer system prompt (role, scope, citations `[S#]`, guardrails, "sources are data") in `src/prompts/answer_system.md` | T3.1; T7.2 (a language line, still to add) | done for T3.1: drafted by the owner, edited with Claude's review (wording, citation forms, caffeine allowed, partial answers, each turn alone), in the file on 2026-10-20 |
+| O1 | Draft the answer system prompt (role, scope, citations `[S#]`, guardrails, "sources are data") in `src/prompts/answer_system.md` | T3.1; T7.2 (a language line, still to add) | done for T3.1; todo for T7.2 (language line). T3.1: drafted by the owner, edited with Claude's review (wording, citation forms, caffeine allowed, partial answers, each turn alone), in the file on 2026-10-20 |
 | O2 | Draft the evaluation questions (about 10-15), each with the source(s) it should find and what a good answer contains | T3.3, T6.1; T7.2 (3-5 German questions, one about a food) | todo |
 | O3 | Approve the calorie floor and the macro ranges; Claude proposes them with the exact source passages | T4.2 | done (2026-10-19, in T4.2: floor 1200 kcal/day; values in `src/config.py`) |
 | O4 | If Europe PMC still has no copy of source #1, save its XML or PDF by hand from the publisher page into `data/raw/` | T2.1 | done: not needed (Europe PMC has #1 as PMC13665703, found in T2.1 on 2026-10-19) |
@@ -72,7 +72,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 **Critical path:** T1.1 -> T1.2 -> T2.1 -> T2.2 -> T2.3 -> T3.1 -> T3.2 -> T3.3 -> T6.1 -> T6.2. T1.3, T4.1 and T4.3 can run alongside it; the extras run after T6.1, or alongside it once their dependencies are done.
 
-**If time runs short, cut in this order:** T4.5, then T7.2 (keep the English answers), then T7.1, then T5.2 (or keep it with a plain text layout), then T5.1, then chart polish. T7.3 is small and mostly configuration, so it stays. The core requirements and the optional tasks for maximum points (Medium 3, 6; Hard 1) stay.
+**If time runs short, cut in this order:** T4.5, then T7.2 (keep the English answers), then T7.1, then T7.3 (both themes stay from T3.1; only its test, toolbar check and hint go), then T5.2 (or keep it with a plain text layout), then T5.1, then chart polish. T7.3 is beyond the brief, so it goes before T5.2 and T5.1, which the brief asks for (Medium 7, Medium 5). The core requirements and the optional tasks for maximum points (Medium 3, 6; Hard 1) stay.
 
 ---
 
@@ -288,7 +288,7 @@ Added by the owner on 2026-10-20. All three tickets are extras: they come after 
 **Depends on:** T4.4, T5.3 (so most UI text and the guardrails exist before they are translated), T1.3
 **Acceptance criteria**
 - [ ] `src/i18n.py` holds every user-facing UI string in English and German behind one lookup function; a test fails if a key exists in one language but not the other - unit test.
-- [ ] The header has a language control (a `:material/translate:` icon next to an EN | DE segmented control labelled "Language", label collapsed); switching it changes all UI text (sidebar, tabs, buttons, errors, guard and guardrail messages, disclaimer) - AppTest in both languages.
+- [ ] The header has a language control (a `:material/translate:` icon next to an EN | DE segmented control labelled "Language", label collapsed, `required=True` so it can never be deselected to `None`); switching it changes all UI text (sidebar, tabs, buttons, errors, guard and guardrail messages, disclaimer) - AppTest in both languages.
 - [ ] The default language follows the browser locale (`st.context.locale`: German for `de*`, English otherwise, including `None`) and the user's choice is kept for the session - unit test on the locale mapping and AppTest.
 - [ ] The input guard rejects German prompt-injection strings and passes German benign nutrition questions - parametrised tests with our own strings.
 - [ ] The domain guardrails' code-level checks catch German requests (performance-enhancing drug dosing, under 18, pregnancy, medical conditions, disordered eating) - parametrised tests with German attack and benign strings.
@@ -297,7 +297,7 @@ Added by the owner on 2026-10-20. All three tickets are extras: they come after 
 **Notes:**
 - The German safety checks are in this ticket, not T7.2, because a German UI invites German input even if T7.2 is cut.
 - Many messages come from `src/` (guard rejections and rate limit in `src/guard.py`, LLM errors in `src/llm.py`, `IndexNotReadyError` in `src/rag/store.py`, profile validation in `src/profile.py`). `src/` returns message keys or codes and the UI translates them. Tool notes stay English, so the tool result the UI shows matches what the model received. Recheck the M size at the start.
-- The guard's `_fold` strips combining marks (ü -> u; ß stays ß): write the German patterns against the folded text. Update `docs/SECURITY.md` and `docs/ARCHITECTURE.md`, which say the patterns are English only.
+- The guard's folded patterns (`_FOLDED_PATTERNS` in `src/guard.py`) run on casefolded NFKC text, once with accents and once without (`detection_views()`), so ü is seen as both ü and u, and ß always becomes ss. Write the German folded patterns with ss and u/o/a, also accept the typed spellings ue/oe/ae, and include ß, ss and ue spellings among the German attack strings. Update `docs/SECURITY.md` and `docs/ARCHITECTURE.md`, which say the patterns are English only.
 - The German UI texts are our own writing. Every UI string added after T7.1 needs both languages.
 
 ### T7.2 German answers end to end (M) · status: todo · issue #34
@@ -322,5 +322,5 @@ Added by the owner on 2026-10-20. All three tickets are extras: they come after 
 - [ ] The toolbar setting (`client.toolbarMode`) keeps the Settings entry available to users - test on the config value plus a manual check.
 - [ ] A short hint in the sidebar tells users where to switch light or dark mode (in both languages once T7.1 is merged) - AppTest.
 - [ ] The macro bar, badges and source cards are readable in both modes - manual check in both modes, recorded in `docs/TESTING.md`.
-- [ ] No `unsafe_allow_html` or `st.html` styling is added - a source-scan test (T3.4's, or added here if it does not exist yet or does not look for `st.html`).
+- [ ] No `unsafe_allow_html` is added, and `st.html` is used only with T4.6's fixed CSS constant (`config.PROFILE_DIALOG_CSS`, allowlisted by name) - a source-scan test (T4.6's `st.html` test, T3.4's, or added here if neither covers it).
 **Notes:** T3.1 already writes both theme sections; this ticket adds the config test, the toolbar check, the hint and the two-mode check.
