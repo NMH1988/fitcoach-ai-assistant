@@ -68,6 +68,13 @@ def _use_model(
     return model
 
 
+def _off_topic_plan() -> ScriptedTranslator:
+    """Return a translator whose plan says no tool could answer and no profile is needed."""
+    rewrites = ["offside rule football", "football offside law", "offside position"]
+    plan = plan_json(rewrites, needs_tool=False, needs_profile=False)
+    return ScriptedTranslator(plans=[plan])
+
+
 def _answers(*texts: str) -> ScriptedChatModel:
     """Return a scripted model that gives these answers in turn."""
     return ScriptedChatModel(replies=[AIMessage(text) for text in texts])
@@ -144,13 +151,31 @@ def test_an_answer_citing_nothing_says_so_in_the_status(monkeypatch):
 
 
 def test_no_relevant_source_shows_the_fixed_message_and_no_sources(monkeypatch):
-    """An off-topic question gets the 'not covered' message and no Sources; the reply is unseen."""
-    model = _use_model(monkeypatch, _answers("Offside is a football rule."))
+    """An off-topic question gets the 'not covered' message and no Sources, with no answer call."""
+    model = _use_model(monkeypatch, _answers("Offside is a football rule."), _off_topic_plan())
     at = _ask(_start(), OFF_TOPIC)
     message = _assistant(at)
     assert message.markdown[0].value == config.NO_SOURCES_MESSAGE
     assert not message.expander
-    # One model call with the tools (T4.4); its text never reaches the page.
+    # The plan says no tool could answer, so the answer model is never called (T3.5).
+    assert model.calls == []
+    statuses = [(s.label, s.state) for s in message.status]
+    assert statuses == [
+        ("No matching research found", "complete"),
+        (chat.Step.CHECK.value, "complete"),
+        (chat.Step.REWRITE.value, "complete"),
+        (chat.Step.SEARCH.value, "complete"),
+    ]
+    assert not [m for m in at.markdown if "Offside" in m.value]
+
+
+def test_with_no_source_a_tool_answerable_question_calls_the_model_unseen(monkeypatch):
+    """No source but needs_tool: one call with the tools; with no tool used, its text is unseen."""
+    model = _use_model(monkeypatch, _answers("Offside is a football rule."))
+    at = _ask(_start(), OFF_TOPIC)
+    message = _assistant(at)
+    assert message.markdown[0].value == config.NO_SOURCES_MESSAGE
+    # The default fake plan says needs_tool (T4.4's path); the model calls no tool.
     assert len(model.calls) == 1
     assert not [m for m in at.markdown if "Offside" in m.value]
 

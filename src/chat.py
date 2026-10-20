@@ -1,7 +1,8 @@
 """One chat turn: guard -> query translation -> retrieval -> answer with tools and [S#] citations.
 
 The user's question goes only inside <user_input>, the retrieved chunks only inside <sources> and
-the profile only inside <profile>, all in the user message; none is ever put into the system prompt
+the profile only inside <profile> (sent only when the query plan says the answer needs the user's
+numbers, T3.5), all in the user message; none is ever put into the system prompt
 (.claude/rules/security-privacy.md). All three are escaped first (`src/prompt_data.py`), so no text
 can close or open a block (T3.4). The rewrites from query translation are used only for the search
 and shown in the app; the answer model gets the user's own question. Tool results reach the model
@@ -289,16 +290,19 @@ def build_messages(
     chunks: Sequence[RetrievedChunk],
     system_prompt: str,
     user: profile.UserProfile | None = None,
+    *,
+    include_profile: bool = False,
 ) -> list[BaseMessage]:
-    """Return the system prompt and one user message with <sources>, <profile> and <user_input>."""
+    """Return the system prompt and a user message: <sources>, <profile> if asked, <user_input>."""
     # Plain string content, never a prompt template: braces in the question stay as typed. The
     # profile holds only fixed labels and checked numbers; it is escaped like the rest anyway.
-    content = (
-        f"<sources>\n{format_sources(chunks)}\n</sources>\n\n"
-        f"<profile>\n{escape_prompt_data(format_profile(user))}\n</profile>\n\n"
-        f"<user_input>\n{escape_prompt_data(question)}\n</user_input>"
-    )
-    return [SystemMessage(system_prompt), HumanMessage(content)]
+    # The <profile> block is left out unless the caller asks for it (T3.5): the profile goes only
+    # to a call that needs it (security-privacy.md).
+    blocks = [f"<sources>\n{format_sources(chunks)}\n</sources>"]
+    if include_profile:
+        blocks.append(f"<profile>\n{escape_prompt_data(format_profile(user))}\n</profile>")
+    blocks.append(f"<user_input>\n{escape_prompt_data(question)}\n</user_input>")
+    return [SystemMessage(system_prompt), HumanMessage("\n\n".join(blocks))]
 
 
 def cited_labels(answer: str, count: int) -> list[int]:
@@ -453,17 +457,17 @@ def answer_with_tools(
     on_step: Callable[[Step], None],
     on_text: Callable[[str], None] | None = None,
     *,
-    needs_tool: bool = False,
+    tools_only: bool = False,
 ) -> tuple[str | None, tuple[ToolRun, ...]]:
     """Let the model call tools for at most MAX_TOOL_ROUNDS rounds; return its answer and runs."""
-    # needs_tool (no relevant source): replies are not shown until a tool has really run (a refused
+    # tools_only (no relevant source): replies are not shown until a tool has really run (a refused
     # call, e.g. an unknown tool or bad arguments, does not count), and a reply with no tool call
     # before that gives None, so the caller shows NO_SOURCES_MESSAGE, never an answer with no basis.
     history = list(messages)
     runs: list[ToolRun] = []
     for round_number in range(config.MAX_TOOL_ROUNDS + 1):
         last = round_number == config.MAX_TOOL_ROUNDS
-        hidden = needs_tool and all(run.status == "invalid" for run in runs)
+        hidden = tools_only and all(run.status == "invalid" for run in runs)
         # Only the tools are bound (never the model or max_tokens; security-privacy.md). After the
         # last round the model must answer from the results it has.
         bound = chat_model.bind_tools(list(tools.values()), tool_choice="none" if last else None)
@@ -526,16 +530,27 @@ def answer_question(
     on_step(Step.SEARCH)
     with llm.mapped_errors():
         chunks, details = find_chunks(question, plan, index)
-    on_step(Step.ANSWER)
-    # The user's own question, never the rewrites, goes to the answer model.
-    messages = build_messages(question, chunks, models.system_prompt, user)
-    # The energy tools get the profile here, never from the model.
-    tools = registry.build_tools(user)
     # With no relevant chunk the model may still answer from a tool (a food lookup rarely matches
-    # a research passage); if it calls none, the fixed "not covered" message is shown (AC-2;
-    # owner's choice in T4.4).
+    # a research passage; owner's choice in T4.4), but only when the plan says a tool could: an
+    # off-topic question, or one with no usable plan, costs no answer call (AC-2; T3.5).
+    if not chunks and not (plan is not None and plan.needs_tool):
+        return TurnResult("no_sources", config.NO_SOURCES_MESSAGE, search=details)
+    on_step(Step.ANSWER)
+    # The user's own question, never the rewrites, goes to the answer model. The profile goes
+    # only when the plan says the answer needs the user's numbers (security-privacy.md; T3.5).
+    messages = build_messages(
+        question,
+        chunks,
+        models.system_prompt,
+        user,
+        include_profile=plan is not None and plan.needs_profile,
+    )
+    # The energy tools get the profile here, never from the model, with or without <profile>.
+    tools = registry.build_tools(user)
+    # With no relevant chunk, replies stay hidden until a tool really runs; if the model calls
+    # none, the fixed "not covered" message is shown.
     answer, runs = answer_with_tools(
-        models.chat_model, messages, tools, on_step, on_text, needs_tool=not chunks
+        models.chat_model, messages, tools, on_step, on_text, tools_only=not chunks
     )
     if answer is None:
         return TurnResult("no_sources", config.NO_SOURCES_MESSAGE, search=details)

@@ -15,6 +15,20 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-20 · T3.5 Skip the answer call for off-topic questions with no source · PR to come (closes #50)
+- **Brief:** beyond the brief (owner's request): cost control and personal data minimisation, in support of core 3; keeps AC-2 and AC-6.
+- **What:**
+  - `src/rag/query_translation.py`: `QueryPlan` has two required `StrictBool` fields, `needs_tool` (a profile calculation or a food lookup could answer) and `needs_profile` (the answer needs the user's numbers).
+  - `src/chat.py`: `answer_question()` returns `NO_SOURCES_MESSAGE` with no answer model call when no chunk is relevant and the plan does not say `needs_tool` (or there is no usable plan); the status then stops at "Searching the research". `build_messages(..., include_profile=)` leaves the `<profile>` block out unless asked (default off); `answer_question()` asks only when the plan says `needs_profile`, with or without sources. `answer_with_tools()`'s `needs_tool` keyword is renamed `tools_only`. `src/config.py`: the `NO_SOURCES_MESSAGE` comment.
+  - Tests: `tests/test_query_translation.py` (the flags, the strict schema, invalid flags fall back), `tests/test_tool_loop.py` (a T3.5 section: no answer call off topic or with no plan, the tool loop with `needs_tool`, the answer step with sources, the profile block with and without `needs_profile`); `tests/test_chat.py` and `tests/test_app_chat.py` (the off-topic tests now expect no answer call, and the status box to stop at "Searching the research"; T4.4's one hidden call is kept as a test with a `needs_tool` plan); tests that check the whole message shape pass `include_profile=True`. `tests/fakes.py`'s `plan_json()` sets both flags, true by default. The new T3.5 tests fail on the code before this change, except the two that pin unchanged behaviour (the answer step with sources, the food lookup with `needs_tool`) (checked).
+  - Docs: `docs/ARCHITECTURE.md` (steps 3-5), `docs/SECURITY.md` ("Runaway cost", "Answers without evidence", "Personal data leaks", a known limit on the flags), the plan (T3.5 criteria and tests, O1 and O7 todo for T3.5).
+- **Why:** since T4.4 every question with no relevant source cost one answer call (`gpt-5-mini` with the tools), wasted on an off-topic one; the query translation call already reads every question, so it says whether a tool could help (owner's option A). The profile went with every answer call, though the privacy rule says only to the call that needs it.
+- **Decisions & gotchas:**
+  - Owner's choices (2026-10-20, Question phase): a second flag `needs_profile` instead of sending the profile whenever `needs_tool` is set (a food lookup needs no personal data), which changed criteria 1, 4 and 6; the profile follows `needs_profile` also when there are sources (criterion 3's "unchanged" means the call, the sources and the tools); code first, the owner's prompt changes (O7, O1) before the merge, as in T3.2.
+  - Default stated in the Question phase: with no usable plan the profile is not sent (the plan does not say it is needed); the energy tools still read the session's profile from the app, so a model that calls them gets the user's numbers anyway.
+  - `test_the_query_translation_prompt_names_the_fields_and_topics` is red until the owner's prompt names `needs_tool` and `needs_profile` (O7); that is the merge blocker, as in T3.2.
+- **Follow-ups:** O7 and O1 for T3.5 (owner, before the merge); the owner's live check (O5) with the oats and offside questions; the issue #50 text still has the one-flag criteria (the plan is the record).
+
 ## 2026-10-20 · T4.4 Tool-calling loop and tool results UI · #49 (closes #14)
 - **Brief:** core requirements 2 (three tools the model can call) and 5 (tool results shown); Medium 6 (tool results visualised); AC-6.
 - **What:**

@@ -108,14 +108,19 @@ def plan_json(
     topics: list[str] | tuple[str, ...] = (),
     min_year: int | None = None,
     evidence_tier: int | None = None,
+    needs_tool: bool = True,
+    needs_profile: bool = True,
 ) -> str:
     """Return a query translation reply as the model would send it: one JSON object."""
+    # Both flags default to True, the behaviour before T3.5 (an answer call and the profile).
     return json.dumps(
         {
             "queries": list(queries),
             "topics": list(topics),
             "min_year": min_year,
             "evidence_tier": evidence_tier,
+            "needs_tool": needs_tool,
+            "needs_profile": needs_profile,
         }
     )
 
@@ -130,7 +135,7 @@ class ScriptedTranslator(BaseChatModel):
     """A query translation model that replies with scripted JSON plans (or raises) and records."""
 
     # With no plan left it returns three rewrites that repeat the question, with no filter, so the
-    # search finds what the question alone finds.
+    # search finds what the question alone finds, and needs_tool and needs_profile set (T3.5).
 
     plans: list[str | Exception] = Field(default_factory=list)
     calls: list[list[BaseMessage]] = Field(default_factory=list)

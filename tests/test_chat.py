@@ -245,9 +245,11 @@ def test_with_no_hits_the_search_runs_again_without_the_filter(index, monkeypatc
 def test_with_no_hits_even_without_the_filter_the_sources_do_not_cover_it(index, monkeypatch):
     """Nothing filtered or unfiltered: no_sources and the search details kept."""
     spy = SearchSpy(index, monkeypatch)
-    # With no chunk the answer model is still asked once, with the tools; it calls none (T4.4).
+    # The plan says a tool could answer, so with no chunk the answer model is still asked once,
+    # with the tools; it calls none (T4.4; T3.5).
     model = _model("Offside is a football rule.")
-    plan = plan_json(["football rules", "offside in soccer", "the offside law"], ["fat"])
+    rewrites = ["football rules", "offside in soccer", "the offside law"]
+    plan = plan_json(rewrites, ["fat"], needs_tool=True)
     result = _turn(OFF_TOPIC, index, model, translator=ScriptedTranslator(plans=[plan]))
     assert result.kind == "no_sources"
     assert result.search.filter_dropped
@@ -334,15 +336,31 @@ def test_a_search_keeps_at_most_the_top_k_chunks_over_all_queries(tmp_path):
 
 
 def test_with_no_relevant_chunk_the_app_says_the_sources_do_not_cover_it(index):
-    """Nothing close enough and no tool used: the fixed message, no citation, the reply unseen."""
+    """Nothing close enough and no tool could answer: the fixed message, no citation, no call."""
     model = _model("Football is not a nutrition topic.")
+    rewrites = ["offside rule football", "football offside law", "offside position"]
+    plan = plan_json(rewrites, needs_tool=False, needs_profile=False)
     shown = []
-    result = _turn(OFF_TOPIC, index, model, on_text=shown.append)
+    result = _turn(
+        OFF_TOPIC, index, model, translator=ScriptedTranslator(plans=[plan]), on_text=shown.append
+    )
     assert result.kind == "no_sources"
     assert result.text == config.NO_SOURCES_MESSAGE
     assert result.sources == ()
+    assert result.steps == (Step.CHECK, Step.REWRITE, Step.SEARCH)
+    # The plan says no tool could answer, so the answer model is never called (T3.5).
+    assert model.calls == []
+    assert shown == []
+
+
+def test_with_no_relevant_chunk_a_tool_answerable_question_gets_one_unseen_call(index):
+    """No chunk but needs_tool, and no tool used: one call with the tools, its reply unseen."""
+    model = _model("Football is not a nutrition topic.")
+    shown = []
+    # The default fake plan says needs_tool (T4.4's path).
+    result = _turn(OFF_TOPIC, index, model, on_text=shown.append)
+    assert (result.kind, result.text) == ("no_sources", config.NO_SOURCES_MESSAGE)
     assert result.steps == (Step.CHECK, Step.REWRITE, Step.SEARCH, Step.ANSWER)
-    # One call with the tools, in case one could answer; its own text is never shown.
     [[_, user]] = model.calls
     assert f"<sources>\n{config.NO_SOURCES_BLOCK}\n</sources>" in user.content
     assert shown == []
