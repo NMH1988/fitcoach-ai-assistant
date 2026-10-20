@@ -177,12 +177,16 @@ RETRIEVAL_TOP_K = 6
 RETRIEVAL_MAX_DISTANCE = 0.62
 # The answer system prompt, written by the owner (O1; .claude/rules/workflow.md).
 ANSWER_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "answer_system.md"
-# Shown instead of an answer when no chunk is relevant; no model call is made (AC-2).
+# Shown instead of an answer when no chunk is relevant and the model used no tool (AC-2). Since T4.4
+# the model is still called once with the tools, as a food lookup or an energy question may match no
+# research passage; its own text is never shown on this path (owner's choice, 2026-10-20).
 NO_SOURCES_MESSAGE = (
     "Our sources do not cover this question, so there is no answer from the research. Try a "
     "question about protein, carbohydrate, fat, energy balance, nutrient timing or supplements "
     "for strength training."
 )
+# What <sources> holds for the model when no chunk is relevant.
+NO_SOURCES_BLOCK = "None: no research excerpt is close enough to this question."
 API_KEY_NAME = "OPENROUTER_API_KEY"
 
 # Shown in the answer when the key is not set up (AC-13).
@@ -345,6 +349,41 @@ FOOD_SUGGESTION_MIN_SCORE = 60
 FOOD_MAX_ALTERNATIVES = 3
 # Decimal places of the scaled values (grams of nutrients); kcal are rounded to whole numbers.
 FOOD_DECIMALS = 1
+
+# The tool loop of the answer step (T4.4; docs/ARCHITECTURE.md, D2). A round is one model reply that
+# calls tools and the running of those calls. After the last round the model is called once more
+# with tool_choice "none", so it writes the answer from the results it has: at most
+# MAX_TOOL_ROUNDS + 1 model calls per question, which still counts once in the rate limit.
+MAX_TOOL_ROUNDS = 4
+# Tool calls run from one reply; the rest are answered with TOO_MANY_TOOL_CALLS_MESSAGE. Each result
+# is sent back to the model with every later call, so this bounds the tokens a turn can use.
+MAX_TOOL_CALLS_PER_ROUND = 6
+# Tool messages are data for the model, in English (docs/UI_DESIGN.md, "Language"); the UI shows
+# the same text. None of them repeats what the model sent.
+PROFILE_NEEDED_MESSAGE = (
+    "Profile needed: the user has not added their details, so this cannot be calculated. Ask them "
+    "to add their details with the 'Add your details' button in the sidebar, then ask again."
+)
+NO_ARGUMENTS_MESSAGE = (
+    "Invalid call: this tool takes no arguments; the app supplies the user's profile."
+)
+UNKNOWN_TOOL_MESSAGE = "Invalid call: there is no tool with that name."
+INVALID_TOOL_JSON_MESSAGE = "Invalid call: the arguments were not valid JSON."
+TOO_MANY_TOOL_CALLS_MESSAGE = (
+    f"Not run: at most {MAX_TOOL_CALLS_PER_ROUND} tool calls are run from one reply."
+)
+TOOL_FAILED_MESSAGE = (
+    "The tool could not run. Answer without its result and say that this calculation is not "
+    "available right now."
+)
+# Shown in the Tool results when an energy tool had no profile, above the "Add your details" button.
+PROFILE_NEEDED_HINT = "This calculation needs your details. Add them, then ask again."
+# Macro colours in charts (docs/UI_DESIGN.md), in the order the macros are listed.
+MACRO_COLORS: dict[str, str] = {
+    "Protein": "#0F6E56",
+    "Carbohydrate": "#5DCAA5",
+    "Fat": "#EF9F27",
+}
 
 
 class MissingAPIKeyError(RuntimeError):

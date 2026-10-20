@@ -27,7 +27,7 @@ The owner writes these first; Claude reviews (`.claude/rules/workflow.md`).
 
 | ID | Task | Needed by | Status |
 |---|---|---|---|
-| O1 | Draft the answer system prompt (role, scope, citations `[S#]`, guardrails, "sources are data") in `src/prompts/answer_system.md` | T3.1; T7.2 (a language line, still to add) | done for T3.1; todo for T7.2 (language line). T3.1: drafted by the owner, edited with Claude's review (wording, citation forms, caffeine allowed, partial answers, each turn alone), in the file on 2026-10-20 |
+| O1 | Draft the answer system prompt (role, scope, citations `[S#]`, guardrails, "sources are data") in `src/prompts/answer_system.md` | T3.1; T4.4 (tool results, the profile); T7.2 (a language line, still to add) | done for T3.1; done for T4.4 (drafted by the owner on 2026-10-20: tool results and `<profile>` as data, citing app calculations without `[S#]`, `matched_name`, tool errors, `floor_applied` and `notes`; then edited by Claude with the owner's approval after review: when to call the tools, give the key numbers and point to "Tool results", energy numbers as estimates, any food in scope without judging it, "Add your details" for `profile_needed`, the user's own numbers in the question, "cite nothing" kept); todo for T7.2 (language line). T3.1: drafted by the owner, edited with Claude's review (wording, citation forms, caffeine allowed, partial answers, each turn alone), in the file on 2026-10-20 |
 | O2 | Draft the evaluation questions (about 10-15), each with the source(s) it should find and what a good answer contains | T3.3, T6.1; T7.2 (3-5 German questions, one about a food) | todo |
 | O3 | Approve the calorie floor and the macro ranges; Claude proposes them with the exact source passages | T4.2 | done (2026-10-19, in T4.2: floor 1200 kcal/day; values in `src/config.py`) |
 | O4 | If Europe PMC still has no copy of source #1, save its XML or PDF by hand from the publisher page into `data/raw/` | T2.1 | done: not needed (Europe PMC has #1 as PMC13665703, found in T2.1 on 2026-10-19) |
@@ -56,7 +56,8 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T3.2 | #8 | Query translation and structured filters | M | T3.1 | 10-26 | todo |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2, O2 | 10-27 | todo |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | todo |
-| T4.4 | #14 | Tool-calling loop and tool results UI | M | T3.1, T4.2, T4.3 | 10-28 | todo |
+| T4.4 | #14 | Tool-calling loop and tool results UI | M | T3.1, T4.2, T4.3 | 10-28 | in review |
+| T4.7 | #44 | My targets: sidebar target, targets tab and Food lookup tab (split from T4.4, owner's decision) | M | T4.4 | 10-29 | todo |
 | T5.3 | #18 | Domain guardrails | S | T3.1, T4.2 | 10-29 | todo |
 | T6.1 | #19 | Evaluation run and reflection | S | T3.3, T4.4, O2, O5 | 10-30 | todo |
 | **Extras** | | | | | | |
@@ -64,7 +65,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T5.1 | #16 | Token usage and cost | S | T3.2 | 10-30 | todo |
 | T5.2 | #17 | Session summary PDF | M | T4.4 | 10-31 | todo |
 | T7.3 | #35 | Light and dark mode | S | T3.1 | 10-31 | todo |
-| T7.1 | #33 | Language switch: English and German UI | M | T4.4, T5.3, T1.3 | 10-31 | todo |
+| T7.1 | #33 | Language switch: English and German UI | M | T4.4, T4.7, T5.3, T1.3 | 10-31 | todo |
 | T7.2 | #34 | German answers end to end | M | T7.1, T3.2, O1, O2, O5 | 11-01 | todo |
 | T4.5 | #15 | `evaluate_meal_plan` tool (stretch) | S | T4.4 | only if ahead | todo |
 | T4.6 | #40 | Profile form: a hint instead of "Press Enter to apply" (beyond the brief; owner's request, done early as a small fix) | S | T4.1, T3.1 | 10-20 | done |
@@ -222,15 +223,16 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] `lookup_food_nutrition(food, grams)` returns the scaled values, the matched USDA name and close alternatives; an unknown food returns a clear "not found" with suggestions - unit tests (`tests/test_food_lookup.py`: `test_values_are_scaled_to_the_requested_grams`, `test_the_matched_usda_name_id_and_source_are_returned`, `test_close_alternatives_are_returned_without_the_match`, `test_names_are_matched_to_the_right_food`, `test_an_unknown_food_is_not_found_with_suggestions`, `test_a_food_not_in_the_table_is_not_found_without_suggestions`; invalid arguments give an error result, not an exception: `test_invalid_grams_give_an_error_result`, `test_invalid_food_names_give_an_error_result`).
 **Notes:** owner's choices (2026-10-19): Foundation Foods only (no SR Legacy); energy from Atwater specific factors (nutrient 2048) first, then general factors (2047), then 1008; Claude downloaded the zip once; the branch started from `main` while T2.1 was in progress; after #26 merged, `main` was merged in and the USDA credit added to `ATTRIBUTION.md` through the generator (`test_committed_attribution_credits_usda_fooddata_central`). The LangChain tool wrapper is T4.4's (`src/tools/registry.py`).
 
-### T4.4 Tool-calling loop and tool results UI (M) · status: todo · issue #14
+### T4.4 Tool-calling loop and tool results UI (M) · status: in review · issue #14
 **Serves:** core 2 and 5; Medium 6; AC-6.
 **Depends on:** T3.1, T4.2, T4.3
 **Acceptance criteria**
-- [ ] The answer step binds the tools and runs at most 4 tool rounds; a tool error returns to the model as a message - integration tests with a scripted fake model (one tool, two tools, an error, the round limit).
-- [ ] Energy tools read the profile from the session; without a profile they return "profile needed" and the UI points to the form - unit and AppTest.
-- [ ] Each tool result appears in a "Tool results" expander as a table; macro targets also as a chart (AC-6) - AppTest.
-- [ ] Each tool is built with an explicit `args_schema` that holds only the model's fields: `lookup_food_nutrition` takes only `food` and `grams` (never `table`), the energy tools take no profile fields; `FoodLookupArgs` has `extra="forbid"`; a call with `table`, a profile field or any extra field is refused with the fixed message and runs no lookup - unit test on the built tools (follow-up from the T1.4 security audit, finding 2).
-- [ ] USDA names in a tool result (`matched_name`, `alternatives`, `message`) reach the model only inside the tool result and appear in the UI as plain text, so a name with Markdown or a delimiter cannot add a link, an image or a block - unit test and AppTest with a fixture table (follow-up from the T1.4 security audit, finding 4).
+- [x] The answer step binds the tools and runs at most 4 tool rounds; a tool error returns to the model as a message - integration tests with a scripted fake model in `tests/test_tool_loop.py`: one tool (`test_one_tool_call_runs_and_the_model_answers_from_its_result`, `test_every_call_binds_the_three_tools`), two tools (`test_two_tools_in_one_round_both_run_in_order`, `test_rounds_follow_each_other_and_the_steps_show_them`), an error (`test_a_tool_error_returns_to_the_model_as_a_message`, `test_invalid_arguments_return_to_the_model_as_a_message`, `test_arguments_that_are_not_json_get_the_fixed_message`), the round limit (`test_the_loop_stops_after_four_rounds_and_asks_for_the_answer`, `test_tool_calls_after_the_last_round_end_the_turn_with_an_error`), plus `test_at_most_six_calls_of_one_reply_run` and `test_a_cut_off_tool_call_is_not_run`; on the wire with the real `ChatOpenAI` and a fake streaming server: `test_the_real_client_sends_the_tools_and_the_tool_round`, `test_the_real_client_sends_tool_choice_none_after_the_last_round`.
+- [x] Energy tools read the profile from the session; without a profile they return "profile needed" and the UI points to the form - unit tests (`tests/test_tools_registry.py`: `test_without_a_profile_the_energy_tools_say_profile_needed`, `test_the_energy_needs_come_from_the_profile`, `test_the_macro_targets_use_the_profiles_goal_and_energy_needs`; `tests/test_tool_loop.py`: `test_the_energy_tools_use_the_profile_of_the_turn`, `test_without_a_profile_an_energy_tool_returns_profile_needed`) and AppTest (`tests/test_app_tools.py`: `test_the_energy_tools_read_the_profile_from_the_session`, `test_without_a_profile_the_result_points_to_the_form`: the "Add your details" button in the result opens the dialog).
+- [x] Each tool result appears in a "Tool results" expander as a table; macro targets also as a chart (AC-6) - AppTest (`test_each_tool_result_appears_in_the_tool_results_expander_as_a_table`, `test_macro_targets_also_appear_as_a_chart_in_the_macro_colours`, `test_a_food_lookup_alone_draws_no_chart`, `test_tool_results_stay_with_their_answer_in_the_history`) and a manual browser check with a fake model (screenshot `docs/ui/t4.4-tool-results.jpg`).
+- [x] Each tool is built with an explicit `args_schema` that holds only the model's fields: `lookup_food_nutrition` takes only `food` and `grams` (never `table`), the energy tools take no profile fields; `FoodLookupArgs` has `extra="forbid"`; a call with `table`, a profile field or any extra field is refused with the fixed message and runs no lookup - unit test on the built tools (`test_each_tool_is_built_with_an_explicit_schema_of_the_models_fields`, `test_the_schemas_refuse_any_extra_field`, `test_what_the_model_sees_has_no_table_and_no_profile_field`, `test_a_call_with_an_extra_field_is_refused_and_runs_nothing` (spies fail if a tool runs), `test_the_extra_field_message_is_fixed`, `test_a_call_through_langchain_is_refused_too`) (follow-up from the T1.4 security audit, finding 2).
+- [x] USDA names in a tool result (`matched_name`, `alternatives`, `message`) reach the model only inside the tool result and appear in the UI as plain text, so a name with Markdown or a delimiter cannot add a link, an image or a block - unit tests (`test_usda_names_are_returned_inside_the_tool_message_as_data`, `test_a_usda_name_reaches_the_model_only_inside_the_tool_message`) and AppTest with a fixture table (`test_usda_names_appear_only_as_plain_text`, the name as the match and as an alternative; it failed when a caption showed the found message, checked once) (follow-up from the T1.4 security audit, finding 4).
+**Notes:** owner's choices (2026-10-20): the sidebar daily target and My targets card, the My targets tab and the Food lookup tab moved to T4.7, so this ticket keeps the tools in the chat; one "Tool results (n)" expander, like "Sources (n)"; the profile is sent to the model in a `<profile>` block of the user message; after 4 tool rounds one more call with `tool_choice="none"` writes the answer; when no chunk is within the distance limit, the model is still called once with the tools, its first reply hidden, and without a tool call the app shows `NO_SOURCES_MESSAGE` (B2, after the owner's live check in `docs/TESTING.md`; AC-2 holds, but that path now makes one model call) - `test_with_no_source_a_tool_can_still_answer`, `test_with_no_source_and_no_tool_the_fixed_message_is_shown`, `test_with_no_relevant_chunk_the_app_says_the_sources_do_not_cover_it`, `test_no_relevant_source_shows_the_fixed_message_and_no_sources`. LangChain skips argument validation for a schema without fields, so `run_tool_call()` validates every call against its schema itself. The system prompt's new sections were drafted by the owner and edited after review with the owner's approval (O1); `test_the_answer_prompt_matches_the_code` checks it names `<profile>`, `matched_name` and `profile_needed`.
 
 ### T4.5 `evaluate_meal_plan` tool (stretch) (S) · status: todo · issue #15
 **Serves:** core 2 (extra tool). Only if ahead of schedule.
@@ -249,6 +251,18 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] The CSS is a fixed string with no script and no user or model content; `docs/UI_DESIGN.md` records the exception, its reason and its risk (a later Streamlit could rename the test id: the text would come back, nothing breaks); `docs/SECURITY.md` notes that `st.html` is used only with this fixed CSS - code review and tests (`test_the_dialog_css_is_one_fixed_rule_scoped_to_the_dialog`, `test_st_html_is_used_only_with_the_fixed_dialog_css`).
 - [x] Existing profile tests pass; `ruff check .`, `ruff format --check .` and `python -m pytest -q` pass (1,035 tests).
 **Notes:** Streamlit 1.66 has no option to hide the text outside `st.form(enter_to_submit=False)`, and T4.1 chose not to use a form (the Metric/Imperial switch converts typed values), so the owner approved one scoped CSS rule as an exception to the "native first" principle.
+
+### T4.7 My targets: sidebar target, targets tab and Food lookup tab (M) · status: todo · issue #44
+**Serves:** core 5 (an intuitive UI that shows tool results), Medium 6, PRD features 5 and 6. Split from T4.4 by the owner (2026-10-20), as laid out in `docs/UI_DESIGN.md`.
+**Depends on:** T4.4
+**Acceptance criteria** (proposed; the owner approves them before the ticket starts)
+- [ ] With a profile, the sidebar shows a "Daily target" metric (kcal) and a "My targets" card: a donut of the energy split (protein, carbohydrate, fat) with the daily kcal in the middle and each macro's grams and % as text; without a profile neither is shown - AppTest.
+- [ ] The targets come from `calculate_macro_targets` on the session profile with no model call, and change when the goal or the profile changes - AppTest with a model that fails if called.
+- [ ] The My targets tab shows four metrics (daily kcal with the surplus or deficit as delta, protein, carbohydrate, fat), a horizontal stacked bar of the macro split, and a caption with the maintenance kcal, the method and the sources; without a profile it invites the user to add their details with the same dialog - AppTest.
+- [ ] The Food lookup tab takes a food and grams, runs `lookup_food_nutrition` with no model call, and shows the matched USDA name, kcal, protein, carbohydrate and fat, fibre ("not reported" when missing) and "Source: USDA FoodData Central"; "not found" shows the message and the suggestions; USDA names are shown as plain text - AppTest with a fixture table.
+- [ ] When protein was lowered (very heavy body, low target), the note and the protein range are shown next to the target - AppTest.
+- [ ] Charts carry a text alternative and colour is never the only signal (values as text) - AppTest.
+**Notes:** reuse T4.4's table and chart helpers in `app.py` and `src/tools/registry.py`'s results. USDA names must stay out of `st.table`, `st.markdown` and labels (`st.table` reads Markdown in cells in Streamlit 1.66).
 
 ## Epic 5: Cost, export and guardrails
 
@@ -298,7 +312,7 @@ Added by the owner on 2026-10-20. All three tickets are extras: they come after 
 
 ### T7.1 Language switch: English and German UI (M) · status: todo · issue #33
 **Serves:** Hard 4 (multi-language support), as an extra after the core; AC-16. Changes the PRD's English-only decision: beyond the PRD (owner's request, 2026-10-20).
-**Depends on:** T4.4, T5.3 (so most UI text and the guardrails exist before they are translated), T1.3
+**Depends on:** T4.4, T4.7, T5.3 (so most UI text and the guardrails exist before they are translated), T1.3
 **Acceptance criteria**
 - [ ] `src/i18n.py` holds every user-facing UI string in English and German behind one lookup function; a test fails if a key exists in one language but not the other - unit test.
 - [ ] The header has a language control (a `:material/translate:` icon next to an EN | DE segmented control labelled "Language", label collapsed, `required=True` so it can never be deselected to `None`); switching it changes all UI text (sidebar, tabs, buttons, errors, guard and guardrail messages, disclaimer) - AppTest in both languages.

@@ -64,8 +64,8 @@ Macro colours (charts, set in the Altair spec): protein `#0F6E56`, carbohydrate 
 | Weight, height, age, sex | `st.columns(2)` of `st.metric(..., border=True)` | Values large, labels small; shown in the chosen units |
 | Activity | `st.metric(..., border=True)` full width | e.g. "Moderate · 4-5 times" |
 | Edit details | `st.button("Edit details", icon=":material/edit:", width="stretch")` | Opens the profile form in an `st.dialog` (owner's choice in T4.1): a Metric / Imperial switch, then plain inputs and a Save button, not an `st.form`, so switching units converts the values already typed. Validation messages come from `src/profile.py` |
-| Daily target | `st.metric("Daily target", "3,010 kcal", border=True)` | Always visible, whatever tab is open; added with the targets (T4.4) |
-| My targets (summary card) | `st.container(border=True)`: a donut of the energy split (protein, carbohydrate, fat; Altair `mark_arc` with an inner radius, about 120-140 px) with the daily kcal in the middle, and each macro's grams and % as text beside it | The full view stays in the My targets tab. One donut, not one circle per value: the three macros are parts of the kcal total, and kcal is the total, not a fourth part. Text values carry the numbers, as angles are harder to compare than lengths and colour is never the only signal. Owner's choice, 2026-10-20 (T4.4) |
+| Daily target | `st.metric("Daily target", "3,010 kcal", border=True)` | Always visible, whatever tab is open; added with the targets (T4.7, split from T4.4 by the owner on 2026-10-20) |
+| My targets (summary card) | `st.container(border=True)`: a donut of the energy split (protein, carbohydrate, fat; Altair `mark_arc` with an inner radius, about 120-140 px) with the daily kcal in the middle, and each macro's grams and % as text beside it | The full view stays in the My targets tab. One donut, not one circle per value: the three macros are parts of the kcal total, and kcal is the total, not a fourth part. Text values carry the numbers, as angles are harder to compare than lengths and colour is never the only signal. Owner's choice, 2026-10-20 (built in T4.7) |
 | Details, last answer (summary card) | `st.container(border=True)`: the number of rewrites and the filters as badges (T3.2), the answer's tokens and cost and the session total (T5.1) | The full view stays in the Details tab. Owner's choice, 2026-10-20 |
 | Privacy note | `st.caption(":material/lock: Kept for this session only")` | |
 | About the answers | `st.divider`, `st.header(":material/menu_book: About the answers")`, three bullets (article count by tier and licence from the manifest, how answers cite passages, the answer model) and a "Sources and credits" expander listing every source with its first three authors, title, year, journal, licence and article link, then the change made and the no-endorsement note (the same text as `ATTRIBUTION.md`) | Fills the empty sidebar and credits the sources (copyright policy rule 6); beyond the brief (owner's request, 2026-10-20) |
@@ -105,7 +105,7 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
   1. **Progress** while the turn runs: `st.status(":shimmer[Searching sources]", type="compact")` with `type="step"` children (check input, rewrite question, search sources, answer, tools). Collapses to a static label when done (core 5). Each step holds a one-line caption on what it does: in Streamlit 1.66 a step without content ends the timeline and hides the steps after it (found in T3.1). Past turns show the same collapsed status.
   2. **Answer** as Markdown with `[S#]` citations (no `unsafe_allow_html`), streamed in under the status box as the model writes it, revealed word by word at most `ANSWER_WORDS_PER_SECOND` (30) so it reads at a steady pace even when the model sends it in bursts, then replaced by the full result (owner's requests in T3.1).
   3. **Sources:** one `st.container(border=True)` per cited source: bold title, a caption with the first three authors and "et al." (owner's choice in T3.1, for the CC BY credit), `st.badge` for the evidence tier (green "ISSN position stand", violet "Peer-reviewed review"), caption with journal, year and licence, and a link "Open article" (AC-1).
-  4. **Tool result:** a compact expander labelled with the headline result (e.g. ":material/calculate: Protein target: 160 g") that opens to the result table (AC-6, T4.4).
+  4. **Tool results:** one expander "Tool results (n)" with `:material/calculate:`, like "Sources (n)" (owner's choice in T4.4, 2026-10-20, instead of one expander per result labelled with its headline). Inside, each result under a bold heading (Daily energy needs, Daily targets, Food lookup, or "Tool call not run") with its values in `st.dataframe` tables (AC-6); macro targets also as a horizontal stacked bar of the kcal from each macro (`st.bar_chart`, macro colours, the values in the table above it), and a food lookup with "Source: USDA FoodData Central". Tables use `st.dataframe`, never `st.table`, which reads Markdown in its cells in Streamlit 1.66, so a USDA name stays plain text. Without a profile, an energy result says the details are needed (`st.info`) with an "Add your details" button that opens the profile dialog. Tool messages are the English text the model got. Screenshot (fake model, sample values): `docs/ui/t4.4-tool-results.jpg`.
 - **Empty chat:** a one-line invitation and three suggested questions as `st.pills` in an `st.empty()` placeholder, sent through the same handler as typed input; hidden once the chat has a message.
 - **Errors:** a short `st.error` inside the assistant message saying what happened and what to do; the history stays (AC-13).
 
@@ -145,13 +145,14 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 |---|---|
 | Theme file, page config, header, tabs skeleton | T3.1 (core); T4.1 already sets `metricValueFontSize`, which the sidebar tiles need |
 | Sidebar goal control, profile tiles, Edit details dialog, units | T4.1 (core) |
-| Sidebar daily target, My targets summary card with the macro donut | T4.4 (core) |
+| Sidebar daily target, My targets summary card with the macro donut | T4.7 (core; split from T4.4) |
 | Sidebar Details summary card | T3.2 (rewrites and filters), T5.1 (usage) |
 | Sidebar "About the answers" block | T3.1 (beyond the brief, owner's request); folded into an expander once the summary cards arrive, so the sidebar does not grow too long (owner's choice, 2026-10-20) |
 | Chat messages, progress steps, source cards | T3.1 (core) |
 | Details tab: rewrites and filters | T3.2 (core) |
-| Tool result expander, My targets tab, macro bar | T4.4 (core) |
-| Food lookup tab | T4.3 / T4.4 (core) |
+| Tool results expander in the chat, with tables and the macro bar | T4.4 (core) |
+| My targets tab | T4.7 (core; split from T4.4) |
+| Food lookup tab | T4.7 (core; split from T4.4) |
 | Details tab: usage | T5.1 (extra) |
 | Light and dark mode hint, both themes checked | T7.3 (extra) |
 | Language control, German UI text, German guard and guardrail patterns | T7.1 (extra) |

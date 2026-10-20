@@ -127,13 +127,15 @@ def test_an_answer_citing_nothing_says_so_in_the_status(monkeypatch):
 
 
 def test_no_relevant_source_shows_the_fixed_message_and_no_sources(monkeypatch):
-    """An off-topic question gets the 'not covered' message, no Sources and no model call."""
-    model = _use_model(monkeypatch, _answers())
+    """An off-topic question gets the 'not covered' message and no Sources; the reply is unseen."""
+    model = _use_model(monkeypatch, _answers("Offside is a football rule."))
     at = _ask(_start(), OFF_TOPIC)
     message = _assistant(at)
     assert message.markdown[0].value == config.NO_SOURCES_MESSAGE
     assert not message.expander
-    assert model.calls == []
+    # One model call with the tools (T4.4); its text never reaches the page.
+    assert len(model.calls) == 1
+    assert not [m for m in at.markdown if "Offside" in m.value]
 
 
 def test_the_user_question_is_shown_as_plain_text(monkeypatch):

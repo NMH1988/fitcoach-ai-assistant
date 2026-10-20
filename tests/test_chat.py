@@ -154,14 +154,18 @@ def test_a_search_on_a_broken_index_reports_it_as_not_ready(index, monkeypatch):
 
 
 def test_with_no_relevant_chunk_the_app_says_the_sources_do_not_cover_it(index):
-    """Nothing close enough: the fixed message, no citation and no model call."""
-    model = _model()
-    result = _turn(OFF_TOPIC, index, model)
+    """Nothing close enough and no tool used: the fixed message, no citation, the reply unseen."""
+    model = _model("Football is not a nutrition topic.")
+    shown = []
+    result = _turn(OFF_TOPIC, index, model, on_text=shown.append)
     assert result.kind == "no_sources"
     assert result.text == config.NO_SOURCES_MESSAGE
     assert result.sources == ()
-    assert result.steps == (Step.CHECK, Step.SEARCH)
-    assert model.calls == []
+    assert result.steps == (Step.CHECK, Step.SEARCH, Step.ANSWER)
+    # One call with the tools, in case one could answer; its own text is never shown.
+    [[_, user]] = model.calls
+    assert f"<sources>\n{config.NO_SOURCES_BLOCK}\n</sources>" in user.content
+    assert shown == []
 
 
 def test_knowledge_base_summary_counts_articles_by_tier():
@@ -434,6 +438,15 @@ def _paced(words_per_second):
     return chat.PacedWriter(shown.append, words_per_second, pauses.append), shown, pauses
 
 
+def test_the_paced_writer_clears_on_empty_text_and_starts_again():
+    """With pacing on, empty text clears the screen and the next text is revealed from its start."""
+    writer, shown, _ = _paced(10)
+    writer("Let me check.")
+    writer("")
+    writer("Four meals.")
+    assert shown == ["Let", "Let me", "Let me check.", "", "Four", "Four meals."]
+
+
 def test_the_paced_writer_reveals_a_burst_word_by_word():
     """A chunk of several words is shown one word at a time, with a pause after each."""
     writer, shown, pauses = _paced(20)
@@ -586,7 +599,8 @@ def test_the_answer_prompt_matches_the_code(monkeypatch):
     """The owner's prompt names the delimiters, label form, tier labels and floor the code uses."""
     monkeypatch.undo()
     text = chat.load_system_prompt(config.PROJECT_ROOT / "src" / "prompts" / "answer_system.md")
-    expected = ["<sources>", "<user_input>", "[S1]", f"{config.CALORIE_FLOOR_KCAL:,} kcal"]
+    expected = ["<sources>", "<profile>", "<user_input>", "[S1]"]
+    expected += [f"{config.CALORIE_FLOOR_KCAL:,} kcal", "matched_name", "profile_needed"]
     expected += list(config.EVIDENCE_TIER_LABELS.values())
     assert [phrase for phrase in expected if phrase not in text] == []
 

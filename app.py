@@ -7,6 +7,9 @@ import streamlit as st
 from src import chat, config, guard, llm, profile, units
 from src.rag import store
 from src.rag.sources import ARTICLE_CHANGES_NOTE
+from src.tools import registry
+from src.tools.energy import Macro, TdeeResult
+from src.tools.food import FoodLookupResult
 
 st.set_page_config(page_title=config.APP_TITLE, page_icon=":material/nutrition:", layout="wide")
 
@@ -37,6 +40,14 @@ STEP_DETAILS = {
     chat.Step.CHECK: "Length, prompt-injection patterns and the question limit.",
     chat.Step.SEARCH: "Vector search over the approved research articles.",
     chat.Step.ANSWER: "The model answers from the passages found and cites them.",
+    chat.Step.TOOLS: "Calculations from your profile and the USDA food table.",
+}
+# The heading of each tool's result; None is a call that was refused before any tool ran.
+TOOL_TITLES = {
+    registry.TDEE_TOOL: ":material/local_fire_department: Daily energy needs",
+    registry.MACRO_TOOL: ":material/target: Daily targets",
+    registry.FOOD_TOOL: ":material/restaurant: Food lookup",
+    None: ":material/block: Tool call not run",
 }
 TIER_COLORS = {1: "green", 2: "violet"}
 CORRECTION_LABELS = {
@@ -255,7 +266,7 @@ def _show_steps(result: chat.TurnResult) -> None:
             _step_box(step, state if number == len(result.steps) else "complete")
 
 
-def _run_turn(question: str) -> None:
+def _run_turn(question: str, turn: int) -> None:
     """Run one chat turn: steps in a status box, the answer as it streams in, then the result."""
     status = st.status(f":shimmer[{chat.Step.CHECK.value}]", type="compact")
     # Below the status: the answer while it streams, replaced by the full result at the end.
@@ -286,6 +297,8 @@ def _run_turn(question: str) -> None:
         manifest=_manifest(),
         on_step=on_step,
         on_text=on_text,
+        # The energy tools read the session's profile; the model cannot change it.
+        user=st.session_state.get("profile"),
     )
     if result.index_not_ready:
         # Open the index again on the next turn, e.g. once the owner has rebuilt it.
@@ -295,7 +308,7 @@ def _run_turn(question: str) -> None:
         boxes[-1].update(state=state)
     status.update(label=_status_label(result), state=state)
     with answer_slot.container():
-        _show_result(result)
+        _show_result(result, turn)
     st.session_state["messages"].append({"role": "assistant", "result": result})
 
 
@@ -326,8 +339,146 @@ def _source_card(card: chat.SourceCard) -> None:
             )
 
 
-def _show_result(result: chat.TurnResult) -> None:
-    """Show a turn's answer with its sources, or its fixed message for a rejection or an error."""
+def _table(rows: dict[str, str]) -> None:
+    """Show label and value pairs as a two-column table of plain text (AC-6)."""
+    # st.dataframe shows cells as plain text; st.table would read Markdown in them, so a USDA name
+    # could add a link or an image (docs/SECURITY.md).
+    st.dataframe(
+        {"Item": list(rows), "Value": list(rows.values())}, hide_index=True, width="stretch"
+    )
+
+
+def _show_tdee(result: TdeeResult) -> None:
+    """Show calculate_tdee's result: resting energy, activity factor and daily needs."""
+    _table(
+        {
+            "Resting energy (BMR)": f"{result.bmr_kcal:,} kcal/day",
+            "Activity factor": f"{result.activity_factor:g}",
+            "Daily energy needs (TDEE)": f"{result.tdee_kcal:,} kcal/day",
+        }
+    )
+    st.caption(result.method)
+
+
+def _macro_cells(macro: Macro) -> list[str]:
+    """Return one macro's grams, share of the kcal and grams per kg, as table cells."""
+    return [f"{macro.grams:,} g", f"{macro.percent}%", f"{macro.g_per_kg:g} g/kg"]
+
+
+def _show_macros(result: registry.MacroToolResult) -> None:
+    """Show the daily targets as a table and the energy split as a stacked bar (AC-6)."""
+    targets = result.targets
+    if targets.kcal_target is None or not (
+        targets.protein and targets.carbohydrate and targets.fat
+    ):
+        st.caption(result.message)
+        return
+    low, high = targets.kcal_range or (targets.kcal_target, targets.kcal_target)
+    protein_low, protein_high = targets.protein_g_range or (0, 0)
+    _table(
+        {
+            "Daily target": f"{targets.kcal_target:,} kcal",
+            "Range for the goal": f"{low:,}-{high:,} kcal",
+            "Daily energy needs": f"{result.energy_needs.tdee_kcal:,} kcal",
+            "Protein range": f"{protein_low:,}-{protein_high:,} g",
+        }
+    )
+    macros = {
+        "Protein": (targets.protein, config.KCAL_PER_G_PROTEIN),
+        "Carbohydrate": (targets.carbohydrate, config.KCAL_PER_G_CARBOHYDRATE),
+        "Fat": (targets.fat, config.KCAL_PER_G_FAT),
+    }
+    cells = [_macro_cells(macro) for macro, _ in macros.values()]
+    st.dataframe(
+        {
+            "Macro": list(macros),
+            "Per day": [row[0] for row in cells],
+            "Share of kcal": [row[1] for row in cells],
+            "Per kg of body weight": [row[2] for row in cells],
+        },
+        hide_index=True,
+        width="stretch",
+    )
+    # The energy split as one stacked bar; the numbers are in the table above, so colour is never
+    # the only signal (docs/UI_DESIGN.md, Accessibility).
+    split = {name: [macro.grams * kcal_per_g] for name, (macro, kcal_per_g) in macros.items()}
+    st.bar_chart(
+        {"Split": ["Energy"], **split},
+        x="Split",
+        y=list(split),
+        horizontal=True,
+        stack=True,
+        color=list(config.MACRO_COLORS.values()),
+        # Horizontal: x_label names the bar axis and y_label the value axis.
+        x_label="",
+        y_label="kcal per day",
+        height=220,
+    )
+    st.caption(result.message)
+    for note in targets.notes:
+        st.caption(f":material/info: {note}")
+
+
+def _show_food(result: FoodLookupResult) -> None:
+    """Show a food lookup: the matched USDA food and its nutrients, or the suggestions."""
+    if result.status != "found" or result.nutrients is None:
+        st.caption(result.message)
+        if result.alternatives:
+            # USDA names as table cells: plain text, never Markdown.
+            st.dataframe({"Did you mean": result.alternatives}, hide_index=True, width="stretch")
+        return
+    nutrients = result.nutrients
+    fiber = "not reported" if nutrients.fiber_g is None else f"{nutrients.fiber_g:g} g"
+    rows = {
+        "USDA food": result.matched_name or "",
+        "Amount": f"{result.grams:g} g",
+        "Energy": f"{nutrients.kcal:,} kcal",
+        "Protein": f"{nutrients.protein_g:g} g",
+        "Carbohydrate": f"{nutrients.carbohydrate_g:g} g",
+        "Fat": f"{nutrients.fat_g:g} g",
+        "Fiber": fiber,
+    }
+    if result.alternatives:
+        rows["Close alternatives"] = "; ".join(result.alternatives)
+    _table(rows)
+    st.caption("Source: USDA FoodData Central, Foundation Foods (CC0). Values per 100 g, scaled.")
+
+
+def _show_tool_run(run: registry.ToolRun, key: str) -> None:
+    """Show one tool result under its heading; without a profile, a button opens the form."""
+    st.markdown(f"**{TOOL_TITLES.get(run.name, TOOL_TITLES[None])}**")
+    result = run.result
+    if run.status == "profile_needed":
+        st.info(config.PROFILE_NEEDED_HINT, icon=":material/person_add:")
+        st.button(
+            "Add your details", icon=":material/person_add:", key=key, on_click=_open_profile_form
+        )
+    elif isinstance(result, TdeeResult) and result.status == "ok":
+        _show_tdee(result)
+    elif isinstance(result, registry.MacroToolResult) and result.status == "ok":
+        _show_macros(result)
+    elif isinstance(result, FoodLookupResult) and result.status != "invalid":
+        _show_food(result)
+    else:
+        # A refused or failed call: the fixed message the model got, never what it sent.
+        st.caption(result.message)
+
+
+def _show_tool_runs(runs: tuple[registry.ToolRun, ...], turn: int) -> None:
+    """Show each tool result of a turn in one "Tool results" expander (AC-6)."""
+    # Open when a result needs the profile, so the "Add your details" button is in view.
+    needs_profile = any(run.status == "profile_needed" for run in runs)
+    with st.expander(
+        f"Tool results ({len(runs)})", icon=":material/calculate:", expanded=needs_profile
+    ):
+        for number, run in enumerate(runs):
+            if number:
+                st.divider()
+            _show_tool_run(run, key=f"tool_profile_{turn}_{number}")
+
+
+def _show_result(result: chat.TurnResult, turn: int) -> None:
+    """Show a turn's answer with its sources and tool results, or its fixed message."""
     if result.kind == "rejected":
         st.warning(result.text, icon=":material/block:")
     elif result.kind == "error":
@@ -339,10 +490,12 @@ def _show_result(result: chat.TurnResult) -> None:
             with st.expander(f"Sources ({len(result.sources)})", icon=":material/menu_book:"):
                 for card in result.sources:
                     _source_card(card)
+        if result.tool_runs:
+            _show_tool_runs(result.tool_runs, turn)
 
 
-def _show_message(message: dict) -> None:
-    """Show one message of the chat history."""
+def _show_message(message: dict, turn: int) -> None:
+    """Show one message of the chat history; `turn` is its place, for unique widget keys."""
     if message["role"] == "user":
         with st.chat_message("user"):
             # Plain text: the user's own words are shown as typed, not read as Markdown.
@@ -350,7 +503,7 @@ def _show_message(message: dict) -> None:
         return
     with st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
         _show_steps(message["result"])
-        _show_result(message["result"])
+        _show_result(message["result"], turn)
 
 
 def _ask_tab() -> None:
@@ -364,17 +517,17 @@ def _ask_tab() -> None:
                 "Ask a question about nutrition for strength training. "
                 "Answers cite the research they use."
             )
-        for message in history:
-            _show_message(message)
+        for turn, message in enumerate(history):
+            _show_message(message, turn)
     question = st.chat_input("Ask about nutrition for your training", key="chat_input")
     if not question:
         return
     invitation.empty()
     history.append({"role": "user", "text": question})
     with box:
-        _show_message(history[-1])
+        _show_message(history[-1], len(history) - 1)
         with st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
-            _run_turn(question)
+            _run_turn(question, len(history))
 
 
 def _about_sidebar() -> None:
