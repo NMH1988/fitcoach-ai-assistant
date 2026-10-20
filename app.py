@@ -405,8 +405,12 @@ def _macro_bar(kcal: dict[str, int]) -> None:
                 "scale": {"domain": names, "range": [config.MACRO_COLORS[n] for n in names]},
                 "legend": {"orient": "bottom", "title": None},
             },
-            "order": {"field": "position"},
-            "tooltip": [{"field": "macro"}, {"field": "kcal", "format": ","}],
+            # Typed as numbers: an untyped field is nominal, and a nominal kcal ignores the format.
+            "order": {"field": "position", "type": "quantitative"},
+            "tooltip": [
+                {"field": "macro", "type": "nominal"},
+                {"field": "kcal", "type": "quantitative", "format": ","},
+            ],
         },
     }
     data = {

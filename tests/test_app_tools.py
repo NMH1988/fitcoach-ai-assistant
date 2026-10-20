@@ -139,6 +139,8 @@ def test_macro_targets_also_appear_as_a_chart_in_the_macro_colours(monkeypatch):
         "domain": list(config.MACRO_COLORS),
         "range": list(config.MACRO_COLORS.values()),
     }
+    # The tooltip shows kcal as a formatted number ("1,672"), which needs the quantitative type.
+    assert {"field": "kcal", "type": "quantitative", "format": ","} in spec["encoding"]["tooltip"]
     # The value axis starts at 0 (st.bar_chart's started at -500 in a narrow window).
     assert spec["encoding"]["x"]["scale"] == {"domainMin": 0, "nice": True}
     # The text alternative names every value, so the colours are never the only signal.
