@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-20 · T1.4 Security reviewer agent · PR not opened yet (closes #32)
+## 2026-10-20 · T1.4 Security reviewer agent · #39 (closes #32)
 - **Brief:** beyond the brief (owner's request); supports core 3 and Medium 3.
 - **What:**
   - `.claude/agents/security-reviewer.md` (new): an attacker-minded audit of the whole app or one PR or ticket. Step 1 maps every path from untrusted data (chat input, profile form, model replies and tool calls, chunk text and metadata, USDA names, files and arguments of the scripts) to its sinks; Step 2 checks ten surfaces (direct injection, indirect injection, tool arguments, Markdown/HTML/link output, Chroma filters, path and command injection in scripts, guard before spend, key handling, personal data, guardrail bypass) against `docs/SECURITY.md`; Step 3 runs its own attack cases as offline pytest files in a scratch directory outside the repo. The report gives each finding a severity, `path:line`, the attack, the impact and the smallest fix, plus proposed tests for `tests/`, the controls that held and what unbuilt tickets must get right. It can post one PR comment when the caller asks, with code-reviewer's safety rules.
