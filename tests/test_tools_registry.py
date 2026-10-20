@@ -226,6 +226,8 @@ def test_daily_targets_are_the_macro_tools_result():
     assert targets == run.result
     assert targets.status == "ok" and targets.targets.kcal_target == 3035
     assert targets.energy_needs.tdee_kcal == 2759
+    # The weight the targets are for, so the app rounds grams per body weight once.
+    assert targets.targets.weight_kg == 80.0
 
 
 def test_daily_targets_follow_the_goal():

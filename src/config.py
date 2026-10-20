@@ -416,8 +416,9 @@ MACRO_CHART_HEIGHT_PX = 220
 MACRO_DONUT_HEIGHT_PX = 150
 MACRO_DONUT_INNER_RADIUS_PX = 46
 MACRO_DONUT_PAD_ANGLE = 0.03
-# The amount the Food lookup tab starts with, in grams (T4.7).
+# The amount the Food lookup tab starts with, and its +/- step, in grams (T4.7).
 FOOD_LOOKUP_DEFAULT_GRAMS = 100.0
+FOOD_LOOKUP_STEP_GRAMS = 10.0
 # Macro colours in charts (docs/UI_DESIGN.md), in the order the macros are listed. One palette for
 # both modes: each has at least 3:1 contrast on the main and sidebar backgrounds of the light and
 # the dark theme (WCAG 1.4.11; tests/test_theme.py), so they differ by hue, not lightness (T4.7).

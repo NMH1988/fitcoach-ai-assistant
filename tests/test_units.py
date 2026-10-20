@@ -3,7 +3,6 @@
 import pytest
 
 from src import units
-from src.tools.energy import _macro
 
 
 @pytest.mark.parametrize(
@@ -121,9 +120,34 @@ def test_grams_per_lb_convert_back_to_grams_per_kg_within_rounding():
 
 
 @pytest.mark.parametrize(
-    ("grams", "weight_kg"), [(50, 60), (51, 80), (52, 70), (418, 80), (84, 80)]
+    ("grams", "weight_kg", "metric", "imperial"),
+    [
+        # 42 / 40.1 = 1.047 g/kg: rounded twice (1.05, then 1.1) it showed 1.1 (PR #53 review).
+        (42, 40.1, "1.0 g/kg", "0.48 g/lb"),
+        # 50 / 60 = 0.833 g/kg = 0.378 g/lb; from a g/kg rounded to 0.8 it showed 0.36 g/lb.
+        (50, 60, "0.8 g/kg", "0.38 g/lb"),
+        (51, 80, "0.6 g/kg", "0.29 g/lb"),
+        (52, 70, "0.7 g/kg", "0.34 g/lb"),
+        (152, 80, "1.9 g/kg", "0.86 g/lb"),
+        (418, 80, "5.2 g/kg", "2.37 g/lb"),
+        (84, 80, "1.1 g/kg", "0.48 g/lb"),
+    ],
 )
-def test_grams_per_lb_from_a_macro_target_are_right_to_the_shown_decimal(grams, weight_kg):
-    """A macro's g/lb, from its g/kg to 0.01, is within 0.01 of grams over the weight in lb."""
-    shown = units.per_body_weight(_macro(grams, 4, 2000, weight_kg).g_per_kg, "imperial")
-    assert shown == pytest.approx(grams / units.kg_to_lb(weight_kg), abs=0.01)
+def test_grams_per_body_weight_are_rounded_once_from_the_grams(grams, weight_kg, metric, imperial):
+    """Grams per body weight are grams over the weight, rounded once, in each unit system."""
+    assert units.format_grams_per_body_weight(grams, weight_kg, "metric") == metric
+    assert units.format_grams_per_body_weight(grams, weight_kg, "imperial") == imperial
+
+
+def test_grams_per_body_weight_match_a_single_rounding_across_profiles():
+    """Over many weights and grams, the shown value is the single rounding of grams / weight."""
+    for weight_tenths in range(400, 2000, 7):
+        weight_kg = weight_tenths / 10
+        for grams in range(20, 400, 3):
+            per_kg = grams / weight_kg
+            assert units.format_grams_per_body_weight(grams, weight_kg, "metric") == (
+                f"{round(per_kg, 1):.1f} g/kg"
+            )
+            assert units.format_grams_per_body_weight(grams, weight_kg, "imperial") == (
+                f"{round(per_kg * units.KG_PER_LB, 2):.2f} g/lb"
+            )

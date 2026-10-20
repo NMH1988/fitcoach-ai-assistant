@@ -75,6 +75,7 @@ def format_height(cm: float, units: UnitSystem) -> str:
 
 def per_body_weight(g_per_kg: float, units: UnitSystem) -> float:
     """Return grams per kg of body weight in the unit system (g/kg or g/lb), rounded as shown."""
+    # Pass the unrounded value: rounding an already rounded g/kg again can be off by one step.
     value = g_per_kg if units == "metric" else g_per_kg * KG_PER_LB
     return round(value, PER_BODY_WEIGHT_DECIMALS[units])
 
@@ -82,6 +83,11 @@ def per_body_weight(g_per_kg: float, units: UnitSystem) -> float:
 def per_body_weight_unit(units: UnitSystem) -> str:
     """Return the unit of grams per body weight in a unit system: "g/kg" or "g/lb"."""
     return f"g/{weight_unit(units)}"
+
+
+def format_grams_per_body_weight(grams: float, weight_kg: float, units: UnitSystem) -> str:
+    """Show grams per body weight from the grams and the weight in kg, rounded once."""
+    return format_per_body_weight(grams / weight_kg, units)
 
 
 def format_per_body_weight(g_per_kg: float, units: UnitSystem) -> str:

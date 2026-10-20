@@ -428,12 +428,19 @@ def _macro_bar(kcal: dict[str, int]) -> None:
     st.vega_lite_chart(data, spec, width="stretch", height=config.MACRO_CHART_HEIGHT_PX, alt=alt)
 
 
-def _macro_cells(macro: Macro, system: units.UnitSystem) -> list[str]:
+def _per_body_weight(macro: Macro, targets: MacroTargetsResult, system: units.UnitSystem) -> str:
+    """Show a macro's grams per body weight in the user's units, rounded once."""
+    # From the grams and the weight, not Macro.g_per_kg, which is already rounded to 0.1: rounding
+    # it again showed 1.1 g/kg for 42 g at 40.1 kg (1.047; code review on PR #53).
+    return units.format_grams_per_body_weight(macro.grams, targets.weight_kg or 0, system)
+
+
+def _macro_cells(macro: Macro, targets: MacroTargetsResult, system: units.UnitSystem) -> list[str]:
     """Return one macro's grams, share of the kcal and grams per body weight, as table cells."""
     return [
         f"{macro.grams:,} g",
         f"{macro.percent}%",
-        units.format_per_body_weight(macro.g_per_kg, system),
+        _per_body_weight(macro, targets, system),
     ]
 
 
@@ -458,6 +465,7 @@ def _has_targets(result: object) -> bool:
         isinstance(result, registry.MacroToolResult)
         and result.status == "ok"
         and result.targets.kcal_target is not None
+        and bool(result.targets.weight_kg)
         and result.energy_needs.tdee_kcal is not None
         and len(_macro_parts(result.targets)) == len(config.MACRO_COLORS)
     )
@@ -477,6 +485,7 @@ def _session_targets() -> registry.MacroToolResult | None:
 
 def _protein_range(targets: MacroTargetsResult, system: units.UnitSystem) -> str:
     """Return the sources' protein range for this body weight, in grams and per body weight."""
+    # Always set with status "ok"; the fallback only satisfies the type.
     low, high = targets.protein_g_range or (0, 0)
     per_low, per_high = (
         units.format_per_body_weight(value, system) for value in config.PROTEIN_G_PER_KG_RANGE
@@ -504,7 +513,7 @@ def _show_macros(result: registry.MacroToolResult) -> None:
     )
     macros = _macro_parts(targets)
     # Per body weight in the units the user chose now (g/kg or g/lb; AC-8).
-    cells = [_macro_cells(macro, system) for macro, _ in macros.values()]
+    cells = [_macro_cells(macro, targets, system) for macro, _ in macros.values()]
     st.dataframe(
         {
             "Macro": list(macros),
@@ -593,7 +602,7 @@ def _targets_sidebar(system: units.UnitSystem) -> None:
         _macro_donut(_macro_kcal(targets), targets.kcal_target or 0)
         # The values as text, so the colours are never the only signal.
         for name, (macro, _) in _macro_parts(targets).items():
-            per_weight = units.format_per_body_weight(macro.g_per_kg, system)
+            per_weight = _per_body_weight(macro, targets, system)
             st.caption(f"**{name}** {macro.grams:,} g · {macro.percent}% · {per_weight}")
         if targets.protein_lowered:
             st.caption(":material/warning: Protein was lowered to fit the target: see My targets.")
@@ -644,7 +653,7 @@ def _targets_tab() -> None:
     macros = _macro_parts(targets).items()
     for column, (name, (macro, _)) in zip(macro_columns, macros, strict=True):
         column.metric(name, f"{macro.grams:,} g", border=True)
-        per_weight = units.format_per_body_weight(macro.g_per_kg, system)
+        per_weight = _per_body_weight(macro, targets, system)
         column.caption(f"{macro.percent}% of kcal · {per_weight}")
     lowered = protein_lowered_note(targets.goal) if targets.goal is not None else None
     if targets.protein_lowered and lowered:
@@ -713,7 +722,7 @@ def _food_tab() -> None:
         min_value=config.FOOD_MIN_GRAMS,
         max_value=float(config.FOOD_MAX_GRAMS),
         value=config.FOOD_LOOKUP_DEFAULT_GRAMS,
-        step=10.0,
+        step=config.FOOD_LOOKUP_STEP_GRAMS,
         format="%.1f",
         key="food_grams",
     )

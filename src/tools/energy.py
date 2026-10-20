@@ -193,7 +193,6 @@ class Macro(BaseModel):
     grams: int
     # Share of the kcal target, in whole percent.
     percent: int
-    # To 0.01, so the app's g/lb (converted from it) is right to its 0.01 too (T4.7).
     g_per_kg: float
 
 
@@ -203,6 +202,9 @@ class MacroTargetsResult(BaseModel):
     status: Literal["ok", "invalid"]
     message: str
     goal: Goal | None = None
+    # The body weight the targets are for, so the app can show grams per body weight rounded
+    # once from the grams, in g/kg or g/lb (T4.7).
+    weight_kg: float | None = None
     kcal_target: int | None = None
     # The kcal the sources' range for the goal gives (lowest, highest), floor applied.
     kcal_range: tuple[int, int] | None = None
@@ -323,7 +325,7 @@ def _macro(grams: int, kcal_per_g: int, kcal_target: int, weight_kg: float) -> M
     return Macro(
         grams=grams,
         percent=round(grams * kcal_per_g / kcal_target * 100),
-        g_per_kg=round(grams / weight_kg, 2),
+        g_per_kg=round(grams / weight_kg, 1),
     )
 
 
@@ -411,6 +413,7 @@ def calculate_macro_targets(weight_kg: float, goal: Goal, tdee_kcal: float) -> M
         status="ok",
         message=_goal_message(args.goal, kcal_target, floor_applied),
         goal=args.goal,
+        weight_kg=weight,
         kcal_target=kcal_target,
         kcal_range=(ends[0], ends[1]),
         floor_applied=floor_applied,
