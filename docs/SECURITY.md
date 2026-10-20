@@ -36,7 +36,7 @@ This is a student portfolio project. If you find a security problem, contact the
 
 ## Security audits
 
-`.claude/agents/security-reviewer.md` audits the whole app, or one PR or ticket, from an attacker's side: it maps every path from user input, retrieved text and tool calls to the models, tools and page, checks the controls above and reports what an attacker could still do, with the smallest fix. It is optional (owner's choice, 2026-10-20), complements the code-reviewer and `/security-review`, and suits PRs that touch the guard, prompts, retrieval, tools, output rendering, scripts or secrets. It is read-only for the repo, never opens the secrets files and never calls the real API or the network: its own attack cases run as offline tests with fake models and embeddings in a scratch directory outside the repo, and new tests are only proposed in its report.
+`.claude/agents/security-reviewer.md` audits the whole app, or one PR or ticket, from an attacker's side: it maps every path from user input, retrieved text and tool calls to the models, tools and page, checks the controls above and reports what an attacker could still do, with the smallest fix. It is optional (owner's choice, 2026-10-20), complements the code-reviewer and `/security-review`, and suits PRs that touch the guard, prompts, retrieval, tools, output rendering, scripts or secrets. It is read-only for the repo, never opens the secrets files and never calls OpenRouter or any other service (its only network use is GitHub, through `git` and `gh`): its own attack cases run as offline tests with fake models and embeddings in a scratch directory outside the repo, and new tests are only proposed in its report.
 
 ## Accepted risks
 
