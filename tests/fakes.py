@@ -65,6 +65,8 @@ class ScriptedChatModel(BaseChatModel):
     ) -> Iterator[ChatGenerationChunk]:
         """Record the messages, then yield the next reply word by word (or raise)."""
         self.calls.append(list(messages))
+        if self.fail_after_chunks is not None and self.error is None:
+            raise ValueError("fail_after_chunks needs an error to raise.")
         if self.error is not None and self.fail_after_chunks is None:
             raise self.error
         reply = self.replies.pop(0)

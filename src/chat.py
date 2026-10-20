@@ -89,8 +89,9 @@ _CITATION_SEPARATOR = r"\s*(?:[,;]\s*(?:and\s+|&\s*)?|and\s+|&\s*)"
 _CITATION_BODY = re.compile(rf"\s*{_CITED_ITEM}(?:{_CITATION_SEPARATOR}{_CITED_ITEM})*\s*")
 _LABEL_OR_RANGE = re.compile(r"S(\d+)(?:\s*[-–]\s*S?(\d+))?")
 # A Markdown image, inline (![alt](url)) or by reference (![alt][ref]): the browser would load
-# its URL with no click, so an injected one could send text to another server.
-_MARKDOWN_IMAGE = re.compile(r"!\[([^\[\]]*)\](?:\((?:[^()]|\([^()]*\))*\)|\[[^\[\]]*\])?")
+# its URL with no click, so an injected one could send text to another server. A bare ![alt]
+# is left to the escape in remove_images(), so "protein![S1]" keeps its citation.
+_MARKDOWN_IMAGE = re.compile(r"!\[([^\[\]]*)\](?:\((?:[^()]|\([^()]*\))*\)|\[[^\[\]]*\])")
 # Characters Streamlit's Markdown would read as formatting, HTML or LaTeX in a title.
 _MARKDOWN_SPECIAL = re.compile(r"([\\`*_\[\]<>$])")
 

