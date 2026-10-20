@@ -398,8 +398,8 @@ MAX_TOOL_CALLS_PER_ROUND = 6
 # evaluate_meal_plan calls run from one reply (T4.5; owner's choice after code review). A 20-food
 # result is about 7,000 characters, against about 500 for a food lookup, so 6 of them in each of 4
 # rounds could send about 420,000 characters (about 100k tokens) over a turn's model calls; with 1
-# a round the worst case is about 95,000 (docs/SECURITY.md, "Runaway cost"). One day's plan needs
-# one call; the rest get TOO_MANY_MEAL_PLANS_MESSAGE.
+# a round the worst case with real food names is about 95,000 (docs/SECURITY.md, "Runaway cost").
+# One day's plan needs one call; the rest get TOO_MANY_MEAL_PLANS_MESSAGE.
 MAX_MEAL_PLAN_CALLS_PER_ROUND = 1
 # Tool messages are data for the model, in English (docs/UI_DESIGN.md, "Language"); the UI shows
 # the same text. None of them repeats what the model sent, and none gives the model orders: they
