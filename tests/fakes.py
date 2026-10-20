@@ -1,17 +1,21 @@
-"""Fakes for chat-turn tests: keyword embeddings, a scripted chat model, a small fixture index."""
+"""Fakes for chat-turn tests: keyword embeddings, scripted chat and rewrite models, an index."""
 
+import json
 import re
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
+import pydantic
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
+from langchain_core.runnables import RunnableLambda
 from pydantic import Field
 
+from src import llm
 from src.rag import store
 
 # Bound at import, so UI tests that replace store.open_index can still open the fixture index.
@@ -80,6 +84,72 @@ class ScriptedChatModel(BaseChatModel):
             yield ChatGenerationChunk(message=AIMessageChunk(piece, response_metadata=metadata))
 
 
+def plan_json(
+    queries: list[str] | tuple[str, ...],
+    topics: list[str] | tuple[str, ...] = (),
+    min_year: int | None = None,
+    evidence_tier: int | None = None,
+) -> str:
+    """Return a query translation reply as the model would send it: one JSON object."""
+    return json.dumps(
+        {
+            "queries": list(queries),
+            "topics": list(topics),
+            "min_year": min_year,
+            "evidence_tier": evidence_tier,
+        }
+    )
+
+
+def question_in(messages: list[BaseMessage]) -> str:
+    """Return the question inside <user_input> of the last message."""
+    found = re.search(r"<user_input>\n(.*)\n</user_input>", messages[-1].text, re.DOTALL)
+    return found.group(1) if found else ""
+
+
+class ScriptedTranslator(BaseChatModel):
+    """A query translation model that replies with scripted JSON plans (or raises) and records."""
+
+    # With no plan left it returns three rewrites that repeat the question, with no filter, so the
+    # search finds what the question alone finds.
+
+    plans: list[str | Exception] = Field(default_factory=list)
+    calls: list[list[BaseMessage]] = Field(default_factory=list)
+    structured_kwargs: list[dict[str, Any]] = Field(default_factory=list)
+
+    @property
+    def _llm_type(self) -> str:
+        """Name the fake for langchain."""
+        return "scripted-translator"
+
+    def _generate(self, messages: list[BaseMessage], stop: Any = None, **kwargs: Any) -> ChatResult:
+        """Refuse plain chat calls: query translation only uses structured output."""
+        raise AssertionError("The translator was called without structured output.")
+
+    def with_structured_output(self, schema: Any, **kwargs: Any) -> RunnableLambda:
+        """Return a runnable that parses the next plan with the schema, as the real client does."""
+        self.structured_kwargs.append(kwargs)
+
+        def reply(messages: list[BaseMessage]) -> Any:
+            """Record the request, then parse the next plan; a reply off the schema is invalid."""
+            self.calls.append(list(messages))
+            if not self.plans:
+                question = question_in(messages)
+                return schema.model_validate_json(
+                    plan_json([f"{question} rewrite {n}" for n in (1, 2, 3)])
+                )
+            plan = self.plans.pop(0)
+            if isinstance(plan, Exception):
+                raise plan
+            try:
+                return schema.model_validate_json(plan)
+            except pydantic.ValidationError:
+                # What llm.mapped_errors() makes of the real client's schema error.
+                raise llm.InvalidReplyError(diagnostic="ValidationError in the fake") from None
+
+        return RunnableLambda(reply)
+
+
 def chunk(source_id: str, index: int, text: str, **extra: Any) -> Document:
     """Return a made-up chunk with the metadata keys the ingest step sets."""
     return Document(
@@ -101,12 +171,18 @@ def chunk(source_id: str, index: int, text: str, **extra: Any) -> Document:
 
 
 # Text written for these tests. Source 1 has two protein chunks, so one article can be cited twice.
+# Years run 2021-2024 by source, only source 1 is tier 1, and topics differ for the filter tests.
 CHUNKS = [
     chunk("1", 0, "Protein: spread protein over four meals."),
-    chunk("1", 1, "Protein before sleep: casein protein supports overnight sleep recovery."),
-    chunk("2", 0, "Creatine with protein before sleep."),
-    chunk("3", 0, "Carbohydrate: carbohydrate on heavy training days."),
-    chunk("4", 0, "Fat: dietary fat and hormones."),
+    chunk(
+        "1",
+        1,
+        "Protein before sleep: casein protein supports overnight sleep recovery.",
+        topics=["protein", "nutrient_timing"],
+    ),
+    chunk("2", 0, "Creatine with protein before sleep.", topics=["supplements", "protein"]),
+    chunk("3", 0, "Carbohydrate: carbohydrate on heavy training days.", topics=["carbohydrate"]),
+    chunk("4", 0, "Fat: dietary fat and hormones.", topics=["fat"]),
 ]
 
 

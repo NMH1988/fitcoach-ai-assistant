@@ -1,9 +1,11 @@
-"""One chat turn: guard -> vector retrieval -> answer with [S#] citations -> TurnResult.
+"""One chat turn: guard -> query translation -> retrieval -> answer with [S#] citations.
 
 The user's question goes only inside <user_input> and the retrieved chunks only inside <sources>,
 both in the user message; neither is ever put into the system prompt
-(.claude/rules/security-privacy.md). Every error a user can cause or meet ends as a TurnResult with
-a fixed message, so the app shows it in the answer and keeps the chat history (AC-13).
+(.claude/rules/security-privacy.md). The rewrites from query translation are used only for the
+search and shown in the app; the answer model gets the user's own question. Every error a user
+can cause or meet ends as a TurnResult with a fixed message, so the app shows it in the answer and
+keeps the chat history (AC-13).
 """
 
 import os
@@ -27,7 +29,9 @@ from langchain_core.messages import (
 )
 
 from src import config, guard, llm
-from src.rag.retriever import RetrievedChunk, retrieve
+from src.rag import query_translation
+from src.rag.query_translation import QueryPlan
+from src.rag.retriever import RetrievedChunk, embed_queries, search
 from src.rag.sources import ManifestError, Source, license_url_for, load_manifest
 from src.rag.store import IndexNotReadyError
 
@@ -36,6 +40,7 @@ class Step(StrEnum):
     """The steps of a turn, as the progress indicator names them."""
 
     CHECK = "Checking your question"
+    REWRITE = "Rewriting the question"
     SEARCH = "Searching the research"
     ANSWER = "Writing the answer"
 
@@ -72,6 +77,31 @@ class SourceCard:
 
 
 @dataclass(frozen=True)
+class SearchDetails:
+    """How a turn searched: the question, its rewrites and the filters (AC-3)."""
+
+    question: str
+    rewrites: tuple[str, ...] = ()
+    topics: tuple[str, ...] = ()
+    min_year: int | None = None
+    evidence_tier: int | None = None
+    # True when the rewrite step gave no usable plan, so only the question was searched.
+    fell_back: bool = False
+    # True when nothing passed the filters, so the search ran again without them.
+    filter_dropped: bool = False
+
+    @property
+    def queries(self) -> tuple[str, ...]:
+        """Return what was searched: the question, then its rewrites."""
+        return (self.question, *self.rewrites)
+
+    @property
+    def has_filters(self) -> bool:
+        """Return True when the plan set any filter (used or dropped)."""
+        return bool(self.topics) or self.min_year is not None or self.evidence_tier is not None
+
+
+@dataclass(frozen=True)
 class TurnResult:
     """What one chat turn gives the UI: the text to show, its sources and the steps it ran."""
 
@@ -79,6 +109,8 @@ class TurnResult:
     text: str
     sources: tuple[SourceCard, ...] = ()
     steps: tuple[Step, ...] = ()
+    # How the search ran; None when the turn ended before it (rejected, or an error before it).
+    search: SearchDetails | None = None
     # True when the index could not be used, so the app opens it again on the next turn.
     index_not_ready: bool = False
 
@@ -102,7 +134,7 @@ _MARKDOWN_SPECIAL = re.compile(r"([\\`*_\[\]<>$~:])")
 
 
 class PromptMissingError(RuntimeError):
-    """The answer prompt file is missing, unreadable or empty."""
+    """A prompt file is missing, unreadable or empty; `str()` is the fixed message to show."""
 
 
 @dataclass(frozen=True)
@@ -132,6 +164,49 @@ def load_system_prompt(path: Path | None = None) -> str:
     if not text:
         raise ValueError("The answer system prompt is empty.")
     return text
+
+
+def _load_prompt(path: Path, message: str) -> str:
+    """Return a prompt file's text; raise PromptMissingError with message if it is unusable."""
+    try:
+        return load_system_prompt(path)
+    except OSError, ValueError:
+        raise PromptMissingError(message) from None
+
+
+def search_queries(question: str, plan: QueryPlan | None) -> tuple[str, ...]:
+    """Return the plan's rewrites that differ from the question and from each other."""
+    seen = {question.casefold()}
+    rewrites = []
+    for rewrite in plan.queries if plan is not None else ():
+        if rewrite.casefold() not in seen:
+            seen.add(rewrite.casefold())
+            rewrites.append(rewrite)
+    return tuple(rewrites)
+
+
+def find_chunks(
+    question: str, plan: QueryPlan | None, index: Chroma
+) -> tuple[list[RetrievedChunk], SearchDetails]:
+    """Search the question and its rewrites with the plan's filter, then without it if nothing."""
+    rewrites = search_queries(question, plan)
+    where = query_translation.build_filter(plan)
+    # One embedding call for all the queries; the vectors serve the retry too.
+    vectors = embed_queries(index, (question, *rewrites))
+    chunks = search(index, vectors, where)
+    filter_dropped = not chunks and where is not None
+    if filter_dropped:
+        chunks = search(index, vectors)
+    details = SearchDetails(
+        question=question,
+        rewrites=rewrites,
+        topics=plan.topics if plan is not None else (),
+        min_year=plan.min_year if plan is not None else None,
+        evidence_tier=plan.evidence_tier if plan is not None else None,
+        fell_back=plan is None,
+        filter_dropped=filter_dropped,
+    )
+    return chunks, details
 
 
 def manifest_by_id() -> dict[str, Source]:
@@ -305,27 +380,41 @@ def stream_answer(
     return _answer_text(reply)
 
 
+@dataclass(frozen=True)
+class TurnModels:
+    """The clients and prompts an accepted question needs: query translation and the answer."""
+
+    translation_model: BaseChatModel
+    translation_prompt: str
+    chat_model: BaseChatModel
+    system_prompt: str
+
+
 def answer_question(
     question: str,
     index: Chroma,
-    chat_model: BaseChatModel,
+    models: TurnModels,
     manifest: Mapping[str, Source],
     on_step: Callable[[Step], None],
-    system_prompt: str,
     on_text: Callable[[str], None] | None = None,
 ) -> TurnResult:
-    """Retrieve the chunks for an accepted question and answer it from them, citing [S#]."""
+    """Rewrite an accepted question, retrieve its chunks and answer from them, citing [S#]."""
+    on_step(Step.REWRITE)
+    plan = query_translation.translate(
+        question, models.translation_model, models.translation_prompt
+    )
     on_step(Step.SEARCH)
     with llm.mapped_errors():
-        chunks = retrieve(index, question)
+        chunks, details = find_chunks(question, plan, index)
     if not chunks:
-        # Nothing close enough: no model call and no citation (AC-2).
-        return TurnResult("no_sources", config.NO_SOURCES_MESSAGE)
+        # Nothing close enough: no answer model call and no citation (AC-2).
+        return TurnResult("no_sources", config.NO_SOURCES_MESSAGE, search=details)
     on_step(Step.ANSWER)
-    messages = build_messages(question, chunks, system_prompt)
-    answer = stream_answer(chat_model, messages, on_text)
+    # The user's own question, never the rewrites, goes to the answer model.
+    messages = build_messages(question, chunks, models.system_prompt)
+    answer = stream_answer(models.chat_model, messages, on_text)
     cards = source_cards(chunks, cited_labels(answer, len(chunks)), manifest)
-    return TurnResult("answer", answer, cards)
+    return TurnResult("answer", answer, cards, search=details)
 
 
 def run_turn(
@@ -334,6 +423,7 @@ def run_turn(
     *,
     open_index: Callable[[], Chroma],
     chat_model: Callable[[], BaseChatModel],
+    translation_model: Callable[[], BaseChatModel],
     manifest: Mapping[str, Source] | None = None,
     on_step: Callable[[Step], None] | None = None,
     on_text: Callable[[str], None] | None = None,
@@ -349,17 +439,16 @@ def run_turn(
             on_step(name)
 
     def answer(question: str) -> TurnResult:
-        """Open the index and the model only for an accepted question, then answer it."""
+        """Open the index and the models only for an accepted question, then answer it."""
         # Read before any API call, so a missing or empty prompt file costs nothing.
-        try:
-            system_prompt = load_system_prompt()
-        except OSError, ValueError:
-            raise PromptMissingError from None
+        system_prompt = _load_prompt(config.ANSWER_PROMPT_PATH, config.PROMPT_MISSING_MESSAGE)
+        translation_prompt = _load_prompt(
+            config.QUERY_TRANSLATION_PROMPT_PATH, config.QUERY_PROMPT_MISSING_MESSAGE
+        )
         # The index is opened first: a missing index is reported even when the key is missing.
         index = open_index()
-        return answer_question(
-            question, index, chat_model(), manifest or {}, step, system_prompt, on_text
-        )
+        models = TurnModels(translation_model(), translation_prompt, chat_model(), system_prompt)
+        return answer_question(question, index, models, manifest or {}, step, on_text)
 
     step(Step.CHECK)
     try:
@@ -369,8 +458,8 @@ def run_turn(
         return TurnResult("error", str(exc), steps=tuple(steps))
     except IndexNotReadyError as exc:
         return TurnResult("error", str(exc), steps=tuple(steps), index_not_ready=True)
-    except PromptMissingError:
-        return TurnResult("error", config.PROMPT_MISSING_MESSAGE, steps=tuple(steps))
+    except PromptMissingError as exc:
+        return TurnResult("error", str(exc), steps=tuple(steps))
     except config.SecretsFileError:
         return TurnResult("error", config.SECRETS_FILE_MESSAGE, steps=tuple(steps))
     except config.MissingAPIKeyError:
