@@ -3,7 +3,8 @@
 [theme]
 # System font: no Google Fonts request, so visitors' IPs are not sent to Google.
 font = "sans-serif"
-baseFontSize = 14
+# 17 px: the default 16 and the earlier 14 read too small in the chat (owner, 2026-10-20).
+baseFontSize = 17
 baseRadius = "0.5rem"
 buttonRadius = "0.5rem"
 showWidgetBorder = true

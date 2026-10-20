@@ -8,7 +8,7 @@ How the Streamlit app looks and where each piece of information lives. Accepted 
 
 - **The chat comes first.** The Ask tab shows only what a user needs to read an answer: the answer, its sources and its tool result. Everything else is one tab away.
 - **One accent colour** (teal-green) on a neutral base; one primary button per view.
-- **Compact text:** body 14 px (Streamlit's default is 16 px); captions for labels and meta lines.
+- **Readable text:** body 17 px (Streamlit's default is 16 px); captions for labels and meta lines. The owner found 14 px too small to read in the chat (2026-10-20, T3.1).
 - **Native first:** `st.chat_message`, `st.metric`, `st.badge`, `st.tabs`, `st.status`, `st.dialog`. No `unsafe_allow_html`, no `st.html` styling. If a detail of the mockup needs CSS, the native look wins.
 - **Sentence case**, Material Symbols icons (`:material/name:`), no emoji in the UI.
 
@@ -17,7 +17,7 @@ How the Streamlit app looks and where each piece of information lives. Accepted 
 ```toml
 [theme]
 font = "sans-serif"          # system font; no Google Fonts request (visitors' IPs are not sent to Google)
-baseFontSize = 14
+baseFontSize = 17
 baseRadius = "0.5rem"
 buttonRadius = "0.5rem"
 showWidgetBorder = true
@@ -52,7 +52,7 @@ Macro colours (charts, set in the Altair spec): protein `#0F6E56`, carbohydrate 
 
 ## Page layout
 
-`st.set_page_config(page_title="Gym nutrition assistant", page_icon=":material/nutrition:", layout="centered")`.
+`st.set_page_config(page_title="Nutrition AI Assistant", page_icon=":material/nutrition:", layout="wide")`, with the header and tabs in the middle of three columns weighted `PAGE_COLUMN_WEIGHTS` = (1, 6, 1). The content takes about three quarters of the main area (about 1,050 px on a 1920 px screen with the sidebar open, instead of about 700 px with the centered layout) without lines too long to read; on a laptop it is about as wide as before (owner's request, 2026-10-20, T3.1).
 
 ### Sidebar: the profile
 
@@ -134,5 +134,5 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 
 ## Open questions
 
-- Height of the message container on small screens: T3.1 uses `CHAT_HEIGHT_PX` = 520, which keeps the input in view on a laptop screen; on a short window the page scrolls to the input. Revisit in the UI polish ticket.
-- Whether `baseFontSize = 14` reads well on a phone: check during the UI polish ticket.
+- Height of the message container: `CHAT_HEIGHT_PX` = 650 (owner's request, 2026-10-20), which keeps the input in view on a 1080 px screen; on a shorter window the page scrolls to the input. Streamlit has no height relative to the window, and it advises at most 500 px for phones: revisit in the UI polish ticket.
+- Whether `baseFontSize = 17` and the wide layout read well on a phone: check during the UI polish ticket. At 17 px the sidebar goal control wraps "Maintain" onto a second line (checked 2026-10-20).

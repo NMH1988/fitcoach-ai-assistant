@@ -7,7 +7,7 @@ import streamlit as st
 from src import chat, config, guard, llm, profile, units
 from src.rag import store
 
-st.set_page_config(page_title=config.APP_TITLE, page_icon=":material/nutrition:", layout="centered")
+st.set_page_config(page_title=config.APP_TITLE, page_icon=":material/nutrition:", layout="wide")
 
 # Session state: "profile" holds the UserProfile (kg and cm), "units" the unit system the user
 # chose and "messages" the chat history (questions and TurnResults). All live for the session
@@ -366,25 +366,38 @@ with st.sidebar:
 if st.session_state.get("profile_form_open"):
     _profile_form()
 
-with st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center"):
-    st.title(config.APP_TITLE)
-    st.badge("Not medical advice", icon=":material/info:", color="orange", help=config.DISCLAIMER)
-st.caption(config.APP_INTRO)
-st.caption(f":material/info: {config.DISCLAIMER}")
 
-ask, targets, food, details = st.tabs(
-    [
-        ":material/chat: Ask",
-        ":material/target: My targets",
-        ":material/search: Food lookup",
-        ":material/list: Details",
-    ]
-)
-with ask:
-    _ask_tab()
-with targets:
-    st.caption("Your daily energy and macro targets will appear here in a later version.")
-with food:
-    st.caption("Looking up the nutrients of a food will be possible here in a later version.")
-with details:
-    st.caption("How each answer was found will appear here in a later version.")
+def _main_area() -> None:
+    """Show the header, the disclaimer and the four tabs."""
+    with st.container(
+        horizontal=True, horizontal_alignment="distribute", vertical_alignment="center"
+    ):
+        st.title(config.APP_TITLE)
+        st.badge(
+            "Not medical advice", icon=":material/info:", color="orange", help=config.DISCLAIMER
+        )
+    st.caption(config.APP_INTRO)
+    st.caption(f":material/info: {config.DISCLAIMER}")
+
+    ask, targets, food, details = st.tabs(
+        [
+            ":material/chat: Ask",
+            ":material/target: My targets",
+            ":material/search: Food lookup",
+            ":material/list: Details",
+        ]
+    )
+    with ask:
+        _ask_tab()
+    with targets:
+        st.caption("Your daily energy and macro targets will appear here in a later version.")
+    with food:
+        st.caption("Looking up the nutrients of a food will be possible here in a later version.")
+    with details:
+        st.caption("How each answer was found will appear here in a later version.")
+
+
+# The content sits in the middle column of the wide layout (config.PAGE_COLUMN_WEIGHTS).
+_, main, _ = st.columns(config.PAGE_COLUMN_WEIGHTS)
+with main:
+    _main_area()

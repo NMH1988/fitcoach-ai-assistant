@@ -201,8 +201,13 @@ EVIDENCE_TIER_LABELS: dict[int, str] = {1: "ISSN position stand", 2: "Peer-revie
 UNKNOWN_TIER_LABEL = "Review"
 # Authors named on a source card before "et al." (the full list is in ATTRIBUTION.md).
 CARD_AUTHORS_SHOWN = 3
-# Height of the scrolling message area in the Ask tab, so the chat input stays in view.
-CHAT_HEIGHT_PX = 520
+# Height of the scrolling message area in the Ask tab, so the chat input stays in view; tall
+# enough to read a whole answer on a desktop screen (owner's request, 2026-10-20).
+CHAT_HEIGHT_PX = 650
+# The page uses the wide layout with the content in the middle column: these are the relative
+# widths of the left margin, the content and the right margin. The content takes about three
+# quarters of a large screen, without lines too long to read.
+PAGE_COLUMN_WEIGHTS = (1, 6, 1)
 
 # Article XML comes only from the Europe PMC REST API, which allows automated retrieval
 # (copyright policy rule 10); the PMC, Europe PMC and publisher websites are never scripted.
