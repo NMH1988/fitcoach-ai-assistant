@@ -41,7 +41,7 @@ If none clearly applies, return an empty list.
 Set a year only when the user explicitly provides a year or year boundary, for example:
 
 - "since 2020" → 2020
-- "after 2022" → 2022
+- "after 2022" → 2023
 
 If the user only says "recent", "latest", "new", or "up-to-date" without giving a specific year, return null.
 
