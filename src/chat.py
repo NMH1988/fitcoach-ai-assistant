@@ -43,8 +43,9 @@ class Step(StrEnum):
 
 
 # answer: the model's answer; no_sources: nothing relevant was found (AC-2); rejected: the guard
-# refused the input; error: a model, key or index problem.
-TurnKind = Literal["answer", "no_sources", "rejected", "error"]
+# refused the input; guardrail: a domain guardrail refused or redirected it (AC-12); error: a
+# model, key or index problem.
+TurnKind = Literal["answer", "no_sources", "rejected", "guardrail", "error"]
 
 
 @dataclass(frozen=True)
@@ -382,5 +383,6 @@ def run_turn(
     except config.MissingAPIKeyError:
         return TurnResult("error", config.MISSING_KEY_MESSAGE, steps=tuple(steps))
     if result is None:
-        return TurnResult("rejected", decision.message or "", steps=tuple(steps))
+        kind = "guardrail" if decision.reason is guard.Rejection.GUARDRAIL else "rejected"
+        return TurnResult(kind, decision.message or "", steps=tuple(steps))
     return replace(result, steps=tuple(steps))

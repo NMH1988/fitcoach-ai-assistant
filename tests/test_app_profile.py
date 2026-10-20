@@ -256,10 +256,23 @@ def test_the_profile_stays_in_the_session_and_out_of_logs_and_the_url(caplog, ca
     assert not dict(at.query_params)
 
 
-def test_disclaimer_stays_visible_with_a_profile():
-    """The disclaimer is still shown once a profile exists."""
-    at = _add_metric_profile()
-    assert any("Not medical advice" in box.value for box in at.warning)
+@pytest.mark.parametrize(
+    "state",
+    [
+        lambda: _button(_start(), "Add your details").click().run(timeout=30),
+        lambda: _save(_fill_metric(_open_dialog(), age=15)),
+        _add_metric_profile,
+        lambda: _button(_add_metric_profile(), "Edit details").click().run(timeout=30),
+    ],
+    ids=["dialog open", "dialog with an error", "profile saved", "editing the profile"],
+)
+def test_disclaimer_stays_visible_in_every_profile_state(state):
+    """The badge and the full disclaimer box show with the dialog open and with a profile."""
+    at = state()
+    assert not at.exception
+    assert ":orange-badge[:material/info: Not medical advice]" in [m.value for m in at.markdown]
+    boxes = [box.value for box in at.warning]
+    assert boxes.count(f"**Not medical advice.** {config.DISCLAIMER}") == 1
 
 
 # --- T4.6: a hint instead of "Press Enter to apply" --------------------------------------------

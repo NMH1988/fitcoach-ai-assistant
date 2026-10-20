@@ -1,9 +1,9 @@
 """Input guard: cleans and checks each user message before any model or embedding call.
 
 Checks run in this order: too long (raw), empty, too long (cleaned), prompt-injection
-patterns, then the per-session rate limit. Only a message that passes every check counts
-against the rate limit (owner's choice in T1.3), and a rejected message never reaches a
-model: callers go through `run_guarded()`.
+patterns, the domain guardrails (`src/guardrails.py`, T5.3), then the per-session rate limit.
+Only a message that passes every check counts against the rate limit (owner's choice in T1.3),
+and a rejected message never reaches a model: callers go through `run_guarded()`.
 """
 
 import math
@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from src import config
+from src import config, guardrails
 
 # Fixed messages: they never quote the user's text back.
 EMPTY_MESSAGE = "Please type a question first."
@@ -237,6 +237,8 @@ class Rejection(StrEnum):
     INJECTION = "injection"
     RATE_WINDOW = "rate_window"
     RATE_SESSION = "rate_session"
+    # A domain guardrail refuses or redirects the question (`GuardResult.concern` says which).
+    GUARDRAIL = "guardrail"
 
 
 @dataclass(frozen=True)
@@ -247,6 +249,7 @@ class GuardResult:
     text: str = ""
     reason: Rejection | None = None
     message: str | None = None
+    concern: guardrails.Concern | None = None
 
 
 def _reject(reason: Rejection, message: str) -> GuardResult:
@@ -338,6 +341,13 @@ def looks_like_injection(text: str) -> bool:
     return any(p.search(text) for p in _RAW_RE)
 
 
+def _first_concern(views: set[str]) -> guardrails.Concern | None:
+    """Return the guardrail any detection view falls under, drug dosing first, or None."""
+    found = {concern for view in views if (concern := guardrails.find_concern(view)) is not None}
+    # The order of Concern, so the same text always gets the same message.
+    return next((concern for concern in guardrails.Concern if concern in found), None)
+
+
 def check_message(text: str, limiter: RateLimiter) -> GuardResult:
     """Clean `text` and run every check; only an accepted message counts against `limiter`."""
     if len(text) > config.MAX_RAW_INPUT_CHARS:
@@ -348,8 +358,17 @@ def check_message(text: str, limiter: RateLimiter) -> GuardResult:
         return _reject(Rejection.EMPTY, EMPTY_MESSAGE)
     if len(cleaned) > config.MAX_INPUT_CHARS:
         return _reject(Rejection.TOO_LONG, TOO_LONG_MESSAGE)
-    if any(looks_like_injection(view) for view in detection_views(text)):
+    views = detection_views(text)
+    if any(looks_like_injection(view) for view in views):
         return _reject(Rejection.INJECTION, INJECTION_MESSAGE)
+    concern = _first_concern(views)
+    if concern is not None:
+        return GuardResult(
+            allowed=False,
+            reason=Rejection.GUARDRAIL,
+            message=guardrails.MESSAGES[concern],
+            concern=concern,
+        )
     rejection = limiter.try_acquire()
     if rejection is not None:
         return rejection

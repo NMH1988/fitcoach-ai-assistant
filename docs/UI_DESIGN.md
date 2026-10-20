@@ -108,6 +108,8 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
   4. **Tool result:** a compact expander labelled with the headline result (e.g. ":material/calculate: Protein target: 160 g") that opens to the result table (AC-6, T4.4).
 - **Empty chat:** a one-line invitation and three suggested questions as `st.pills` in an `st.empty()` placeholder, sent through the same handler as typed input; hidden once the chat has a message.
 - **Errors:** a short `st.error` inside the assistant message saying what happened and what to do; the history stays (AC-13).
+- **Guard rejections:** `st.warning` with `:material/block:`; the status ends as an error, "Question not accepted".
+- **Domain guardrails (T5.3, AC-12):** a refused or redirected question gets its fixed message in `st.info` with `:material/health_and_safety:` and no answer; the status ends complete, "Not something this assistant can advise on", since nothing went wrong.
 
 #### My targets
 

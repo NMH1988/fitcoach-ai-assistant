@@ -30,11 +30,12 @@ STATUS_LABELS = {
     "answer_uncited": "Answered without citing the research",
     "no_sources": "No matching research found",
     "rejected": "Question not accepted",
+    "guardrail": "Not something this assistant can advise on",
     "error": "Something went wrong",
 }
 # What each step of a turn does, shown under it in the status box.
 STEP_DETAILS = {
-    chat.Step.CHECK: "Length, prompt-injection patterns and the question limit.",
+    chat.Step.CHECK: "Length, prompt-injection patterns, safety topics and the question limit.",
     chat.Step.SEARCH: "Vector search over the approved research articles.",
     chat.Step.ANSWER: "The model answers from the passages found and cites them.",
 }
@@ -235,7 +236,8 @@ def _status_label(result: chat.TurnResult) -> str:
 
 
 def _final_state(result: chat.TurnResult) -> str:
-    """Return the status state that ends a turn: complete, or error if it gave no answer."""
+    """Return the status state that ends a turn: error if rejected or failed, else complete."""
+    # A guardrail redirect ends "complete": the app did what it should, nothing went wrong.
     return "error" if result.kind in ("rejected", "error") else "complete"
 
 
@@ -330,6 +332,9 @@ def _show_result(result: chat.TurnResult) -> None:
     """Show a turn's answer with its sources, or its fixed message for a rejection or an error."""
     if result.kind == "rejected":
         st.warning(result.text, icon=":material/block:")
+    elif result.kind == "guardrail":
+        # A refusal or a pointer to a professional (AC-12), not an error.
+        st.info(result.text, icon=":material/health_and_safety:")
     elif result.kind == "error":
         st.error(result.text, icon=":material/error:")
     else:
