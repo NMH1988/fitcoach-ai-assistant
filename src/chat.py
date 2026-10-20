@@ -1,12 +1,12 @@
-"""One chat turn: guard -> query translation -> retrieval -> answer with [S#] citations.
+"""One chat turn: guard -> query translation -> retrieval -> answer with tools and [S#] citations.
 
-The user's question goes only inside <user_input> and the retrieved chunks only inside <sources>,
-both in the user message; neither is ever put into the system prompt
-(.claude/rules/security-privacy.md). Both are escaped first (`src/prompt_data.py`), so no text can
-close or open a block (T3.4). The rewrites from query translation are used only for the search and
-shown in the app; the answer model gets the user's own question. Every error a user can cause or
-meet ends as a TurnResult with a fixed message, so the app shows it in the answer and keeps the chat
-history (AC-13).
+The user's question goes only inside <user_input>, the retrieved chunks only inside <sources> and
+the profile only inside <profile>, all in the user message; none is ever put into the system prompt
+(.claude/rules/security-privacy.md). All three are escaped first (`src/prompt_data.py`), so no text
+can close or open a block (T3.4). The rewrites from query translation are used only for the search
+and shown in the app; the answer model gets the user's own question. Tool results reach the model
+only as tool messages (T4.4). Every error a user can cause or meet ends as a TurnResult with a fixed
+message, so the app shows it in the answer and keeps the chat history (AC-13).
 """
 
 import os
@@ -27,15 +27,20 @@ from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
     SystemMessage,
+    ToolMessage,
 )
+from langchain_core.runnables import Runnable
+from langchain_core.tools import StructuredTool
 
-from src import config, guard, llm
+from src import config, guard, llm, profile, units
 from src.prompt_data import escape_prompt_data
 from src.rag import query_translation
 from src.rag.query_translation import QueryPlan
 from src.rag.retriever import RetrievedChunk, embed_queries, search
 from src.rag.sources import ManifestError, Source, license_url_for, load_manifest
 from src.rag.store import IndexNotReadyError
+from src.tools import registry
+from src.tools.registry import ToolRun
 
 
 class Step(StrEnum):
@@ -45,6 +50,7 @@ class Step(StrEnum):
     REWRITE = "Rewriting the question"
     SEARCH = "Searching the research"
     ANSWER = "Writing the answer"
+    TOOLS = "Using the tools"
 
 
 # answer: the model's answer; no_sources: nothing relevant was found (AC-2); rejected: the guard
@@ -116,6 +122,8 @@ class TurnResult:
     search: SearchDetails | None = None
     # True when the index could not be used, so the app opens it again on the next turn.
     index_not_ready: bool = False
+    # The tool calls the model made, in order, with their results (T4.4).
+    tool_runs: tuple[ToolRun, ...] = ()
 
 
 # A citation is one bracket holding labels or ranges: [S1], [S1, S3], [S2; S4], [S1 and S2],
@@ -138,6 +146,12 @@ _MARKDOWN_SPECIAL = re.compile(r"([\\`*_\[\]<>$~:])")
 
 class PromptMissingError(RuntimeError):
     """A prompt file is missing, unreadable or empty; `str()` is the fixed message to show."""
+
+
+class ToolLoopError(llm.LLMError):
+    """The model still called tools in the last call, where it was told not to."""
+
+    user_message = "The answer could not be finished. Please try again."
 
 
 @dataclass(frozen=True)
@@ -239,6 +253,8 @@ def markdown_url(url: str) -> str:
 
 def format_sources(chunks: Sequence[RetrievedChunk]) -> str:
     """Return the chunks as labelled blocks: [S#], title, year and tier, then the text, escaped."""
+    if not chunks:
+        return config.NO_SOURCES_BLOCK
     blocks = []
     for number, chunk in enumerate(chunks, start=1):
         meta = chunk.metadata
@@ -250,16 +266,39 @@ def format_sources(chunks: Sequence[RetrievedChunk]) -> str:
     return "\n\n".join(blocks)
 
 
+def format_profile(user: profile.UserProfile | None) -> str:
+    """Return the profile as lines of fixed labels and checked values, or say there is none."""
+    # Only validated numbers and fixed labels: nothing here is text the user typed.
+    if user is None:
+        # The exact line the owner's prompt names for a missing profile.
+        return "Not given"
+    return "\n".join(
+        [
+            f"Weight: {units.format_weight(user.weight_kg, 'metric')}",
+            f"Height: {units.format_height(user.height_cm, 'metric')}",
+            f"Age: {user.age} years",
+            f"Sex: {profile.SEX_LABELS[user.sex]}",
+            f"Activity: {profile.ACTIVITY_LABELS[user.activity]}",
+            f"Goal: {profile.GOAL_LABELS[user.goal]}",
+        ]
+    )
+
+
 def build_messages(
-    question: str, chunks: Sequence[RetrievedChunk], system_prompt: str
+    question: str,
+    chunks: Sequence[RetrievedChunk],
+    system_prompt: str,
+    user: profile.UserProfile | None = None,
 ) -> list[BaseMessage]:
-    """Return the system prompt and one user message holding <sources> and <user_input>."""
-    # Plain string content, never a prompt template: braces in the question stay as typed.
-    user = (
+    """Return the system prompt and one user message with <sources>, <profile> and <user_input>."""
+    # Plain string content, never a prompt template: braces in the question stay as typed. The
+    # profile holds only fixed labels and checked numbers; it is escaped like the rest anyway.
+    content = (
         f"<sources>\n{format_sources(chunks)}\n</sources>\n\n"
+        f"<profile>\n{escape_prompt_data(format_profile(user))}\n</profile>\n\n"
         f"<user_input>\n{escape_prompt_data(question)}\n</user_input>"
     )
-    return [SystemMessage(system_prompt), HumanMessage(user)]
+    return [SystemMessage(system_prompt), HumanMessage(content)]
 
 
 def cited_labels(answer: str, count: int) -> list[int]:
@@ -295,7 +334,8 @@ class PacedWriter:
 
     def __call__(self, text: str) -> None:
         """Reveal the words of text not shown yet, one at a time, pausing after each."""
-        if self._pause == 0:
+        # Empty text clears what was shown (the text of a reply that called tools).
+        if self._pause == 0 or not text:
             self._shown = text
             self._show(text)
             return
@@ -360,21 +400,19 @@ def source_cards(
 
 
 def _answer_text(reply: AIMessage) -> str:
-    """Return the text of the model's reply; raise LLMError if it is cut off or empty."""
-    if reply.response_metadata.get("finish_reason") == "length":
-        raise llm.ReplyCutOffError(diagnostic="finish_reason length in the answer step")
+    """Return the text of the model's reply; raise LLMError if it is empty."""
     text = remove_images(reply.text).strip()
     if not text:
         raise llm.LLMError(diagnostic="empty answer")
     return text
 
 
-def stream_answer(
-    chat_model: BaseChatModel,
+def stream_reply(
+    chat_model: Runnable[Any, BaseMessage],
     messages: Sequence[BaseMessage],
     on_text: Callable[[str], None] | None = None,
-) -> str:
-    """Stream the model's answer, reporting the text so far as it grows; return the full text."""
+) -> AIMessageChunk:
+    """Stream one model reply, reporting its text so far as it grows; return the whole reply."""
     reply: AIMessageChunk | None = None
     with llm.mapped_errors():
         for chunk in chat_model.stream(messages):
@@ -384,7 +422,81 @@ def stream_answer(
                 on_text(remove_images(reply.text))
     if reply is None:
         raise llm.LLMError(diagnostic="no answer chunks")
-    return _answer_text(reply)
+    if reply.response_metadata.get("finish_reason") == "length":
+        # A cut-off answer is not shown half-written, and cut-off tool arguments are not run.
+        raise llm.ReplyCutOffError(diagnostic="finish_reason length in the answer step")
+    return reply
+
+
+def _run_round(
+    tools: Mapping[str, StructuredTool], reply: AIMessageChunk
+) -> list[tuple[ToolMessage, ToolRun]]:
+    """Run the reply's tool calls, at most MAX_TOOL_CALLS_PER_ROUND; refuse the rest."""
+    # OpenAI models always send call ids; a call without one gets "", which the API would refuse
+    # on the next request (shown as a service error).
+    done = []
+    for number, call in enumerate(reply.tool_calls):
+        if number < config.MAX_TOOL_CALLS_PER_ROUND:
+            done.append(registry.run_tool_call(tools, call))
+        else:
+            done.append(registry.refused_call(call["id"] or "", config.TOO_MANY_TOOL_CALLS_MESSAGE))
+    # Every call needs an answer, so arguments that are not valid JSON get one too.
+    for call in reply.invalid_tool_calls:
+        done.append(registry.refused_call(call["id"] or "", config.INVALID_TOOL_JSON_MESSAGE))
+    return done
+
+
+def answer_with_tools(
+    chat_model: BaseChatModel,
+    messages: Sequence[BaseMessage],
+    tools: Mapping[str, StructuredTool],
+    on_step: Callable[[Step], None],
+    on_text: Callable[[str], None] | None = None,
+    *,
+    needs_tool: bool = False,
+) -> tuple[str | None, tuple[ToolRun, ...]]:
+    """Let the model call tools for at most MAX_TOOL_ROUNDS rounds; return its answer and runs."""
+    # needs_tool (no relevant source): replies are not shown until a tool has really run (a refused
+    # call, e.g. an unknown tool or bad arguments, does not count), and a reply with no tool call
+    # before that gives None, so the caller shows NO_SOURCES_MESSAGE, never an answer with no basis.
+    history = list(messages)
+    runs: list[ToolRun] = []
+    for round_number in range(config.MAX_TOOL_ROUNDS + 1):
+        last = round_number == config.MAX_TOOL_ROUNDS
+        hidden = needs_tool and all(run.status == "invalid" for run in runs)
+        # Only the tools are bound (never the model or max_tokens; security-privacy.md). After the
+        # last round the model must answer from the results it has.
+        bound = chat_model.bind_tools(list(tools.values()), tool_choice="none" if last else None)
+        try:
+            reply = stream_reply(bound, history, None if hidden else on_text)
+        except llm.ReplyCutOffError:
+            if hidden:
+                # Nothing was shown and no tool ran: the turn ends as "not covered".
+                return None, ()
+            raise
+        if not reply.tool_calls and not reply.invalid_tool_calls:
+            if hidden:
+                return None, ()
+            return _answer_text(reply), tuple(runs)
+        if last:
+            raise ToolLoopError(diagnostic="tool calls after the last round")
+        if on_text is not None:
+            # Text written before the tool calls is not the answer.
+            on_text("")
+        on_step(Step.TOOLS)
+        history.append(
+            AIMessage(
+                reply.content,
+                tool_calls=reply.tool_calls,
+                invalid_tool_calls=reply.invalid_tool_calls,
+            )
+        )
+        for message, run in _run_round(tools, reply):
+            history.append(message)
+            runs.append(run)
+        on_step(Step.ANSWER)
+    # Not reached: the last call either answers or raises.
+    raise ToolLoopError(diagnostic="tool loop ended without an answer")
 
 
 @dataclass(frozen=True)
@@ -404,6 +516,7 @@ def answer_question(
     manifest: Mapping[str, Source],
     on_step: Callable[[Step], None],
     on_text: Callable[[str], None] | None = None,
+    user: profile.UserProfile | None = None,
 ) -> TurnResult:
     """Rewrite an accepted question, retrieve its chunks and answer from them, citing [S#]."""
     on_step(Step.REWRITE)
@@ -413,15 +526,21 @@ def answer_question(
     on_step(Step.SEARCH)
     with llm.mapped_errors():
         chunks, details = find_chunks(question, plan, index)
-    if not chunks:
-        # Nothing close enough: no answer model call and no citation (AC-2).
-        return TurnResult("no_sources", config.NO_SOURCES_MESSAGE, search=details)
     on_step(Step.ANSWER)
     # The user's own question, never the rewrites, goes to the answer model.
-    messages = build_messages(question, chunks, models.system_prompt)
-    answer = stream_answer(models.chat_model, messages, on_text)
+    messages = build_messages(question, chunks, models.system_prompt, user)
+    # The energy tools get the profile here, never from the model.
+    tools = registry.build_tools(user)
+    # With no relevant chunk the model may still answer from a tool (a food lookup rarely matches
+    # a research passage); if it calls none, the fixed "not covered" message is shown (AC-2;
+    # owner's choice in T4.4).
+    answer, runs = answer_with_tools(
+        models.chat_model, messages, tools, on_step, on_text, needs_tool=not chunks
+    )
+    if answer is None:
+        return TurnResult("no_sources", config.NO_SOURCES_MESSAGE, search=details)
     cards = source_cards(chunks, cited_labels(answer, len(chunks)), manifest)
-    return TurnResult("answer", answer, cards, search=details)
+    return TurnResult("answer", answer, cards, search=details, tool_runs=runs)
 
 
 def run_turn(
@@ -434,9 +553,11 @@ def run_turn(
     manifest: Mapping[str, Source] | None = None,
     on_step: Callable[[Step], None] | None = None,
     on_text: Callable[[str], None] | None = None,
+    user: profile.UserProfile | None = None,
 ) -> TurnResult:
     """Run one chat turn: the guard first, then retrieval and the answer; never raise for errors."""
-    # on_step(step) is called as each step starts; on_text(text) as the answer streams in.
+    # on_step(step) is called as each step starts; on_text(text) as the answer streams in. `user`
+    # is the session's profile, for the energy tools and the model's <profile> block.
     steps: list[Step] = []
 
     def step(name: Step) -> None:
@@ -455,7 +576,7 @@ def run_turn(
         # The index is opened first: a missing index is reported even when the key is missing.
         index = open_index()
         models = TurnModels(translation_model(), translation_prompt, chat_model(), system_prompt)
-        return answer_question(question, index, models, manifest or {}, step, on_text)
+        return answer_question(question, index, models, manifest or {}, step, on_text, user)
 
     step(Step.CHECK)
     try:

@@ -144,13 +144,15 @@ def test_an_answer_citing_nothing_says_so_in_the_status(monkeypatch):
 
 
 def test_no_relevant_source_shows_the_fixed_message_and_no_sources(monkeypatch):
-    """An off-topic question gets the 'not covered' message, no Sources and no model call."""
-    model = _use_model(monkeypatch, _answers())
+    """An off-topic question gets the 'not covered' message and no Sources; the reply is unseen."""
+    model = _use_model(monkeypatch, _answers("Offside is a football rule."))
     at = _ask(_start(), OFF_TOPIC)
     message = _assistant(at)
     assert message.markdown[0].value == config.NO_SOURCES_MESSAGE
     assert not message.expander
-    assert model.calls == []
+    # One model call with the tools (T4.4); its text never reaches the page.
+    assert len(model.calls) == 1
+    assert not [m for m in at.markdown if "Offside" in m.value]
 
 
 def test_the_user_question_is_shown_as_plain_text(monkeypatch):
@@ -394,7 +396,8 @@ def test_details_says_when_only_the_question_was_searched(monkeypatch):
 
 def test_details_shows_the_search_even_when_nothing_was_found(monkeypatch):
     """A question the sources do not cover still shows what was searched."""
-    _use_model(monkeypatch, _answers())
+    # The answer model is still asked once, with the tools; it calls none (T4.4).
+    _use_model(monkeypatch, _answers("Offside is a football rule."))
     tab = _details_tab(_ask(_start(), OFF_TOPIC))
     assert any(m.value.startswith("1. What is the offside rule") for m in tab.markdown)
 
@@ -537,7 +540,8 @@ def _after_answer(monkeypatch) -> AppTest:
 
 def _after_no_sources(monkeypatch) -> AppTest:
     """Return the app after a question the sources do not cover."""
-    _use_model(monkeypatch, _answers())
+    # The model is still asked once, with the tools (T4.4); it calls none.
+    _use_model(monkeypatch, _answers("Offside is a football rule."))
     return _ask(_start(), OFF_TOPIC)
 
 

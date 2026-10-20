@@ -199,12 +199,16 @@ QUERY_REWRITE_MAX_CHARS = 300
 # The years a min_year filter may name; the oldest approved source is from 2014. A year with no
 # source after it finds nothing, so the search runs again without filters.
 QUERY_MIN_YEAR_RANGE = (2000, 2100)
-# Shown instead of an answer when no chunk is relevant; no model call is made (AC-2).
+# Shown instead of an answer when no chunk is relevant and the model used no tool (AC-2). Since T4.4
+# the model is still called once with the tools, as a food lookup or an energy question may match no
+# research passage; its own text is never shown on this path (owner's choice, 2026-10-20).
 NO_SOURCES_MESSAGE = (
     "Our sources do not cover this question, so there is no answer from the research. Try a "
     "question about protein, carbohydrate, fat, energy balance, nutrient timing or supplements "
     "for strength training."
 )
+# What <sources> holds for the model when no chunk is relevant.
+NO_SOURCES_BLOCK = "None: no research excerpt is close enough to this question."
 API_KEY_NAME = "OPENROUTER_API_KEY"
 
 # Shown in the answer when the key is not set up (AC-13).
@@ -377,6 +381,42 @@ FOOD_SUGGESTION_MIN_SCORE = 60
 FOOD_MAX_ALTERNATIVES = 3
 # Decimal places of the scaled values (grams of nutrients); kcal are rounded to whole numbers.
 FOOD_DECIMALS = 1
+
+# The tool loop of the answer step (T4.4; docs/ARCHITECTURE.md, D2). A round is one model reply that
+# calls tools and the running of those calls. After the last round the model is called once more
+# with tool_choice "none", so it writes the answer from the results it has: at most
+# MAX_TOOL_ROUNDS + 1 model calls per question, which still counts once in the rate limit.
+MAX_TOOL_ROUNDS = 4
+# Tool calls run from one reply; the rest are answered with TOO_MANY_TOOL_CALLS_MESSAGE. Each result
+# is sent back to the model with every later call, so this bounds the tokens a turn can use.
+MAX_TOOL_CALLS_PER_ROUND = 6
+# Tool messages are data for the model, in English (docs/UI_DESIGN.md, "Language"); the UI shows
+# the same text. None of them repeats what the model sent, and none gives the model orders: they
+# state facts, and the owner's prompt says what to do with them (it treats tool results as data).
+PROFILE_NEEDED_MESSAGE = (
+    "Profile needed: the user has not added their details, so this cannot be calculated. The "
+    "details are added with the 'Add your details' button in the sidebar."
+)
+NO_ARGUMENTS_MESSAGE = (
+    "Invalid call: this tool takes no arguments; the app supplies the user's profile."
+)
+UNKNOWN_TOOL_MESSAGE = "Invalid call: there is no tool with that name."
+INVALID_TOOL_JSON_MESSAGE = "Invalid call: the arguments were not valid JSON."
+TOO_MANY_TOOL_CALLS_MESSAGE = (
+    f"Not run: at most {MAX_TOOL_CALLS_PER_ROUND} tool calls are run from one reply."
+)
+TOOL_FAILED_MESSAGE = "Not available: the tool could not run, so there is no result."
+# Shown in the Tool results when an energy tool had no profile, above the "Add your details" button.
+PROFILE_NEEDED_HINT = "This calculation needs your details. Add them, then ask again."
+# Height of the macro chart in "Tool results", its axis and legend included: at 140 px the bar was a
+# hairline in the browser, at 220 px it is drawn clearly (checked with a fake model, T4.4).
+MACRO_CHART_HEIGHT_PX = 220
+# Macro colours in charts (docs/UI_DESIGN.md), in the order the macros are listed.
+MACRO_COLORS: dict[str, str] = {
+    "Protein": "#0F6E56",
+    "Carbohydrate": "#5DCAA5",
+    "Fat": "#EF9F27",
+}
 
 
 class MissingAPIKeyError(RuntimeError):

@@ -58,7 +58,8 @@ class Food(BaseModel):
 class FoodLookupArgs(BaseModel):
     """The tool's arguments, as the model sends them; checked before any lookup."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    # extra="forbid": a call with any other field (e.g. `table`, the tests' hook) is refused.
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
     food: str = Field(
         min_length=config.FOOD_MIN_NAME_CHARS,
@@ -232,22 +233,27 @@ def _scale(food: Food, grams: float) -> Nutrients:
     )
 
 
-def _invalid_message(error: ValidationError) -> str:
-    """Explain which arguments are wrong, without repeating what was sent."""
+def invalid_lookup_message(error: ValidationError) -> str:
+    """State which arguments are wrong, as facts, without repeating what was sent."""
     fields = {str(e["loc"][0]) for e in error.errors() if e["loc"]}
     parts = []
+    if fields - set(FoodLookupArgs.model_fields):
+        # Never names the extra field: it is the model's text.
+        parts.append("only the arguments food and grams are accepted")
     if "food" in fields:
         parts.append(
-            f"give the name of one food in {config.FOOD_MIN_NAME_CHARS} to "
+            f"food must be the name of one food in {config.FOOD_MIN_NAME_CHARS} to "
             f"{config.FOOD_MAX_NAME_CHARS} characters, with at least one word of "
             f"{config.FOOD_MIN_NAME_CHARS} or more letters or digits"
         )
     if "grams" in fields:
         parts.append(
-            f"give the amount as a number of grams from {config.FOOD_MIN_GRAMS:g} to "
+            f"the amount must be a number of grams from {config.FOOD_MIN_GRAMS:g} to "
             f"{config.FOOD_MAX_GRAMS}"
         )
-    return "Invalid food lookup: " + ("; ".join(parts) or "check the arguments") + "."
+    return (
+        "Invalid food lookup: " + ("; ".join(parts) or "the arguments do not fit the schema") + "."
+    )
 
 
 def lookup_food_nutrition(
@@ -255,12 +261,13 @@ def lookup_food_nutrition(
 ) -> FoodLookupResult:
     """Return the nutrients of the named food for the given grams, or a clear message why not."""
     # Invalid arguments and unknown foods give a result, never an exception; a missing or broken
-    # table raises FoodTableError, which the tool wrapper (T4.4) turns into a tool error message.
-    # `table` replaces the committed foods table (tests).
+    # table raises FoodTableError, which the tool wrapper (src/tools/registry.py) turns into a
+    # tool error message. `table` replaces the committed foods table (tests); it is never a model
+    # argument (the tool's args_schema is FoodLookupArgs).
     try:
         args = FoodLookupArgs(food=food, grams=grams)
     except ValidationError as exc:
-        return FoodLookupResult(status="invalid", message=_invalid_message(exc))
+        return FoodLookupResult(status="invalid", message=invalid_lookup_message(exc))
 
     query = _normalise(args.food)
     foods = load_food_table() if table is None else table
@@ -271,9 +278,12 @@ def lookup_food_nutrition(
         suggestions = [f.description for f, _ in ranked[:limit]]
         message = "No close match in the USDA Foundation Foods table."
         if suggestions:
-            message += " Did you mean one of the alternatives? Look it up by that name."
+            message += " Did you mean one of the alternatives? They are the closest names in it."
         else:
-            message += " Try a plainer name of a single, unprocessed food (e.g. 'rolled oats')."
+            message += (
+                " No similar name: the table holds single, unprocessed foods under plainer names "
+                "(e.g. 'rolled oats')."
+            )
         return FoodLookupResult(
             status="not_found", message=message, grams=args.grams, alternatives=suggestions
         )
