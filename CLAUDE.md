@@ -39,7 +39,7 @@ The owner writes in Vietnamese: reply in Vietnamese. Everything in the repo is i
 Python 3.14 (`.python-version`), in a local `.venv`.
 
 - Install: `pip install -e ".[dev]"`
-- Run: `streamlit run app.py`
+- Run: `streamlit run app.py` with `.venv` active, or `.venv\Scripts\streamlit.exe run app.py` (Windows) / `.venv/bin/streamlit run app.py`. Every command here assumes the venv: the system Python lacks the project's packages, and the app then fails with `ModuleNotFoundError: No module named 'langchain_chroma'`
 - Download sources: `python scripts/download_sources.py` (Europe PMC REST API only, into gitignored `data/raw/`); after changing `data/sources.json` or `data/usda_foods.csv`, `python scripts/generate_attribution.py`
 - Build the vector index: `python scripts/build_index.py` (needs the key and the downloaded articles; writes gitignored `chroma/`; rerun after the sources or the chunking change; stop the app before rebuilding and restart it afterwards)
 - USDA foods table: download the Foundation Foods CSV zip from https://fdc.nal.usda.gov/download-datasets/ into gitignored `data/usda/`, then `python scripts/prepare_usda.py`, `python scripts/generate_attribution.py`, and commit `data/usda_foods.csv` and `ATTRIBUTION.md`

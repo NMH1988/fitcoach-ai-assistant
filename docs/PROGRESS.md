@@ -15,6 +15,16 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-20 · T1.5 Docs: run commands use the project's venv · PR pending (closes #42)
+- **Brief:** core requirement 4 (the app works when run as documented; the evaluation's "the app works"); prepares T6.2 (README).
+- **What:**
+  - `README.md`: before the commands, a note that they run in a terminal with `.venv` active, how to call the venv's `streamlit` without activating it (`.venv\Scripts\streamlit.exe run app.py`, `.venv/bin/streamlit run app.py`), and the symptom of the wrong Python; the one-time knowledge base steps (`python scripts/download_sources.py`, `python scripts/build_index.py`, under one US cent) with the note to stop the app before rebuilding.
+  - `CLAUDE.md`: the Run line says the same.
+  - Plan: T1.5 added with the owner's criteria; T4.6 done (PR #41 merged).
+- **Why:** after PR #41 merged, the owner started the app in a new terminal with `streamlit run app.py`, which ran the system Python's Streamlit (1.64, without the project's packages): `ModuleNotFoundError: No module named 'langchain_chroma'`. The code was fine; the README only said to activate the venv once, at setup, and skipped the download and index steps the app needs before it can answer.
+- **Decisions & gotchas:** Claude stopped the app started with the system Python (with the owner's request to fix it) and restarted it with `.venv\Scripts\streamlit.exe run app.py`; it loaded without error.
+- **Follow-ups:** T6.2 reviews the whole README before the transfer to the course repository.
+
 ## 2026-10-20 · T4.6 Profile form: a hint instead of "Press Enter to apply" · #41 (closes #40)
 - **Brief:** beyond the brief (owner's request, 2026-10-20).
 - **What:**
