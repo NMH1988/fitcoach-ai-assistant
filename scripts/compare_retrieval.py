@@ -11,8 +11,9 @@ guard, then one embedding call. Each method gets the question alone, with no rew
 filter, so only the way of searching differs: vector search with the distance limit, BM25, and
 the app's hybrid search (BM25 joins only when a vector hit passes the limit). For each question
 the script prints the rank of the first expected source in each method's top RETRIEVAL_TOP_K,
-then each method's hit rate. A question with no expected source (one the sources should not
-cover) is shown but not scored. It costs a fraction of a cent and never prints the key. Record
+then each method's hit rate and how many hybrid chunks were found by keyword only (marked "*"
+in the hybrid row). A question with no expected source (one the sources should not cover) is
+shown but not scored. It costs a fraction of a cent and never prints the key. Record
 the output in docs/TESTING.md.
 """
 

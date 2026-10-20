@@ -68,7 +68,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | **Extras** | | | | | | |
 | T1.4 | #32 | Security reviewer agent (beyond the brief; owner's request, done early as it is dev tooling with no product change) | S | T1.1 | 10-20 | done |
 | T5.1 | #16 | Token usage and cost | S | T3.2 | 10-30 | todo |
-| T5.2 | #17 | Session summary PDF | M | T4.4 | 10-31 | in review |
+| T5.2 | #17 | Session summary PDF | M | T4.4 | 10-31 | done |
 | T7.3 | #35 | Light and dark mode | S | T3.1 | 10-31 | done |
 | T7.1 | #33 | Language switch: English and German UI | M | T4.4, T4.7, T5.3, T1.3 | 10-31 | todo |
 | T7.2 | #34 | German answers end to end | M | T7.1, T3.2, O1, O2, O5 | 11-01 | todo |
@@ -327,7 +327,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] `src/usage.py` sums tokens from every call of a turn (query translation, answer rounds, query embedding) and prices them from OpenRouter's models endpoint (cached a day; "price unknown" on failure) - unit tests with fake usage and prices.
 - [ ] The UI shows the turn's tokens and cost under the answer and the session totals in the sidebar - AppTest.
 
-### T5.2 Session summary PDF (M) · status: in review · issue #17
+### T5.2 Session summary PDF (M) · status: done · issue #17
 **Serves:** Medium 7 and Easy 1 (extra); AC-9.
 **Depends on:** T4.4
 **Acceptance criteria**
