@@ -23,6 +23,10 @@ class Concern(StrEnum):
     DISORDERED_EATING = "disordered_eating"
 
 
+# The youngest age the profile accepts; the minor patterns below are written for 18 (ages 10-17,
+# "under 18"), and a test checks the two agree.
+ADULT_AGE = config.PROFILE_AGE_RANGE[0]
+
 # Fixed messages: they never quote the user's text back.
 MESSAGES = {
     Concern.PED_DOSING: (
@@ -32,8 +36,9 @@ MESSAGES = {
         "caffeine."
     ),
     Concern.MINOR: (
-        "This assistant is made for adults (18+). For nutrition advice for someone under 18, "
-        "please talk to a doctor, a paediatric dietitian or another qualified professional."
+        f"This assistant is made for adults ({ADULT_AGE}+). For nutrition advice for someone "
+        f"under {ADULT_AGE}, please talk to a doctor, a paediatric dietitian or another qualified "
+        "professional."
     ),
     Concern.PREGNANCY: (
         "This assistant is not made for pregnancy, the time after giving birth or breastfeeding. "
@@ -93,10 +98,10 @@ _SENTENCE_END = re.compile(r"[.?!;]+(?: |$)")
 
 # --- Minors ---------------------------------------------------------------------------------------
 # "I'm 16" is an age unless a unit follows ("I'm 16 kg over", "I'm 16 weeks in", "I'm 5'10",
-# "I'm 16:8 fasting").
+# "I'm 16:8 fasting", "I'm 12-weeks out", "I'm 13 and a half stone").
 _NOT_A_UNIT = (
-    r"(?![\w'\"%]|[.,:/]\d| %| ?(?:kgs?|kilos?|lbs?|pounds?|stone|st|cm|ft|feet|foot|in|inch|inches"
-    r"|percent|weeks?|days?|months?|hours?|hrs?|minutes?|mins?|times?|sets?|reps?|meals?|g|grams?"
+    r"(?![\w'\"%]|[.,:/]\d| %|(?: and a half| and a bit)?[ -]?(?:kgs?|kilos?|lbs?|pounds?|stone"
+    r"|st|cm|ft|feet|foot|in|inch|inches|percent|weeks?|days?|months?|hours?|hrs?|minutes?|mins?|times?|sets?|reps?|meals?|g|grams?"
     r"|k?cals?|calories|servings?|scoops?|eggs?|x|sessions?|workouts?|miles?|km|steps|down"
     r"|over|under|pounds|plates?)\b)"
 )
@@ -106,14 +111,17 @@ _MINOR_PATTERNS = [
     # "I'm 16 years old" is an age, "I'm 10 years into lifting" is not.
     rf"(?:1[0-7](?! (?:years?|yrs?)\b(?! old\b)){_NOT_A_UNIT}"
     rf"|{_MINOR_AGE} (?:years?|yrs?) old\b|{_MINOR_AGE} ?(?:yo|y/o)\b)",
-    # A teenager named ("a 16-year-old"); a younger child only as the subject ("for my
-    # 8-year-old"), so a parent saying "I have a 2-year-old" asks about their own diet.
+    # A teenager named ("a 16-year-old"), not the past ("since I was 15 years old"); a younger
+    # child only as the subject ("for my 8-year-old"), so a parent saying "I have a 2-year-old"
+    # asks about their own diet.
+    r"(?<!was )(?<!was a )(?<!were )(?<!at )(?<!since )(?<!from )"
     r"\b1[0-7][- ](?:years?|yrs?)[- ]old\b",
     rf"\b(?:for|can|should|does|is|will|may) (?:my|a|an|our) {_MINOR_AGE}[- ](?:years?|yrs?)"
     r"[- ]old\b",
     # Not cheese "aged 2 years" or "aged 12+ months".
     rf"\baged {_MINOR_AGE}\b(?! ?(?:weeks?|months?|days?|years?|yrs?)\b|\+)",
-    rf"\bunder[- ]18{_NOT_A_UNIT}",
+    # Not a BMI ("my BMI is under 18").
+    rf"(?<!bmi )(?<!bmi is )(?<!bmi of )(?<!bmi's )\bunder[- ]18{_NOT_A_UNIT}",
     # "Since my teens" and "in my teens" are the past.
     r"(?<!since my )(?<!in my )(?<!my late )(?<!my early )\b(?:teens?|teenagers?|teenage"
     r"|adolescents?|underage|minors|pre-?teens?)\b",
@@ -123,8 +131,10 @@ _MINOR_PATTERNS = [
     r" (?:son|daughter|kid|child|boy|girl)\b",
     r"\b(?:i(?:'m| am|m)|as) an? (?:minor|high school(?:er| student)"
     r"|middle school(?:er| student))\b",
-    # Not the past: "back in high school", "when I was in high school".
-    r"(?<!back )(?<!was )(?<!were )(?<!since )\bin (?:high|middle|secondary|junior high) school\b",
+    # Only the present ("I'm in high school", "I go to middle school"), not the past ("I played
+    # football in high school").
+    r"\b(?:i(?:'m| am|m)|i'm still|i am still|still|currently|i go to|i attend|i'm at|i am at)"
+    r" (?:in )?(?:high|middle|secondary|junior high) school\b",
 ]
 
 # --- Pregnancy, after birth, breastfeeding --------------------------------------------------------
@@ -164,7 +174,8 @@ _CONDITION_FRAME = (
     r"|(?:safe|ok|okay|fine|good|bad|healthy|dangerous|risky) (?:for|with)|with my"
     r"|(?:people|someone|anyone|those"
     r"|patients|a person|persons|men|women|lifters|athletes|adults) with|if you have)"
-    rf" (?:a |an |my |mild |severe |chronic |early |stage \d )?{_CONDITIONS}\b"
+    # Not a healthy user's prevention question ("how can I lower my diabetes risk?").
+    rf" (?:a |an |my |mild |severe |chronic |early |stage \d )?{_CONDITIONS}\b(?! risks?\b)"
 )
 _MEDICAL_PATTERNS = [
     _CONDITION_FRAME,
@@ -175,7 +186,9 @@ _MEDICAL_PATTERNS = [
     # ball"), and so is "prescribed" alone ("my program prescribed 5x5").
     r"\b(?:medications?|meds|medicines|prescriptions?|drug interactions?"
     r"|prescribed (?:me |to me )?(?:a |an |some )?(?:medication|medicine|pills?|drugs?|tablets?)"
-    r"|(?:my|any|this|these|the|a|some|other|prescription|blood pressure|heart|thyroid|diabetes)"
+    # Not "a medicine" or "the medicine": "is creatine a medicine?", "the Medicine and Science in
+    # Sports and Exercise paper".
+    r"|(?:my|any|this|these|some|other|prescription|blood pressure|heart|thyroid|diabetes)"
     r" medicine(?! balls?\b)|metformin|insulin (?:shots?|injections?|pumps?|therapy|pens?)"
     r"|(?:i|i(?:'m| am|m)) (?:on|taking|take|inject|injecting|using|use) insulin"
     r"|statins?|atorvastatin|rosuvastatin|simvastatin|warfarin|blood thinners?|anticoagulants?"
@@ -213,7 +226,11 @@ _DISORDERED_PATTERNS = [
 # more") or a part of the intake ("snacks add just 300 calories a day", "eat 400 calories a day
 # from snacks") does not count.
 _LOW_INTAKE = re.compile(
-    r"\b(?:eat|eats|eating|ate|consume|consuming|consumed|intake (?:of|at|to|is)|diet of"
+    # "My fat intake is 600 kcal a day" is one macro, not the whole day.
+    r"\b(?:eat|eats|eating|ate|consume|consuming|consumed|diet of"
+    r"|(?<!protein )(?<!fat )(?<!carb )(?<!carbs )(?<!carbohydrate )(?<!sugar )(?<!alcohol )"
+    r"(?<!snack )(?<!fibre )(?<!fiber )(?<!caffeine )(?<!drink )"
+    r"intake (?:of|at|to|is)"
     r"|live on|living on|survive on|surviving on|stay (?:under|below|at)|keep (?:it |myself )?"
     r"(?:under|below|at)|(?:cut|drop|go|get|come) (?:down )?to|limit (?:myself|me|it) to)"
     r"(?: (?:only|just|about|around|roughly|like|approximately|maybe|barely|under|below|less than"
@@ -239,7 +256,8 @@ def _below_floor(folded: str) -> bool:
     """Return True if the text names a daily intake below the calorie floor."""
     for match in _LOW_INTAKE.finditer(folded):
         kcal = int(match.group(1).replace(",", ""))
-        if 0 < kcal < config.CALORIE_FLOOR_KCAL:
+        # 0 counts too: "eat 0 calories a day for a week" is a fast, below the floor.
+        if kcal < config.CALORIE_FLOOR_KCAL:
             return True
     return False
 

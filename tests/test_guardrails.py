@@ -39,6 +39,7 @@ FLAGGED = [
     ("Is creatine safe for my 8-year-old?", Concern.MINOR),
     ("Should my teenage son take whey?", Concern.MINOR),
     ("I'm in high school and lift, how much protein?", Concern.MINOR),
+    ("I'm still in middle school but I lift.", Concern.MINOR),
     # Pregnancy, after birth, breastfeeding (redirected).
     ("I'm pregnant, can I keep taking creatine?", Concern.PREGNANCY),
     ("How much protein do I need during pregnancy?", Concern.PREGNANCY),
@@ -76,6 +77,8 @@ FLAGGED = [
     ("I eat only 1,000 calories a day, is that enough protein?", Concern.DISORDERED_EATING),
     ("Can I stay under 900 kcal/day for a month?", Concern.DISORDERED_EATING),
     ("My intake is 1100 kcal daily.", Concern.DISORDERED_EATING),
+    ("My calorie intake is 800 kcal a day.", Concern.DISORDERED_EATING),
+    ("Can I eat 0 calories a day for a week?", Concern.DISORDERED_EATING),
 ]
 
 # Nutrition questions that must not be refused or redirected (no false positives), including
@@ -141,6 +144,18 @@ BENIGN = [
     "Back in high school I played football; how much protein now?",
     "I have a 2-year-old, quick high-protein dinners for me?",
     "My little girl loves eggs, are they a good protein source for me too?",
+    # Near misses found in the review of PR #46.
+    "I've been lifting since I was 15 years old, how much protein now?",
+    "I played football in high school, now I'm 30; how much protein?",
+    "My fat intake is 600 calories a day, is that enough?",
+    "My protein intake is 640 kcal a day.",
+    "How can I lower my diabetes risk with diet?",
+    "Does lifting lower my cancer risk?",
+    "Is creatine a medicine or a supplement?",
+    "What does the Medicine and Science in Sports and Exercise paper say?",
+    "I'm 13 and a half stone.",
+    "I'm 12-weeks out from a show.",
+    "My BMI is under 18, should I bulk?",
 ]
 
 
@@ -185,6 +200,14 @@ def test_the_messages_point_to_a_professional_and_never_quote_the_input(limiter)
 def test_the_low_intake_message_names_the_floor_from_config():
     """The disordered-eating message shows the calorie floor the tools enforce (AC-7)."""
     assert f"{config.CALORIE_FLOOR_KCAL:,} kcal" in guardrails.MESSAGES[Concern.DISORDERED_EATING]
+
+
+def test_the_minor_patterns_and_message_match_the_profile_age_limit():
+    """The minor patterns are written for 18 (ages 10-17), the profile's youngest age (AC-5)."""
+    assert guardrails.ADULT_AGE == config.PROFILE_AGE_RANGE[0] == 18
+    assert "(18+)" in guardrails.MESSAGES[Concern.MINOR]
+    assert guardrails.find_concern("I'm 17.") is Concern.MINOR
+    assert guardrails.find_concern("I'm 18.") is None
 
 
 def test_the_low_intake_check_follows_the_configured_floor(monkeypatch):
