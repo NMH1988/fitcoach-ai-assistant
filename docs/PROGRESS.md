@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-20 · T3.4 Prompt injection hardening · PR pending (closes #10)
+## 2026-10-20 · T3.4 Prompt injection hardening · #45 (closes #10)
 - **Brief:** Medium 3 (prompt injection protection), one of the optional tasks for maximum points; core 3 (security relevant to the domain); AC-11.
 - **What:**
   - `src/chat.py`: `escape_prompt_data()` (`html.escape` without quotes: `&`, `<`, `>` as entities, after folding full-width and small-form brackets and ampersands). `format_sources()` escapes each chunk's text, title, year and tier label; `build_messages()` escapes the question. The question is still plain message content, never a prompt template.
