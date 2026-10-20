@@ -53,12 +53,12 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T4.3 | #13 | USDA food table and lookup | M | T1.1 | 10-23 | done |
 | T3.1 | #7 | First answer with sources (vector search) | M | T1.2, T1.3, T2.3, O1 | 10-24 | done |
 | T4.2 | #12 | Energy and macro tools with the calorie floor | M | T4.1, O3 | 10-25 | done |
-| T1.5 | #42 | Docs: run commands use the project's venv | S | T1.1 | 10-20 | in review |
+| T1.5 | #42 | Docs: run commands use the project's venv | S | T1.1 | 10-20 | done |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1 | 10-26 | todo |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2, O2 | 10-27 | todo |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | todo |
 | T4.4 | #14 | Tool-calling loop and tool results UI | M | T3.1, T4.2, T4.3 | 10-28 | todo |
-| T5.3 | #18 | Domain guardrails | S | T3.1, T4.2 | 10-29 | todo |
+| T5.3 | #18 | Domain guardrails | S | T3.1, T4.2 | 10-29 | in review |
 | T6.1 | #19 | Evaluation run and reflection | S | T3.3, T4.4, O2, O5 | 10-30 | todo |
 | **Extras** | | | | | | |
 | T1.4 | #32 | Security reviewer agent (beyond the brief; owner's request, done early as it is dev tooling with no product change) | S | T1.1 | 10-20 | done |
@@ -120,14 +120,14 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] `CLAUDE.md` ("Where things are") and `docs/SECURITY.md` name the agent - checked by reading them.
 **Notes:** owner's choices (2026-10-20): read-only (tests are only proposed), never a live run against the real model, optional tool (not added to `.claude/rules/workflow.md`); criterion 3 reworded to allow GitHub through `git`/`gh` (owner's choice in the PR #39 review). Attack strings are our own, not copied from other projects.
 
-### T1.5 Docs: run commands use the project's venv (S) · status: in review · issue #42
+### T1.5 Docs: run commands use the project's venv (S) · status: done · issue #42
 **Serves:** the evaluation's technical item "the app works (you can chat and get answers)" (`docs/BRIEF.md`), when run as documented; prepares T6.2 (README).
 **Depends on:** T1.1
 **Acceptance criteria** (approved by the owner, 2026-10-20)
 - [x] Right before the run commands, the README says they must run in a terminal with `.venv` active (`(.venv)` at the start of the prompt), gives the way without activating (`.venv\Scripts\streamlit.exe run app.py` on Windows, `.venv/bin/streamlit run app.py` on macOS and Linux), and names the symptom of the wrong Python (`ModuleNotFoundError: No module named 'langchain_chroma'`) - review.
 - [x] The README lists the steps before the first question: set the key, `python scripts/download_sources.py`, `python scripts/build_index.py`, then run the app, with the note to stop the app before rebuilding the index - review.
 - [x] The "Run" line in `CLAUDE.md` says to use the venv too - review.
-- [ ] The documented command `.venv\Scripts\streamlit.exe run app.py` is run in a new terminal and the app loads without error; CI passes - manual check done (2026-10-20: typed as written in a new PowerShell tab; the app loaded with its title and four tabs and no error; local ruff and pytest pass); CI pending until the PR runs.
+- [x] The documented command `.venv\Scripts\streamlit.exe run app.py` is run in a new terminal and the app loads without error; CI passes - manual check done (2026-10-20: typed as written in a new PowerShell tab; the app loaded with its title and four tabs and no error; local ruff and pytest pass); CI passed on PR #43 (lint, test, security), merged 2026-10-20.
 **Notes:** found on 2026-10-20 when the owner started the app with the system Python's `streamlit` (1.64, without the project's packages) after PR #41 merged.
 
 ## Epic 2: Knowledge base
@@ -278,13 +278,14 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] A download button offers it; no file is written on the server - AppTest and a unit test that checks no file is created.
 - [ ] Non-Latin characters in source titles (e.g. "β") do not break the PDF - unit test.
 
-### T5.3 Domain guardrails (S) · status: todo · issue #18
+### T5.3 Domain guardrails (S) · status: in review · issue #18
 **Serves:** core 3 (domain security); AC-12.
 **Depends on:** T3.1, T4.2
 **Acceptance criteria**
-- [ ] Requests for steroid, SARM or other performance-enhancing drug dosing get a refusal; a set of benign supplement questions (creatine, caffeine) is not refused - parametrised tests (code-level check plus the owner's prompt rule).
-- [ ] Mentions of being under 18, pregnancy, medical conditions or medication, and signs of disordered eating get a redirect message - parametrised tests.
-- [ ] The disclaimer is visible on every page state - AppTest.
+- [x] Requests for steroid, SARM or other performance-enhancing drug dosing get a refusal; a set of benign supplement questions (creatine, caffeine) is not refused - parametrised tests (code-level check plus the owner's prompt rule) (`tests/test_guardrails.py`: `test_flagged_questions_get_their_guardrail_message` (the `PED_DOSING` strings), `test_benign_questions_are_not_refused_or_redirected` (creatine and caffeine doses, steroids without a dose request, plus the guard's benign list), `test_drug_dosing_wins_over_a_redirect`, `test_a_guardrail_rejection_makes_no_call`; `tests/test_chat.py`: `test_a_guardrail_question_opens_nothing_and_calls_no_model`, `test_the_answer_prompt_keeps_the_domain_guardrails`; `tests/test_app_chat.py`: `test_a_guardrail_question_shows_its_message_and_calls_no_model`, `test_a_creatine_or_caffeine_dose_question_is_answered`).
+- [x] Mentions of being under 18, pregnancy, medical conditions or medication, and signs of disordered eating get a redirect message - parametrised tests (`tests/test_guardrails.py`: `test_flagged_questions_get_their_guardrail_message` (the `MINOR`, `PREGNANCY`, `MEDICAL` and `DISORDERED_EATING` strings, intakes below the calorie floor included), `test_benign_questions_are_not_refused_or_redirected` (near misses: "I'm 16 weeks into my cut", "I'm 17% body fat", "Does creatine harm the kidneys?", "I'm lactose intolerant", "a 500 kcal deficit per day"), `test_every_concern_has_a_message_and_a_flagged_example`, `test_the_low_intake_check_follows_the_configured_floor`, `test_a_guardrail_rejection_does_not_use_the_quota`; `tests/test_app_chat.py`: `test_a_guardrail_question_shows_its_message_and_calls_no_model`, one case per kind).
+- [x] The disclaimer is visible on every page state - AppTest (`tests/test_app_chat.py`: `test_the_disclaimer_is_visible_in_every_chat_state`: new session, answer, no sources, rejected, guardrail, error; `tests/test_app_profile.py`: `test_disclaimer_stays_visible_in_every_profile_state`: dialog open, dialog with an error, profile saved, editing the profile; `tests/test_app_smoke.py`: `test_app_shows_disclaimer`).
+**Notes:** owner's choices (2026-10-20): drug questions are refused only when they ask for a dose or use in the same sentence as the drug ("are SARMs safe?" reaches the model, which follows the prompt rule); redirects are fixed messages with no model call; medical conditions count when said about the user or a group ("I have diabetes", "people with kidney disease"), medication on any mention, breastfeeding and the time after birth with pregnancy, lactose intolerance and allergies not at all; an intake per day below the calorie floor counts as a sign of disordered eating. The messages were drafted by Claude and approved by the owner. German patterns are T7.1's.
 
 ## Epic 6: Evaluation and submission
 
