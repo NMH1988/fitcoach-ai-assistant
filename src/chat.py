@@ -96,8 +96,9 @@ _LABEL_OR_RANGE = re.compile(r"S(\d+)(?:\s*[-–]\s*S?(\d+))?")
 _MARKDOWN_IMAGE = re.compile(r"!\[([^\[\]]*)\](?:\((?:[^()]|\([^()]*\))*\)|\[[^\[\]]*\])")
 # One word of a paced answer with the spaces before it (or the rest of a word already begun).
 _PACED_WORD = re.compile(r"\s*\S+")
-# Characters Streamlit's Markdown would read as formatting, HTML or LaTeX in a title.
-_MARKDOWN_SPECIAL = re.compile(r"([\\`*_\[\]<>$])")
+# Characters Streamlit's Markdown would read as formatting, HTML, LaTeX, strikethrough (~) or an
+# emoji or icon shortcode (:) in a title.
+_MARKDOWN_SPECIAL = re.compile(r"([\\`*_\[\]<>$~:])")
 
 
 class PromptMissingError(RuntimeError):

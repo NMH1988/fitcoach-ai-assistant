@@ -6,6 +6,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from src import chat, config
+from src.rag.sources import ARTICLE_CHANGES_NOTE
 
 APP = Path(__file__).resolve().parent.parent / "app.py"
 
@@ -67,3 +68,9 @@ def test_the_sidebar_says_what_the_answers_are_based_on():
     lines = [m.value for m in credits.markdown]
     assert len(lines) == len(chat.manifest_by_id())
     assert all("creativecommons.org" in line and "https://doi.org/" in line for line in lines)
+    first = next(iter(chat.manifest_by_id().values()))
+    assert chat.escape_markdown(chat.format_authors(first.authors)) in lines[0]
+    # The change made and the no-endorsement note, worded as in ATTRIBUTION.md (CC BY).
+    [note] = [c.value for c in credits.caption]
+    assert note.startswith(ARTICLE_CHANGES_NOTE)
+    assert ARTICLE_CHANGES_NOTE in Path(config.ATTRIBUTION_PATH).read_text(encoding="utf-8")

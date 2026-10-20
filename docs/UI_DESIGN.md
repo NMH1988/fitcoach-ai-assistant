@@ -67,7 +67,7 @@ Macro colours (charts, set in the Altair spec): protein `#0F6E56`, carbohydrate 
 | My targets (summary card) | `st.container(border=True)`: a donut of the energy split (protein, carbohydrate, fat; Altair `mark_arc` with an inner radius, about 120-140 px) with the daily kcal in the middle, and each macro's grams and % as text beside it | The full view stays in the My targets tab. One donut, not one circle per value: the three macros are parts of the kcal total, and kcal is the total, not a fourth part. Text values carry the numbers, as angles are harder to compare than lengths and colour is never the only signal. Owner's choice, 2026-10-20 (T4.4) |
 | Details, last answer (summary card) | `st.container(border=True)`: the number of rewrites and the filters as badges (T3.2), the answer's tokens and cost and the session total (T5.1) | The full view stays in the Details tab. Owner's choice, 2026-10-20 |
 | Privacy note | `st.caption(":material/lock: Kept for this session only")` | |
-| About the answers | `st.divider`, `st.header(":material/menu_book: About the answers")`, three bullets (article count by tier and licence from the manifest, how answers cite passages, the answer model) and a "Sources and credits" expander listing every source with its licence and article link | Fills the empty sidebar and credits the sources (copyright policy rule 6); owner's request, 2026-10-20 |
+| About the answers | `st.divider`, `st.header(":material/menu_book: About the answers")`, three bullets (article count by tier and licence from the manifest, how answers cite passages, the answer model) and a "Sources and credits" expander listing every source with its first three authors, title, year, journal, licence and article link, then the change made and the no-endorsement note (the same text as `ATTRIBUTION.md`) | Fills the empty sidebar and credits the sources (copyright policy rule 6); beyond the brief (owner's request, 2026-10-20) |
 
 Before a profile exists, the sidebar shows a short invitation and the "Add your details" button (same dialog) instead of the tiles.
 
@@ -129,7 +129,7 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 | Sidebar goal control, profile tiles, Edit details dialog, units | T4.1 (core) |
 | Sidebar daily target, My targets summary card with the macro donut | T4.4 (core) |
 | Sidebar Details summary card | T3.2 (rewrites and filters), T5.1 (usage) |
-| Sidebar "About the answers" block | T3.1 (core: the sources behind the answers); folded into an expander once the summary cards arrive, so the sidebar does not grow too long (owner's choice, 2026-10-20) |
+| Sidebar "About the answers" block | T3.1 (beyond the brief, owner's request); folded into an expander once the summary cards arrive, so the sidebar does not grow too long (owner's choice, 2026-10-20) |
 | Chat messages, progress steps, source cards | T3.1 (core) |
 | Details tab: rewrites and filters | T3.2 (core) |
 | Tool result expander, My targets tab, macro bar | T4.4 (core) |

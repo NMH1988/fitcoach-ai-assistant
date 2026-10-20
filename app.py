@@ -6,6 +6,7 @@ import streamlit as st
 
 from src import chat, config, guard, llm, profile, units
 from src.rag import store
+from src.rag.sources import ARTICLE_CHANGES_NOTE
 
 st.set_page_config(page_title=config.APP_TITLE, page_icon=":material/nutrition:", layout="wide")
 
@@ -389,15 +390,21 @@ def _about_sidebar() -> None:
         "[S1], [S2]...\n"
         f"- Written by `{config.DEFAULT_ANSWER_MODEL}` through OpenRouter."
     )
-    # Credits every source with its licence (copyright policy rule 6); ATTRIBUTION.md has more.
+    # Credits every source (copyright policy rule 6): authors, title, journal, licence, link, and
+    # the change made with the no-endorsement note, as in ATTRIBUTION.md.
     with st.expander("Sources and credits", icon=":material/license:"):
         for source in manifest.values():
             st.markdown(
-                f"**{source.id}.** {chat.escape_markdown(source.title)} ({source.year}). "
+                f"**{source.id}.** {chat.escape_markdown(chat.format_authors(source.authors))}. "
+                f"{chat.escape_markdown(source.title)} ({source.year}). "
                 f"{chat.escape_markdown(source.journal)}. "
                 f"[{source.license}]({chat.markdown_url(source.license_url)}) · "
                 f"[Article]({chat.markdown_url(source.url)})"
             )
+        st.caption(
+            f"{ARTICLE_CHANGES_NOTE} Full credits, with each article's copyright notice, are in "
+            "ATTRIBUTION.md in the repository."
+        )
 
 
 def _main_area() -> None:

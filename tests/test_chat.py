@@ -355,8 +355,9 @@ def test_markdown_url_encodes_characters_that_end_a_link():
 
 
 def test_escape_markdown_shows_titles_as_written():
-    """Formatting, HTML and LaTeX characters in a title are escaped."""
+    """Formatting, HTML, LaTeX, strikethrough and shortcode characters in a title are escaped."""
     assert chat.escape_markdown("*a* _b_ [c] <d> $e$") == r"\*a\* \_b\_ \[c\] \<d\> \$e\$"
+    assert chat.escape_markdown("~1.6 to ~2.2 g/kg: :smile:") == r"\~1.6 to \~2.2 g/kg\: \:smile\:"
 
 
 # --- Guard, errors and the prompt file ------------------------------------------------------------
