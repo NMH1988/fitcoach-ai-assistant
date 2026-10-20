@@ -104,6 +104,27 @@ class PromptMissingError(RuntimeError):
     """The answer prompt file is missing, unreadable or empty."""
 
 
+@dataclass(frozen=True)
+class KnowledgeBaseSummary:
+    """What the knowledge base holds, for the app's note on what answers are based on."""
+
+    articles: int
+    position_stands: int
+    reviews: int
+    licenses: tuple[str, ...]
+
+
+def knowledge_base_summary(manifest: Mapping[str, Source]) -> KnowledgeBaseSummary:
+    """Count the approved articles (correction notices left out) by evidence tier and licence."""
+    articles = [source for source in manifest.values() if source.corrects is None]
+    return KnowledgeBaseSummary(
+        articles=len(articles),
+        position_stands=sum(source.evidence_tier == 1 for source in articles),
+        reviews=sum(source.evidence_tier == 2 for source in articles),
+        licenses=tuple(sorted({source.license for source in articles})),
+    )
+
+
 def load_system_prompt(path: Path | None = None) -> str:
     """Return the owner's answer system prompt from its file."""
     text = (path or config.ANSWER_PROMPT_PATH).read_text(encoding="utf-8").strip()

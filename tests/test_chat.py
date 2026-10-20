@@ -164,6 +164,23 @@ def test_with_no_relevant_chunk_the_app_says_the_sources_do_not_cover_it(index):
     assert model.calls == []
 
 
+def test_knowledge_base_summary_counts_articles_by_tier():
+    """Articles are counted by tier and licence; a correction notice is not an article."""
+    manifest = {
+        "1": make_source(id="1", evidence_tier=1),
+        "2": make_source(
+            id="2",
+            evidence_tier=2,
+            license="CC BY 2.0",
+            license_url="https://creativecommons.org/licenses/by/2.0/",
+        ),
+        "2a": make_source(id="2a", evidence_tier=2, corrects="2"),
+    }
+    assert chat.knowledge_base_summary(manifest) == chat.KnowledgeBaseSummary(
+        articles=2, position_stands=1, reviews=1, licenses=("CC BY 2.0", "CC BY 4.0")
+    )
+
+
 def test_an_answer_that_cites_nothing_lists_no_sources(index):
     """When the model says the chunks do not answer the question and cites nothing, no sources."""
     result = _turn(QUESTION, index, _model("The sources do not cover this."))

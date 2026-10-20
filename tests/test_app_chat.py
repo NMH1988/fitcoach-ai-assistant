@@ -118,6 +118,14 @@ def test_a_tier_2_source_has_its_own_badge(monkeypatch):
     assert [c.value for c in sources.caption][1].startswith("2022 · [CC BY 4.0]")
 
 
+def test_an_answer_citing_nothing_says_so_in_the_status(monkeypatch):
+    """When the model cites no label, the status does not claim the research answered."""
+    _use_model(monkeypatch, _answers("The research given does not cover this."))
+    message = _assistant(_ask(_start(), QUESTION))
+    assert message.status[0].label == "Answered without citing the research"
+    assert not message.expander
+
+
 def test_no_relevant_source_shows_the_fixed_message_and_no_sources(monkeypatch):
     """An off-topic question gets the 'not covered' message, no Sources and no model call."""
     model = _use_model(monkeypatch, _answers())

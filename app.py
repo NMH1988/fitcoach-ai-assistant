@@ -25,6 +25,8 @@ ASSISTANT_AVATAR = ":material/nutrition:"
 # The label a turn's status box ends with, by the kind of result.
 STATUS_LABELS = {
     "answer": "Answered from the research",
+    # An answer that cites no label: the model said the research does not cover the question.
+    "answer_uncited": "Answered without citing the research",
     "no_sources": "No matching research found",
     "rejected": "Question not accepted",
     "error": "Something went wrong",
@@ -165,7 +167,7 @@ def _profile_form() -> None:
 
 def _profile_sidebar() -> None:
     """Show the profile in the sidebar, in the chosen units, with a button to edit it."""
-    st.subheader(":material/person: Your profile")
+    st.header(":material/person: Your profile")
     current = st.session_state.get("profile")
     if current is None:
         st.caption("Add your details to get personal targets.")
@@ -221,6 +223,13 @@ def _manifest():
     return chat.manifest_by_id()
 
 
+def _status_label(result: chat.TurnResult) -> str:
+    """Return the label a turn's status box ends with."""
+    if result.kind == "answer" and not result.sources:
+        return STATUS_LABELS["answer_uncited"]
+    return STATUS_LABELS[result.kind]
+
+
 def _final_state(result: chat.TurnResult) -> str:
     """Return the status state that ends a turn: complete, or error if it gave no answer."""
     return "error" if result.kind in ("rejected", "error") else "complete"
@@ -237,7 +246,7 @@ def _step_box(step: chat.Step, state: str):
 def _show_steps(result: chat.TurnResult) -> None:
     """Show the steps of a past turn as a collapsed status, as they ended."""
     state = _final_state(result)
-    with st.status(STATUS_LABELS[result.kind], type="compact", state=state):
+    with st.status(_status_label(result), type="compact", state=state):
         for number, step in enumerate(result.steps, start=1):
             _step_box(step, state if number == len(result.steps) else "complete")
 
@@ -280,7 +289,7 @@ def _run_turn(question: str) -> None:
     state = _final_state(result)
     if boxes:
         boxes[-1].update(state=state)
-    status.update(label=STATUS_LABELS[result.kind], state=state)
+    status.update(label=_status_label(result), state=state)
     with answer_slot.container():
         _show_result(result)
     st.session_state["messages"].append({"role": "assistant", "result": result})
@@ -364,10 +373,31 @@ def _ask_tab() -> None:
             _run_turn(question)
 
 
-with st.sidebar:
-    _profile_sidebar()
-if st.session_state.get("profile_form_open"):
-    _profile_form()
+def _about_sidebar() -> None:
+    """Say in the sidebar what the answers are based on, and credit every source."""
+    manifest = _manifest()
+    if not manifest:
+        return
+    summary = chat.knowledge_base_summary(manifest)
+    st.divider()
+    st.header(":material/menu_book: About the answers")
+    st.markdown(
+        f"- **{summary.articles} open-access research articles**: "
+        f"{summary.position_stands} ISSN position stands and {summary.reviews} peer-reviewed "
+        f"reviews ({' and '.join(summary.licenses)}).\n"
+        "- Each question is matched to the closest passages, and the answer cites them as "
+        "[S1], [S2]...\n"
+        f"- Written by `{config.DEFAULT_ANSWER_MODEL}` through OpenRouter."
+    )
+    # Credits every source with its licence (copyright policy rule 6); ATTRIBUTION.md has more.
+    with st.expander("Sources and credits", icon=":material/license:"):
+        for source in manifest.values():
+            st.markdown(
+                f"**{source.id}.** {chat.escape_markdown(source.title)} ({source.year}). "
+                f"{chat.escape_markdown(source.journal)}. "
+                f"[{source.license}]({chat.markdown_url(source.license_url)}) · "
+                f"[Article]({chat.markdown_url(source.url)})"
+            )
 
 
 def _main_area() -> None:
@@ -379,15 +409,16 @@ def _main_area() -> None:
         st.badge(
             "Not medical advice", icon=":material/info:", color="orange", help=config.DISCLAIMER
         )
-    st.caption(config.APP_INTRO)
-    st.caption(f":material/info: {config.DISCLAIMER}")
+    st.markdown(config.APP_INTRO)
+    # Shown on every page state (AC-12), large enough to notice (owner's request, 2026-10-20).
+    st.warning(f"**Not medical advice.** {config.DISCLAIMER}", icon=":material/info:")
 
     ask, targets, food, details = st.tabs(
         [
-            ":material/chat: Ask",
-            ":material/target: My targets",
-            ":material/search: Food lookup",
-            ":material/list: Details",
+            ":material/chat: **Ask**",
+            ":material/target: **My targets**",
+            ":material/search: **Food lookup**",
+            ":material/list: **Details**",
         ]
     )
     with ask:
@@ -398,6 +429,13 @@ def _main_area() -> None:
         st.caption("Looking up the nutrients of a food will be possible here in a later version.")
     with details:
         st.caption("How each answer was found will appear here in a later version.")
+
+
+with st.sidebar:
+    _profile_sidebar()
+    _about_sidebar()
+if st.session_state.get("profile_form_open"):
+    _profile_form()
 
 
 # The content sits in the middle column of the wide layout (config.PAGE_COLUMN_WEIGHTS).

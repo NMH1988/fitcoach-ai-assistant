@@ -204,9 +204,10 @@ EVIDENCE_TIER_LABELS: dict[int, str] = {1: "ISSN position stand", 2: "Peer-revie
 UNKNOWN_TIER_LABEL = "Review"
 # Authors named on a source card before "et al." (the full list is in ATTRIBUTION.md).
 CARD_AUTHORS_SHOWN = 3
-# Height of the scrolling message area in the Ask tab, so the chat input stays in view; tall
-# enough to read a whole answer on a desktop screen (owner's request, 2026-10-20).
-CHAT_HEIGHT_PX = 650
+# Height of the scrolling message area in the Ask tab; tall enough to read a whole answer on a
+# desktop screen (owner's requests, 2026-10-20: 520, then 650, then 750 to fill a tall window).
+# On a short window the page scrolls to the chat input.
+CHAT_HEIGHT_PX = 750
 # Most words of the streamed answer shown per second. The real model sends its answer in fast
 # bursts, which looked as if it appeared all at once (owner's request, 2026-10-20). 20 read too
 # slowly in the owner's check; at 30 a 200-word answer takes about 7 s. 0 shows the text as it
