@@ -232,6 +232,17 @@ QUERY_PROMPT_MISSING_MESSAGE = (
 # How the evidence tiers are named in the answer's sources (docs/UI_DESIGN.md).
 EVIDENCE_TIER_LABELS: dict[int, str] = {1: "ISSN position stand", 2: "Peer-reviewed review"}
 UNKNOWN_TIER_LABEL = "Review"
+# The label a turn's status box ends with, by the kind of result; the summary PDF uses the same
+# labels for turns with no answer.
+STATUS_LABELS: dict[str, str] = {
+    "answer": "Answered from the research",
+    # An answer that cites no label: the model said the research does not cover the question.
+    "answer_uncited": "Answered without citing the research",
+    "no_sources": "No matching research found",
+    "rejected": "Question not accepted",
+    "guardrail": "Not something this assistant can advise on",
+    "error": "Something went wrong",
+}
 # How a source card (and the summary PDF) names a correction notice linked to a cited article.
 CORRECTION_LABELS: dict[str, str] = {
     "corrected_by": "A correction to this article was published",

@@ -58,6 +58,14 @@ FOOD_DESCRIPTION = (
     "differs, say so or look up one of the alternatives by its exact name."
 )
 
+# The heading of each tool's result in the app and the summary PDF; None is a refused call.
+TOOL_TITLES: dict[str | None, str] = {
+    TDEE_TOOL: "Daily energy needs",
+    MACRO_TOOL: "Daily targets",
+    FOOD_TOOL: "Food lookup",
+    None: "Tool call not run",
+}
+
 ToolStatus = Literal["ok", "found", "not_found", "invalid", "profile_needed", "error"]
 
 

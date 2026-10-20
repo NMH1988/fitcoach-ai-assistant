@@ -87,20 +87,17 @@ TEXT = {
     ),
     "formula_sources": "Formula sources (the energy calculations use their equation or factors)",
     "food_data": "Food data",
+    "font": "Font",
+    # The font's own notice goes with the font subsets embedded in every PDF (its licence asks for
+    # it with every copy; owner's choice in T5.2's review, 2026-10-20).
+    "font_credit": (
+        "Set in DejaVu Sans 2.37. Copyright (c) 2003 by Bitstream, Inc.; glyphs from the Arev "
+        "fonts copyright (c) 2006 by Tavmjong Bah; DejaVu changes are in the public domain. Used "
+        "under the Bitstream Vera and Arev font licences "
+        "(https://github.com/dejavu-fonts/dejavu-fonts/blob/master/LICENSE). Bitstream Vera is a "
+        "trademark of Bitstream, Inc."
+    ),
     "footer": f"{config.APP_TITLE} · Not medical advice · Page {{page}}",
-}
-# What a turn that has no answer shows under its question, before its fixed message.
-KIND_LABELS = {
-    "no_sources": "No matching research found",
-    "rejected": "Question not accepted",
-    "guardrail": "Not something this assistant can advise on",
-    "error": "Something went wrong",
-}
-TOOL_TITLES = {
-    registry.TDEE_TOOL: "Daily energy needs",
-    registry.MACRO_TOOL: "Daily targets",
-    registry.FOOD_TOOL: "Food lookup",
-    None: "Tool call not run",
 }
 PROFILE_LABELS = ("Weight", "Height", "Age", "Sex", "Activity", "Goal")
 
@@ -109,7 +106,8 @@ _CONTROL = re.compile(r"[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]")
 # Markdown that clean_answer() turns into plain text.
 # A link, with an optional title: [text](url) or [text](<url> "title").
 _LINK = re.compile(r"\[([^\[\]]*)\]\(\s*<?([^()\s<>]*)>?(?:\s+\"[^\"]*\")?\s*\)")
-_BARE_URL = re.compile(r"https?://[^\s<>*`]+")
+# A bare URL ends at a slot (NUL), so it cannot swallow a link set aside before it.
+_BARE_URL = re.compile(r"https?://[^\s<>*`\x00]+")
 _SLOT = re.compile(r"\x00(\d+)\x00")
 _HEADING = re.compile(r"^\s{0,3}#{1,6}\s+")
 _QUOTE = re.compile(r"^\s*(?:>\s?)+")
@@ -209,27 +207,20 @@ def _labelled(label: str, text: str, style: str = "body") -> Paragraph:
 
 
 def _emphasis_free(text: str) -> str:
-    """Return text (no code, links or URLs in it) without emphasis marks or Markdown escapes."""
+    """Return text (escapes, links and URLs set aside) without emphasis marks, entities decoded."""
     text = _STRONG.sub(r"\1", text)
     text = _UNDERSCORE_STRONG.sub(r"\1", text)
     text = _STRIKE.sub(r"\1", text)
     text = _EMPHASIS.sub(lambda m: m.group(1) or m.group(2), text)
     # Entities last, as CommonMark reads them: never as Markdown ("&gt; 5 g" is not a quote).
-    return html.unescape(_BACKSLASH.sub(r"\1", text))
-
-
-def _link(match: re.Match[str]) -> str:
-    """Return a Markdown link as its text and its URL in brackets, both plain."""
-    label, url = _emphasis_free(match.group(1)).strip(), html.unescape(match.group(2))
-    if not url or label == url:
-        return label or url
-    return f"{label} ({url})" if label else url
+    return html.unescape(text)
 
 
 def _inline_text(text: str) -> str:
-    """Return text outside code spans with its links, URLs and emphasis made plain."""
-    # Links and bare URLs are set aside first, so emphasis rules cannot change a URL
-    # ("https://x.org/__init__"); the NUL-delimited slots cannot clash, as _plain() drops NUL.
+    """Return text outside code spans with its escapes, links, URLs and emphasis made plain."""
+    # Backslash escapes, then links, then bare URLs are set aside in NUL-delimited slots before
+    # the emphasis rules, so "\*note\*" keeps its stars and a URL keeps its "__" (code review);
+    # the slots cannot clash with the text, as _plain() drops NUL.
     kept: list[str] = []
 
     def keep(value: str) -> str:
@@ -237,10 +228,25 @@ def _inline_text(text: str) -> str:
         kept.append(value)
         return f"\x00{len(kept) - 1}\x00"
 
-    text = _LINK.sub(lambda m: keep(_link(m)), text)
+    def plain_label(label: str) -> str:
+        """Return a link's text with its URLs kept and its emphasis made plain."""
+        return _emphasis_free(_BARE_URL.sub(lambda m: keep(html.unescape(m.group(0))), label))
+
+    def link(match: re.Match[str]) -> str:
+        """Return a Markdown link as its text and its URL in brackets, both plain."""
+        label, url = plain_label(match.group(1)).strip(), html.unescape(match.group(2))
+        if not url or restore(label) == restore(url):
+            return label or url
+        return f"{label} ({url})" if label else url
+
+    def restore(value: str) -> str:
+        """Put the kept pieces back, also those inside a kept piece (a link's escaped text)."""
+        return _SLOT.sub(lambda m: restore(kept[int(m.group(1))]), value)
+
+    text = _BACKSLASH.sub(lambda m: keep(m.group(1)), text)
+    text = _LINK.sub(lambda m: keep(link(m)), text)
     text = _BARE_URL.sub(lambda m: keep(html.unescape(m.group(0))), text)
-    text = _emphasis_free(text)
-    return _SLOT.sub(lambda m: kept[int(m.group(1))], text)
+    return restore(_emphasis_free(text))
 
 
 def _inline_markdown(line: str) -> str:
@@ -421,7 +427,8 @@ def _food_flowables(result: FoodLookupResult) -> list[Flowable]:
 
 def _tool_run_flowables(run: registry.ToolRun, system: UnitSystem) -> list[Flowable]:
     """Return one tool result under its heading, as the app's "Tool results" shows it."""
-    heading = Paragraph(escape(TOOL_TITLES.get(run.name, TOOL_TITLES[None])), STYLES["h3"])
+    title = registry.TOOL_TITLES.get(run.name, registry.TOOL_TITLES[None])
+    heading = Paragraph(escape(title), STYLES["h3"])
     result = run.result
     if run.status == "profile_needed":
         body = [_para(config.PROFILE_NEEDED_HINT, "small")]
@@ -468,7 +475,8 @@ def _turn_flowables(
         _para(question),
     ]
     if result.kind != "answer":
-        flowables.append(_labelled(f"{KIND_LABELS[result.kind]}:", result.text))
+        # The label the app's status box ends with for this kind of turn.
+        flowables.append(_labelled(f"{config.STATUS_LABELS[result.kind]}:", result.text))
         return flowables
     flowables.append(Paragraph(escape(TEXT["answer"]), STYLES["h3"]))
     flowables += _answer_flowables(result.text)
@@ -591,6 +599,9 @@ def _credits(
     if uses_usda:
         flowables.append(Paragraph(escape(TEXT["food_data"]), STYLES["h3"]))
         flowables.append(_para(_usda_credit(), "small"))
+    # Every PDF embeds the font, so its credit is always there.
+    flowables.append(Paragraph(escape(TEXT["font"]), STYLES["h3"]))
+    flowables.append(_para(TEXT["font_credit"], "small"))
     return flowables
 
 
@@ -661,7 +672,8 @@ def build_summary_pdf(
             title=TEXT["title"],
             # No author or subject: the PDF's metadata says nothing about the user. Not
             # `invariant`: with a fixed date and ID the bytes, and so Streamlit's media URL (a hash
-            # of them), would follow from the profile alone.
+            # of them), would follow from the profile alone. reportlab also fixes them when the
+            # SOURCE_DATE_EPOCH environment variable is set: never set it where the app runs.
             author="",
             subject="",
         )

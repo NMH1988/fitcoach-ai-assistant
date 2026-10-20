@@ -100,7 +100,8 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 
 - **Layout** (A4, DejaVu Sans, black on white whatever the app's theme): the title and the date; the disclaimer with a bold "Not medical advice."; "Your profile" as a two-column table in the chosen units; "Your daily targets" from the profile (the same tables as "Tool results", grams per kg or per lb of body weight by the unit system, then the message, the notes and the method); "Questions and answers", numbered, each with its answer, a "Sources" list (labels, title, year, tier, licence, URL, and under a source its correction notice, as on the app's card) and its tool results, or the label and fixed message of a turn with no answer (owner's choice: every turn, as in the chat); "Credits". Every page's footer: the app's name, "Not medical advice" and the page number.
 - **Answers as plain text** (owner's choice, 2026-10-20): headings, emphasis and code marks are dropped, list items become bullets (indented by level), a table row becomes its cells joined by " · " (the separator row dropped), a link becomes its text and its URL; code and URLs are kept as written; the `[S#]` labels stay. Nothing in the PDF is a link.
-- **Text:** every heading and label is in `export_pdf.TEXT`, `KIND_LABELS` and `TOOL_TITLES`, so T7.2 can add the German version.
+- **Text:** every heading and label is in `export_pdf.TEXT`, `config.STATUS_LABELS` and `registry.TOOL_TITLES` (the last two shared with the app), so T7.2 can add the German version.
+- **Credits** end with the font's notice (DejaVu Sans; owner's choice in the review of PR #54).
 
 ### Tabs
 

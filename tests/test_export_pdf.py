@@ -50,11 +50,6 @@ def _pdf(turns=(), user=PROFILE, system="metric", manifest=MANIFEST) -> bytes:
     return export_pdf.build_summary_pdf(list(turns), user, system, manifest, TODAY)
 
 
-def _text(data: bytes) -> str:
-    """Return the PDF's text with each run of whitespace made one space."""
-    return pdf_text(data)
-
-
 def _annotations(data: bytes) -> list:
     """Return every annotation (links included) on the PDF's pages."""
     reader = PdfReader(io.BytesIO(data))
@@ -73,7 +68,7 @@ def _run(name: str, args: dict | None = None, profile=PROFILE) -> ToolRun:
 
 def test_the_pdf_has_the_title_date_and_disclaimer():
     """The first page names the app, the day it was made and the full disclaimer."""
-    text = _text(_pdf())
+    text = pdf_text(_pdf())
     assert export_pdf.TEXT["title"] in text
     assert "Created on 2026-10-20" in text
     assert f"Not medical advice. {config.DISCLAIMER}" in text
@@ -94,7 +89,7 @@ def test_every_page_has_the_disclaimer_in_its_footer():
 )
 def test_the_profile_is_shown_in_the_chosen_units(system, weight, height):
     """Weight and height follow the unit system; age, sex, activity and goal are labelled."""
-    text = _text(_pdf(system=system))
+    text = pdf_text(_pdf(system=system))
     for expected in (
         f"Weight {weight}",
         f"Height {height}",
@@ -108,7 +103,7 @@ def test_the_profile_is_shown_in_the_chosen_units(system, weight, height):
 
 def test_without_a_profile_the_pdf_says_so_and_has_no_targets():
     """No profile: the PDF says no details were added and invites the user to add them."""
-    text = _text(_pdf(user=None))
+    text = pdf_text(_pdf(user=None))
     assert export_pdf.TEXT["no_profile"] in text
     assert export_pdf.TEXT["no_targets"] in text
     assert "Daily target" not in text
@@ -121,7 +116,7 @@ def test_without_a_profile_the_pdf_says_so_and_has_no_targets():
 def test_the_targets_come_from_the_profile_in_the_chosen_units(system, per_body_weight):
     """The targets are the macro tool's result for the profile, per kg or per lb of body weight."""
     targets = registry.macro_targets(PROFILE).targets
-    text = _text(_pdf(system=system))
+    text = pdf_text(_pdf(system=system))
     assert export_pdf.TEXT["targets_note"] in text
     assert f"Daily target {targets.kcal_target:,} kcal" in text
     assert "Daily energy needs 2,759 kcal" in text
@@ -141,7 +136,7 @@ def test_the_targets_notes_are_shown():
     small = small.model_copy(update={"activity": "sedentary", "goal": "lose_fat"})
     targets = registry.macro_targets(small).targets
     assert targets.floor_applied
-    text = _text(_pdf(user=small))
+    text = pdf_text(_pdf(user=small))
     for note in targets.notes:
         assert " ".join(note.split()) in text
 
@@ -152,7 +147,7 @@ def test_each_question_and_answer_is_in_the_pdf_with_its_sources():
         ("How much protein per meal?", _answer("Spread it over four meals [S1].", _card(HMB))),
         ("And after training?", _answer("Within a few hours [S1, S2].", _card(MANIFEST["8"]))),
     ]
-    text = _text(_pdf(turns))
+    text = pdf_text(_pdf(turns))
     assert "Question 1 How much protein per meal? Answer Spread it over four meals [S1]." in text
     assert "Question 2 And after training? Answer Within a few hours [S1, S2]." in text
     assert f"[S1] {HMB.title} ({HMB.year}). ISSN position stand. CC BY 4.0. {HMB.url}" in text
@@ -170,14 +165,14 @@ def test_each_question_and_answer_is_in_the_pdf_with_its_sources():
 def test_a_turn_without_an_answer_shows_its_question_and_message(kind, message):
     """Every kind of turn is in the PDF, as in the chat, with its label and fixed message."""
     turns = [("Some question?", chat.TurnResult(kind, message))]
-    text = _text(_pdf(turns))
-    expected = f"Question 1 Some question? {export_pdf.KIND_LABELS[kind]}: {message}"
+    text = pdf_text(_pdf(turns))
+    expected = f"Question 1 Some question? {config.STATUS_LABELS[kind]}: {message}"
     assert " ".join(expected.split()) in text
 
 
 def test_without_turns_the_pdf_says_no_question_was_asked():
     """A session with no question says so under "Questions and answers"."""
-    assert export_pdf.TEXT["no_turns"] in _text(_pdf())
+    assert export_pdf.TEXT["no_turns"] in pdf_text(_pdf())
 
 
 def test_the_tool_results_follow_their_answer():
@@ -187,7 +182,7 @@ def test_the_tool_results_follow_their_answer():
         _run(MACRO_TOOL),
         _run(FOOD_TOOL, {"food": "rolled oats", "grams": 80}),
     )
-    text = _text(_pdf([("Plan my day?", _answer("Here are your numbers.", runs=runs))]))
+    text = pdf_text(_pdf([("Plan my day?", _answer("Here are your numbers.", runs=runs))]))
     answer_part = text.split("Plan my day?", 1)[1]
     assert "Tool results Daily energy needs Resting energy (BMR) 1,780 kcal/day" in answer_part
     assert "Daily energy needs (TDEE) 2,759 kcal/day" in answer_part
@@ -202,7 +197,7 @@ def test_a_food_without_fiber_says_not_reported():
     """A missing fiber value reads "not reported", never 0."""
     run = _run(FOOD_TOOL, {"food": "chicken breast", "grams": 100})
     assert run.result.nutrients.fiber_g is None
-    assert "Fiber not reported" in _text(_pdf([("Chicken?", _answer("Lean.", runs=(run,)))]))
+    assert "Fiber not reported" in pdf_text(_pdf([("Chicken?", _answer("Lean.", runs=(run,)))]))
 
 
 def test_tool_results_without_values_show_their_message():
@@ -215,7 +210,7 @@ def test_tool_results_without_values_show_their_message():
         registry.refused_call("call-2", config.UNKNOWN_TOOL_MESSAGE)[1],
         not_found,
     )
-    text = _text(_pdf([("Numbers?", _answer("See below.", runs=runs))], user=None))
+    text = pdf_text(_pdf([("Numbers?", _answer("See below.", runs=runs))], user=None))
     assert f"Daily energy needs {config.PROFILE_NEEDED_HINT}" in text
     assert f"Tool call not run {config.UNKNOWN_TOOL_MESSAGE}" in text
     assert " ".join(not_found.result.message.split()) in text
@@ -223,7 +218,7 @@ def test_tool_results_without_values_show_their_message():
 
 def test_the_credits_name_every_cited_article_in_full():
     """A cited article is credited with all authors, its copyright notice, licence and DOI."""
-    text = _text(_pdf([("HMB?", _answer("It may help [S1].", _card(HMB)))], user=None))
+    text = pdf_text(_pdf([("HMB?", _answer("It may help [S1].", _card(HMB)))], user=None))
     credits = text.split(export_pdf.TEXT["credits"], 1)[1]
     assert ARTICLE_CHANGES_NOTE in credits
     for part in (
@@ -240,7 +235,7 @@ def test_the_credits_name_every_cited_article_in_full():
 
 def test_the_credits_name_the_sources_behind_the_targets_and_the_formulas():
     """With targets, the articles behind their ranges and the formula sources are credited."""
-    credits = _text(_pdf()).split(export_pdf.TEXT["credits"], 1)[1]
+    credits = pdf_text(_pdf()).split(export_pdf.TEXT["credits"], 1)[1]
     for source_id in ("1", "9", "11", "12"):
         assert f"[{source_id}] " in credits
         assert MANIFEST[source_id].doi in credits
@@ -251,9 +246,9 @@ def test_the_credits_name_the_sources_behind_the_targets_and_the_formulas():
 
 def test_the_credits_name_usda_only_when_a_food_was_looked_up():
     """The USDA credit, with its CC0 licence, is there only after a food lookup."""
-    assert config.USDA_LICENSE not in _text(_pdf(user=None))
+    assert config.USDA_LICENSE not in pdf_text(_pdf(user=None))
     run = _run(FOOD_TOOL, {"food": "rolled oats", "grams": 80})
-    text = _text(_pdf([("Oats?", _answer("See below.", runs=(run,)))], user=None))
+    text = pdf_text(_pdf([("Oats?", _answer("See below.", runs=(run,)))], user=None))
     credits = text.split(export_pdf.TEXT["credits"], 1)[1]
     assert "FoodData Central: Foundation Foods, release" in credits
     assert f"Licence: {config.USDA_LICENSE}" in credits
@@ -262,13 +257,13 @@ def test_the_credits_name_usda_only_when_a_food_was_looked_up():
 
 def test_without_a_profile_or_tools_no_formula_source_is_credited():
     """No targets and no energy tool: the formula sources are not listed."""
-    credits = _text(_pdf(user=None)).split(export_pdf.TEXT["credits"], 1)[1]
+    credits = pdf_text(_pdf(user=None)).split(export_pdf.TEXT["credits"], 1)[1]
     assert export_pdf.TEXT["formula_sources"] not in credits
 
 
 def test_a_cited_article_missing_from_the_manifest_is_credited_from_its_card():
     """If the manifest could not be read, the card's authors, title, licence and URL credit it."""
-    text = _text(_pdf([("HMB?", _answer("Yes [S1].", _card(HMB)))], user=None, manifest={}))
+    text = pdf_text(_pdf([("HMB?", _answer("Yes [S1].", _card(HMB)))], user=None, manifest={}))
     credits = text.split(export_pdf.TEXT["credits"], 1)[1]
     assert f"[{HMB.id}] " in credits
     assert HMB.url in credits
@@ -295,7 +290,7 @@ def test_non_latin_characters_in_source_titles_read_back_exactly():
     """Titles with "β" and U+2010 read back as written, in the answer and the credits."""
     assert "β" in HMB.title and "‐" in PROTEIN_SUPPLEMENTS.title
     turns = [("HMB?", _answer("Yes [S1, S2].", _card(HMB), _card(PROTEIN_SUPPLEMENTS, "S2")))]
-    text = _text(_pdf(turns))
+    text = pdf_text(_pdf(turns))
     assert text.count(HMB.title) == 2
     assert text.count(PROTEIN_SUPPLEMENTS.title) == 2
 
@@ -303,7 +298,7 @@ def test_non_latin_characters_in_source_titles_read_back_exactly():
 def test_characters_the_font_lacks_do_not_break_the_pdf():
     """Emoji, other scripts and control characters give a PDF; emoji become U+FFFD."""
     answer = "Great 💪 choice \x00\x07 for 漢字 [S1].\r\nNext line \U0001f600"
-    text = _text(_pdf([("Ok?\x1b", _answer(answer, _card(HMB)))]))
+    text = pdf_text(_pdf([("Ok?\x1b", _answer(answer, _card(HMB)))]))
     assert "Great � choice for" in text
     assert "Next line �" in text
     assert "\x00" not in text and "\x1b" not in text
@@ -314,7 +309,9 @@ def test_characters_the_font_lacks_do_not_break_the_pdf():
 
 def test_an_entity_the_model_copied_reads_back_as_the_character():
     """An answer holding "p &lt; 0.05" reads back "p < 0.05" (and &gt;, &amp; likewise)."""
-    text = _text(_pdf([("Stats?", _answer("Significant at p &lt; 0.05, n &gt; 10 &amp; more."))]))
+    text = pdf_text(
+        _pdf([("Stats?", _answer("Significant at p &lt; 0.05, n &gt; 10 &amp; more."))])
+    )
     assert "Significant at p < 0.05, n > 10 & more." in text
     assert "&lt;" not in text
 
@@ -334,7 +331,7 @@ def test_markup_in_an_answer_reads_back_as_literal_text_with_no_link(markup):
     """ReportLab markup in model text is shown as written: no formatting, no link annotation."""
     data = _pdf([("Markup?", _answer(f"Before {markup} after."))])
     literal = markup.replace("&lt;", "<").replace("&gt;", ">")
-    assert f"Before {literal} after." in _text(data)
+    assert f"Before {literal} after." in pdf_text(data)
     assert _annotations(data) == []
 
 
@@ -347,7 +344,7 @@ def test_markup_in_a_question_a_title_and_a_usda_name_stays_text():
     run = _run(FOOD_TOOL, {"food": HOSTILE_FOOD_NAME, "grams": 100})
     turns = [("<b>bold</b> & </para>?", _answer("Ok [S1].", title_card, runs=(run,)))]
     data = _pdf(turns, manifest={})
-    text = _text(data)
+    text = pdf_text(data)
     assert "<b>bold</b> & </para>?" in text
     assert '[S1] <link href="https://example.com">T</link> (2020)' in text
     assert "</user_input>" in text
@@ -359,7 +356,7 @@ def test_the_pdf_has_no_link_annotations_at_all():
     run = _run(FOOD_TOOL, {"food": "rolled oats", "grams": 80})
     data = _pdf([("HMB?", _answer("[See](https://example.com) [S1].", _card(HMB), runs=(run,)))])
     assert _annotations(data) == []
-    assert "See (https://example.com) [S1]." in _text(data)
+    assert "See (https://example.com) [S1]." in pdf_text(data)
 
 
 # --- Markdown made plain text (owner's choice, 2026-10-20) ----------------------------------------
@@ -403,6 +400,19 @@ def test_the_pdf_has_no_link_annotations_at_all():
             "| Macro | g |\n|:---|---:|\n| **Protein** | 160 |",
             [("Macro · g", 0), ("Protein · 160", 0)],
         ),
+        # Escaped marks stay as the characters (PR #54 review): no emphasis, no link.
+        (r"\*note\*", [("*note*", 0)]),
+        (r"\_note\_", [("_note_", 0)]),
+        (r"\[x](y)", [("[x](y)", 0)]),
+        (r"[a\_b](https://y.org)", [("a_b (https://y.org)", 0)]),
+        # A bare URL right before a link keeps the link (PR #54 review).
+        ("https://a.org[guide](https://b.org)", [("https://a.orgguide (https://b.org)", 0)]),
+        # A URL in a link's text keeps its underscores too.
+        ("[https://x.org/__init__](https://x.org/__init__)", [("https://x.org/__init__", 0)]),
+        (
+            "[see https://x.org/__a__](https://y.org)",
+            [("see https://x.org/__a__ (https://y.org)", 0)],
+        ),
     ],
 )
 def test_clean_answer_turns_markdown_into_plain_lines(markdown, plain):
@@ -412,13 +422,13 @@ def test_clean_answer_turns_markdown_into_plain_lines(markdown, plain):
 
 def test_an_entity_that_looks_like_markdown_reads_back_as_the_character():
     """ "&gt; 5 g" reads back "> 5 g", as the app shows it, not as a quote mark dropped."""
-    text = _text(_pdf([("Dose?", _answer("&gt; 5 g/day adds no benefit [S1]."))]))
+    text = pdf_text(_pdf([("Dose?", _answer("&gt; 5 g/day adds no benefit [S1]."))]))
     assert "> 5 g/day adds no benefit [S1]." in text
 
 
 def test_list_items_read_back_with_bullets():
     """A Markdown list in an answer reads back as bullet lines."""
-    text = _text(_pdf([("List?", _answer("Eat:\n- **eggs**\n- oats [S1]"))]))
+    text = pdf_text(_pdf([("List?", _answer("Eat:\n- **eggs**\n- oats [S1]"))]))
     assert "Eat: • eggs • oats [S1]" in text
 
 
@@ -426,7 +436,7 @@ def test_list_items_read_back_with_bullets():
 
 
 def test_building_the_pdf_writes_no_file(tmp_path, monkeypatch):
-    """The PDF is built in memory: no file is opened for writing, and the folder stays empty."""
+    """No file is opened for writing (open, io.open, os.open) and the working folder stays empty."""
     real_open, real_os_open = builtins.open, os.open
     written: list[str] = []
 
@@ -444,6 +454,8 @@ def test_building_the_pdf_writes_no_file(tmp_path, monkeypatch):
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(builtins, "open", open_read_only)
+    # pathlib's write_text and write_bytes go through io.open, another name for the same function.
+    monkeypatch.setattr(io, "open", open_read_only)
     monkeypatch.setattr(os, "open", os_open_read_only)
     run = _run(FOOD_TOOL, {"food": "rolled oats", "grams": 80})
     data = _pdf([("HMB?", _answer("Yes [S1].", _card(HMB), runs=(run,)))])
@@ -475,14 +487,13 @@ def test_a_build_failure_raises_a_fixed_error_without_the_content(monkeypatch):
 
 
 def test_every_turn_kind_has_a_label():
-    """Each kind of turn other than an answer has its label for the PDF."""
-    kinds = set(chat.TurnKind.__args__) - {"answer"}
-    assert set(export_pdf.KIND_LABELS) == kinds
+    """Each kind of turn has the label the app and the PDF show for it."""
+    assert set(chat.TurnKind.__args__) <= set(config.STATUS_LABELS)
 
 
 def test_tool_titles_match_the_tools():
-    """Every tool, and a refused call (None), has a heading in the PDF."""
-    assert set(export_pdf.TOOL_TITLES) == {TDEE_TOOL, MACRO_TOOL, FOOD_TOOL, None}
+    """Every tool, and a refused call (None), has a heading in the app and the PDF."""
+    assert set(registry.TOOL_TITLES) == {TDEE_TOOL, MACRO_TOOL, FOOD_TOOL, None}
 
 
 def test_the_fonts_cover_every_character_of_the_approved_sources():
@@ -500,7 +511,7 @@ def test_a_tool_notice_has_no_values_to_show():
     """A ToolNotice result (error) is shown by its message alone."""
     notice = ToolNotice(status="error", message=config.TOOL_FAILED_MESSAGE)
     run = ToolRun(FOOD_TOOL, "error", notice)
-    text = _text(_pdf([("Oats?", _answer("Not available.", runs=(run,)))], user=None))
+    text = pdf_text(_pdf([("Oats?", _answer("Not available.", runs=(run,)))], user=None))
     assert f"Food lookup {config.TOOL_FAILED_MESSAGE}" in text
     assert re.search(r"Food data", text) is None
 
@@ -510,7 +521,7 @@ def test_a_cited_article_shows_its_correction_and_both_are_credited():
     original, notice = MANIFEST["18"], MANIFEST["18a"]
     correction = chat.Correction("corrected_by", notice.title, notice.url)
     card = dataclasses.replace(_card(original), corrections=(correction,))
-    text = _text(_pdf([("Creatine?", _answer("It helps [S1].", card))], user=None))
+    text = pdf_text(_pdf([("Creatine?", _answer("It helps [S1].", card))], user=None))
     label = config.CORRECTION_LABELS["corrected_by"]
     assert " ".join(f"{label}: {notice.title}. {notice.url}".split()) in text
     credits = text.split(export_pdf.TEXT["credits"], 1)[1]
@@ -520,7 +531,7 @@ def test_a_cited_article_shows_its_correction_and_both_are_credited():
 def test_a_cited_correction_notice_brings_its_article_into_the_credits():
     """Citing the notice alone credits the article it corrects as well."""
     notice = MANIFEST["18a"]
-    text = _text(_pdf([("Creatine?", _answer("See [S1].", _card(notice)))], user=None))
+    text = pdf_text(_pdf([("Creatine?", _answer("See [S1].", _card(notice)))], user=None))
     credits = text.split(export_pdf.TEXT["credits"], 1)[1]
     assert f"[{notice.corrects}] " in credits
 
@@ -528,3 +539,11 @@ def test_a_cited_correction_notice_brings_its_article_into_the_credits():
 def test_two_pdfs_of_the_same_session_differ():
     """The PDF carries its own creation time and ID, so its bytes do not follow from the profile."""
     assert _pdf() != _pdf()
+
+
+def test_the_credits_name_the_font_and_its_licence():
+    """Every PDF credits DejaVu Sans with its copyright notices and licences."""
+    credits = pdf_text(_pdf(user=None)).split(export_pdf.TEXT["credits"], 1)[1]
+    assert " ".join(export_pdf.TEXT["font_credit"].split()) in credits
+    for part in ("Bitstream, Inc.", "Tavmjong Bah", "public domain", "Bitstream Vera and Arev"):
+        assert part in credits

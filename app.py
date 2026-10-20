@@ -28,16 +28,6 @@ GOAL_ICONS = {
     "maintain": ":material/balance:",
 }
 ASSISTANT_AVATAR = ":material/nutrition:"
-# The label a turn's status box ends with, by the kind of result.
-STATUS_LABELS = {
-    "answer": "Answered from the research",
-    # An answer that cites no label: the model said the research does not cover the question.
-    "answer_uncited": "Answered without citing the research",
-    "no_sources": "No matching research found",
-    "rejected": "Question not accepted",
-    "guardrail": "Not something this assistant can advise on",
-    "error": "Something went wrong",
-}
 # What each step of a turn does, shown under it in the status box.
 STEP_DETAILS = {
     chat.Step.CHECK: "Length, prompt-injection patterns, safety topics and the question limit.",
@@ -48,12 +38,12 @@ STEP_DETAILS = {
     chat.Step.ANSWER: "The model answers from the passages found and cites them.",
     chat.Step.TOOLS: "Calculations from your profile and the USDA food table.",
 }
-# The heading of each tool's result; None is a call that was refused before any tool ran.
-TOOL_TITLES = {
-    registry.TDEE_TOOL: ":material/local_fire_department: Daily energy needs",
-    registry.MACRO_TOOL: ":material/target: Daily targets",
-    registry.FOOD_TOOL: ":material/restaurant: Food lookup",
-    None: ":material/block: Tool call not run",
+# The icon before each tool result's heading (registry.TOOL_TITLES); None is a refused call.
+TOOL_ICONS = {
+    registry.TDEE_TOOL: ":material/local_fire_department:",
+    registry.MACRO_TOOL: ":material/target:",
+    registry.FOOD_TOOL: ":material/restaurant:",
+    None: ":material/block:",
 }
 TIER_COLORS = {1: "green", 2: "violet"}
 # The start of a line Markdown would read as a block: "#", "-", "+", "=" or "1." / "1)". A ">"
@@ -254,8 +244,8 @@ def _manifest():
 def _status_label(result: chat.TurnResult) -> str:
     """Return the label a turn's status box ends with."""
     if result.kind == "answer" and not result.sources:
-        return STATUS_LABELS["answer_uncited"]
-    return STATUS_LABELS[result.kind]
+        return config.STATUS_LABELS["answer_uncited"]
+    return config.STATUS_LABELS[result.kind]
 
 
 def _final_state(result: chat.TurnResult) -> str:
@@ -493,7 +483,8 @@ def _show_food(result: FoodLookupResult) -> None:
 
 def _show_tool_run(run: registry.ToolRun, key: str) -> None:
     """Show one tool result under its heading; without a profile, a button opens the form."""
-    st.markdown(f"**{TOOL_TITLES.get(run.name, TOOL_TITLES[None])}**")
+    name = run.name if run.name in registry.TOOL_TITLES else None
+    st.markdown(f"**{TOOL_ICONS[name]} {registry.TOOL_TITLES[name]}**")
     result = run.result
     if run.status == "profile_needed":
         st.info(config.PROFILE_NEEDED_HINT, icon=":material/person_add:")
