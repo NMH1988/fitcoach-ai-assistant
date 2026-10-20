@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-20 · T4.5 `evaluate_meal_plan` tool · #PR (closes #15)
+## 2026-10-20 · T4.5 `evaluate_meal_plan` tool · #56 (closes #15)
 - **Brief:** core 2 (tool calling; a 4th tool beyond the 3 required), shown as core 5 asks (tool results in the UI). An extra ("only if ahead of schedule"), done before the remaining core tickets by the owner's choice.
 - **What:**
   - `src/tools/meal_plan.py` (new): `MealPlanArgs` (`items`: 1-`MEAL_PLAN_MAX_ITEMS` `MealItemArgs`, a `FoodLookupArgs` subclass whose docstring the model reads), `evaluate_meal_plan(items, targets, table)` (each food looked up like `lookup_food_nutrition`; totals of the values shown; per nutrient the target, the gap and, for kcal and protein, the range position; notes for foods not found, missing fiber values, a total below the calorie floor and the targets' own notes), `invalid_meal_plan_message()` (item numbers and rules, never the text sent).
