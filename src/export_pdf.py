@@ -369,14 +369,17 @@ def _macro_cells(macro: Macro, weight_kg: float, system: UnitSystem) -> list[str
 def _macro_flowables(result: registry.MacroToolResult, system: UnitSystem) -> list[Flowable]:
     """Return the daily targets as two tables, the message, the notes and the method."""
     targets = result.targets
-    if targets.kcal_target is None or not (
-        targets.protein and targets.carbohydrate and targets.fat
+    # Grams per body weight need the weight the targets are for (T4.7); without it, as without
+    # the targets, only the message is shown.
+    weight = targets.weight_kg
+    if (
+        targets.kcal_target is None
+        or not (targets.protein and targets.carbohydrate and targets.fat)
+        or not weight
     ):
         return [_para(result.message, "small")]
     low, high = targets.kcal_range or (targets.kcal_target, targets.kcal_target)
     protein_low, protein_high = targets.protein_g_range or (0, 0)
-    # Always set with status "ok"; the fallback only satisfies the type.
-    weight = targets.weight_kg or 1.0
     summary = {
         "Daily target": f"{targets.kcal_target:,} kcal",
         "Range for the goal": f"{low:,}-{high:,} kcal",

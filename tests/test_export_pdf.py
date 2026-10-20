@@ -217,6 +217,18 @@ def test_tool_results_without_values_show_their_message():
     assert " ".join(not_found.result.message.split()) in text
 
 
+def test_macro_targets_without_their_weight_show_only_the_message():
+    """Targets with no weight_kg cannot give grams per body weight, so only the message shows."""
+    result = registry.macro_targets(PROFILE)
+    weightless = result.model_copy(
+        update={"targets": result.targets.model_copy(update={"weight_kg": None})}
+    )
+    run = registry.ToolRun(MACRO_TOOL, "ok", weightless)
+    text = pdf_text(_pdf([("Targets?", _answer("See below.", runs=(run,)))], user=None))
+    assert " ".join(result.message.split()) in text
+    assert "of body weight" not in text and "Share of kcal" not in text
+
+
 def test_the_credits_name_every_cited_article_in_full():
     """A cited article is credited with all authors, its copyright notice, licence and DOI."""
     text = pdf_text(_pdf([("HMB?", _answer("It may help [S1].", _card(HMB)))], user=None))
