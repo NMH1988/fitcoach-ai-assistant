@@ -74,6 +74,15 @@ TOPICS: tuple[str, ...] = (
     "nutrient_timing",
     "supplements",
 )
+# How the topics are named in the app's "How this answer was found" view.
+TOPIC_LABELS: dict[str, str] = {
+    "protein": "Protein",
+    "carbohydrate": "Carbohydrate",
+    "fat": "Fat",
+    "energy_balance": "Energy balance",
+    "nutrient_timing": "Nutrient timing",
+    "supplements": "Supplements",
+}
 # 1 = ISSN position stand, 2 = other peer-reviewed review or meta-analysis (docs/SOURCES.md).
 EVIDENCE_TIERS: tuple[int, ...] = (1, 2)
 
@@ -177,6 +186,19 @@ RETRIEVAL_TOP_K = 6
 RETRIEVAL_MAX_DISTANCE = 0.62
 # The answer system prompt, written by the owner (O1; .claude/rules/workflow.md).
 ANSWER_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "answer_system.md"
+
+# Query translation (T3.2; docs/ARCHITECTURE.md section 5): one QUERY_TRANSLATION_MODEL call
+# rewrites the question and picks optional filters. Its system prompt is written by the owner (O7).
+QUERY_TRANSLATION_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "query_translation_system.md"
+# The same budget as the answers: gpt-5 reasoning tokens come out of it too (learned in Sprint 1).
+QUERY_TRANSLATION_MAX_TOKENS = DEFAULT_MAX_TOKENS
+# Rewrites per question; the question itself is searched as well (owner's choice in T3.2).
+QUERY_REWRITES = 3
+# Longest rewrite accepted; a longer one makes the whole reply invalid (fallback to the question).
+QUERY_REWRITE_MAX_CHARS = 300
+# The years a min_year filter may name; the oldest approved source is from 2014. A year with no
+# source after it finds nothing, so the search runs again without filters.
+QUERY_MIN_YEAR_RANGE = (2000, 2100)
 # Shown instead of an answer when no chunk is relevant; no model call is made (AC-2).
 NO_SOURCES_MESSAGE = (
     "Our sources do not cover this question, so there is no answer from the research. Try a "
@@ -199,11 +221,17 @@ PROMPT_MISSING_MESSAGE = (
     "The answer prompt `src/prompts/answer_system.md` is missing or empty, so no answer can be "
     "written. Restore the file and ask again."
 )
+QUERY_PROMPT_MISSING_MESSAGE = (
+    "The query translation prompt `src/prompts/query_translation_system.md` is missing or empty, "
+    "so the question cannot be searched. Restore the file and ask again."
+)
 # How the evidence tiers are named in the answer's sources (docs/UI_DESIGN.md).
 EVIDENCE_TIER_LABELS: dict[int, str] = {1: "ISSN position stand", 2: "Peer-reviewed review"}
 UNKNOWN_TIER_LABEL = "Review"
 # Authors named on a source card before "et al." (the full list is in ATTRIBUTION.md).
 CARD_AUTHORS_SHOWN = 3
+# Characters of the question shown on the sidebar's "Last answer" card before "…" (T3.2).
+CARD_QUESTION_CHARS = 60
 # Height of the scrolling message area in the Ask tab; tall enough to read a whole answer on a
 # desktop screen (owner's requests, 2026-10-20: 520, then 650, then 750 to fill a tall window).
 # On a short window the page scrolls to the chat input.
