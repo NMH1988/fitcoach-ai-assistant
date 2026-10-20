@@ -238,7 +238,7 @@ def test_the_targets_charts_use_the_macro_colours():
 
 
 def test_imperial_users_see_grams_per_lb_in_the_card_and_the_tab():
-    """In imperial the card and the tab show g/lb, converted from the g/kg computed in kg."""
+    """In imperial the card and the tab show g/lb, from the grams and the weight, rounded once."""
     at = _start(system="imperial")
     assert _card_captions(at) == [
         "**Protein** 152 g · 20% · 0.86 g/lb",
@@ -247,6 +247,9 @@ def test_imperial_users_see_grams_per_lb_in_the_card_and_the_tab():
     ]
     captions = [c.value for c in at.tabs[TARGETS_TAB].caption]
     assert "20% of kcal · 0.86 g/lb" in captions
+    # 418 g and 84 g at 80 kg: from the rounded g/kg (5.2, 1.1) they would show 2.36 and 0.50.
+    assert "55% of kcal · 2.37 g/lb" in captions
+    assert "25% of kcal · 0.48 g/lb" in captions
     assert not [c for c in captions if "g/kg" in c and "% of kcal" in c]
 
 
