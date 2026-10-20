@@ -214,3 +214,9 @@ def test_usda_names_are_returned_inside_the_tool_message_as_data():
     # Escaped like the prompt blocks (T3.4): the name comes back exact once unescaped.
     assert html.unescape(content) == HOSTILE_FOOD_NAME
     assert "<" not in tool_message.content and ">" not in tool_message.content
+
+
+def test_macro_targets_give_what_the_tool_gives_with_no_model():
+    """macro_targets() is the macro tool's result for the profile, for the app's own views."""
+    _, run = _run(MACRO_TOOL, {})
+    assert registry.macro_targets(PROFILE) == run.result

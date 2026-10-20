@@ -44,6 +44,7 @@ Python 3.14 (`.python-version`), in a local `.venv`. Every command below assumes
 - Build the vector index: `python scripts/build_index.py` (needs the key and the downloaded articles; writes gitignored `chroma/`; rerun after the sources or the chunking change; stop the app before rebuilding and restart it afterwards)
 - USDA foods table: download the Foundation Foods CSV zip from https://fdc.nal.usda.gov/download-datasets/ into gitignored `data/usda/`, then `python scripts/prepare_usda.py`, `python scripts/generate_attribution.py`, and commit `data/usda_foods.csv` and `ATTRIBUTION.md`
 - Retrieval live check (owner, needs the key and the index): `python scripts/live_check_retrieval.py "<question>" ...` prints the nearest chunks' distances, to set `RETRIEVAL_MAX_DISTANCE`
+- Retrieval comparison (owner, needs the key, the index and the evaluation questions in `data/eval_questions.json`): `python scripts/compare_retrieval.py` prints vector-only, keyword-only and hybrid hit rates (T3.6; format in `docs/TESTING.md`)
 - Lint/format: `ruff check .` / `ruff format .`
 - Test: `python -m pytest -q` (LLM, embedding and network calls must be mocked)
 - Audit: `pip-audit .` with the `--ignore-vuln` flags listed in `.github/workflows/ci.yml` (reasons in `docs/SECURITY.md`)

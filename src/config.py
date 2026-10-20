@@ -175,7 +175,8 @@ BUILD_INDEX_COMMAND = "python scripts/build_index.py"
 EMBEDDING_BATCH_SIZE = 64
 
 # Retrieval and answers for one chat turn (T3.1; query translation and hybrid search extend it in
-# T3.2 and T3.3). The nearest chunks given to the answer model, labelled [S1]...[S6].
+# T3.2 and T3.3). The best chunks after RRF given to the answer model, labelled [S1]...[S6]; also
+# the length of each vector and keyword list that RRF merges.
 RETRIEVAL_TOP_K = 6
 # Cosine distance (0 = same meaning, up to 2) above which a chunk counts as not relevant to the
 # question. Measured on the real index (O5, 2026-10-20, 28 questions; docs/TESTING.md): questions
@@ -184,6 +185,13 @@ RETRIEVAL_TOP_K = 6
 # and favours answering: a near-domain question that passes costs one model call, which the
 # prompt declines or redirects, while a covered question that is blocked gets no answer at all.
 RETRIEVAL_MAX_DISTANCE = 0.62
+# Reciprocal Rank Fusion (T3.3, Hard 1): a chunk scores the sum of 1 / (RRF_K + rank) over the
+# ranked lists it is in (rank 1 is the top). 60 is the constant of the original RRF paper; it
+# keeps one list's top rank from outweighing a chunk that several lists rank a little lower.
+RRF_K = 60
+# The owner's evaluation questions (O2), each with the sources it should find; read by
+# scripts/compare_retrieval.py (T3.3) and the evaluation run (T6.1).
+EVAL_QUESTIONS_PATH = PROJECT_ROOT / "data" / "eval_questions.json"
 # The answer system prompt, written by the owner (O1; .claude/rules/workflow.md).
 ANSWER_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "answer_system.md"
 
@@ -232,6 +240,22 @@ QUERY_PROMPT_MISSING_MESSAGE = (
 # How the evidence tiers are named in the answer's sources (docs/UI_DESIGN.md).
 EVIDENCE_TIER_LABELS: dict[int, str] = {1: "ISSN position stand", 2: "Peer-reviewed review"}
 UNKNOWN_TIER_LABEL = "Review"
+# The label a turn's status box ends with, by the kind of result; the summary PDF uses the same
+# labels for turns with no answer.
+STATUS_LABELS: dict[str, str] = {
+    "answer": "Answered from the research",
+    # An answer that cites no label: the model said the research does not cover the question.
+    "answer_uncited": "Answered without citing the research",
+    "no_sources": "No matching research found",
+    "rejected": "Question not accepted",
+    "guardrail": "Not something this assistant can advise on",
+    "error": "Something went wrong",
+}
+# How a source card (and the summary PDF) names a correction notice linked to a cited article.
+CORRECTION_LABELS: dict[str, str] = {
+    "corrected_by": "A correction to this article was published",
+    "corrects": "This notice corrects",
+}
 # Authors named on a source card before "et al." (the full list is in ATTRIBUTION.md).
 CARD_AUTHORS_SHOWN = 3
 # Characters of the question shown on the sidebar's "Last answer" card before "…" (T3.2).
@@ -365,6 +389,10 @@ USDA_CHANGES = (
     "once (latest publication); negative values are set to 0; an empty fiber value means not "
     "reported."
 )
+# The line under a food lookup's values, in the app and the summary PDF.
+USDA_SOURCE_LINE = (
+    "Source: USDA FoodData Central, Foundation Foods (CC0). Values per 100 g, scaled."
+)
 
 # lookup_food_nutrition: argument limits and fuzzy name matching (rapidfuzz scores, 0-100).
 # A one-letter name matches by chance ("a" scores 100 on "Eggs, Grade A, ..."), so the name, and
@@ -417,6 +445,25 @@ MACRO_COLORS: dict[str, str] = {
     "Carbohydrate": "#5DCAA5",
     "Fat": "#EF9F27",
 }
+
+# The session summary PDF (T5.2; docs/ARCHITECTURE.md section 7). DejaVu Sans 2.37, committed with
+# its licence in assets/fonts/: ReportLab's own fonts have no Greek letters, and an approved source
+# title has "β".
+PDF_FONT_PATH = PROJECT_ROOT / "assets" / "fonts" / "DejaVuSans.ttf"
+PDF_BOLD_FONT_PATH = PROJECT_ROOT / "assets" / "fonts" / "DejaVuSans-Bold.ttf"
+# The fonts' licence, printed word for word at the end of every PDF (owner's choice, 2026-10-20):
+# its notices go with every copy, and each PDF embeds the fonts. Only the part before this heading
+# is printed; the rest covers DejaVu's math font, which the app does not ship.
+PDF_FONT_LICENSE_PATH = PROJECT_ROOT / "assets" / "fonts" / "LICENSE"
+PDF_FONT_LICENSE_END = "TeX Gyre DJV Math"
+# The sidebar button that downloads it; {date} in the file name is the day (YYYY-MM-DD).
+PDF_BUTTON_LABEL = "Download summary (PDF)"
+PDF_BUTTON_HELP = (
+    "Your profile, targets, questions and answers with their sources, as a PDF. Built when you "
+    "click; not saved on the server."
+)
+PDF_BUTTON_EMPTY_HELP = "Add your details or ask a question first."
+PDF_FILE_NAME = "nutrition-summary-{date}.pdf"
 
 
 class MissingAPIKeyError(RuntimeError):

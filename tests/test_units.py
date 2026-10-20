@@ -92,3 +92,24 @@ def test_format_height(cm, system, expected):
 def test_every_unit_system_has_a_label():
     """Each unit system has a label for the units switch."""
     assert set(units.UNIT_SYSTEM_LABELS) == set(units.UNIT_SYSTEMS)
+
+
+@pytest.mark.parametrize(
+    ("g_per_kg", "system", "expected"),
+    [
+        (1.9, "metric", "1.9 g/kg"),
+        (2.0, "metric", "2 g/kg"),
+        (1.9, "imperial", "0.86 g/lb"),
+        (2.2, "imperial", "1 g/lb"),
+        (1.1, "imperial", "0.5 g/lb"),
+    ],
+)
+def test_format_per_body_weight(g_per_kg, system, expected):
+    """Grams per body weight show per kg in metric and per lb (to 0.01 g) in imperial."""
+    assert units.format_per_body_weight(g_per_kg, system) == expected
+
+
+def test_per_lb_and_back_gives_the_per_kg_value():
+    """A per-lb value converted back to per kg is the per-kg value, within the rounding."""
+    per_lb = float(units.format_per_body_weight(1.9, "imperial").split()[0])
+    assert per_lb / units.KG_PER_LB == pytest.approx(1.9, abs=0.01 / units.KG_PER_LB)
