@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-20 · Plan Epic 7: language and appearance (T7.1-T7.3) · #PR (closes #36)
+## 2026-10-20 · Plan Epic 7: language and appearance (T7.1-T7.3) · #37 (closes #36)
 - **Brief:** planning record. T7.1 and T7.2 serve Hard 4 (multi-language support) as extras; T7.3 (light and dark mode) is beyond the brief (owner's request).
 - **What:** docs only, no code.
   - `docs/IMPLEMENTATION_PLAN.md`: Epic 7 with T7.3 (#35), T7.1 (#33) and T7.2 (#34) in the extras group, before T4.5; their acceptance criteria; the cut order now drops T4.5, then T7.2, then T7.1 before T5.2 and T5.1.
