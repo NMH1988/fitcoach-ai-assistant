@@ -74,7 +74,24 @@ Before a profile exists, the sidebar shows a short invitation and the "Add your 
 
 ### Header
 
-App name with icon on the left; `st.badge("Not medical advice", icon=":material/info:", color="orange")` on the right (`st.container(horizontal=True)`). Below it the intro as plain text and the full disclaimer in `st.warning`, starting with a bold "Not medical advice.", so it is large and easy to notice (owner's request, 2026-10-20; a badge's text size is fixed in Streamlit 1.66). Always visible (AC-12). Tab labels are bold; their size is fixed too.
+App name with icon on the left; `st.badge("Not medical advice", icon=":material/info:", color="orange")` on the right (`st.container(horizontal=True)`). Below it the intro as plain text and the full disclaimer in `st.warning`, starting with a bold "Not medical advice.", so it is large and easy to notice (owner's request, 2026-10-20; a badge's text size is fixed in Streamlit 1.66). Always visible (AC-12). Tab labels are bold; their size is fixed too. Once T7.1 lands, the language control sits at the far right of the badge row (see "Language").
+
+### Language (T7.1, T7.2, extra)
+
+- **Control:** at the right end of the header row, a small `:material/translate:` icon (`st.markdown`) followed by `st.segmented_control(label="Language", options=["EN", "DE"], key="language", required=True, label_visibility="collapsed")`, both in the header's `st.container(horizontal=True)`. `required=True` stops a click on the selected option from deselecting it (the value would become `None`). The collapsed label should keep "Language" as the accessible name (to check in the browser's accessibility tree in T7.1).
+- **Default:** from the browser (`st.context.locale`): `de*` gives German, anything else (including `None`, as under AppTest) English. It is written to `st.session_state["language"]` once, before the widget is drawn (no `default=` together with the key); after that the user's choice is kept for the session; nothing is stored. T7.1 checks in the browser that `st.context.locale` is already set on a new session's first run.
+- **What changes:** every UI string (from `src/i18n.py`, English and German), the disclaimer, error messages, the empty-state suggestions and the answer language. What stays English: source titles, journal names, licence names, USDA food names and the knowledge base itself.
+- **Food lookup in German:** a caption under the food input says to enter the food name in English (USDA names are English). In the chat the food tool's description tells the model to pass English names (checked in T7.2).
+- **Messages from `src/`** (guard, LLM errors, missing index, profile validation) come back as keys or codes and the UI translates them. Tool notes stay English, so what the UI shows matches what the model received.
+- **Answers in German:** the language is passed to the answer step as a fixed value (`en`/`de`), never read from user text. The question is rewritten into English for retrieval (T3.2), so both vector and keyword search match the English chunks. Source passages are summarised, never shown as translated quotes.
+- **Safety:** the input guard and the domain guardrails get German patterns and German test strings in T7.1, together with the German UI, so a German injection or a German high-risk request is caught like an English one even if T7.2 is cut.
+
+### Light and dark mode (T7.3, extra)
+
+- Both `[theme.light]` and `[theme.dark]` are defined (see "Theme"; T3.1 writes them, T7.3 adds the config test, the toolbar check and the hint), so Streamlit's own menu (top right -> Settings) offers Light, Dark and System. The choice is remembered by the browser.
+- Streamlit 1.66 cannot change the theme from the script, and a custom CSS toggle would break the "native first" principle and break on upgrades, so there is no separate header icon (owner's decision, 2026-10-20).
+- A sidebar caption under the privacy note says where to switch: ":material/dark_mode: Light or dark mode: menu at the top right -> Settings".
+- Charts and badges are checked in both modes; chart colours come from the palette above, which reads on both backgrounds.
 
 ### Tabs
 
@@ -112,7 +129,7 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 
 ## Text
 
-- App text is English, sentence case, no "please", no exclamation marks.
+- App text is English, sentence case, no "please", no exclamation marks. After T7.1 every string also has a German version in `src/i18n.py`; German text uses the formal "Sie".
 - Errors say what happened and what to do next ("Your API key is missing. Add it to `.streamlit/secrets.toml`.").
 - Empty states invite an action ("Add your details to get personal targets").
 
@@ -136,6 +153,9 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 | Tool result expander, My targets tab, macro bar | T4.4 (core) |
 | Food lookup tab | T4.3 / T4.4 (core) |
 | Details tab: usage | T5.1 (extra) |
+| Light and dark mode hint, both themes checked | T7.3 (extra) |
+| Language control, German UI text, German guard and guardrail patterns | T7.1 (extra) |
+| German answers, English rewrites for retrieval | T7.2 (extra) |
 | Empty-state suggestions, colour tuning, final polish | UI polish ticket (extra, beyond the brief, owner's request) |
 
 ## Open questions
