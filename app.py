@@ -44,8 +44,9 @@ STEP_DETAILS = {
     chat.Step.ANSWER: "The model answers from the passages found and cites them.",
 }
 TIER_COLORS = {1: "green", 2: "violet"}
-# The start of a line Markdown would read as a block: "#", ">", "-", "+", "=" or "1." / "1)".
-_LINE_START = re.compile(r"^(\d*)([#>+=.)-])")
+# The start of a line Markdown would read as a block: "#", "-", "+", "=" or "1." / "1)". A ">"
+# (quote) is not here: chat.escape_markdown() escapes it first, so keep both in step.
+_LINE_START = re.compile(r"^(\d*)([#+=.)-])")
 # How an evidence tier filter is named in "How this answer was found".
 TIER_FILTER_LABELS = {1: "ISSN position stands only", 2: "Peer-reviewed reviews only"}
 CORRECTION_LABELS = {
@@ -382,7 +383,9 @@ def _last_search() -> chat.SearchDetails | None:
 
 
 def _one_line(text: str) -> str:
-    """Return text on one line, escaped, so it shows as written inside a Markdown list."""
+    """Return text on one line, escaped, so it adds no formatting, image or link to a list."""
+    # GFM still links a bare "www." or e-mail address (no scheme, nothing to escape); it is shown,
+    # never loaded, and no raw HTML gets through.
     line = chat.escape_markdown(" ".join(text.split()))
     # A line start Markdown reads as a heading, quote, list or rule ("# Big", "> x", "1. x").
     return _LINE_START.sub(r"\1\\\2", line)

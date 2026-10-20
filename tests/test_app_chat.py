@@ -585,11 +585,16 @@ def test_the_disclaimer_is_visible_in_every_chat_state(monkeypatch, state):
         ("- a list", r"\- a list"),
         ("1. a list", r"1\. a list"),
         ("2) a list", r"2\) a list"),
+        ("+ a list", r"\+ a list"),
+        ("= a rule", r"\= a rule"),
+        # Number-led text keeps its meaning: an escaped "-" or "." still shows as typed.
+        ("1-2 g/kg protein", r"1\-2 g/kg protein"),
+        ("30 g protein per meal", "30 g protein per meal"),
         ("protein - per meal", "protein - per meal"),
     ],
 )
 def test_details_shows_a_markdown_line_start_as_text(monkeypatch, rewrite, shown):
-    """A rewrite starting like a heading, quote or list is escaped in the Details list."""
+    """A rewrite starting like a heading, quote, list or rule is escaped in the Details list."""
     plan = plan_json([rewrite, "protein per meal", "protein dose"])
     _use_model(monkeypatch, _answers("A [S1]."), ScriptedTranslator(plans=[plan]))
     [listing] = [
