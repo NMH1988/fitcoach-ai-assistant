@@ -212,6 +212,7 @@ def test_a_card_shows_title_year_tier_licence_and_link(index):
     manifest = {"1": make_source(id="1", journal="Journal of Made-up Results")}
     [card] = _turn(QUESTION, index, _model("Meals [S1]."), manifest=manifest).sources
     assert card.title == "Made-up article 1"
+    assert card.authors == ("Ann Example",)
     assert card.year == 2021
     assert card.evidence_tier == 1
     assert card.license == "CC BY 4.0"
@@ -278,6 +279,21 @@ def test_an_answer_with_an_image_is_shown_without_it(index):
     result = _turn(QUESTION, index, _model("Four meals ![x](https://evil.example/?q=1) [S1]."))
     assert result.text == "Four meals x [S1]."
     assert [card.source_id for card in result.sources] == ["1"]
+
+
+@pytest.mark.parametrize(
+    ("authors", "shown"),
+    [
+        ((), ""),
+        (("Ann Example",), "Ann Example"),
+        (("A One", "B Two", "C Three"), "A One, B Two, C Three"),
+        (("A One", "B Two", "C Three", "D Four"), "A One, B Two, C Three et al."),
+    ],
+)
+def test_format_authors_names_the_first_three(authors, shown):
+    """Up to three authors are named; a longer list ends with "et al."."""
+    assert config.CARD_AUTHORS_SHOWN == 3
+    assert chat.format_authors(authors) == shown
 
 
 def test_markdown_url_encodes_characters_that_end_a_link():

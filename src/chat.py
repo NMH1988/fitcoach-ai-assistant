@@ -52,6 +52,7 @@ class SourceCard:
 
     source_id: str
     title: str
+    authors: tuple[str, ...]
     year: int
     evidence_tier: int
     license: str
@@ -108,6 +109,12 @@ def manifest_by_id() -> dict[str, Source]:
 def escape_markdown(text: str) -> str:
     """Escape the characters Markdown would read as formatting, so the text shows as written."""
     return _MARKDOWN_SPECIAL.sub(r"\\\1", text)
+
+
+def format_authors(authors: Sequence[str]) -> str:
+    """Return the first CARD_AUTHORS_SHOWN authors, then "et al." if there are more."""
+    shown = ", ".join(authors[: config.CARD_AUTHORS_SHOWN])
+    return f"{shown} et al." if len(authors) > config.CARD_AUTHORS_SHOWN else shown
 
 
 def markdown_url(url: str) -> str:
@@ -186,6 +193,7 @@ def source_cards(
             SourceCard(
                 source_id=source_id,
                 title=meta["title"],
+                authors=tuple(meta.get("authors") or ()),
                 year=int(meta["year"]),
                 evidence_tier=int(meta["evidence_tier"]),
                 license=meta["license"],

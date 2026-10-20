@@ -91,7 +91,7 @@ def test_an_answer_shows_under_the_question_with_its_sources(monkeypatch):
 
 
 def test_a_source_card_shows_title_year_tier_licence_and_link(monkeypatch):
-    """A card has the title, tier badge, journal, year, licence (with its link) and the link."""
+    """A card has the title, authors, tier badge, journal, year, licence link and article link."""
     _use_model(monkeypatch, _answers("Four meals [S1]."))
     at = _ask(_start(), QUESTION)
     [sources] = _assistant(at).expander
@@ -99,7 +99,8 @@ def test_a_source_card_shows_title_year_tier_licence_and_link(monkeypatch):
     assert "**Made-up article 1**" in markdown
     assert ":green-badge[ISSN position stand]" in markdown
     assert "[:material/open_in_new: Open article](https://doi.org/10.1234/made-up.1)" in markdown
-    [caption] = [c.value for c in sources.caption]
+    authors, caption = [c.value for c in sources.caption]
+    assert authors == "Ann Example"
     assert caption == (
         "Journal of Made-up Results · 2021 · "
         "[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · cited as S1"
@@ -112,7 +113,7 @@ def test_a_tier_2_source_has_its_own_badge(monkeypatch):
     at = _ask(_start(), QUESTION)
     [sources] = _assistant(at).expander
     assert ":violet-badge[Peer-reviewed review]" in [m.value for m in sources.markdown]
-    assert [c.value for c in sources.caption][0].startswith("2022 · [CC BY 4.0]")
+    assert [c.value for c in sources.caption][1].startswith("2022 · [CC BY 4.0]")
 
 
 def test_no_relevant_source_shows_the_fixed_message_and_no_sources(monkeypatch):

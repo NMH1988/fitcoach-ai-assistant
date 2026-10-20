@@ -199,6 +199,8 @@ PROMPT_MISSING_MESSAGE = (
 # How the evidence tiers are named in the answer's sources (docs/UI_DESIGN.md).
 EVIDENCE_TIER_LABELS: dict[int, str] = {1: "ISSN position stand", 2: "Peer-reviewed review"}
 UNKNOWN_TIER_LABEL = "Review"
+# Authors named on a source card before "et al." (the full list is in ATTRIBUTION.md).
+CARD_AUTHORS_SHOWN = 3
 # Height of the scrolling message area in the Ask tab, so the chat input stays in view.
 CHAT_HEIGHT_PX = 520
 

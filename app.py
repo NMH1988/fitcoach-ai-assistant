@@ -273,9 +273,12 @@ def _run_turn(question: str) -> chat.TurnResult:
 
 
 def _source_card(card: chat.SourceCard) -> None:
-    """Show one cited article: title, evidence tier, journal, year, licence and link (AC-1)."""
+    """Show one cited article: title, authors, tier, journal, year, licence and link (AC-1)."""
     with st.container(border=True):
         st.markdown(f"**{chat.escape_markdown(card.title)}**")
+        if card.authors:
+            # Credits the authors on the card itself (CC BY; copyright policy rule 6).
+            st.caption(chat.escape_markdown(chat.format_authors(card.authors)))
         st.badge(
             config.EVIDENCE_TIER_LABELS.get(card.evidence_tier, config.UNKNOWN_TIER_LABEL),
             color=TIER_COLORS.get(card.evidence_tier, "gray"),
