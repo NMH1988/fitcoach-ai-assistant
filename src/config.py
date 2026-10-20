@@ -238,6 +238,19 @@ PROFILE_HEIGHT_CM_RANGE = (120.0, 230.0)
 PROFILE_AGE_RANGE = (18, 100)
 # The units the profile form and the sidebar start in; the user can switch to imperial.
 DEFAULT_UNIT_SYSTEM = "metric"
+# The first line of the "Your details" dialog (T4.6). A typed number is applied when the field
+# loses focus, so pressing Save right after typing keeps it (checked in the browser).
+PROFILE_FORM_HINT = "Type your values, then press Save. Values are checked when you save."
+# Hides Streamlit's in-field "Press Enter to apply" inside the dialog only; the hint above replaces
+# it. The one exception to "no custom CSS" in docs/UI_DESIGN.md, approved by the owner (T4.6):
+# Streamlit 1.66 has no option for it outside st.form, and the form is not an st.form so the units
+# switch can convert typed values. A fixed string, never built from user or model text. If a later
+# Streamlit renames the test id, the text comes back and nothing breaks.
+# The same test id also shows a text_input's max_chars counter: a text field with max_chars added to
+# this dialog would lose its counter too.
+PROFILE_DIALOG_CSS = (
+    '<style>[data-testid="stDialog"] [data-testid="InputInstructions"] { display: none; }</style>'
+)
 
 # calculate_tdee (docs/ARCHITECTURE.md section 6). Values approved by the owner on 2026-10-19 (O3);
 # the numbers in brackets are source IDs in docs/SOURCES.md.
