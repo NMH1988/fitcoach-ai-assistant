@@ -94,6 +94,9 @@ def _change_goal() -> None:
 @st.dialog("Your details", on_dismiss=_close_profile_form)
 def _profile_form() -> None:
     """Show the profile form; Save checks it and keeps the profile for this session."""
+    # Drawn only while the dialog is open: a style-only st.html takes no space (T4.6).
+    st.html(config.PROFILE_DIALOG_CSS)
+    st.caption(f":material/info: {config.PROFILE_FORM_HINT}")
     st.segmented_control(
         "Units",
         units.UNIT_SYSTEMS,

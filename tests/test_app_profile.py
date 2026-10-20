@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
+from src import config
 from src.profile import UserProfile
 
 APP = Path(__file__).resolve().parent.parent / "app.py"
@@ -259,3 +260,59 @@ def test_disclaimer_stays_visible_with_a_profile():
     """The disclaimer is still shown once a profile exists."""
     at = _add_metric_profile()
     assert any("Not medical advice" in box.value for box in at.warning)
+
+
+# --- T4.6: a hint instead of "Press Enter to apply" --------------------------------------------
+
+
+def _open_dialog() -> AppTest:
+    """Run the app and open the "Your details" dialog."""
+    at = _start()
+    return _button(at, "Add your details").click().run(timeout=30)
+
+
+def _first_element(block):
+    """Return the first element (not container) drawn inside a block."""
+    node = block
+    while getattr(node, "children", None):
+        node = next(iter(node.children.values()))
+    return node
+
+
+def test_the_hint_is_the_first_line_of_the_dialog():
+    """The dialog opens with the hint on how values are applied and saved (T4.6)."""
+    [dialog] = _open_dialog().get("dialog")
+    first = _first_element(dialog)
+    assert first.type == "caption"
+    assert first.value == f":material/info: {config.PROFILE_FORM_HINT}"
+
+
+def test_the_css_is_drawn_only_while_the_dialog_is_open():
+    """The style rule exists with the dialog open, not before it opens or after Save closes it."""
+    at = _start()
+    assert [h.value for h in at.html] == []
+    _button(at, "Add your details").click().run(timeout=30)
+    assert [h.value for h in at.html] == [config.PROFILE_DIALOG_CSS]
+    at = _save(_fill_metric(at))
+    assert "profile" in at.session_state
+    assert [h.value for h in at.html] == []
+
+
+def test_the_dialog_css_is_one_fixed_rule_scoped_to_the_dialog():
+    """The CSS hides only the input instructions inside the dialog and holds nothing else."""
+    css = config.PROFILE_DIALOG_CSS
+    assert css == (
+        '<style>[data-testid="stDialog"] [data-testid="InputInstructions"] '
+        "{ display: none; }</style>"
+    )
+    assert css.count("{") == css.count("}") == 1
+    for unsafe in ("<script", "javascript:", "@import", "url(", "{{"):
+        assert unsafe not in css.lower()
+
+
+def test_st_html_is_used_only_with_the_fixed_dialog_css():
+    """app.py calls st.html once, with the constant: never with user or model text."""
+    source = APP.read_text(encoding="utf-8")
+    assert source.count("st.html(") == 1
+    assert "st.html(config.PROFILE_DIALOG_CSS)" in source
+    assert "unsafe_allow_javascript" not in source

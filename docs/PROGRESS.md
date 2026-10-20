@@ -15,6 +15,20 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-20 · T4.6 Profile form: a hint instead of "Press Enter to apply" · PR pending (closes #40)
+- **Brief:** beyond the brief (owner's request, 2026-10-20).
+- **What:**
+  - `app.py`: the "Your details" dialog starts with `st.html(config.PROFILE_DIALOG_CSS)` and the hint `st.caption(":material/info: " + config.PROFILE_FORM_HINT)`.
+  - `src/config.py`: `PROFILE_FORM_HINT` ("Type your values, then press Save. Values are checked when you save.") and `PROFILE_DIALOG_CSS`, one fixed rule hiding `[data-testid="InputInstructions"]` inside `[data-testid="stDialog"]`.
+  - Tests (`tests/test_app_profile.py`): the hint is the dialog's first element; the CSS exists only while the dialog is open (not before, not after Save); the CSS is the expected fixed rule with no script, import or URL; `app.py` calls `st.html` once, with that constant. 1,034 tests pass.
+  - Docs: `docs/UI_DESIGN.md` (the one CSS exception, its reason and risk), `docs/SECURITY.md` (`st.html` only with the fixed CSS), plan (T4.6 added with the owner's criteria; T3.1 done after PR #38 merged).
+- **Why:** Streamlit shows "Press Enter to apply" inside a number field while a typed value is not applied yet. The owner found it confusing there and asked for a hint at the top of the form. Streamlit 1.66 hides it only inside `st.form(enter_to_submit=False)`, and T4.1 chose not to use a form so the units switch can convert typed values, so the owner approved one scoped CSS rule.
+- **Decisions & gotchas:**
+  - A style-only `st.html` is sent to Streamlit's event container, not the dialog, so it takes no space; called inside the dialog function, it exists only on runs where the dialog is drawn. AppTest lists it under `at.html` and the dialog under `at.get("dialog")`, both in the event container.
+  - Checked in the browser (temporary app on port 8504, no API call): the instruction element is still in the DOM while a value is typed but never shown, metric and imperial; a value typed and then saved by clicking Save directly is kept (77.3 kg; 5 ft 11 in with "11" typed last); after Save no style element is left on the page.
+  - AC2 wording adjusted with the owner's approval: the CSS is "drawn only while the dialog is open" (it lives in the event container, not inside the dialog).
+- **Follow-ups:** if a Streamlit upgrade brings the text back, check the test id (`InputInstructions`) and update `PROFILE_DIALOG_CSS`.
+
 ## 2026-10-20 · T3.1 First answer with sources (vector search) · #38 (closes #7)
 - **Brief:** core requirements 1 (similarity search), 4 (error handling, input validation) and 5 (UI with sources and progress); Easy 3 (source citations); AC-1, AC-2, AC-10 (progress), AC-13. The theme and header are part of the accepted `docs/UI_DESIGN.md`; colour polish stays an extra. Beyond the brief (owner's request): streaming and the paced reveal, the larger layout and text, the disclaimer box, the author line on source cards and the "About the answers" sidebar block.
 - **What:**
