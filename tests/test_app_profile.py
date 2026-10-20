@@ -28,9 +28,12 @@ def _start() -> AppTest:
 
 
 def _button(at: AppTest, label: str):
-    """Return the one button with this label."""
-    (found,) = [button for button in at.button if button.label == label]
-    return found
+    """Return the one button with this label; the sidebar's when the My targets tab has one too."""
+    found = [button for button in at.button if button.label == label]
+    if len(found) > 1:
+        found = [button for button in at.sidebar.button if button.label == label]
+    (button,) = found
+    return button
 
 
 def _metric(at: AppTest, label: str) -> str:

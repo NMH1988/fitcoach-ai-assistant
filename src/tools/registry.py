@@ -113,6 +113,19 @@ def _no_arguments_message(_: ValidationError) -> str:
     return config.NO_ARGUMENTS_MESSAGE
 
 
+def daily_targets(profile: UserProfile) -> MacroToolResult | ToolNotice:
+    """Return the daily targets for the profile's goal with its energy needs (no model call)."""
+    # The macro tool and the app's targets views (T4.7) both use this, so they always agree.
+    needs = _energy_needs(profile)
+    if needs.tdee_kcal is None:
+        # Not reached for a validated profile: its ranges are the tools' ranges.
+        return ToolNotice(status="error", message=config.TOOL_FAILED_MESSAGE)
+    targets = calculate_macro_targets(profile.weight_kg, profile.goal, needs.tdee_kcal)
+    return MacroToolResult(
+        status=targets.status, message=targets.message, energy_needs=needs, targets=targets
+    )
+
+
 def build_tools(
     profile: UserProfile | None, table: Sequence[Food] | None = None
 ) -> dict[str, StructuredTool]:
@@ -127,16 +140,7 @@ def build_tools(
 
     def macros() -> MacroToolResult | ToolNotice:
         """Return the daily targets for the profile's goal, or "profile needed"."""
-        if profile is None:
-            return _profile_needed()
-        needs = _energy_needs(profile)
-        if needs.tdee_kcal is None:
-            # Not reached for a validated profile: its ranges are the tools' ranges.
-            return ToolNotice(status="error", message=config.TOOL_FAILED_MESSAGE)
-        targets = calculate_macro_targets(profile.weight_kg, profile.goal, needs.tdee_kcal)
-        return MacroToolResult(
-            status=targets.status, message=targets.message, energy_needs=needs, targets=targets
-        )
+        return _profile_needed() if profile is None else daily_targets(profile)
 
     def food(food: str, grams: float) -> FoodLookupResult:
         """Return the nutrients of the food for the grams."""
@@ -191,6 +195,15 @@ def _run(tool: StructuredTool, args: object) -> ToolResult:
         # the fixed message, never the exception's text.
         return ToolNotice(status="error", message=config.TOOL_FAILED_MESSAGE)
     return result
+
+
+def run_food_lookup(
+    food: object, grams: object, table: Sequence[Food] | None = None
+) -> FoodLookupResult | ToolNotice:
+    """Look a food up as the tool would, for the Food lookup tab: checked, never an exception."""
+    # Same schema check and fixed messages as a model's call; no model is involved (T4.7).
+    tool = build_tools(None, table)[FOOD_TOOL]
+    return cast(FoodLookupResult | ToolNotice, _run(tool, {"food": food, "grams": grams}))
 
 
 def tool_message(call_id: str, result: ToolResult, name: str | None = None) -> ToolMessage:

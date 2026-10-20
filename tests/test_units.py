@@ -3,6 +3,7 @@
 import pytest
 
 from src import units
+from src.tools.energy import _macro
 
 
 @pytest.mark.parametrize(
@@ -92,3 +93,37 @@ def test_format_height(cm, system, expected):
 def test_every_unit_system_has_a_label():
     """Each unit system has a label for the units switch."""
     assert set(units.UNIT_SYSTEM_LABELS) == set(units.UNIT_SYSTEMS)
+
+
+@pytest.mark.parametrize(
+    ("g_per_kg", "system", "value", "shown"),
+    [
+        (1.9, "metric", 1.9, "1.9 g/kg"),
+        (2.0, "metric", 2.0, "2.0 g/kg"),
+        # 1.9 g/kg x 0.45359237 kg/lb = 0.8618 g/lb.
+        (1.9, "imperial", 0.86, "0.86 g/lb"),
+        (2.2, "imperial", 1.0, "1.00 g/lb"),
+        (1.6, "imperial", 0.73, "0.73 g/lb"),
+    ],
+)
+def test_grams_per_body_weight_follow_the_unit_system(g_per_kg, system, value, shown):
+    """Grams per kg are shown as g/kg in metric and converted to g/lb in imperial (T4.7)."""
+    assert units.per_body_weight(g_per_kg, system) == value
+    assert units.format_per_body_weight(g_per_kg, system) == shown
+
+
+def test_grams_per_lb_convert_back_to_grams_per_kg_within_rounding():
+    """g/lb converted back to g/kg gives the g/kg value within the shown rounding (AC-8)."""
+    for tenths in range(10, 31):
+        g_per_kg = tenths / 10
+        back = units.per_body_weight(g_per_kg, "imperial") / units.KG_PER_LB
+        assert back == pytest.approx(g_per_kg, abs=0.005 / units.KG_PER_LB)
+
+
+@pytest.mark.parametrize(
+    ("grams", "weight_kg"), [(50, 60), (51, 80), (52, 70), (418, 80), (84, 80)]
+)
+def test_grams_per_lb_from_a_macro_target_are_right_to_the_shown_decimal(grams, weight_kg):
+    """A macro's g/lb, from its g/kg to 0.01, is within 0.01 of grams over the weight in lb."""
+    shown = units.per_body_weight(_macro(grams, 4, 2000, weight_kg).g_per_kg, "imperial")
+    assert shown == pytest.approx(grams / units.kg_to_lb(weight_kg), abs=0.01)

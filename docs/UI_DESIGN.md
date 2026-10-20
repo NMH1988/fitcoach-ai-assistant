@@ -49,7 +49,7 @@ violetColor = "#AFA9EC"
 
 Both `[theme.light]` and `[theme.dark]` are set, so users keep the light/dark toggle. Exact hex values may be tuned when the theme is built; check contrast in both modes.
 
-Macro colours (charts, set in the Altair spec): protein `#0F6E56`, carbohydrate `#5DCAA5`, fat `#EF9F27`.
+Macro colours (charts, set in the Vega-Lite spec): protein `#168A6C`, carbohydrate `#7A6FD0`, fat `#B87318`. One palette for both modes (owner's choice in T4.7, 2026-10-20): each colour has at least 3:1 contrast against the main and the sidebar background in light and dark mode (WCAG 1.4.11 for graphics; `tests/test_theme.py`), so they differ by hue, not lightness. The charts cannot follow a theme switch reliably (`st.context.theme` may be wrong right after one in Streamlit 1.66), so no per-theme shades. The values are always also shown as text. Neighbouring colours differ by hue, not lightness (about 1.1:1 between them), so the donut has gaps between its parts; in the stacked bars the parts touch, and the legend and the values in text tell them apart. The first palette (protein `#0F6E56`, carbohydrate `#5DCAA5`, fat `#EF9F27`) fell to 2.0:1 (carbohydrate) and 2.2:1 (fat) on the light background (T4.4).
 
 ## Page layout
 
@@ -64,8 +64,8 @@ Macro colours (charts, set in the Altair spec): protein `#0F6E56`, carbohydrate 
 | Weight, height, age, sex | `st.columns(2)` of `st.metric(..., border=True)` | Values large, labels small; shown in the chosen units |
 | Activity | `st.metric(..., border=True)` full width | e.g. "Moderate · 4-5 times" |
 | Edit details | `st.button("Edit details", icon=":material/edit:", width="stretch")` | Opens the profile form in an `st.dialog` (owner's choice in T4.1): a Metric / Imperial switch, then plain inputs and a Save button, not an `st.form`, so switching units converts the values already typed. Validation messages come from `src/profile.py` |
-| Daily target | `st.metric("Daily target", "3,010 kcal", border=True)` | Always visible, whatever tab is open; added with the targets (T4.7, split from T4.4 by the owner on 2026-10-20) |
-| My targets (summary card) | `st.container(border=True)`: a donut of the energy split (protein, carbohydrate, fat; Altair `mark_arc` with an inner radius, about 120-140 px) with the daily kcal in the middle, and each macro's grams and % as text beside it | The full view stays in the My targets tab. One donut, not one circle per value: the three macros are parts of the kcal total, and kcal is the total, not a fourth part. Text values carry the numbers, as angles are harder to compare than lengths and colour is never the only signal. Owner's choice, 2026-10-20 (built in T4.7) |
+| Daily target | `st.metric("Daily target", "3,035 kcal", border=True)`, after Edit details | Always visible, whatever tab is open; built in T4.7 (split from T4.4 by the owner on 2026-10-20). Computed on every run from the session profile with `registry.daily_targets()`, the same function the macro tool uses, so it follows the goal control at once and makes no model call |
+| My targets (summary card) | `st.container(border=True)`: "My targets", a donut of the energy split (`st.vega_lite_chart`, an `arc` mark with `innerRadius`, gaps between the parts, `MACRO_DONUT_HEIGHT_PX` = 150 with the legend on its right) with the daily kcal in the middle, then one caption per macro ("**Protein** 152 g · 20% · 1.9 g/kg", g/lb in imperial), a warning line when protein was lowered, and "More in the My targets tab." | The full view stays in the My targets tab. One donut, not one circle per value: the three macros are parts of the kcal total, and kcal is the total, not a fourth part. Text values carry the numbers, as angles are harder to compare than lengths and colour is never the only signal. Owner's choice, 2026-10-20 (built in T4.7). The lines sit under the donut, not beside it: the sidebar is too narrow for both. Streamlit's chart theme colours axes and legends but leaves text marks black (unreadable in dark mode), so the kcal in the middle uses `currentColor`, which follows the page's text colour, even right after a theme switch (checked in the browser) |
 | Privacy note | `st.caption(":material/lock: Kept for this session only")` | |
 | Light or dark mode hint | `st.caption(config.THEME_HINT)` | Right after the privacy note (T7.3; its tests check the order) |
 | Details, last answer (summary card) | `st.container(border=True)`: "Last answer", how many ways the question was searched ("Searched 4 ways: your question and 3 rewrites.") and the filters as badges, a note when they were dropped (T3.2); the answer's tokens and cost and the session total (T5.1) | The full view stays in the Details tab. Owner's choice, 2026-10-20. Shown once a turn has searched. Its `st.empty()` slot is filled once per run, after the main area, so it shows the turn that just ran: a slot filled twice in one run kept the first draw's extra badges in the browser (AppTest does not show this; found in T3.2's browser check) |
@@ -115,16 +115,22 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 
 #### My targets
 
-- Four `st.metric(border=True)` in one row: daily kcal (with the surplus or deficit as delta), protein, carbohydrate, fat (grams; % and g/kg in the help text).
-- A thin horizontal stacked bar (Altair) of the macro split, with `alt=`.
-- Caption: maintenance kcal and how it was calculated, with the sources used.
-- Without a profile: an invitation and the "Add your details" button.
+Built in T4.7. Screenshots (fake model, sample profile): `docs/ui/t4.7-my-targets-light.jpg`, `docs/ui/t4.7-my-targets-dark.jpg`.
+
+- Four `st.metric(border=True)` in one row: daily kcal, with the surplus or deficit as a short grey delta ("+276 kcal", `delta_color="off"`: a deficit for fat loss is the plan, not a warning; a longer delta was cut off in a quarter of the tab), and protein, carbohydrate and fat in grams. Under each, a caption: the goal and the distance from maintenance ("Build muscle: 276 kcal above maintenance"), or the macro's % of the kcal and its grams per body weight (g/kg, or g/lb in imperial). Visible captions rather than help text, so the values are always on screen.
+- When protein was lowered to fit the target (very heavy body, low target), an `st.warning` right under the metrics with the note and the sources' protein range for this weight ("480-660 g a day (1.6 g/kg to 2.2 g/kg)").
+- The horizontal stacked bar of the macro split, the same chart as in "Tool results" (`_macro_bar()`), with `alt=`.
+- Captions: maintenance kcal with how it was calculated, the target's message, any other note (e.g. the calorie floor), and the sources as a list.
+- Without a profile: an invitation and the "Add your details" button (the same dialog).
 
 #### Food lookup
 
-- `st.text_input` for the food and `st.number_input` for grams, side by side with `vertical_alignment="bottom"`, and a "Look up" button.
-- Result: the matched USDA name, four small metrics (kcal, protein, carbohydrate, fat) and fibre in a caption; "Source: USDA FoodData Central".
-- Not found: a short message and close matches as `st.pills`.
+Built in T4.7. Screenshot: `docs/ui/t4.7-food-lookup.jpg`.
+
+- `st.text_input` for the food (at most `FOOD_MAX_NAME_CHARS`) and `st.number_input` for grams (`FOOD_MIN_GRAMS` to `FOOD_MAX_GRAMS`, 100 to start), side by side with `vertical_alignment="bottom"`, and a "Look up" button (the tab's primary button). A caption says the table holds single, unprocessed foods named in English.
+- The lookup is `registry.run_food_lookup()`: the tool's own schema check and fixed messages, with no model and no API call, so it does not go through the input guard or count in the rate limit. The last result is kept in the session, so it stays while other widgets rerun the page.
+- Result: "Matched USDA food, 80 g:", the USDA name with `st.text` (plain text), four metrics (energy, protein, carbohydrate, fat), fibre in a caption ("not reported" when USDA has no value), close alternatives in a plain-text table, and "Source: USDA FoodData Central, Foundation Foods (CC0)".
+- Not found: the fixed message in `st.info` and the close names in a "Did you mean" `st.dataframe`, not `st.pills` as first planned: pill labels read Markdown, and USDA names stay out of labels (owner's choice in T4.7). Invalid input gives the fixed message in `st.warning`; a missing foods table the fixed error.
 
 #### Details (for the last answer)
 
@@ -149,14 +155,14 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 |---|---|
 | Theme file, page config, header, tabs skeleton | T3.1 (core); T4.1 already sets `metricValueFontSize`, which the sidebar tiles need |
 | Sidebar goal control, profile tiles, Edit details dialog, units | T4.1 (core) |
-| Sidebar daily target, My targets summary card with the macro donut | T4.7 (core; split from T4.4) |
+| Sidebar daily target, My targets summary card with the macro donut | T4.7 (core; split from T4.4), done |
 | Sidebar Details summary card | T3.2 (rewrites and filters), T5.1 (usage) |
 | Sidebar "About the answers" block | T3.1 (beyond the brief, owner's request); folded into an expander once the summary cards arrive, so the sidebar does not grow too long (owner's choice, 2026-10-20) |
 | Chat messages, progress steps, source cards | T3.1 (core) |
 | Details tab: rewrites and filters | T3.2 (core) |
 | Tool results expander in the chat, with tables and the macro bar | T4.4 (core) |
-| My targets tab | T4.7 (core; split from T4.4) |
-| Food lookup tab | T4.7 (core; split from T4.4) |
+| My targets tab | T4.7 (core; split from T4.4), done |
+| Food lookup tab | T4.7 (core; split from T4.4), done |
 | Details tab: usage | T5.1 (extra) |
 | Light and dark mode hint, both themes checked | T7.3 (extra) |
 | Language control, German UI text, German guard and guardrail patterns | T7.1 (extra) |
