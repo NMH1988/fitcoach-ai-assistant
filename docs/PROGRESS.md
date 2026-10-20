@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-20 · T1.5 Docs: run commands use the project's venv · PR pending (closes #42)
+## 2026-10-20 · T1.5 Docs: run commands use the project's venv · #43 (closes #42)
 - **Brief:** the evaluation's technical item "the app works (you can chat and get answers)" (`docs/BRIEF.md`), when run as documented; prepares T6.2 (README).
 - **What:**
   - `README.md`: before the commands, a note that they run in a terminal with `.venv` active, how to call the venv's `streamlit` and `python` without activating it (PowerShell, Git Bash, macOS and Linux forms), and the symptoms of the wrong Python (`No module named 'langchain_chroma'` from the app, `'src'` from a script); the one-time knowledge base steps (`python scripts/download_sources.py`, no key needed; `python scripts/build_index.py`, needs the key, under one US cent) with the note to stop the app before rebuilding.
