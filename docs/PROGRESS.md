@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-20 · T4.6 Profile form: a hint instead of "Press Enter to apply" · PR pending (closes #40)
+## 2026-10-20 · T4.6 Profile form: a hint instead of "Press Enter to apply" · #41 (closes #40)
 - **Brief:** beyond the brief (owner's request, 2026-10-20).
 - **What:**
   - `app.py`: the "Your details" dialog starts with `st.html(config.PROFILE_DIALOG_CSS)` and the hint `st.caption(":material/info: " + config.PROFILE_FORM_HINT)`.
