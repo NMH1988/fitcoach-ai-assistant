@@ -61,7 +61,7 @@ Macro colours (charts, set in the Altair spec): protein `#0F6E56`, carbohydrate 
 | "Your profile" heading | `st.subheader` with `:material/person:` | |
 | Goal | `st.segmented_control` (Build muscle / Lose fat / Maintain, with icons), `width="stretch"` | Changing it recalculates the targets |
 | Weight, height, age, sex | `st.columns(2)` of `st.metric(..., border=True)` | Values large, labels small; shown in the chosen units |
-| Activity | `st.metric(..., border=True)` full width | e.g. "Moderate · 3-5 days" |
+| Activity | `st.metric(..., border=True)` full width | e.g. "Moderate · 4-5 times" |
 | Edit details | `st.button("Edit details", icon=":material/edit:", width="stretch")` | Opens the profile form in an `st.dialog` (owner's choice in T4.1): a Metric / Imperial switch, then plain inputs and a Save button, not an `st.form`, so switching units converts the values already typed. Validation messages come from `src/profile.py` |
 | Daily target | `st.metric("Daily target", "3,010 kcal", border=True)` | Always visible, whatever tab is open; added with the targets (T4.4) |
 | Privacy note | `st.caption(":material/lock: Kept for this session only")` | |

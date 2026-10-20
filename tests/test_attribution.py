@@ -4,7 +4,14 @@ import json
 
 from scripts import generate_attribution
 from src import config
-from src.rag.sources import CHANGES_MADE, Source, load_manifest, render_attribution
+from src.rag.sources import (
+    CHANGES_MADE,
+    FORMULA_CHANGES_MADE,
+    Source,
+    load_manifest,
+    render_attribution,
+)
+from src.tools.energy import FORMULA_SOURCES
 from src.tools.food import read_usda_release
 
 USDA_LINE = "- **USDA FoodData Central.** "
@@ -95,7 +102,9 @@ def test_write_attribution_writes_the_rendered_file(tmp_path):
     target = tmp_path / "ATTRIBUTION.md"
     foods = made_up_foods_table(tmp_path)
     assert generate_attribution.write_attribution(manifest, target, foods) == 1
-    expected = render_attribution([made_up_source()], usda_release="2025-12-18")
+    expected = render_attribution(
+        [made_up_source()], usda_release="2025-12-18", formula_sources=FORMULA_SOURCES
+    )
     assert target.read_bytes() == expected.encode("utf-8")
 
 
@@ -103,7 +112,9 @@ def test_committed_attribution_credits_every_source():
     """ATTRIBUTION.md is up to date with the manifest and credits every approved source."""
     sources = load_manifest()
     committed = config.ATTRIBUTION_PATH.read_text(encoding="utf-8")
-    expected = render_attribution(sources, usda_release=read_usda_release())
+    expected = render_attribution(
+        sources, usda_release=read_usda_release(), formula_sources=FORMULA_SOURCES
+    )
     assert committed == expected, "run python scripts/generate_attribution.py"
     for source in sources:
         line = entry_line(committed, source.id)
@@ -140,7 +151,9 @@ def test_main_writes_the_file_and_returns_0(monkeypatch, tmp_path, capsys):
     target = tmp_path / "ATTRIBUTION.md"
     monkeypatch.setattr(config, "ATTRIBUTION_PATH", target)
     assert generate_attribution.main() == 0
-    expected = render_attribution(load_manifest(), usda_release=read_usda_release())
+    expected = render_attribution(
+        load_manifest(), usda_release=read_usda_release(), formula_sources=FORMULA_SOURCES
+    )
     assert target.read_text(encoding="utf-8") == expected
     assert "with 21 sources" in capsys.readouterr().out
 
@@ -176,3 +189,29 @@ def test_dois_and_urls_cannot_inject_markdown():
     assert r"DOI: 10.1002/(SICI)1097-4636\<45:AID-JBM1\>\*x " in line
     assert "(https://doi.org/10.1002/%28SICI%291097-4636%3C45:AID-JBM1%3E%2Ax)" in line
     assert "<45" not in line.replace(r"\<45", "")
+
+
+def test_committed_attribution_credits_the_formula_sources():
+    """ATTRIBUTION.md credits sources #22 and #23 with DOI, notice, licence and changes."""
+    committed = config.ATTRIBUTION_PATH.read_text(encoding="utf-8")
+    assert committed.index("## Food data") < committed.index("## Formula sources")
+    for source in FORMULA_SOURCES:
+        line = entry_line(committed, source.id)
+        assert f"https://doi.org/{source.doi}" in line
+        assert source.license_url in line and source.license in line
+        assert source.copyright_notice.split(".")[0] in line
+        assert f"Changes: {FORMULA_CHANGES_MADE}." in line
+        assert line.endswith("No endorsement by the authors or publisher is implied.")
+
+
+def test_formula_sources_are_ids_22_and_23():
+    """The formula sources keep the IDs they have in docs/SOURCES.md."""
+    assert [source.id for source in FORMULA_SOURCES] == ["22", "23"]
+    sources_md = (config.PROJECT_ROOT / "docs" / "SOURCES.md").read_text(encoding="utf-8")
+    for source in FORMULA_SOURCES:
+        assert f"| {source.id} |" in sources_md and source.doi in sources_md
+
+
+def test_no_formula_section_without_formula_sources():
+    """Without formula sources the file has no formula section."""
+    assert "## Formula sources" not in render_attribution([made_up_source()])

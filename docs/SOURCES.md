@@ -55,6 +55,17 @@ CC BY 2.0 (#12) allows the same uses as CC BY 4.0 (copy, redistribute, adapt, in
 |---|---|---|---|---|
 | 21 | USDA FoodData Central (Foundation Foods first) | CC0 1.0 / public domain | fdc.nal.usda.gov home page and API guide | No permission needed; USDA asks to credit "FoodData Central". Foundation Foods updates in April and October; SR Legacy stopped in 2018; Branded component data no longer updated by Label Insight after 2023-11-16. We download the CSV (no key needed); the API (data.gov key) is not used. Downloads: https://fdc.nal.usda.gov/download-datasets/. In use (T4.3): Foundation Foods CSV, release 2026-04-30, downloaded 2026-10-19; the home page, read the same day, says the data are public domain, published under CC0 1.0, and asks users to list FoodData Central as the source (credit lines at the top of `data/usda_foods.csv` and under "Food data" in `ATTRIBUTION.md`). |
 
+### Formula sources (for the energy tools, not the vector store)
+
+Added in T4.2 with the owner's approval (2026-10-19), because none of the approved articles gives the Mifflin-St Jeor equation or activity factors. Found through the Europe PMC REST API; the licence was read on the publisher's article page on 2026-10-19 (mdpi.com, frontiersin.org) and matches the licence block of the article XML from the Europe PMC REST API. Only numbers are used, in `src/config.py`; no text goes into the knowledge base, prompts or the repo. Credited in `ATTRIBUTION.md` under "Formula sources".
+
+| # | Title (short) | Year | Journal | Licence (as stated in the article) | Checked on | Used for | ID |
+|---|---|---|---|---|---|---|---|
+| 22 | Measured resting metabolic rate for dietary prescription in ageing adults with overweight (Cooney et al.) | 2021 | Nutrients (MDPI) | CC BY 4.0 | publisher page (mdpi.com) and Europe PMC XML, 2026-10-19 | The Mifflin-St Jeor coefficients, given in the methods text (men: 10 x kg + 6.25 x cm - 5 x age + 5; women: ... - 161) | PMC8068182 (DOI 10.3390/nu13041229) |
+| 23 | Daily nutrient intake and biomarkers in the NU-AGE study (Ostan et al.) | 2018 | Frontiers in Physiology | CC BY 4.0 | publisher page (frontiersin.org) and Europe PMC XML, 2026-10-19 | The activity factors 1.2, 1.375, 1.55, 1.725 and 1.9 and the activity frequency each belongs to (under once a week; 1-3; 4-5; 6-7; more than 7 times a week with extra heavy workouts), given in the methods text | PMC6174234 (DOI 10.3389/fphys.2018.01359) |
+
+Both articles state these values as the method of their own study (an older or overweight population) and cite earlier work for them; the app uses them as the standard equation and factors, not as findings of these studies. Neither article says the equation is exact: #23 notes it is less accurate in people with obesity, which is why the tools call their results estimates.
+
 ## Excluded
 
 ### Needs permission, restricted or unverified licence
