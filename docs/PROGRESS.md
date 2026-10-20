@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-20 · T1.6 CI: accept the pillow 12.3.0 advisories until Streamlit allows pillow 13 · PR to come (closes #55)
+## 2026-10-20 · T1.6 CI: accept the pillow 12.3.0 advisories until Streamlit allows pillow 13 · #58 (closes #55)
 - **Brief:** core 3 and 4 (security measures; a working CI with a dependency audit).
 - **What:** `.github/workflows/ci.yml` ignores eight pillow 12.3.0 advisories in `pip-audit` (CVE-2026-112895, -112400, -112397, -112896, -112897, -112395, -112404, -112899), with the reason; `docs/SECURITY.md` has a row for each under "Accepted risks" and a paragraph on why they do not apply; `tests/test_ci_audit.py` (new) checks that every advisory ignored in CI has a row there; plan (T1.6, issue #55).
 - **Why:** CI's security job started failing on 2026-10-20 for every branch, `main` included (found on PR #53, T4.7). pillow 13.0.0 fixes all eight, but streamlit 1.66.0, the latest release, requires `pillow<13`, so pillow cannot be upgraded. Each advisory needs Pillow to open, decode, encode or transform an image an attacker supplies (PDF, GIF, TIFF, EPS, morphology); the app takes no image from users, removes images from answers, and its code never imports Pillow (it comes with streamlit and reportlab). Owner's decision: accept the risk in its own PR from `main`, then merge `main` into T4.7.
