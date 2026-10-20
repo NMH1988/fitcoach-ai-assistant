@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-20 · T7.3 Light and dark mode · #? (closes #35)
+## 2026-10-20 · T7.3 Light and dark mode · #47 (closes #35)
 - **Brief:** beyond the brief (owner's request, 2026-10-20); supports core 5 (intuitive UI); AC-17.
 - **What:**
   - `.streamlit/config.toml`: `[client] toolbarMode = "auto"` set explicitly (it was the default) with why "minimal" must not be used; the light text colour is now #14171B (was #1F2328); a comment on the dark primary colour's known limit.
