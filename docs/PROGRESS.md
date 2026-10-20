@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-20 · T3.1 First answer with sources (vector search) · PR pending (closes #7)
+## 2026-10-20 · T3.1 First answer with sources (vector search) · #38 (closes #7)
 - **Brief:** core requirements 1 (similarity search), 4 (error handling, input validation) and 5 (UI with sources and progress); Easy 3 (source citations); AC-1, AC-2, AC-10 (progress), AC-13. The theme and header are part of the accepted `docs/UI_DESIGN.md`; colour polish stays an extra.
 - **What:**
   - `src/chat.py` (new): `run_turn()` runs the guard (`run_guarded`), opens the index, retrieves, and answers; every error (an `LLMError`, `IndexNotReadyError`, a missing key or unreadable secrets file) and every guard rejection ends as a `TurnResult` (`answer`, `no_sources`, `rejected`, `error`) with a fixed message and the steps run. `build_messages()` puts the chunks in `<sources>` as `[S1]`... blocks (title, year, tier, text) and the cleaned question in `<user_input>`, both in the user message. `cited_labels()` reads `[S1]`, `[S1, S3]`, `[S2; S4]`, `[S1 and S2]` and ignores labels outside 1..n; `source_cards()` makes one card per cited article (all its labels, the first three authors and "et al.", journal from the manifest, licence link, and the #18/#18a correction link both ways).
