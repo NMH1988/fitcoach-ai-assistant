@@ -56,7 +56,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T4.2 | #12 | Energy and macro tools with the calorie floor | M | T4.1, O3 | 10-25 | done |
 | T1.5 | #42 | Docs: run commands use the project's venv | S | T1.1 | 10-20 | done |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1, O7 | 10-26 | done |
-| T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2, O2 | 10-27 | in review |
+| T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2 | 10-27 | in review |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | done |
 | T4.4 | #14 | Tool-calling loop and tool results UI | M | T3.1, T4.2, T4.3 | 10-28 | done |
 | T4.7 | #44 | My targets: sidebar target, targets tab and Food lookup tab (split from T4.4, owner's decision) | M | T4.4 | 10-29 | todo |
@@ -193,12 +193,12 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 ### T3.3 Hybrid search (BM25 + RRF) (M) · status: in review · issue #9
 **Serves:** Hard 1; AC-4.
-**Depends on:** T3.2, O2
+**Depends on:** T3.2 (O2 moved to T3.6 with the comparison)
 **Acceptance criteria**
 - [x] `src/rag/hybrid.py` builds a BM25 index over the chunk texts (cached) and merges ranked lists with RRF (`1 / (60 + rank)`) - unit test on a hand-computed example (`tests/test_hybrid.py::test_rrf_scores_match_a_hand_computed_example`, with the ties, distinct chunks and the BM25 search in the same file; cached once per app process: `tests/test_app_chat.py::test_the_keyword_index_is_built_once_for_several_questions`, and rebuilt with the index after it stops working: `test_a_broken_index_clears_the_cached_keyword_index`).
 - [x] Each rewrite runs vector and BM25 search with the same filter; all lists are fused; the top 6 distinct chunks are kept - integration test (`tests/test_chat.py`: `test_each_query_runs_vector_and_keyword_search_with_the_same_filter`, `test_find_chunks_fuses_every_list_and_keeps_the_top_k_distinct_chunks`, `test_with_the_filter_dropped_keyword_search_runs_unfiltered_too`; the gate: `test_an_off_topic_question_runs_no_keyword_search`, `test_a_keyword_match_alone_does_not_make_a_question_covered`; `tests/test_hybrid.py::test_filter_ids_uses_the_chroma_filter`).
 - [x] A query with an exact term (e.g. "HMB") retrieves the HMB source (AC-4) - integration test on a small fixture index (`tests/test_chat.py::test_an_exact_term_finds_the_hmb_source_that_vector_search_misses`: vector search alone misses it, the turn finds and cites it).
-- [x] ~~On the owner's evaluation questions (O2), vector-only, keyword-only and hybrid retrieval are compared and the hit rates recorded in `docs/TESTING.md` - owner live check (O5) or a run with the real index.~~ Moved to T3.6 (issue #51, owner's decision, 2026-10-20). T3.3 delivers the script for it (`scripts/compare_retrieval.py`, tested in `tests/test_compare_retrieval.py`; how to run it in `docs/TESTING.md`).
+- Moved: ~~On the owner's evaluation questions (O2), vector-only, keyword-only and hybrid retrieval are compared and the hit rates recorded in `docs/TESTING.md` - owner live check (O5) or a run with the real index.~~ Moved to T3.6 (issue #51, owner's decision, 2026-10-20). T3.3 delivers the script for it (`scripts/compare_retrieval.py`, tested in `tests/test_compare_retrieval.py`; how to run it in `docs/TESTING.md`).
 
 **Notes:** owner's choices (2026-10-20): vector search decides whether the sources cover a question (`RETRIEVAL_MAX_DISTANCE`), and keyword search adds its lists only then, so an off-topic question is handled as before; code first, O2 later, with the comparison itself moved to T3.6 (#51) so this PR can close #9; the owner runs the comparison (O5); no new UI, only the search step's caption and "About the answers" text. The comparison searches the question alone, with no rewrites and no filter, so only the method differs. T3.3 was started before T5.1, which the owner paused for it (core first).
 

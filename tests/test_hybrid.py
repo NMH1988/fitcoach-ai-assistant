@@ -62,6 +62,25 @@ def test_rrf_breaks_ties_by_distance_then_keyword_only_last():
     assert hybrid.rrf([[keyword_only], [far], [near]]) == [near, far, keyword_only]
 
 
+def test_rrf_keeps_a_true_tie_whatever_the_order_of_the_ranks():
+    """The same ranks in another order give the same score, so the tie rule still decides."""
+    # Ranks 1, 1, 6 against 6, 1, 1: equal sums that plain float addition put one ulp apart, so
+    # the keyword-only chunk came first (found in the review of PR #52).
+    near, keyword_only = _chunk("1", distance=0.2), _chunk("2")
+    filler = [_chunk("9", n) for n in range(5)]
+    lists = [
+        [near],
+        [near],
+        [*filler, near],
+        [*filler, keyword_only],
+        [keyword_only],
+        [keyword_only],
+    ]
+    scores = hybrid.rrf_scores(lists)
+    assert scores["1-0"] == scores["2-0"]
+    assert hybrid.rrf(lists, k=2) == [near, keyword_only]
+
+
 def test_rrf_keeps_the_vector_distance_of_a_chunk_also_found_by_keyword():
     """A chunk found by both searches keeps its cosine distance, not the keyword list's None."""
     by_keyword, by_vector = _chunk("1"), _chunk("1", distance=0.3)

@@ -207,6 +207,7 @@ def find_chunks(
     question: str,
     plan: QueryPlan | None,
     index: Chroma,
+    *,
     keyword_index: Callable[[Chroma], KeywordIndex] = hybrid.build_keyword_index,
 ) -> tuple[list[RetrievedChunk], SearchDetails]:
     """Search the question and its rewrites by meaning and by keyword, merged with RRF (T3.3)."""
@@ -534,7 +535,7 @@ def answer_question(
     )
     on_step(Step.SEARCH)
     with llm.mapped_errors():
-        chunks, details = find_chunks(question, plan, index, keyword_index)
+        chunks, details = find_chunks(question, plan, index, keyword_index=keyword_index)
     on_step(Step.ANSWER)
     # The user's own question, never the rewrites, goes to the answer model.
     messages = build_messages(question, chunks, models.system_prompt, user)

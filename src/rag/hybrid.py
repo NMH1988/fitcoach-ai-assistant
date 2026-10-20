@@ -5,6 +5,7 @@ name). RRF merges the ranked lists without comparing their scores: each chunk sc
 1 / (RRF_K + rank) over the lists it is in (docs/ARCHITECTURE.md, D4).
 """
 
+import math
 import re
 from collections.abc import Callable, Collection, Sequence
 from typing import Any
@@ -125,12 +126,13 @@ def _distance_order(chunk: RetrievedChunk) -> float:
 
 def rrf_scores(lists: Sequence[Sequence[RetrievedChunk]]) -> dict[str, float]:
     """Return each chunk's RRF score by chunk ID, in the order the chunks were first found."""
-    scores: dict[str, float] = {}
+    terms: dict[str, list[float]] = {}
     for ranked in lists:
         for rank, chunk in enumerate(ranked, start=1):
-            key = chunk_key(chunk)
-            scores[key] = scores.get(key, 0.0) + 1 / (config.RRF_K + rank)
-    return scores
+            terms.setdefault(chunk_key(chunk), []).append(1 / (config.RRF_K + rank))
+    # fsum is correctly rounded, so the same ranks in another order give the same float and a
+    # true tie stays a tie (plain + gave 1/61 + 1/61 + 1/66 and 1/66 + 1/61 + 1/61 one ulp apart).
+    return {key: math.fsum(values) for key, values in terms.items()}
 
 
 def rrf(lists: Sequence[Sequence[RetrievedChunk]], k: int | None = None) -> list[RetrievedChunk]:

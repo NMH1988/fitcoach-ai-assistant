@@ -1,4 +1,4 @@
-"""Live check O5 for T3.3: vector-only, keyword-only and hybrid retrieval on the owner's questions.
+"""Live check O5 for T3.6: vector-only, keyword-only and hybrid retrieval on the owner's questions.
 
 Run by the owner from the repo root, after the index is built, with the key set up:
 

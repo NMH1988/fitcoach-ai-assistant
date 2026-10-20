@@ -1,4 +1,4 @@
-"""Tests for scripts/compare_retrieval.py with a fixture index (the real run is O5, T3.3)."""
+"""Tests for scripts/compare_retrieval.py (T3.3) with a fixture index; the real run is T3.6 (O5)."""
 
 import json
 
