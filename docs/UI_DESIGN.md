@@ -8,7 +8,7 @@ How the Streamlit app looks and where each piece of information lives. Accepted 
 
 - **The chat comes first.** The Ask tab shows only what a user needs to read an answer: the answer, its sources and its tool result. Everything else is one tab away.
 - **One accent colour** (teal-green) on a neutral base; one primary button per view.
-- **Compact text:** body 14 px (Streamlit's default is 16 px); captions for labels and meta lines.
+- **Readable text:** body 17 px (Streamlit's default is 16 px); captions for labels and meta lines. The owner found 14 px too small to read in the chat (2026-10-20, T3.1).
 - **Native first:** `st.chat_message`, `st.metric`, `st.badge`, `st.tabs`, `st.status`, `st.dialog`. No `unsafe_allow_html`, no `st.html` styling. If a detail of the mockup needs CSS, the native look wins.
 - **Sentence case**, Material Symbols icons (`:material/name:`), no emoji in the UI.
 
@@ -17,7 +17,7 @@ How the Streamlit app looks and where each piece of information lives. Accepted 
 ```toml
 [theme]
 font = "sans-serif"          # system font; no Google Fonts request (visitors' IPs are not sent to Google)
-baseFontSize = 14
+baseFontSize = 17
 baseRadius = "0.5rem"
 buttonRadius = "0.5rem"
 showWidgetBorder = true
@@ -52,25 +52,28 @@ Macro colours (charts, set in the Altair spec): protein `#0F6E56`, carbohydrate 
 
 ## Page layout
 
-`st.set_page_config(page_title="Gym nutrition assistant", page_icon=":material/nutrition:", layout="centered")`.
+`st.set_page_config(page_title="Nutrition AI Assistant", page_icon=":material/nutrition:", layout="wide")`, with the header and tabs in the middle of three columns weighted `PAGE_COLUMN_WEIGHTS` = (1, 6, 1). The content takes about three quarters of the main area (about 1,050 px on a 1920 px screen with the sidebar open, instead of about 700 px with the centered layout) without lines too long to read; on a laptop it is about as wide as before (owner's request, 2026-10-20, T3.1).
 
 ### Sidebar: the profile
 
 | Element | Streamlit | Notes |
 |---|---|---|
-| "Your profile" heading | `st.subheader` with `:material/person:` | |
+| "Your profile" heading | `st.header` with `:material/person:` | Larger than `st.subheader` (owner's request, 2026-10-20) |
 | Goal | `st.segmented_control` (Build muscle / Lose fat / Maintain, with icons), `width="stretch"` | Changing it recalculates the targets |
 | Weight, height, age, sex | `st.columns(2)` of `st.metric(..., border=True)` | Values large, labels small; shown in the chosen units |
 | Activity | `st.metric(..., border=True)` full width | e.g. "Moderate · 4-5 times" |
 | Edit details | `st.button("Edit details", icon=":material/edit:", width="stretch")` | Opens the profile form in an `st.dialog` (owner's choice in T4.1): a Metric / Imperial switch, then plain inputs and a Save button, not an `st.form`, so switching units converts the values already typed. Validation messages come from `src/profile.py` |
 | Daily target | `st.metric("Daily target", "3,010 kcal", border=True)` | Always visible, whatever tab is open; added with the targets (T4.4) |
+| My targets (summary card) | `st.container(border=True)`: a donut of the energy split (protein, carbohydrate, fat; Altair `mark_arc` with an inner radius, about 120-140 px) with the daily kcal in the middle, and each macro's grams and % as text beside it | The full view stays in the My targets tab. One donut, not one circle per value: the three macros are parts of the kcal total, and kcal is the total, not a fourth part. Text values carry the numbers, as angles are harder to compare than lengths and colour is never the only signal. Owner's choice, 2026-10-20 (T4.4) |
+| Details, last answer (summary card) | `st.container(border=True)`: the number of rewrites and the filters as badges (T3.2), the answer's tokens and cost and the session total (T5.1) | The full view stays in the Details tab. Owner's choice, 2026-10-20 |
 | Privacy note | `st.caption(":material/lock: Kept for this session only")` | |
+| About the answers | `st.divider`, `st.header(":material/menu_book: About the answers")`, three bullets (article count by tier and licence from the manifest, how answers cite passages, the answer model) and a "Sources and credits" expander listing every source with its first three authors, title, year, journal, licence and article link, then the change made and the no-endorsement note (the same text as `ATTRIBUTION.md`) | Fills the empty sidebar and credits the sources (copyright policy rule 6); beyond the brief (owner's request, 2026-10-20) |
 
 Before a profile exists, the sidebar shows a short invitation and the "Add your details" button (same dialog) instead of the tiles.
 
 ### Header
 
-App name with icon on the left; `st.badge("Not medical advice", icon=":material/info:", color="orange")` on the right (`st.container(horizontal=True)`). Always visible (AC-12).
+App name with icon on the left; `st.badge("Not medical advice", icon=":material/info:", color="orange")` on the right (`st.container(horizontal=True)`). Below it the intro as plain text and the full disclaimer in `st.warning`, starting with a bold "Not medical advice.", so it is large and easy to notice (owner's request, 2026-10-20; a badge's text size is fixed in Streamlit 1.66). Always visible (AC-12). Tab labels are bold; their size is fixed too.
 
 ### Tabs
 
@@ -81,9 +84,9 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 - Messages in `st.container(height=...)` so the input stays in view; `st.chat_input("Ask about nutrition for your training")` directly below it, inside the tab (inline, not pinned).
 - User messages: `st.chat_message("user")`.
 - Assistant messages: `st.chat_message("assistant", avatar=":material/nutrition:")`, containing in order:
-  1. **Progress** while the turn runs: `st.status(":shimmer[Searching sources]", type="compact")` with `type="step"` children (check input, rewrite question, search sources, answer, tools). Collapses to a static label when done (core 5).
-  2. **Answer** as Markdown with `[S#]` citations (no `unsafe_allow_html`).
-  3. **Sources:** one `st.container(border=True)` per cited source: bold title, `st.badge` for the evidence tier (green "ISSN position stand", violet "Peer-reviewed review"), caption with journal, year and licence, and a link "Open article" (AC-1).
+  1. **Progress** while the turn runs: `st.status(":shimmer[Searching sources]", type="compact")` with `type="step"` children (check input, rewrite question, search sources, answer, tools). Collapses to a static label when done (core 5). Each step holds a one-line caption on what it does: in Streamlit 1.66 a step without content ends the timeline and hides the steps after it (found in T3.1). Past turns show the same collapsed status.
+  2. **Answer** as Markdown with `[S#]` citations (no `unsafe_allow_html`), streamed in under the status box as the model writes it, revealed word by word at most `ANSWER_WORDS_PER_SECOND` (30) so it reads at a steady pace even when the model sends it in bursts, then replaced by the full result (owner's requests in T3.1).
+  3. **Sources:** one `st.container(border=True)` per cited source: bold title, a caption with the first three authors and "et al." (owner's choice in T3.1, for the CC BY credit), `st.badge` for the evidence tier (green "ISSN position stand", violet "Peer-reviewed review"), caption with journal, year and licence, and a link "Open article" (AC-1).
   4. **Tool result:** a compact expander labelled with the headline result (e.g. ":material/calculate: Protein target: 160 g") that opens to the result table (AC-6, T4.4).
 - **Empty chat:** a one-line invitation and three suggested questions as `st.pills` in an `st.empty()` placeholder, sent through the same handler as typed input; hidden once the chat has a message.
 - **Errors:** a short `st.error` inside the assistant message saying what happened and what to do; the history stays (AC-13).
@@ -124,7 +127,9 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 |---|---|
 | Theme file, page config, header, tabs skeleton | T3.1 (core); T4.1 already sets `metricValueFontSize`, which the sidebar tiles need |
 | Sidebar goal control, profile tiles, Edit details dialog, units | T4.1 (core) |
-| Sidebar daily target | T4.4 (core) |
+| Sidebar daily target, My targets summary card with the macro donut | T4.4 (core) |
+| Sidebar Details summary card | T3.2 (rewrites and filters), T5.1 (usage) |
+| Sidebar "About the answers" block | T3.1 (beyond the brief, owner's request); folded into an expander once the summary cards arrive, so the sidebar does not grow too long (owner's choice, 2026-10-20) |
 | Chat messages, progress steps, source cards | T3.1 (core) |
 | Details tab: rewrites and filters | T3.2 (core) |
 | Tool result expander, My targets tab, macro bar | T4.4 (core) |
@@ -134,5 +139,5 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 
 ## Open questions
 
-- Height of the message container on small screens: check during T3.1.
-- Whether `baseFontSize = 14` reads well on a phone: check during the UI polish ticket.
+- Height of the message container: `CHAT_HEIGHT_PX` = 750 (owner's requests, 2026-10-20: 650, then 750 to fill a tall window), which keeps the input in view in a 1200 px window (checked: the input ends at 1030 px); on a shorter window the page scrolls to the input. Streamlit has no height relative to the window, and it advises at most 500 px for phones: revisit in the UI polish ticket.
+- Whether `baseFontSize = 17` and the wide layout read well on a phone: check during the UI polish ticket. At 17 px the sidebar goal control wraps "Maintain" onto a second line (checked 2026-10-20).

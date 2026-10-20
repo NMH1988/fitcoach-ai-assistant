@@ -65,7 +65,7 @@ class LLMConnectionError(LLMError):
 
 
 class ReplyCutOffError(LLMError):
-    """The reply hit the token limit before it was finished (structured output only)."""
+    """The reply hit the token limit before it was finished (an answer or structured output)."""
 
     user_message = "The answer was cut off before it was finished. Please try again."
 

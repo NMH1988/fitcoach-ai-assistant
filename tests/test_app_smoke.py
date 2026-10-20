@@ -5,7 +5,8 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
-from src import config
+from src import chat, config
+from src.rag.sources import ARTICLE_CHANGES_NOTE
 
 APP = Path(__file__).resolve().parent.parent / "app.py"
 
@@ -36,7 +37,40 @@ def test_app_shows_title():
 
 
 def test_app_shows_disclaimer():
-    """The 'not medical advice' disclaimer is visible on the page."""
+    """The 'Not medical advice' badge and the full disclaimer box are on the page (AC-12)."""
     at = _run_app()
-    assert [box.value for box in at.info] == [config.DISCLAIMER]
+    assert ":orange-badge[:material/info: Not medical advice]" in [m.value for m in at.markdown]
+    assert [box.value for box in at.warning] == [f"**Not medical advice.** {config.DISCLAIMER}"]
     assert "not medical advice" in config.DISCLAIMER
+
+
+def test_app_shows_the_four_tabs():
+    """The page has the Ask, My targets, Food lookup and Details tabs (docs/UI_DESIGN.md)."""
+    at = _run_app()
+    assert [tab.label for tab in at.tabs] == [
+        ":material/chat: **Ask**",
+        ":material/target: **My targets**",
+        ":material/search: **Food lookup**",
+        ":material/list: **Details**",
+    ]
+
+
+def test_the_sidebar_says_what_the_answers_are_based_on():
+    """The sidebar counts the articles by tier and credits each source with its licence."""
+    at = _run_app()
+    summary = chat.knowledge_base_summary(chat.manifest_by_id())
+    assert summary.articles == 20
+    notes = [m.value for m in at.sidebar.markdown if "open-access research articles" in m.value]
+    assert len(notes) == 1
+    assert f"{summary.position_stands} ISSN position stands" in notes[0]
+    assert config.DEFAULT_ANSWER_MODEL in notes[0]
+    [credits] = [e for e in at.sidebar.expander if e.label == "Sources and credits"]
+    lines = [m.value for m in credits.markdown]
+    assert len(lines) == len(chat.manifest_by_id())
+    assert all("creativecommons.org" in line and "https://doi.org/" in line for line in lines)
+    first = next(iter(chat.manifest_by_id().values()))
+    assert chat.escape_markdown(chat.format_authors(first.authors)) in lines[0]
+    # The change made and the no-endorsement note, worded as in ATTRIBUTION.md (CC BY).
+    [note] = [c.value for c in credits.caption]
+    assert note.startswith(ARTICLE_CHANGES_NOTE)
+    assert ARTICLE_CHANGES_NOTE in Path(config.ATTRIBUTION_PATH).read_text(encoding="utf-8")

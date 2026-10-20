@@ -30,6 +30,11 @@ if TYPE_CHECKING:
 
 # The change made to every article, stated in the attribution as CC BY requires.
 CHANGES_MADE = "text extracted and split into chunks"
+# The change made and the no-endorsement note for every article, in ATTRIBUTION.md and in the app.
+ARTICLE_CHANGES_NOTE = (
+    f"Changes made to every article: {CHANGES_MADE}. No endorsement by the authors, the "
+    "journals or the publishers is implied."
+)
 
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
@@ -260,8 +265,7 @@ def render_attribution(
         "used under its own licence, as stated in the article itself; the licence of this "
         "repository's code does not apply to them.",
         "",
-        f"Changes made to every article: {CHANGES_MADE}. No endorsement by the authors, the "
-        "journals or the publishers is implied.",
+        ARTICLE_CHANGES_NOTE,
         "",
         "Generated from `data/sources.json` by `python scripts/generate_attribution.py`; do not "
         "edit by hand.",
