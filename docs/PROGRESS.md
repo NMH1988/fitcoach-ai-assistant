@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-20 · T3.2 Query translation and structured filters · PR pending (closes #8)
+## 2026-10-20 · T3.2 Query translation and structured filters · #48 (closes #8)
 - **Brief:** the advanced RAG requirement (query translation, structured retrieval); AC-3; partly Easy 2 (showing the RAG process).
 - **What:**
   - `src/rag/query_translation.py` (new): `QueryPlan` (exactly 3 rewrites, each 1-300 characters; `topics` from `config.TOPICS`; `min_year` in `QUERY_MIN_YEAR_RANGE`; `evidence_tier` 1 or 2), `translate()` (one `gpt-5-nano` call with `with_structured_output(..., method="json_schema")`; the question only in `<user_input>`; `None` for an unusable reply), `build_filter()` (any topic via `$or` of `$contains`, `year $gte`, `evidence_tier $eq`, `$and`).
