@@ -1,7 +1,9 @@
 """Query translation: one small-model call rewrites the question and picks optional filters (T3.2).
 
-The question goes only inside <user_input> in the user message; the system prompt is the owner's
-(O7). The rewrites are used for the search and shown in the app, never sent to the answer model.
+The question goes only inside <user_input> in the user message, escaped like the answer step's
+(`src/prompt_data.py`, T3.4), and the messages are built directly, never from a prompt template;
+the system prompt is the owner's (O7). The rewrites are used for the search and shown in the app,
+never sent to the answer model.
 """
 
 from typing import Any, Literal
@@ -11,6 +13,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src import config, llm
+from src.prompt_data import escape_prompt_data
 
 Topic = Literal[config.TOPICS]
 EvidenceTier = Literal[config.EVIDENCE_TIERS]
@@ -51,7 +54,9 @@ class QueryPlan(BaseModel):
 
 def build_messages(question: str, system_prompt: str) -> list[SystemMessage | HumanMessage]:
     """Return the owner's system prompt and a user message holding only <user_input>."""
-    return [SystemMessage(system_prompt), HumanMessage(f"<user_input>\n{question}\n</user_input>")]
+    # Escaped, so a look-alike such as "</user_input>" in the question cannot end the block.
+    user = f"<user_input>\n{escape_prompt_data(question)}\n</user_input>"
+    return [SystemMessage(system_prompt), HumanMessage(user)]
 
 
 def translate(question: str, model: BaseChatModel, system_prompt: str) -> QueryPlan | None:

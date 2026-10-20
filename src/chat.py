@@ -2,10 +2,11 @@
 
 The user's question goes only inside <user_input> and the retrieved chunks only inside <sources>,
 both in the user message; neither is ever put into the system prompt
-(.claude/rules/security-privacy.md). The rewrites from query translation are used only for the
-search and shown in the app; the answer model gets the user's own question. Every error a user
-can cause or meet ends as a TurnResult with a fixed message, so the app shows it in the answer and
-keeps the chat history (AC-13).
+(.claude/rules/security-privacy.md). Both are escaped first (`src/prompt_data.py`), so no text can
+close or open a block (T3.4). The rewrites from query translation are used only for the search and
+shown in the app; the answer model gets the user's own question. Every error a user can cause or
+meet ends as a TurnResult with a fixed message, so the app shows it in the answer and keeps the chat
+history (AC-13).
 """
 
 import os
@@ -29,6 +30,7 @@ from langchain_core.messages import (
 )
 
 from src import config, guard, llm
+from src.prompt_data import escape_prompt_data
 from src.rag import query_translation
 from src.rag.query_translation import QueryPlan
 from src.rag.retriever import RetrievedChunk, embed_queries, search
@@ -46,8 +48,9 @@ class Step(StrEnum):
 
 
 # answer: the model's answer; no_sources: nothing relevant was found (AC-2); rejected: the guard
-# refused the input; error: a model, key or index problem.
-TurnKind = Literal["answer", "no_sources", "rejected", "error"]
+# refused the input; guardrail: a domain guardrail refused or redirected it (AC-12); error: a
+# model, key or index problem.
+TurnKind = Literal["answer", "no_sources", "rejected", "guardrail", "error"]
 
 
 @dataclass(frozen=True)
@@ -235,12 +238,15 @@ def markdown_url(url: str) -> str:
 
 
 def format_sources(chunks: Sequence[RetrievedChunk]) -> str:
-    """Return the chunks as labelled blocks: [S#], title, year and tier, then the text."""
+    """Return the chunks as labelled blocks: [S#], title, year and tier, then the text, escaped."""
     blocks = []
     for number, chunk in enumerate(chunks, start=1):
         meta = chunk.metadata
         tier = config.EVIDENCE_TIER_LABELS.get(meta["evidence_tier"], config.UNKNOWN_TIER_LABEL)
-        blocks.append(f"[S{number}] {meta['title']} ({meta['year']}; {tier})\n{chunk.text}")
+        title, year, tier, text = (
+            escape_prompt_data(part) for part in (meta["title"], meta["year"], tier, chunk.text)
+        )
+        blocks.append(f"[S{number}] {title} ({year}; {tier})\n{text}")
     return "\n\n".join(blocks)
 
 
@@ -248,9 +254,10 @@ def build_messages(
     question: str, chunks: Sequence[RetrievedChunk], system_prompt: str
 ) -> list[BaseMessage]:
     """Return the system prompt and one user message holding <sources> and <user_input>."""
+    # Plain string content, never a prompt template: braces in the question stay as typed.
     user = (
         f"<sources>\n{format_sources(chunks)}\n</sources>\n\n"
-        f"<user_input>\n{question}\n</user_input>"
+        f"<user_input>\n{escape_prompt_data(question)}\n</user_input>"
     )
     return [SystemMessage(system_prompt), HumanMessage(user)]
 
@@ -465,5 +472,6 @@ def run_turn(
     except config.MissingAPIKeyError:
         return TurnResult("error", config.MISSING_KEY_MESSAGE, steps=tuple(steps))
     if result is None:
-        return TurnResult("rejected", decision.message or "", steps=tuple(steps))
+        kind = "guardrail" if decision.reason is guard.Rejection.GUARDRAIL else "rejected"
+        return TurnResult(kind, decision.message or "", steps=tuple(steps))
     return replace(result, steps=tuple(steps))

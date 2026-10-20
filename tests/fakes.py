@@ -51,6 +51,8 @@ class ScriptedChatModel(BaseChatModel):
     # When set with error, streaming raises the error after this many chunks.
     fail_after_chunks: int | None = None
     calls: list[list[BaseMessage]] = Field(default_factory=list)
+    # The extra arguments of each call (tools, tool_choice and the like once tools are bound).
+    call_kwargs: list[dict[str, Any]] = Field(default_factory=list)
 
     @property
     def _llm_type(self) -> str:
@@ -60,6 +62,7 @@ class ScriptedChatModel(BaseChatModel):
     def _generate(self, messages: list[BaseMessage], stop: Any = None, **kwargs: Any) -> ChatResult:
         """Record the messages, then raise the scripted error or return the next reply."""
         self.calls.append(list(messages))
+        self.call_kwargs.append(dict(kwargs))
         if self.error is not None:
             raise self.error
         return ChatResult(generations=[ChatGeneration(message=self.replies.pop(0))])
@@ -69,6 +72,7 @@ class ScriptedChatModel(BaseChatModel):
     ) -> Iterator[ChatGenerationChunk]:
         """Record the messages, then yield the next reply word by word (or raise)."""
         self.calls.append(list(messages))
+        self.call_kwargs.append(dict(kwargs))
         if self.fail_after_chunks is not None and self.error is None:
             raise ValueError("fail_after_chunks needs an error to raise.")
         if self.error is not None and self.fail_after_chunks is None:

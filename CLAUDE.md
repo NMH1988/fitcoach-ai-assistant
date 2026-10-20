@@ -36,10 +36,10 @@ The owner writes in Vietnamese: reply in Vietnamese. Everything in the repo is i
 
 ## Commands
 
-Python 3.14 (`.python-version`), in a local `.venv`.
+Python 3.14 (`.python-version`), in a local `.venv`. Every command below assumes the venv is active; otherwise call its programs directly (`.venv\Scripts\python.exe` in PowerShell, `.venv/Scripts/python.exe` in Git Bash, `.venv/bin/python` on macOS and Linux). The system Python lacks the project's packages: the app then fails with `ModuleNotFoundError: No module named 'langchain_chroma'`, a script with a `ModuleNotFoundError` for its first import (e.g. `'chromadb'` or `'src'`).
 
 - Install: `pip install -e ".[dev]"`
-- Run: `streamlit run app.py`
+- Run: `streamlit run app.py` with `.venv` active, or `.venv\Scripts\streamlit.exe run app.py` (PowerShell), `.venv/Scripts/streamlit.exe run app.py` (Git Bash), `.venv/bin/streamlit run app.py` (macOS and Linux)
 - Download sources: `python scripts/download_sources.py` (Europe PMC REST API only, into gitignored `data/raw/`); after changing `data/sources.json` or `data/usda_foods.csv`, `python scripts/generate_attribution.py`
 - Build the vector index: `python scripts/build_index.py` (needs the key and the downloaded articles; writes gitignored `chroma/`; rerun after the sources or the chunking change; stop the app before rebuilding and restart it afterwards)
 - USDA foods table: download the Foundation Foods CSV zip from https://fdc.nal.usda.gov/download-datasets/ into gitignored `data/usda/`, then `python scripts/prepare_usda.py`, `python scripts/generate_attribution.py`, and commit `data/usda_foods.csv` and `ATTRIBUTION.md`

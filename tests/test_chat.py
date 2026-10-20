@@ -6,7 +6,7 @@ import pytest
 from chromadb.errors import ChromaError
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from src import chat, config, guard, llm
+from src import chat, config, guard, guardrails, llm
 from src.chat import Step
 from src.rag import retriever
 from src.rag.sources import ManifestError
@@ -558,6 +558,23 @@ def test_rejected_input_opens_nothing_and_calls_no_model():
     assert opened == []
 
 
+def test_a_guardrail_question_opens_nothing_and_calls_no_model():
+    """A drug-dosing question is refused before the index or the model is touched (AC-12)."""
+    opened = []
+    result = chat.run_turn(
+        "How much trenbolone should I take?",
+        guard.RateLimiter(),
+        open_index=lambda: opened.append("index"),
+        chat_model=lambda: opened.append("model"),
+        translation_model=lambda: opened.append("translator"),
+    )
+    assert result.kind == "guardrail"
+    assert result.text == guardrails.MESSAGES[guardrails.Concern.PED_DOSING]
+    assert result.steps == (Step.CHECK,)
+    assert result.sources == ()
+    assert opened == []
+
+
 def test_a_rate_limited_question_is_rejected_with_the_guard_message(index):
     """Once the session limit is used up, the turn is rejected without a model call."""
     limiter = guard.RateLimiter(per_session=1)
@@ -800,6 +817,24 @@ def test_the_answer_prompt_matches_the_code(monkeypatch):
     expected = ["<sources>", "<user_input>", "[S1]", f"{config.CALORIE_FLOOR_KCAL:,} kcal"]
     expected += list(config.EVIDENCE_TIER_LABELS.values())
     assert [phrase for phrase in expected if phrase not in text] == []
+
+
+def test_the_answer_prompt_keeps_the_domain_guardrails(monkeypatch):
+    """The owner's prompt still holds every guardrail the code checks: its second line (AC-12)."""
+    monkeypatch.undo()
+    text = chat.load_system_prompt(config.PROJECT_ROOT / "src" / "prompts" / "answer_system.md")
+    safety = text.split("## Safety", 1)[1].split("\n## ", 1)[0]
+    expected = [
+        "dosing",
+        "steroids",
+        "SARMs",
+        "under 18",
+        "pregnancy",
+        "medical conditions or medication",
+        "disordered eating",
+        f"{config.CALORIE_FLOOR_KCAL:,} kcal",
+    ]
+    assert [phrase for phrase in expected if phrase not in safety] == []
 
 
 def test_the_answer_prompt_is_the_owners(monkeypatch):
