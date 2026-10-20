@@ -140,8 +140,8 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 **Acceptance criteria** (from the owner's request, 2026-10-20)
 - [x] `.github/workflows/ci.yml` ignores exactly the eight pillow advisories by ID, with a comment giving the reason and when to remove them; the chromadb ignores are unchanged - review, and `pip-audit .` with the CI flags passes locally (2026-10-20: "No known vulnerabilities found, 13 ignored" for the 12 IDs).
 - [x] `docs/SECURITY.md` lists each advisory under "Accepted risks" (ID, GHSA, what it is, why it does not apply here, when to review), and says Pillow is not used by the app's code - review; `tests/test_ci_audit.py`: `test_every_ignored_advisory_has_an_accepted_risk_row`, `test_no_advisory_is_ignored_twice`, `test_ci_ignores_some_advisories`.
-- [ ] CI's security job passes on the PR - CI.
-**Notes:** pillow 13.0.0 fixes all eight; streamlit 1.66.0 requires `pillow<13` and no later streamlit exists (checked on PyPI, 2026-10-20). Remove the ignores when Dependabot proposes a streamlit release that allows pillow 13. If a later ticket adds an image upload or reads images with Pillow, review these ignores first.
+- [x] CI's security job passes on the PR - CI green on PR #58 (lint, test, security and linked-issue passed on 269d0cb, 2026-10-20).
+**Notes:** pillow 13.0.0 fixes all eight; streamlit 1.66.0 requires `pillow<13` and no later streamlit exists (checked on PyPI, 2026-10-20). Remove the ignores when Dependabot proposes a streamlit release that allows pillow 13. If a later ticket adds an image upload or reads images with Pillow, or if the PDF export (T5.2) draws images or lets text reach reportlab markup unescaped (an `<img src>` tag makes reportlab fetch and open the image with Pillow), review these ignores first. Code review on PR #58 (ready to merge): this trigger made explicit, the T5.2 sentence written as planned, and the test matches whole IDs and the `--ignore-vuln=ID` form.
 
 ## Epic 2: Knowledge base
 
