@@ -76,7 +76,7 @@ Before a profile exists, the sidebar shows a short invitation and the "Add your 
 
 ### Header
 
-App name with icon on the left; `st.badge("Not medical advice", icon=":material/info:", color="orange")` and the language control (T7.1) together in a small row after it (`st.container(horizontal=True)`); at desktop width that row sits under the title (layout open with the owner). Below it the intro as plain text and the full disclaimer in `st.warning`, starting with a bold "Not medical advice.", so it is large and easy to notice (owner's request, 2026-10-20; a badge's text size is fixed in Streamlit 1.66). Always visible (AC-12). Tab labels are bold; their size is fixed too. The language control (T7.1) sits right of the badge, in one small row with it; at desktop width that row is under the title (see "Language").
+App name with icon on the left; `st.badge("Not medical advice", icon=":material/info:", color="orange")` and the language control (T7.1) together in a small row after it (`st.container(horizontal=True)`); at desktop width that row sits under the title, in both languages (before T7.1 the badge sat right of the title; the owner kept the new layout in the review of PR #74, 2026-10-21). Below it the intro as plain text and the full disclaimer in `st.warning`, starting with a bold "Not medical advice.", so it is large and easy to notice (owner's request, 2026-10-20; a badge's text size is fixed in Streamlit 1.66). Always visible (AC-12). Tab labels are bold; their size is fixed too. The language control is described under "Language".
 
 ### Language (T7.1, T7.2, extra)
 
