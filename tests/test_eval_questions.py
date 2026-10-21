@@ -44,4 +44,9 @@ def test_every_expected_source_is_in_the_manifest(questions):
 def test_every_question_has_a_good_answer_for_the_evaluation_run(path):
     """Each question carries a non-empty `good_answer`, which T6.1 and T7.2 judge answers by."""
     items = json.loads(path.read_text(encoding="utf-8"))
-    assert all(item.get("good_answer", "").strip() for item in items)
+    missing = [
+        item["id"]
+        for item in items
+        if not isinstance(item.get("good_answer"), str) or not item["good_answer"].strip()
+    ]
+    assert not missing
