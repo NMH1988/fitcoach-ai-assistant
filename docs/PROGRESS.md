@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-21 · T6.1 Evaluation run and reflection · #TBD (closes #19)
+## 2026-10-21 · T6.1 Evaluation run and reflection · #75 (closes #19)
 - **Brief:** the evaluation's reflection item (understand the app's problems and suggest improvements); supports Hard 1.
 - **What:**
   - `scripts/run_evaluation.py` (new): asks every evaluation question through `chat.run_turn()` with the app's models; prints per run how the turn ended, the plan's flags and filters, the sources found (`*` keyword only) and cited, whether the expected ones were found and cited, the tools and the tokens and cost; writes a full report (answers, tool results, chunk text) to gitignored `data/eval_runs/`. `--repeat N`. A question with a `profile` runs with it and again with none.
