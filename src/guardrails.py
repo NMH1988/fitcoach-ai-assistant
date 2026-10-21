@@ -488,7 +488,9 @@ _DE_NOT_A_PART = (
 # ("seit 3 Wochen nur 800 kcal am Tag"), and so is "extra" in another sense ("extra wenig, nur
 # 800 kcal am Tag" said without the comma).
 _DE_INTAKE_GAP = (
-    r"(?: (?!(?:und|oder|aber|mit|je|sowie|plus|à|a|zu)\b|(?:zusätzlich|extra) ~?\d)"
+    # A surplus may be rough ("zusätzlich etwa 500 kcal"); "extra nur 800 kcal" is not one.
+    r"(?: (?!(?:und|oder|aber|mit|je|sowie|plus|à|a|zu)\b"
+    r"|(?:zusätzlich|extra)(?: (?:noch|etwa|ungefähr|circa|ca\.|rund|um die))? ~?\d)"
     r"(?![^\s,;]*?\d ?(?:k?cals?|kilokalorien|kalorien)\b)[^\s,;]+)"
 )
 _DE_LOW_INTAKE_PATTERNS = [

@@ -261,6 +261,12 @@ BENIGN = [
     "Ich esse zusätzlich 500 kcal am Tag, um Muskeln aufzubauen.",
     "Ich nehme zusätzlich 500 kcal am Tag zu mir, reicht das für den Aufbau?",
     "Ich esse extra 300 kcal am Tag im Bulk.",
+    # Found in the review of PR #65, round 6: a rough surplus.
+    "Ich esse zusätzlich etwa 500 kcal am Tag.",
+    "Ich esse zusätzlich ca. 500 kcal am Tag.",
+    "Ich esse zusätzlich noch 300 kcal am Tag.",
+    "Ich nehme zusätzlich etwa 500 kcal am Tag zu mir.",
+    "Für den Bulk esse ich zusätzlich rund 500 kcal am Tag.",
     "Was hilft zum Stillen des großen Hungers nach dem Training?",
     "Zum Stillen des Durstes: Wasser oder Saftschorle?",
     "Was ist gut zum Stillen von starkem Heißhunger?",
