@@ -10,7 +10,8 @@ SECURITY = ROOT / "docs" / "SECURITY.md"
 
 def _ignored_ids() -> list[str]:
     """Return the advisory IDs passed to pip-audit with --ignore-vuln in the CI workflow."""
-    return re.findall(r"--ignore-vuln\s+(\S+)", CI.read_text(encoding="utf-8"))
+    # Both "--ignore-vuln ID" and "--ignore-vuln=ID", which pip-audit's argparse accepts too.
+    return re.findall(r"--ignore-vuln[=\s]+(\S+)", CI.read_text(encoding="utf-8"))
 
 
 def _accepted_risks() -> str:
@@ -28,7 +29,9 @@ def test_every_ignored_advisory_has_an_accepted_risk_row():
     """No advisory is ignored in CI without its row under "Accepted risks" (security rules)."""
     rows = [line for line in _accepted_risks().splitlines() if line.startswith("| ")]
     for advisory in _ignored_ids():
-        assert [row for row in rows if advisory in row], f"{advisory} has no accepted-risk row"
+        # The whole ID, so "PYSEC-2026-31" is not taken as documented by the "PYSEC-2026-311" row.
+        whole = re.compile(rf"(?<![\w-]){re.escape(advisory)}(?![\w-])")
+        assert [row for row in rows if whole.search(row)], f"{advisory} has no accepted-risk row"
 
 
 def test_no_advisory_is_ignored_twice():

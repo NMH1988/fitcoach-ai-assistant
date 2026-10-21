@@ -15,6 +15,13 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-20 · T1.6 Follow-up: PR #58's review fixes · #62 (closes #55)
+- **Brief:** core 3 and 4 (security measures; CI with a dependency audit).
+- **What:** the review fixes of PR #58 (commit e3fe265, cherry-picked): `docs/SECURITY.md` says the ignores must also be reviewed if the PDF export (T5.2) draws images or passes unescaped text to reportlab markup (an `<img src>` makes reportlab fetch and open the image with Pillow); `tests/test_ci_audit.py` matches whole advisory IDs and the `--ignore-vuln=ID` form; plan: T1.6 done. `main` merged in (T3.3, T5.2): the `docs/SECURITY.md` conflict keeps `main`'s pillow paragraph, with the `test_the_app_opens_no_image_file` sentence, and adds only the reportlab trigger.
+- **Why:** PR #58 was merged at 269d0cb, before these fixes were pushed to its branch, so they were missing from `main`. `Closes #55` keeps the `linked-issue` check satisfied (it requires a PR to close an issue); #55 was reopened for this PR and then closed again by hand, so merging closes nothing new.
+- **Decisions & gotchas:** after a review round, check that a PR's head is the reviewed commit before merging it. e3fe265 also wrote T5.2 as planned work in `docs/SECURITY.md`; that change was dropped in the merge, because T5.2 merged first (#54) and the present tense is now right. A PR that conflicts with its base gets no CI run, so the first round of this PR had none.
+- **Follow-ups:** none.
+
 ## 2026-10-20 · T4.7 My targets: sidebar target, targets tab and Food lookup tab · #53 (closes #44)
 - **Brief:** core 5 (an intuitive UI that shows tool results), Medium 6 (visualising tool results), PRD features 5, 6 and 7 (AC-6, AC-8). The macro colour contrast is beyond the brief (owner's request).
 - **What:**
@@ -94,7 +101,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 - **What:** `.github/workflows/ci.yml` ignores eight pillow 12.3.0 advisories in `pip-audit` (CVE-2026-112895, -112400, -112397, -112896, -112897, -112395, -112404, -112899), with the reason; `docs/SECURITY.md` has a row for each under "Accepted risks" and a paragraph on why they do not apply; `tests/test_ci_audit.py` (new) checks that every advisory ignored in CI has a row there; plan (T1.6, issue #55).
 - **Why:** CI's security job started failing on 2026-10-20 for every branch, `main` included (found on PR #53, T4.7). pillow 13.0.0 fixes all eight, but streamlit 1.66.0, the latest release, requires `pillow<13`, so pillow cannot be upgraded. Each advisory needs Pillow to open, decode, encode or transform an image an attacker supplies (PDF, GIF, TIFF, EPS, morphology); the app takes no image from users, removes images from answers, and its code never imports Pillow (it comes with streamlit and reportlab). Owner's decision: accept the risk in its own PR from `main`, then merge `main` into T4.7.
 - **Decisions & gotchas:** pip-audit reports these under their CVE IDs (no PYSEC ID yet), so CI ignores the CVE IDs. The new test ties the CI ignores to `docs/SECURITY.md`, so an undocumented ignore fails the suite.
-- **Follow-ups:** when Dependabot proposes a streamlit release that allows pillow 13, upgrade both and remove the eight ignores and their rows; review them first if a ticket ever adds an image upload (none planned).
+- **Follow-ups:** when Dependabot proposes a streamlit release that allows pillow 13, upgrade both and remove the eight ignores and their rows; review them first if a ticket ever adds an image upload (none planned) or lets the PDF export (T5.2) draw images or pass unescaped text to reportlab markup, where `<img src>` makes reportlab open an image with Pillow (code review on PR #58).
 
 ## 2026-10-20 · T4.4 Tool-calling loop and tool results UI · #49 (closes #14)
 - **Brief:** core requirements 2 (three tools the model can call) and 5 (tool results shown); Medium 6 (tool results visualised); AC-6.
