@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-21 · T7.2 German answers end to end · #<PR> (closes #34)
+## 2026-10-21 · T7.2 German answers end to end · #76 (closes #34)
 - **Brief:** Hard 4 (multi-language support) as an extra after the core; AC-16. Beyond the PRD's original English-only scope (owner's request, 2026-10-20).
 - **What:**
   - `src/chat.py`: `run_turn(..., language="en")` takes the app's EN | DE choice, refuses any other value before a call, reads that language's part (`config.ANSWER_LANGUAGE_PROMPT_PATHS`) before any API call (missing or empty: `LANGUAGE_PROMPT_MISSING_MESSAGE`, code `prompt.language_missing`) and joins it to the end of the answer prompt (`answer_system_prompt()`); `cited_labels()` also reads `[S1 und S2]`.

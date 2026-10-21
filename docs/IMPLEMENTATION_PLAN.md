@@ -75,7 +75,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T7.3 | #35 | Light and dark mode | S | T3.1 | 10-31 | done |
 | T7.4 | #63 | German input guard and guardrails (split from T7.1, owner's decision) | M | T1.3, T5.3 | 10-31 | done |
 | T7.1 | #33 | Language switch: English and German UI | M | T4.4, T4.7, T5.3, T1.3, T7.4 | 10-31 | done |
-| T7.2 | #34 | German answers end to end | M | T7.1, T3.2, O1, O2, O5 | 11-01 | in progress |
+| T7.2 | #34 | German answers end to end | M | T7.1, T3.2, O1, O2, O5 | 11-01 | in review |
 | T4.5 | #15 | `evaluate_meal_plan` tool (stretch; done early by the owner's choice) | S | T4.4 | only if ahead | done |
 | T4.6 | #40 | Profile form: a hint instead of "Press Enter to apply" (beyond the brief; owner's request, done early as a small fix) | S | T4.1, T3.1 | 10-20 | done |
 | **Last** | | | | | | |
@@ -448,7 +448,7 @@ The German guard and guardrail criteria moved to T7.4 (owner's decision, 2026-10
 - Many messages come from `src/` (guard rejections and rate limit in `src/guard.py`, LLM errors in `src/llm.py`, `IndexNotReadyError` in `src/rag/store.py`, profile validation in `src/profile.py`). `src/` returns message keys or codes and the UI translates them. Tool notes stay English, so the tool result the UI shows matches what the model received. The size was rechecked at the start (closer to L), hence the T7.4 split. `chat.format_profile()` reads the profile labels for the model's `<profile>` block, so translated labels must stay out of it.
 - The German UI texts are our own writing. Every UI string added after T7.1 needs both languages.
 
-### T7.2 German answers end to end (M) · status: in progress · issue #34
+### T7.2 German answers end to end (M) · status: in review · issue #34
 **Serves:** Hard 4 (multi-language support), as an extra after the core; AC-16. Beyond the PRD (owner's request, 2026-10-20).
 **Depends on:** T7.1, T3.2, O1 (a language line in the system prompt), O2 (German evaluation questions), O5 (German live run)
 **Acceptance criteria**
