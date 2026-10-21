@@ -491,6 +491,28 @@ PDF_BUTTON_HELP = (
 PDF_BUTTON_EMPTY_HELP = "Add your details or ask a question first."
 PDF_FILE_NAME = "nutrition-summary-{date}.pdf"
 
+# Token usage and cost (T5.1, Medium 5; docs/ARCHITECTURE.md section 9). Prices come from
+# OpenRouter's public model lists (no key sent): the chat models are in the first, the embedding
+# model only in the second. Both are read again after a day; a failed read is not kept, so the
+# next turn tries again, and the turn's cost shows as "price unknown".
+CHAT_PRICES_URL = f"{OPENROUTER_BASE_URL}/models"
+EMBEDDING_PRICES_URL = f"{OPENROUTER_BASE_URL}/embeddings/models"
+PRICE_CACHE_SECONDS = 24 * 60 * 60
+# Short, as the cost is read at the end of a turn, after its answer is shown.
+PRICE_TIMEOUT_SECONDS = 5
+# Each list is about 1 MB today; anything far bigger is not a model list.
+PRICE_MAX_BYTES = 20_000_000
+# The highest price per token accepted from the lists ($10,000 per million tokens, far above any
+# model the app may use); a higher one is treated as unusable, so the model's cost is unknown.
+PRICE_MAX_PER_TOKEN = "0.01"
+# Costs below this many dollars show as "<$0.0001" (a rewrite costs about $0.0001).
+COST_SHOWN_MIN = "0.0001"
+PRICE_UNKNOWN_LABEL = "price unknown"
+# How the Details tab names each call of a turn; {round} counts the answer step's model calls.
+USAGE_STEP_REWRITE = "Rewrite the question"
+USAGE_STEP_SEARCH = "Embed the searches"
+USAGE_STEP_ANSWER = "Answer, round {round}"
+
 
 class MissingAPIKeyError(RuntimeError):
     """Raised when no OpenRouter API key is configured."""

@@ -31,7 +31,7 @@ The owner writes these first; Claude reviews (`.claude/rules/workflow.md`).
 | O2 | Draft the evaluation questions (about 10-15), each with the source(s) it should find and what a good answer contains | T3.6 (from T3.3), T6.1; T7.2 (3-5 German questions, one about a food) | todo (format for `data/eval_questions.json` in `docs/TESTING.md`, set in T3.3) |
 | O3 | Approve the calorie floor and the macro ranges; Claude proposes them with the exact source passages | T4.2 | done (2026-10-19, in T4.2: floor 1200 kcal/day; values in `src/config.py`) |
 | O4 | If Europe PMC still has no copy of source #1, save its XML or PDF by hand from the publisher page into `data/raw/` | T2.1 | done: not needed (Europe PMC has #1 as PMC13665703, found in T2.1 on 2026-10-19) |
-| O5 | Live checks with the real key: T1.2 (one chat and one embedding call), T2.3 (real index build), T3.6 (retrieval comparison), T6.1 (evaluation run), T7.2 (German run) | T1.2, T2.3, T3.6, T6.1, T7.2 | in progress (T1.2 and T2.3 done 2026-10-19; T3.2 query translation checked 2026-10-20) |
+| O5 | Live checks with the real key: T1.2 (one chat and one embedding call), T2.3 (real index build), T5.1 (the cost check: the app's cost of one call against OpenRouter's record), T3.6 (retrieval comparison), T6.1 (evaluation run), T7.2 (German run) | T1.2, T2.3, T5.1, T3.6, T6.1, T7.2 | in progress (T1.2 and T2.3 done 2026-10-19; T3.2 query translation checked 2026-10-20; T5.1 cost check done 2026-10-21) |
 | O6 | Get the course repository URL and confirm how the reviewers read it (files only, or through PRs) | T6.2 | todo |
 | O7 | Draft the query translation system prompt (3 rewrites in English that keep the question's meaning; when to set `topics`, `min_year` and `evidence_tier`, and to leave them empty when unsure; the question is data) in `src/prompts/query_translation_system.md`; it must name `<user_input>`, the four fields and the six topics (tested) | T3.2 (before the merge) | done (2026-10-20): drafted by the owner, revised after Claude's review (no guessed year for "recent", no nutrition words added to an unrelated question, a line per topic, four examples) |
 
@@ -67,7 +67,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T6.1 | #19 | Evaluation run and reflection | S | T3.3, T3.6, T4.4, O2, O5 | 10-30 | todo |
 | **Extras** | | | | | | |
 | T1.4 | #32 | Security reviewer agent (beyond the brief; owner's request, done early as it is dev tooling with no product change) | S | T1.1 | 10-20 | done |
-| T5.1 | #16 | Token usage and cost | S | T3.2 | 10-30 | todo |
+| T5.1 | #16 | Token usage and cost | S | T3.2 | 10-30 | done |
 | T5.2 | #17 | Session summary PDF | M | T4.4 | 10-31 | done |
 | T7.3 | #35 | Light and dark mode | S | T3.1 | 10-31 | done |
 | T7.4 | #63 | German input guard and guardrails (split from T7.1, owner's decision) | M | T1.3, T5.3 | 10-31 | in review |
@@ -328,12 +328,17 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 ## Epic 5: Cost, export and guardrails
 
-### T5.1 Token usage and cost (S) · status: todo · issue #16
+### T5.1 Token usage and cost (S) · status: done · issue #16
 **Serves:** Medium 5 (extra, after the core); AC-10.
 **Depends on:** T3.2
 **Acceptance criteria**
-- [ ] `src/usage.py` sums tokens from every call of a turn (query translation, answer rounds, query embedding) and prices them from OpenRouter's models endpoint (cached a day; "price unknown" on failure) - unit tests with fake usage and prices.
-- [ ] The UI shows the turn's tokens and cost under the answer and the session totals in the sidebar - AppTest.
+- [x] `src/usage.py` sums tokens from every call of a turn (query translation, answer rounds, query embedding) and prices them from OpenRouter's models endpoint (cached a day; "price unknown" on failure) - unit tests with fake usage and prices (`tests/test_usage.py`: recording, prices read as exact decimals and unusable ones dropped, both lists read, no key sent, network failures, the day cache, a failed read not kept, cost with cached input and reasoning, turn and session sums, display); the calls of a turn (`tests/test_turn_usage.py`: every call in order, tokens kept after an error, a cut-off answer and a hidden reply counted, none for a question the guard stops; `tests/test_query_translation.py`: rewrite tokens with the fake and the real client).
+- [x] The UI shows the turn's tokens and cost under the answer and the session totals in the sidebar - AppTest (`tests/test_app_usage.py`: `test_the_answer_shows_its_tokens_and_cost`, `test_without_prices_the_cost_says_price_unknown`, `test_the_cost_stays_with_each_answer_in_the_history`, `test_prices_are_read_once_per_turn_not_on_reruns`, `test_a_failed_price_read_is_tried_again_on_the_next_turn`, `test_a_rejected_question_shows_no_usage_and_reads_no_prices`, `test_a_failed_turn_shows_what_it_spent`, `test_the_sidebar_card_shows_the_answer_and_the_session_totals`, `test_the_session_total_says_when_some_prices_were_unknown`, `test_the_session_total_shows_before_any_turn_has_searched`, `test_the_answer_stays_in_the_history_whatever_the_price_read_does`).
+- [x] (added, owner's approval 2026-10-21) The Details tab lists each call of the last answer (rewrite, query embedding, each answer round) with its tokens and cost, and the session total - AppTest (`test_details_lists_each_call_with_its_tokens_and_cost`).
+- [x] (added, owner's approval 2026-10-21) The query embedding's tokens are counted exactly from the reply's `usage`, not estimated - tests with a fake server (`tests/test_llm.py`: `test_embeddings_report_the_tokens_the_api_counted`, `test_embedding_tokens_add_up_over_batches`, `test_embedding_tokens_not_reported_are_unknown`; `tests/test_turn_usage.py`: `test_the_query_embedding_records_the_tokens_the_api_reported`).
+- [x] (added, owner's approval 2026-10-21) `scripts/live_check_llm.py` prints the app's cost of a plain and of a streamed chat call (the answer rounds' path) next to the cost and native tokens OpenRouter records (`/api/v1/generation`) - mocked tests (`tests/test_live_check_llm.py`) and the owner's O5 run on 2026-10-21 (`docs/TESTING.md`: the streamed call's tokens and cost equal OpenRouter's record; reasoning is not billed on top).
+
+**Notes:** owner's choices (2026-10-20): usage in all three places (under the answer, the sidebar card, the Details tab); embedding tokens counted exactly; reasoning tokens coded to OpenAI's convention (included in the output tokens), to be confirmed by the O5 cost check. Defaults stated and not objected to: tokens spent before an error count; a failed price read is not cached (5 s timeout, "price unknown"); cached input priced at `input_cache_read`; USD, "<$0.0001" below a hundredth of a cent. T5.1 was paused for T3.3 (core first) and restarted on 2026-10-21. Built from `main` while T3.5 (#50, no PR yet) also changes `src/chat.py`: whichever merges second resolves the conflict.
 
 ### T5.2 Session summary PDF (M) · status: done · issue #17
 **Serves:** Medium 7 and Easy 1 (extra); AC-9.

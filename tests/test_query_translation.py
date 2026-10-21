@@ -8,6 +8,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from src import config, llm
 from src.rag.query_translation import QueryPlan, build_filter, translate
+from src.usage import CallUsage, UsageRecorder
 from tests.fakes import ScriptedTranslator, build_fixture_index, open_fixture_index, plan_json
 
 FAKE_KEY = "sk-test-not-a-real-key"
@@ -58,9 +59,39 @@ def test_rewrites_are_stripped_and_topics_kept_once():
 
 
 def test_the_structured_output_uses_the_json_schema_method():
-    """The plan is asked for as JSON schema structured output."""
+    """The plan is asked for as JSON schema structured output, with the raw reply for its tokens."""
     _, model = _translate(plan_json(REWRITES))
-    assert model.structured_kwargs == [{"method": "json_schema"}]
+    assert model.structured_kwargs == [{"method": "json_schema", "include_raw": True}]
+
+
+# --- Token use (T5.1) -----------------------------------------------------------------------------
+
+USAGE = {"input_tokens": 900, "output_tokens": 300, "total_tokens": 1200}
+
+
+def test_the_rewrite_tokens_are_recorded():
+    """The rewrite call's tokens are recorded under its step and model."""
+    model = ScriptedTranslator(plans=[plan_json(REWRITES)], usage=USAGE)
+    recorder = UsageRecorder()
+    translate(QUESTION, model, PROMPT, recorder)
+    assert recorder.calls == [
+        CallUsage(config.USAGE_STEP_REWRITE, config.QUERY_TRANSLATION_MODEL, 900, 300)
+    ]
+
+
+def test_a_reply_off_the_schema_records_nothing():
+    """As with the real client, a reply off the schema raises in the call: tokens unknown."""
+    recorder = UsageRecorder()
+    model = ScriptedTranslator(plans=[plan_json(REWRITES[:2])], usage=USAGE)
+    assert translate(QUESTION, model, PROMPT, recorder) is None
+    assert recorder.calls == []
+
+
+def test_a_failed_rewrite_call_records_nothing():
+    """A call that raised reported no tokens, so nothing is recorded."""
+    recorder = UsageRecorder()
+    translate(QUESTION, ScriptedTranslator(plans=[llm.ReplyCutOffError()]), PROMPT, recorder)
+    assert recorder.calls == []
 
 
 def test_the_question_goes_only_inside_user_input():
@@ -174,7 +205,9 @@ class _Server:
         return httpx2.Response(self.status, json=self.body)
 
 
-def _real_translate(status: int, body: dict) -> tuple[QueryPlan | None, _Server]:
+def _real_translate(
+    status: int, body: dict, recorder: UsageRecorder | None = None
+) -> tuple[QueryPlan | None, _Server]:
     """Translate QUESTION with the real query translation client against a fake server."""
     server = _Server(status, body)
     model = llm.build_chat_model(
@@ -183,7 +216,39 @@ def _real_translate(status: int, body: dict) -> tuple[QueryPlan | None, _Server]
         api_key=FAKE_KEY,
         http_client=httpx2.Client(transport=httpx2.MockTransport(server)),
     )
-    return translate(QUESTION, model, PROMPT), server
+    return translate(QUESTION, model, PROMPT, recorder), server
+
+
+_REAL_USAGE = {
+    "prompt_tokens": 1500,
+    "completion_tokens": 420,
+    "total_tokens": 1920,
+    "prompt_tokens_details": {"cached_tokens": 1024},
+    "completion_tokens_details": {"reasoning_tokens": 320},
+}
+
+
+@pytest.mark.parametrize(
+    "body",
+    [_reply(plan_json(REWRITES)), _reply(None, refusal="I can't help with that.")],
+    ids=["ok", "refusal"],
+)
+def test_the_real_client_reports_the_rewrite_tokens(body):
+    """The real client's usage, with cached input and reasoning, is recorded (T5.1)."""
+    recorder = UsageRecorder()
+    _real_translate(200, {**body, "usage": _REAL_USAGE}, recorder)
+    assert recorder.calls == [
+        CallUsage(config.USAGE_STEP_REWRITE, config.QUERY_TRANSLATION_MODEL, 1500, 420, 1024, 320)
+    ]
+
+
+def test_the_real_client_loses_the_tokens_of_a_reply_off_the_schema():
+    """The SDK parses the reply inside the call and raises, so its tokens are not known (T5.1)."""
+    # A known gap, recorded in docs/ARCHITECTURE.md section 9: such a turn shows fewer tokens.
+    recorder = UsageRecorder()
+    plan, _ = _real_translate(200, {**_reply("not JSON at all"), "usage": _REAL_USAGE}, recorder)
+    assert plan is None
+    assert recorder.calls == []
 
 
 def test_the_real_client_parses_a_valid_reply():
