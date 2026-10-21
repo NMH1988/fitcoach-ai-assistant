@@ -5,6 +5,9 @@ The app works in kg and cm everywhere; other units exist only at input and displ
 
 from typing import Literal
 
+from src import i18n
+from src.i18n import Language
+
 UnitSystem = Literal["metric", "imperial"]
 UNIT_SYSTEMS: tuple[UnitSystem, ...] = ("metric", "imperial")
 UNIT_SYSTEM_LABELS: dict[UnitSystem, str] = {
@@ -61,9 +64,9 @@ def weight_unit(units: UnitSystem) -> str:
     return "kg" if units == "metric" else "lb"
 
 
-def format_weight(kg: float, units: UnitSystem) -> str:
-    """Show a weight in the given unit system, e.g. "80.5 kg" or "177.5 lb"."""
-    return f"{weight_in(kg, units):g} {weight_unit(units)}"
+def format_weight(kg: float, units: UnitSystem, lang: Language = "en") -> str:
+    """Show a weight in the given unit system, e.g. "80.5 kg" (German "80,5 kg") or "177.5 lb"."""
+    return f"{i18n.plain(weight_in(kg, units), lang)} {weight_unit(units)}"
 
 
 def format_height(cm: float, units: UnitSystem) -> str:
@@ -87,12 +90,15 @@ def per_body_weight_unit(units: UnitSystem) -> str:
     return f"g/{weight_unit(units)}"
 
 
-def format_grams_per_body_weight(grams: float, weight_kg: float, units: UnitSystem) -> str:
+def format_grams_per_body_weight(
+    grams: float, weight_kg: float, units: UnitSystem, lang: Language = "en"
+) -> str:
     """Show grams per body weight from the grams and the weight in kg, rounded once."""
-    return format_per_body_weight(grams / weight_kg, units)
+    return format_per_body_weight(grams / weight_kg, units, lang)
 
 
-def format_per_body_weight(g_per_kg: float, units: UnitSystem) -> str:
+def format_per_body_weight(g_per_kg: float, units: UnitSystem, lang: Language = "en") -> str:
     """Show grams per body weight in a unit system, e.g. "1.9 g/kg", "2 g/kg" or "0.86 g/lb"."""
-    # Rounded once, then without trailing zeros, as the PDF summary shows them (T5.2).
-    return f"{per_body_weight(g_per_kg, units):g} {per_body_weight_unit(units)}"
+    # Rounded once, then without trailing zeros, as the PDF summary shows them (T5.2); German
+    # writes a decimal comma ("1,9 g/kg").
+    return f"{i18n.plain(per_body_weight(g_per_kg, units), lang)} {per_body_weight_unit(units)}"

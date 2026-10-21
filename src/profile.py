@@ -9,7 +9,7 @@ from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src import config, units
+from src import config, i18n, units
 from src.units import UnitSystem
 
 Sex = Literal["male", "female"]
@@ -60,13 +60,22 @@ class UserProfile(BaseModel):
     goal: Goal
 
 
-class ProfileError(ValueError):
-    """Raised when the entered profile is not valid; `messages` says what to fix, one per field."""
+# One thing to fix: its key in src/i18n.py and the values in its text (T7.1).
+Problem = tuple[str, dict[str, Any]]
 
-    def __init__(self, messages: list[str]):
-        """Keep the messages, one per field that needs fixing."""
-        super().__init__(" ".join(messages))
-        self.messages = messages
+
+class ProfileError(ValueError):
+    """Raised when the entered profile is not valid; one problem per field that needs fixing."""
+
+    def __init__(self, problems: list[Problem]):
+        """Keep the problems and their English messages (`messages`), one per field."""
+        self.problems = problems
+        self.messages = [i18n.t(code, "en", **params) for code, params in problems]
+        super().__init__(" ".join(self.messages))
+
+    def messages_in(self, lang: i18n.Language) -> list[str]:
+        """Return the messages in a language, one per field that needs fixing."""
+        return [i18n.t(code, lang, **params) for code, params in self.problems]
 
 
 def _is_number(value: Any) -> bool:
@@ -103,40 +112,41 @@ def _clamp(value: float, low: float, high: float) -> float:
     return min(max(value, low), high)
 
 
-def _weight_kg(system: UnitSystem, weight: Any) -> tuple[float | None, str | None]:
-    """Return the entered weight in kg, or None and a message saying what is wrong."""
+def _weight_kg(system: UnitSystem, weight: Any) -> tuple[float | None, Problem | None]:
+    """Return the entered weight in kg, or None and the problem saying what is wrong."""
+    unit = units.weight_unit(system)
     if not _is_number(weight):
-        return None, f"Enter your weight in {units.weight_unit(system)}."
+        return None, ("profile.err.weight_missing", {"unit": unit})
     if system == "metric":
         if not WEIGHT_MIN_KG <= weight <= WEIGHT_MAX_KG:
-            return None, f"Weight must be between {WEIGHT_MIN_KG:g} and {WEIGHT_MAX_KG:g} kg."
+            limits = {"low": WEIGHT_MIN_KG, "high": WEIGHT_MAX_KG, "unit": unit}
+            return None, ("profile.err.weight_range", limits)
         return float(weight), None
     low, high = IMPERIAL_WEIGHT_RANGE_LB
     if not low <= weight <= high:
-        return None, f"Weight must be between {low:g} and {high:g} lb."
+        return None, ("profile.err.weight_range", {"low": low, "high": high, "unit": unit})
     return _clamp(units.lb_to_kg(weight), WEIGHT_MIN_KG, WEIGHT_MAX_KG), None
 
 
 def _height_cm(
     system: UnitSystem, height_cm: Any, height_ft: Any, height_in: Any
-) -> tuple[float | None, str | None]:
-    """Return the entered height in cm, or None and a message saying what is wrong."""
+) -> tuple[float | None, Problem | None]:
+    """Return the entered height in cm, or None and the problem saying what is wrong."""
     if system == "metric":
         if not _is_number(height_cm):
-            return None, "Enter your height in cm."
+            return None, ("profile.err.height_cm_missing", {})
         if not HEIGHT_MIN_CM <= height_cm <= HEIGHT_MAX_CM:
-            return None, f"Height must be between {HEIGHT_MIN_CM:g} and {HEIGHT_MAX_CM:g} cm."
+            limits = {"low": HEIGHT_MIN_CM, "high": HEIGHT_MAX_CM}
+            return None, ("profile.err.height_cm_range", limits)
         return float(height_cm), None
     if not _is_number(height_ft) or not _is_number(height_in):
-        return None, "Enter your height in feet and inches."
+        return None, ("profile.err.height_ft_missing", {})
     if height_ft < 0 or height_ft != int(height_ft) or not 0 <= height_in < units.INCHES_PER_FOOT:
-        return None, "Enter the height as whole feet and 0 to 11 inches."
+        return None, ("profile.err.height_ft_format", {})
     low, high = IMPERIAL_HEIGHT_RANGE_IN
     if not low <= height_ft * units.INCHES_PER_FOOT + height_in <= high:
-        return (
-            None,
-            f"Height must be between {_feet_inches_text(low)} and {_feet_inches_text(high)}.",
-        )
+        limits = {"low": _feet_inches_text(low), "high": _feet_inches_text(high)}
+        return None, ("profile.err.height_ft_range", limits)
     cm = units.ft_in_to_cm(height_ft, height_in)
     return _clamp(cm, HEIGHT_MIN_CM, HEIGHT_MAX_CM), None
 
@@ -154,34 +164,31 @@ def build_profile(
     goal: Any,
 ) -> UserProfile:
     """Check the typed values; return the profile in kg and cm, or raise ProfileError."""
-    # ProfileError carries one message per field to fix, in the user's units.
+    # ProfileError carries one problem per field to fix, in the user's units.
     if units_system not in units.UNIT_SYSTEMS:
-        raise ProfileError(["Choose metric or imperial units."])
-    messages: list[str] = []
+        raise ProfileError([("profile.err.units", {})])
+    problems: list[Problem] = []
 
-    weight_kg, weight_message = _weight_kg(units_system, weight)
-    cm, height_message = _height_cm(units_system, height_cm, height_ft, height_in)
-    messages += [message for message in (weight_message, height_message) if message]
+    weight_kg, weight_problem = _weight_kg(units_system, weight)
+    cm, height_problem = _height_cm(units_system, height_cm, height_ft, height_in)
+    problems += [problem for problem in (weight_problem, height_problem) if problem]
 
     if not _is_number(age) or age != int(age):
-        messages.append("Enter your age in whole years.")
+        problems.append(("profile.err.age_missing", {}))
     elif age < AGE_MIN:
-        messages.append(
-            f"This app is for adults aged {AGE_MIN} and over, so it cannot give personal "
-            "targets for younger users."
-        )
+        problems.append(("profile.err.age_minor", {"min": AGE_MIN}))
     elif age > AGE_MAX:
-        messages.append(f"Age must be between {AGE_MIN} and {AGE_MAX}.")
+        problems.append(("profile.err.age_range", {"min": AGE_MIN, "max": AGE_MAX}))
 
     if sex not in get_args(Sex):
-        messages.append("Choose the sex for the energy equation.")
+        problems.append(("profile.err.sex", {}))
     if activity not in get_args(ActivityLevel):
-        messages.append("Choose your activity level.")
+        problems.append(("profile.err.activity", {}))
     if goal not in get_args(Goal):
-        messages.append("Choose your goal.")
+        problems.append(("profile.err.goal", {}))
 
-    if messages:
-        raise ProfileError(messages)
+    if problems:
+        raise ProfileError(problems)
     return UserProfile(
         weight_kg=weight_kg, height_cm=cm, age=int(age), sex=sex, activity=activity, goal=goal
     )

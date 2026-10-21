@@ -14,7 +14,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from src import config
+from src import config, i18n
+from src.i18n import Language
 from src.profile import GOAL_LABELS
 from src.tools.energy import MacroTargetsResult
 from src.tools.food import (
@@ -262,87 +263,108 @@ def evaluate_meal_plan(
 
 # --- Text for the tables in the app and the summary PDF ------------------------------------------
 
-FOOD_COLUMNS = (
-    "Food asked",
-    "USDA food",
-    "Amount",
-    "Energy",
-    "Protein",
-    "Carbohydrate",
-    "Fat",
-    "Fiber",
+# The texts come from src/i18n.py; the summary PDF uses the English ones (the defaults), the app
+# the language chosen (T7.1).
+_FOOD_COLUMN_KEYS = (
+    "meal.food_asked",
+    "food.usda_food",
+    "food.amount",
+    "nutrient.energy",
+    "nutrient.protein",
+    "nutrient.carbohydrate",
+    "nutrient.fat",
+    "nutrient.fiber",
 )
-COMPARISON_COLUMNS = (
-    "Nutrient",
-    "Plan total",
-    "Daily target",
-    "Difference",
-    "Range from the sources",
+_COMPARISON_COLUMN_KEYS = (
+    "meal.nutrient",
+    "meal.plan_total",
+    "meal.daily_target",
+    "meal.difference",
+    "meal.range",
 )
-NUTRIENT_NAMES = {
-    "kcal": "Energy",
-    "protein": "Protein",
-    "carbohydrate": "Carbohydrate",
-    "fat": "Fat",
-}
 
 
-def amount(value: float, unit: str) -> str:
-    """Return an amount with its unit, e.g. "3,035 kcal" or "55.6 g"."""
-    return f"{value:,g} {unit}"
+def food_columns(lang: Language = "en") -> tuple[str, ...]:
+    """Return the headers of the foods table in a language."""
+    return tuple(i18n.t(key, lang) for key in _FOOD_COLUMN_KEYS)
 
 
-def food_row(item: MealItem) -> list[str]:
+def comparison_columns(lang: Language = "en") -> tuple[str, ...]:
+    """Return the headers of the plan-against-targets table in a language."""
+    return tuple(i18n.t(key, lang) for key in _COMPARISON_COLUMN_KEYS)
+
+
+FOOD_COLUMNS = food_columns()
+COMPARISON_COLUMNS = comparison_columns()
+
+
+def nutrient_name(nutrient: str, lang: Language = "en") -> str:
+    """Return a nutrient's name ("kcal" is "Energy") in a language."""
+    return i18n.t("nutrient.energy" if nutrient == "kcal" else f"nutrient.{nutrient}", lang)
+
+
+def amount(value: float, unit: str, lang: Language = "en") -> str:
+    """Return an amount with its unit, e.g. "3,035 kcal" or "55.6 g" (German "3.035 kcal")."""
+    return f"{i18n.number(value, lang)} {unit}"
+
+
+def food_row(item: MealItem, lang: Language = "en") -> list[str]:
     """Return one food of the plan as cells under FOOD_COLUMNS; a food not found has no values."""
     nutrients = item.nutrients
+    grams = amount(item.grams, "g", lang)
     if nutrients is None:
-        return [item.requested, "Not found", amount(item.grams, "g"), "-", "-", "-", "-", "-"]
-    fiber = "not reported" if nutrients.fiber_g is None else amount(nutrients.fiber_g, "g")
+        return [item.requested, i18n.t("meal.not_found", lang), grams, "-", "-", "-", "-", "-"]
+    fiber = (
+        i18n.t("food.not_reported", lang)
+        if nutrients.fiber_g is None
+        else amount(nutrients.fiber_g, "g", lang)
+    )
     return [
         item.requested,
         item.matched_name or "",
-        amount(item.grams, "g"),
-        amount(nutrients.kcal, "kcal"),
-        amount(nutrients.protein_g, "g"),
-        amount(nutrients.carbohydrate_g, "g"),
-        amount(nutrients.fat_g, "g"),
+        grams,
+        amount(nutrients.kcal, "kcal", lang),
+        amount(nutrients.protein_g, "g", lang),
+        amount(nutrients.carbohydrate_g, "g", lang),
+        amount(nutrients.fat_g, "g", lang),
         fiber,
     ]
 
 
-def difference_text(check: NutrientCheck) -> str:
+def difference_text(check: NutrientCheck, lang: Language = "en") -> str:
     """Return the gap in words: how far the plan's total is below or above the target."""
     if check.gap > 0:
-        return f"{amount(check.gap, check.unit)} below the target"
+        return i18n.t("meal.below_target", lang, amount=amount(check.gap, check.unit, lang))
     if check.gap < 0:
-        return f"{amount(-check.gap, check.unit)} above the target"
-    return "On the target"
+        return i18n.t("meal.above_target", lang, amount=amount(-check.gap, check.unit, lang))
+    return i18n.t("meal.on_target", lang)
 
 
-def range_text(check: NutrientCheck) -> str:
+def range_text(check: NutrientCheck, lang: Language = "en") -> str:
     """Return where the total lies against the sources' range, or "-" without a range."""
     if check.target_range is None or check.range_position is None:
         return "-"
-    low, high = check.target_range
+    low, high = (i18n.number(value, lang) for value in check.target_range)
     # "Maintain" has one value, not a range: "Below 2,759 kcal", not "Below 2,759-2,759 kcal".
-    span = f"{low:,}" if low == high else f"{low:,}-{high:,}"
-    return f"{check.range_position.capitalize()} {span} {check.unit}"
+    span = low if low == high else f"{low}-{high}"
+    return i18n.t(f"meal.range.{check.range_position}", lang, span=span, unit=check.unit)
 
 
-def comparison_rows(result: MealPlanResult) -> list[list[str]]:
+def comparison_rows(result: MealPlanResult, lang: Language = "en") -> list[list[str]]:
     """Return the plan against the daily targets as cells under COMPARISON_COLUMNS, fiber last."""
     if result.totals is None:
         return []
     rows = [
         [
-            NUTRIENT_NAMES[check.nutrient],
-            amount(check.plan_total, check.unit),
-            amount(check.target, check.unit),
-            difference_text(check),
-            range_text(check),
+            nutrient_name(check.nutrient, lang),
+            amount(check.plan_total, check.unit, lang),
+            amount(check.target, check.unit, lang),
+            difference_text(check, lang),
+            range_text(check, lang),
         ]
         for check in result.comparison
     ]
     fiber = result.totals.fiber_g
-    plan_fiber = "not reported" if fiber is None else amount(fiber, "g")
-    return [*rows, ["Fiber", plan_fiber, "No target", "-", "-"]]
+    plan_fiber = i18n.t("food.not_reported", lang) if fiber is None else amount(fiber, "g", lang)
+    no_target = i18n.t("meal.no_target", lang)
+    return [*rows, [nutrient_name("fiber", lang), plan_fiber, no_target, "-", "-"]]

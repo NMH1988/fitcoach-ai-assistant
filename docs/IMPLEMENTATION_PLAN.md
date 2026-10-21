@@ -73,7 +73,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T5.2 | #17 | Session summary PDF | M | T4.4 | 10-31 | done |
 | T7.3 | #35 | Light and dark mode | S | T3.1 | 10-31 | done |
 | T7.4 | #63 | German input guard and guardrails (split from T7.1, owner's decision) | M | T1.3, T5.3 | 10-31 | done |
-| T7.1 | #33 | Language switch: English and German UI | M | T4.4, T4.7, T5.3, T1.3, T7.4 | 10-31 | todo |
+| T7.1 | #33 | Language switch: English and German UI | M | T4.4, T4.7, T5.3, T1.3, T7.4 | 10-31 | in review |
 | T7.2 | #34 | German answers end to end | M | T7.1, T3.2, O1, O2, O5 | 11-01 | todo |
 | T4.5 | #15 | `evaluate_meal_plan` tool (stretch; done early by the owner's choice) | S | T4.4 | only if ahead | in review |
 | T4.6 | #40 | Profile form: a hint instead of "Press Enter to apply" (beyond the brief; owner's request, done early as a small fix) | S | T4.1, T3.1 | 10-20 | done |
@@ -417,15 +417,15 @@ Added by the owner on 2026-10-20. All three tickets are extras: they come after 
 - The patterns run on casefolded NFKC text, once with accents and once without (`detection_views()`), so ß is always ss and ü is seen as both ü and u. `german()` in `src/german.py` lets each umlaut in a pattern also match the plain vowel and the typed ue/oe/ae; the patterns are written with ss. No umlaut goes inside a lookbehind (`german()` would make it variable-width).
 - The messages stay English until T7.1 translates the UI. The German test strings are our own writing.
 
-### T7.1 Language switch: English and German UI (M) · status: todo · issue #33
+### T7.1 Language switch: English and German UI (M) · status: in review · issue #33
 **Serves:** Hard 4 (multi-language support), as an extra after the core; AC-16. Changes the PRD's English-only decision: beyond the PRD (owner's request, 2026-10-20).
 **Depends on:** T4.4, T4.7, T5.3 (so most UI text and the guardrails exist before they are translated), T1.3, T7.4 (the German guard and guardrails, split from this ticket on 2026-10-21)
 **Acceptance criteria**
-- [ ] `src/i18n.py` holds every user-facing UI string in English and German behind one lookup function; a test fails if a key exists in one language but not the other - unit test.
-- [ ] The header has a language control (a `:material/translate:` icon next to an EN | DE segmented control labelled "Language", label collapsed, `required=True` so it can never be deselected to `None`); switching it changes all UI text (sidebar, tabs, buttons, errors, guard and guardrail messages, disclaimer) - AppTest in both languages.
-- [ ] The default language follows the browser locale (`st.context.locale`: German for `de*`, English otherwise, including `None`) and the user's choice is kept for the session - unit test on the locale mapping and AppTest.
-- [ ] Source titles, licence names and USDA food names stay in English; the Food lookup tab tells German users to enter English food names - AppTest.
-- [ ] The German texts, the medical disclaimer in particular, are reviewed by the owner or a German speaker before merge - manual check recorded in `docs/PROGRESS.md`.
+- [x] `src/i18n.py` holds every user-facing UI string in English and German behind one lookup function; a test fails if a key exists in one language but not the other - unit test (`tests/test_i18n.py`: `test_every_key_exists_in_both_languages`, `test_each_text_is_filled_and_has_the_same_placeholders_in_both_languages` for each of the keys; the English entries that the model, the guard or the PDF also use are checked against their modules).
+- [x] The header has a language control (a `:material/translate:` icon next to an EN | DE segmented control labelled "Language", label collapsed, `required=True` so it can never be deselected to `None`); switching it changes all UI text (sidebar, tabs, buttons, errors, guard and guardrail messages, disclaimer) - AppTest in both languages (`tests/test_app_language.py`: the control's label, collapsed label, options and `required`; the German header, disclaimer, tabs, sidebar and PDF button; the profile form and its errors; the targets with German numbers; a guard rejection, a guardrail redirect, the "not covered" message and a past message switched back; the Details tab, its usage table and the tool results after an answer, with a check that no English UI text is left on the page; every turn's message key checked to exist in both languages (`turn_codes_are_keys` in `tests/conftest.py`); the existing English AppTests pass (one source scan now looks for `_t("theme.hint")`); accessible name checked in the browser, `docs/TESTING.md`).
+- [x] The default language follows the browser locale (`st.context.locale`: German for `de*`, English otherwise, including `None`) and the user's choice is kept for the session - unit test on the locale mapping and AppTest (`test_a_german_browser_locale_gives_german`, `test_any_other_locale_or_none_gives_english`; `test_a_german_browser_starts_in_german`, `test_the_choice_is_kept_for_the_session`, `test_the_browser_locale_is_read_only_at_the_start`; the locale is set on a session's first run, checked in the browser).
+- [x] Source titles, licence names and USDA food names stay in English; the Food lookup tab tells German users to enter English food names - AppTest (`test_an_answer_keeps_its_text_and_its_sources_stay_english`, `test_the_food_lookup_tells_german_users_to_use_english_names`).
+- [x] The German texts, the medical disclaimer in particular, are reviewed by the owner or a German speaker before merge - manual check recorded in `docs/PROGRESS.md` (the owner reviewed all 255 texts on 2026-10-21, no change asked).
 The German guard and guardrail criteria moved to T7.4 (owner's decision, 2026-10-21).
 **Notes:**
 - The German safety checks are in T7.4 (split from this ticket), not T7.2, because a German UI invites German input even if T7.2 is cut; T7.4 merges first.
