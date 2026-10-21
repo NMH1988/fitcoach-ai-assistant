@@ -68,6 +68,13 @@ def _use_model(
     return model
 
 
+def _off_topic_plan() -> ScriptedTranslator:
+    """Return a translator whose plan says no tool could answer and no profile is needed."""
+    rewrites = ["offside rule football", "football offside law", "offside position"]
+    plan = plan_json(rewrites, needs_tool=False, needs_profile=False)
+    return ScriptedTranslator(plans=[plan])
+
+
 def _answers(*texts: str) -> ScriptedChatModel:
     """Return a scripted model that gives these answers in turn."""
     return ScriptedChatModel(replies=[AIMessage(text) for text in texts])
@@ -193,13 +200,31 @@ def test_an_answer_citing_nothing_says_so_in_the_status(monkeypatch):
 
 
 def test_no_relevant_source_shows_the_fixed_message_and_no_sources(monkeypatch):
-    """An off-topic question gets the 'not covered' message and no Sources; the reply is unseen."""
-    model = _use_model(monkeypatch, _answers("Offside is a football rule."))
+    """An off-topic question gets the 'not covered' message and no Sources, with no answer call."""
+    model = _use_model(monkeypatch, _answers("Offside is a football rule."), _off_topic_plan())
     at = _ask(_start(), OFF_TOPIC)
     message = _assistant(at)
     assert message.markdown[0].value == config.NO_SOURCES_MESSAGE
     assert not message.expander
-    # One model call with the tools (T4.4); its text never reaches the page.
+    # The plan says no tool could answer, so the answer model is never called (T3.5).
+    assert model.calls == []
+    statuses = [(s.label, s.state) for s in message.status]
+    assert statuses == [
+        ("No matching research found", "complete"),
+        (chat.Step.CHECK.value, "complete"),
+        (chat.Step.REWRITE.value, "complete"),
+        (chat.Step.SEARCH.value, "complete"),
+    ]
+    assert not [m for m in at.markdown if "Offside" in m.value]
+
+
+def test_with_no_source_a_tool_answerable_question_calls_the_model_unseen(monkeypatch):
+    """No source but needs_tool: one call with the tools; with no tool used, its text is unseen."""
+    model = _use_model(monkeypatch, _answers("Offside is a football rule."))
+    at = _ask(_start(), OFF_TOPIC)
+    message = _assistant(at)
+    assert message.markdown[0].value == config.NO_SOURCES_MESSAGE
+    # The default fake plan says needs_tool (T4.4's path); the model calls no tool.
     assert len(model.calls) == 1
     assert not [m for m in at.markdown if "Offside" in m.value]
 
@@ -371,6 +396,15 @@ def test_a_rejected_question_shows_the_guard_message(monkeypatch):
 REWRITES = ["protein per meal for muscle", "protein dose in one sitting", "meal protein amount"]
 
 
+# The routing badges of an answered turn with the fakes' default plan, which sets needs_tool and
+# needs_profile, so the answer model got the profile block (T3.5).
+TOOL_MAY_HELP = ":blue-badge[:material/build: A tool may help]"
+NO_TOOL = ":gray-badge[:material/build: No tool expected]"
+BLOCK_SENT = ":blue-badge[:material/person: Profile block sent]"
+BLOCK_NOT_SENT = ":gray-badge[:material/person_off: Profile block not sent]"
+ROUTED = [TOOL_MAY_HELP, BLOCK_SENT]
+
+
 def _details_tab(at: AppTest):
     """Return the Details tab."""
     [tab] = [t for t in at.tabs if "Details" in t.label]
@@ -415,6 +449,7 @@ def test_details_shows_the_rewrites_and_the_filters(monkeypatch):
         ":blue-badge[:material/sell: Nutrient timing]",
         ":blue-badge[:material/calendar_month: From 2021]",
         ":blue-badge[:material/verified: ISSN position stands only]",
+        *ROUTED,
     ]
     assert not _search_notes(tab)
 
@@ -423,7 +458,7 @@ def test_details_says_no_filters_when_none_were_chosen(monkeypatch):
     """A plan without filters shows a "No filters" badge."""
     _use_model(monkeypatch, _answers("Four meals [S1]."))
     tab = _details_tab(_ask(_start(), QUESTION))
-    assert _badges(tab) == [":gray-badge[:material/filter_alt_off: No filters]"]
+    assert _badges(tab) == [":gray-badge[:material/filter_alt_off: No filters]", *ROUTED]
 
 
 def test_details_says_when_the_filters_were_dropped(monkeypatch):
@@ -432,7 +467,7 @@ def test_details_says_when_the_filters_were_dropped(monkeypatch):
     _use_model(monkeypatch, _answers("Four meals [S1]."), ScriptedTranslator(plans=[plan]))
     at = _ask(_start(), QUESTION)
     tab = _details_tab(at)
-    assert _badges(tab) == [":blue-badge[:material/sell: Fat]"]
+    assert _badges(tab) == [":blue-badge[:material/sell: Fat]", *ROUTED]
     assert _search_notes(tab) == [
         ":material/filter_alt_off: No passage close enough matched these filters, so the "
         "search ran again without them."
@@ -447,14 +482,40 @@ def test_details_says_when_only_the_question_was_searched(monkeypatch):
     tab = _details_tab(_ask(_start(), QUESTION))
     assert "1. How much protein per meal? *(your question)*" in [m.value for m in tab.markdown]
     assert any("only your question was searched" in c.value for c in tab.caption)
+    # With no plan there is no tool or profile decision to show; the note says what happened.
+    assert "**Tools and your details**" not in [m.value for m in tab.markdown]
+    assert any("the profile block was not sent" in c.value for c in tab.caption)
 
 
 def test_details_shows_the_search_even_when_nothing_was_found(monkeypatch):
-    """A question the sources do not cover still shows what was searched."""
-    # The answer model is still asked once, with the tools; it calls none (T4.4).
-    _use_model(monkeypatch, _answers("Offside is a football rule."))
+    """An off-topic question still shows what was searched, and no tool or details were used."""
+    _use_model(monkeypatch, _answers("Offside is a football rule."), _off_topic_plan())
     tab = _details_tab(_ask(_start(), OFF_TOPIC))
     assert any(m.value.startswith("1. What is the offside rule") for m in tab.markdown)
+    assert "**Tools and your details**" in [m.value for m in tab.markdown]
+    assert _badges(tab)[-2:] == [NO_TOOL, BLOCK_NOT_SENT]
+
+
+@pytest.mark.parametrize(
+    ("needs_tool", "needs_profile", "expected"),
+    [(True, False, [TOOL_MAY_HELP, BLOCK_NOT_SENT]), (False, True, [NO_TOOL, BLOCK_SENT])],
+)
+def test_details_shows_each_flag_of_the_plan(monkeypatch, needs_tool, needs_profile, expected):
+    """With sources, the tool badge follows needs_tool and the block badge needs_profile."""
+    plan = plan_json(REWRITES, needs_tool=needs_tool, needs_profile=needs_profile)
+    _use_model(monkeypatch, _answers("Four meals [S1]."), ScriptedTranslator(plans=[plan]))
+    tab = _details_tab(_ask(_start(), QUESTION))
+    assert _badges(tab)[-2:] == expected
+
+
+def test_details_says_no_block_was_sent_when_no_answer_call_was_made(monkeypatch):
+    """No source and no needs_tool: the plan asked for the profile, but no block was sent."""
+    rewrites = ["offside rule football", "football offside law", "offside position"]
+    plan = plan_json(rewrites, needs_tool=False, needs_profile=True)
+    model = _use_model(monkeypatch, _answers("Offside is..."), ScriptedTranslator(plans=[plan]))
+    tab = _details_tab(_ask(_start(), OFF_TOPIC))
+    assert model.calls == []
+    assert _badges(tab)[-2:] == [NO_TOOL, BLOCK_NOT_SENT]
 
 
 def test_details_follows_the_last_question(monkeypatch):

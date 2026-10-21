@@ -39,6 +39,8 @@ def test_a_valid_reply_gives_three_rewrites_and_the_filters():
         topics=("energy_balance", "protein"),
         min_year=2020,
         evidence_tier=1,
+        needs_tool=True,
+        needs_profile=True,
     )
     assert len(model.calls) == 1
 
@@ -56,6 +58,26 @@ def test_rewrites_are_stripped_and_topics_kept_once():
     plan, _ = _translate(plan_json([f"  {q} " for q in REWRITES], ["protein", "fat", "protein"]))
     assert plan.queries == tuple(REWRITES)
     assert plan.topics == ("protein", "fat")
+
+
+@pytest.mark.parametrize("needs_tool", [True, False])
+@pytest.mark.parametrize("needs_profile", [True, False])
+def test_the_plan_says_whether_a_tool_or_the_profile_is_needed(needs_tool, needs_profile):
+    """needs_tool and needs_profile are read as the model sent them, each on its own (T3.5)."""
+    plan, _ = _translate(plan_json(REWRITES, needs_tool=needs_tool, needs_profile=needs_profile))
+    assert (plan.needs_tool, plan.needs_profile) == (needs_tool, needs_profile)
+
+
+def _without(field: str) -> str:
+    """Return a valid plan reply with one field left out."""
+    reply = json.loads(plan_json(REWRITES))
+    del reply[field]
+    return json.dumps(reply)
+
+
+def _with(**fields) -> str:
+    """Return a valid plan reply with some fields set to other (raw JSON) values."""
+    return json.dumps({**json.loads(plan_json(REWRITES)), **fields})
 
 
 def test_the_structured_output_uses_the_json_schema_method():
@@ -121,6 +143,12 @@ def test_the_question_goes_only_inside_user_input():
         json.dumps(
             {"queries": "one string", "topics": [], "min_year": None, "evidence_tier": None}
         ),
+        _without("needs_tool"),
+        _without("needs_profile"),
+        _with(needs_tool="yes"),
+        _with(needs_tool=1),
+        _with(needs_profile="true"),
+        _with(needs_profile=None),
         "not JSON at all",
         "",
     ],
@@ -134,6 +162,12 @@ def test_the_question_goes_only_inside_user_input():
         "year-too-late",
         "unknown-tier",
         "queries-not-a-list",
+        "needs-tool-missing",
+        "needs-profile-missing",
+        "needs-tool-a-string",
+        "needs-tool-a-number",
+        "needs-profile-a-string",
+        "needs-profile-null",
         "not-json",
         "empty",
     ],
@@ -283,6 +317,22 @@ def test_the_schema_sent_is_strict_and_has_no_string_length_limit():
         assert f'"{topic}"' in schema
 
 
+def test_the_schema_sent_has_the_two_required_booleans():
+    """needs_tool and needs_profile are required booleans in the strict schema sent (T3.5)."""
+    _, server = _real_translate(200, _reply(plan_json(REWRITES)))
+    schema = server.requests[0]["response_format"]["json_schema"]["schema"]
+    for field in ("needs_tool", "needs_profile"):
+        assert field in schema["required"]
+        assert schema["properties"][field]["type"] == "boolean"
+
+
+def test_the_real_client_reads_the_two_flags():
+    """With the real client, false flags in the reply stay false in the plan (T3.5)."""
+    reply = plan_json(REWRITES, needs_tool=False, needs_profile=False)
+    plan, _ = _real_translate(200, _reply(reply))
+    assert (plan.needs_tool, plan.needs_profile) == (False, False)
+
+
 @pytest.mark.parametrize(
     "body",
     [
@@ -315,7 +365,12 @@ def test_the_real_client_raises_key_and_credit_errors(status, error):
 def _plan(topics=(), min_year=None, evidence_tier=None) -> QueryPlan:
     """Return a plan with the given filters."""
     return QueryPlan(
-        queries=tuple(REWRITES), topics=topics, min_year=min_year, evidence_tier=evidence_tier
+        queries=tuple(REWRITES),
+        topics=topics,
+        min_year=min_year,
+        evidence_tier=evidence_tier,
+        needs_tool=False,
+        needs_profile=False,
     )
 
 

@@ -3,14 +3,16 @@
 The question goes only inside <user_input> in the user message, escaped like the answer step's
 (`src/prompt_data.py`, T3.4), and the messages are built directly, never from a prompt template;
 the system prompt is the owner's (O7). The rewrites are used for the search and shown in the app,
-never sent to the answer model.
+never sent to the answer model. The same call says whether a tool could answer and whether the
+user's numbers are needed (T3.5), so an off-topic question costs no answer call and the profile
+goes only to an answer that needs it.
 """
 
 from typing import Any, Literal
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 
 from src import config, llm
 from src.prompt_data import escape_prompt_data
@@ -21,7 +23,7 @@ EvidenceTier = Literal[config.EVIDENCE_TIERS]
 
 
 class QueryPlan(BaseModel):
-    """Search queries that rephrase one question, and optional topic, year and evidence filters."""
+    """Search queries for one question, optional filters, and whether tools or the profile help."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -36,6 +38,12 @@ class QueryPlan(BaseModel):
         ge=config.QUERY_MIN_YEAR_RANGE[0], le=config.QUERY_MIN_YEAR_RANGE[1]
     )
     evidence_tier: EvidenceTier | None
+    # T3.5. needs_tool: a profile calculation (energy needs, daily targets, a day's meal plan check)
+    # or a food lookup could answer; with no relevant source, the answer model is called only then.
+    # needs_profile: the answer needs the user's own numbers, so only then is <profile> sent.
+    # Strict, so a reply such as "yes" or 1 makes the plan unusable rather than a guess.
+    needs_tool: StrictBool
+    needs_profile: StrictBool
 
     @field_validator("queries")
     @classmethod
