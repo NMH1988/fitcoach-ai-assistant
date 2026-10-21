@@ -267,6 +267,69 @@ def parse_article(xml: bytes) -> ParsedArticle:
     return ParsedArticle(title=title, sections=sections)
 
 
+def merge_short_spans(spans: list[tuple[int, int]], header_chars: int) -> list[tuple[int, int]]:
+    """Join each short (start, end) span to the one before it, else after it, within the cap."""
+    # The splitter leaves short pieces where a paragraph or a section ends, often little more than
+    # the overlap they repeat; such chunks were near short, generic queries (T3.7).
+    cap = config.CHUNK_SIZE + config.CHUNK_MIN_CHARS
+    merged = list(spans)
+    i = 0
+    while i < len(merged):
+        start, end = merged[i]
+        if len(merged) > 1 and header_chars + end - start < config.CHUNK_MIN_CHARS:
+            if i > 0 and header_chars + end - merged[i - 1][0] <= cap:
+                merged[i - 1 : i + 1] = [(merged[i - 1][0], end)]
+                i -= 1  # check the joined span again
+                continue
+            if i + 1 < len(merged) and header_chars + merged[i + 1][1] - start <= cap:
+                merged[i : i + 2] = [(start, merged[i + 1][1])]
+                continue
+        i += 1
+    return merged
+
+
+def _piece_spans(text: str, pieces: list[str]) -> list[tuple[int, int]] | None:
+    """Return each piece's (start, end) in the text, or None if they do not cover it in order."""
+    spans: list[tuple[int, int]] = []
+    previous_start, previous_end = -1, 0
+    for number, piece in enumerate(pieces):
+        if number == len(pieces) - 1:
+            # The splitter strips whitespace, so the last piece ends where the text ends; searching
+            # from the end skips an earlier copy of its words (e.g. a line repeated at the end).
+            start = text.rfind(piece)
+        else:
+            # Each piece adds text after the one before it, so an earlier copy of its words (e.g.
+            # a repeated sentence inside the overlap) is skipped. LangChain's own start_index is
+            # not used: it takes the first copy after the overlap starts, which can be that one.
+            start = text.find(piece, previous_start + 1)
+            while start >= 0 and start + len(piece) <= previous_end:
+                start = text.find(piece, start + 1)
+        if (
+            start <= previous_start
+            or start + len(piece) <= previous_end
+            or text[previous_end:start].strip()
+        ):
+            return None  # not found, out of order, or text between two pieces would be lost
+        previous_start, previous_end = start, start + len(piece)
+        spans.append((start, previous_end))
+    return None if text[previous_end:].strip() else spans
+
+
+def _split_section(text: str, header: str) -> list[str]:
+    """Split a section's text into chunk bodies; a short piece joins a neighbouring one."""
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=max(config.CHUNK_SIZE - len(header), config.CHUNK_MIN_BODY_CHARS),
+        chunk_overlap=config.CHUNK_OVERLAP,
+    )
+    pieces = splitter.split_text(text)
+    spans = _piece_spans(text, pieces)
+    # If the pieces cannot be placed in the text, they stay as the splitter made them.
+    if spans is None:
+        return pieces
+    # A joined span is one passage of the section's own text: nothing lost, no overlap repeated.
+    return [text[start:end] for start, end in merge_short_spans(spans, len(header))]
+
+
 def chunk_article(
     article: ParsedArticle, source: Source, extra_metadata: dict[str, Any] | None = None
 ) -> list[Document]:
@@ -274,11 +337,7 @@ def chunk_article(
     chunks: list[Document] = []
     for section in article.sections:
         header = f"{section.title}\n\n"
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=max(config.CHUNK_SIZE - len(header), config.CHUNK_MIN_BODY_CHARS),
-            chunk_overlap=config.CHUNK_OVERLAP,
-        )
-        for piece in splitter.split_text(section.text):
+        for piece in _split_section(section.text, header):
             # The ten required keys come last, so extra metadata can never overwrite them.
             metadata = {
                 # Lists are copied, so changing one chunk's metadata never changes another's.
