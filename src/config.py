@@ -206,6 +206,9 @@ EVAL_QUESTIONS_PATH = PROJECT_ROOT / "data" / "eval_questions.json"
 # The owner's German evaluation questions (O2, for T7.2), kept apart: compare_retrieval.py searches
 # each question as written, with no rewrite into English, so German ones would lower the T3.6 rates.
 EVAL_QUESTIONS_DE_PATH = PROJECT_ROOT / "data" / "eval_questions_de.json"
+# Where scripts/run_evaluation.py (T6.1) writes its full reports: the answers and the article text
+# of the chunks found, for judging the citations. Gitignored: never committed.
+EVAL_RUNS_DIR = PROJECT_ROOT / "data" / "eval_runs"
 # The answer system prompt, written by the owner (O1; .claude/rules/workflow.md).
 ANSWER_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "answer_system.md"
 

@@ -15,6 +15,26 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-21 · T6.1 Evaluation run and reflection · #TBD (closes #19)
+- **Brief:** the evaluation's reflection item (understand the app's problems and suggest improvements); supports Hard 1.
+- **What:**
+  - `scripts/run_evaluation.py` (new): asks every evaluation question through `chat.run_turn()` with the app's models; prints per run how the turn ended, the plan's flags and filters, the sources found (`*` keyword only) and cited, whether the expected ones were found and cited, the tools and the tokens and cost; writes a full report (answers, tool results, chunk text) to gitignored `data/eval_runs/`. `--repeat N`. A question with a `profile` runs with it and again with none.
+  - `src/chat.py`: optional `on_chunks` hook on `run_turn()` and `answer_question()`, called with the chunks the answer model gets, in `[S#]` order; the app does not pass it.
+  - `src/eval_questions.py` (new): the question format and loader, moved from `scripts/compare_retrieval.py` (which imports it) and extended with `EvalItem` (`good_answer`, `profile`). `src/config.py`: `EVAL_RUNS_DIR`.
+  - `data/eval_questions.json`: q13 gets its fixed profile as a `profile` field (the owner's wording unchanged).
+  - Tests: `tests/test_run_evaluation.py` (new, fakes only), two `on_chunks` tests in `tests/test_chat.py`, and in `tests/test_eval_questions.py` both files load with the new loader, only q13 has a profile, and q13's profile gives the targets its good answer names (2759 / 3035 kcal, 152 / 418 / 84 g).
+  - Docs: `docs/TESTING.md` (how to run it, "Evaluation results (T6.1)" per question, "Known problems and suggested improvements (T6.1)", a live-check row), plan (T6.1 in review with its criteria, T3.6 done as #73 merged, O5), `CLAUDE.md` (command), `docs/ARCHITECTURE.md` (file tree), `.gitignore`.
+- **Why:** T6.1 asks for the questions to be run against the real app and each citation judged; the script goes through the same function as the app, and the report holds the chunk text the citations are judged against, which `TurnResult` alone does not.
+- **Decisions & gotchas:**
+  - Owner's choices (2026-10-21, Question phase): a script plus a check of q13 and q14 in the app; q13's profile in the JSON; Claude drafts the judgement and the owner approves it (approved 2026-10-21); one run per question.
+  - The loader moved into `src/` because a script run as `python scripts/x.py` cannot import another script (`scripts/` is not a package and is not installed).
+  - The owner's run (O5, 2026-10-21): 17 runs, no error, 181,574 tokens, $0.0271. 12 answers match the good answer, 5 partly, none wrong. Main finding: for q9 (HMB) the plan set `evidence_tier` 2 against its prompt, which removed the HMB position stand (#4, tier 1); the filter was kept because #12's HMB chunks passed the distance limit. Second finding: advice sentences the model adds carry citations their chunks do not support (q7, q10, q11, q13). Keyword-only chunks were always cited correctly, so T3.6's suggested limit on them is not needed on this evidence.
+  - The owner's check in the app (2026-10-21): q13 without a profile showed the "Add your details" button in Tool results; with the profile the answer and the sidebar gave the tool's values, but the answer did not call them estimates (known problem 7); q14 matched the script's run.
+  - Code review (before the PR): TESTING.md corrected where it did not match the run report (the script's q13 answer did call its values estimates, only the app check's did not; keyword-only chunks were cited in four runs, not three; paraphrases no longer in quotation marks; q14's six chunks are four within the limit and two keyword only); a test that a key echoed in a provider error reaches neither the output nor the report; `src/eval_questions.py` in ARCHITECTURE's tree; rewrites written on one line in the report. `/security-review` found nothing.
+  - The run used the branch's working tree based on `main` at 0baa839, before T3.8 (#72, the question gate) and T7.1 (#74) merged; TESTING.md says so.
+  - Not claimed as Hard 7: the answers were judged by reading them, not by an automatic metric.
+- **Follow-ups:** the known problems in `docs/TESTING.md` are suggestions, not tickets yet; the owner picks which to plan (item 1, the tier filter, has the most impact on answers; item 2 is the owner's prompt, O1). T7.2 runs the German file with the same script.
+
 ## 2026-10-21 · T3.6 Retrieval comparison on the owner's evaluation questions · #73 (closes #51)
 - **Brief:** Hard 1 (hybrid search); AC-4; evidence for the reflection. The German file serves T7.2 (Hard 4, an extra).
 - **What:**

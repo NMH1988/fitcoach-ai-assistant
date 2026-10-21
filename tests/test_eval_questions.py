@@ -1,12 +1,14 @@
 """Checks on the owner's evaluation question files (O2): read by T3.6, T6.1 and T7.2."""
+# The German file is loaded with the evaluation run's loader too, so it stays runnable for T7.2.
 
 import json
 
 import pytest
 
-from scripts.compare_retrieval import load_questions
 from src import config
+from src.eval_questions import load_eval_items, load_questions
 from src.rag.sources import load_manifest
+from src.tools import registry
 
 FILES = [config.EVAL_QUESTIONS_PATH, config.EVAL_QUESTIONS_DE_PATH]
 
@@ -38,6 +40,30 @@ def test_every_expected_source_is_in_the_manifest(questions):
         if source_id not in known
     }
     assert not unknown
+
+
+@pytest.mark.parametrize("path", FILES, ids=lambda path: path.name)
+def test_each_file_loads_with_the_evaluation_runs_loader(path):
+    """The file has the good answers and valid profiles `scripts/run_evaluation.py` needs."""
+    assert len(load_eval_items(path)) == len(load_questions(path))
+
+
+def test_q13s_fixed_profile_gives_the_targets_its_good_answer_expects():
+    """q13's session profile is valid and the app's tools give the values its good answer names."""
+    [q13] = [item for item in load_eval_items(config.EVAL_QUESTIONS_PATH) if item.id == "q13"]
+    result = registry.macro_targets(q13.profile)
+    targets = result.targets
+    assert result.energy_needs.tdee_kcal == 2759
+    assert targets.kcal_target == 3035
+    assert (targets.protein.grams, targets.carbohydrate.grams, targets.fat.grams) == (152, 418, 84)
+    for value in ("2759 kcal", "3035 kcal", "protein 152 g", "carbohydrate 418 g", "fat 84 g"):
+        assert value in q13.good_answer
+
+
+def test_only_q13_runs_with_a_session_profile():
+    """Every other question runs with no profile, as a new visitor asks it."""
+    items = load_eval_items(config.EVAL_QUESTIONS_PATH)
+    assert [item.id for item in items if item.profile is not None] == ["q13"]
 
 
 @pytest.mark.parametrize("path", FILES, ids=lambda path: path.name)

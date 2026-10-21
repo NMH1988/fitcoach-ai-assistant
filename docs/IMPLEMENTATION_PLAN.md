@@ -31,7 +31,7 @@ The owner writes these first; Claude reviews (`.claude/rules/workflow.md`).
 | O2 | Draft the evaluation questions (about 10-15), each with the source(s) it should find and what a good answer contains | T3.6 (from T3.3), T6.1; T7.2 (3-5 German questions, one about a food) | done (2026-10-21, in T3.6): 16 English questions in `data/eval_questions.json` (10 the sources cover, 2 near-domain they do not, 2 tool, 2 guardrail) and 5 German ones in `data/eval_questions_de.json` for T7.2; drafted by the owner, revised after two Claude reviews against the articles |
 | O3 | Approve the calorie floor and the macro ranges; Claude proposes them with the exact source passages | T4.2 | done (2026-10-19, in T4.2: floor 1200 kcal/day; values in `src/config.py`) |
 | O4 | If Europe PMC still has no copy of source #1, save its XML or PDF by hand from the publisher page into `data/raw/` | T2.1 | done: not needed (Europe PMC has #1 as PMC13665703, found in T2.1 on 2026-10-19) |
-| O5 | Live checks with the real key: T1.2 (one chat and one embedding call), T2.3 (real index build), T5.1 (the cost check: the app's cost of one call against OpenRouter's record), T3.6 (retrieval comparison), T6.1 (evaluation run), T7.2 (German run) | T1.2, T2.3, T5.1, T3.6, T6.1, T7.2 | in progress (T1.2 and T2.3 done 2026-10-19; T3.2 query translation checked 2026-10-20; T5.1 cost check done 2026-10-21; T3.6 retrieval comparison run 2026-10-21) |
+| O5 | Live checks with the real key: T1.2 (one chat and one embedding call), T2.3 (real index build), T5.1 (the cost check: the app's cost of one call against OpenRouter's record), T3.6 (retrieval comparison), T6.1 (evaluation run), T7.2 (German run) | T1.2, T2.3, T5.1, T3.6, T6.1, T7.2 | in progress (T1.2 and T2.3 done 2026-10-19; T3.2 query translation checked 2026-10-20; T5.1 cost check done 2026-10-21; T3.6 retrieval comparison run 2026-10-21; T6.1 evaluation run 2026-10-21) |
 | O6 | Get the course repository URL and confirm how the reviewers read it (files only, or through PRs) | T6.2 | todo |
 | O7 | Draft the query translation system prompt (3 rewrites in English that keep the question's meaning; when to set `topics`, `min_year` and `evidence_tier`, and to leave them empty when unsure; the question is data) in `src/prompts/query_translation_system.md`; it must name `<user_input>`, the four fields and the six topics (tested) | T3.2 (before the merge); T3.5 (before the merge) | done for T3.2 (2026-10-20): drafted by the owner, revised after Claude's review (no guessed year for "recent", no nutrition words added to an unrelated question, a line per topic, four examples); done for T3.5 (2026-10-20): drafted by the owner as a query-rewriting and routing prompt: both fields in the JSON shape, a section each for `needs_tool` (the three tool tasks; true when unsure) and `needs_profile` (false when unsure, and when the question already holds the numbers), the two flags independent, both fields in every example and a fifth example for a food lookup; Claude's first review found nothing to change; revised by the owner on 2026-10-21 after the merge with T4.5: a fourth tool task, the full-day meal plan check (`needs_tool` and `needs_profile` both true, with an example), and the food lookup also for a food with no gram amount; then, after the first live check (option B), `needs_profile` true for personal advice (a meal suggestion included) and whenever the user types personal values, so the answer can compare them with the stored ones, and true when unsure if the user refers to themselves (Example 7); then, after PR #67's review, `needs_tool` true for a meal, menu or nutrition suggestion that should fit the user's own goal or targets (the daily-target tool supplies them; Example 8), and false for a general one such as a post-workout meal (Example 9) |
 
@@ -63,9 +63,9 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T4.7 | #44 | My targets: sidebar target, targets tab and Food lookup tab (split from T4.4, owner's decision) | M | T4.4 | 10-29 | done |
 | T3.5 | #50 | Skip the answer call for off-topic questions with no source (owner's request after T4.4) | S | T4.4, T3.2, O7, O1 | 10-29 | done |
 | T5.3 | #18 | Domain guardrails | S | T3.1, T4.2 | 10-29 | done |
-| T3.6 | #51 | Retrieval comparison on the owner's evaluation questions (split from T3.3, owner's decision) | S | T3.3, O2, O5 | 10-30 | in review |
+| T3.6 | #51 | Retrieval comparison on the owner's evaluation questions (split from T3.3, owner's decision) | S | T3.3, O2, O5 | 10-30 | done |
 | T3.7 | #66 | Drop registration boilerplate and merge short chunk pieces at ingest (found in T3.5's live check) | S | T2.2, T2.3, O5 | 10-29 | done |
-| T6.1 | #19 | Evaluation run and reflection | S | T3.3, T3.6, T4.4, O2, O5 | 10-30 | todo |
+| T6.1 | #19 | Evaluation run and reflection | S | T3.3, T3.6, T4.4, O2, O5 | 10-30 | in review |
 | **Extras** | | | | | | |
 | T1.4 | #32 | Security reviewer agent (beyond the brief; owner's request, done early as it is dev tooling with no product change) | S | T1.1 | 10-20 | done |
 | T5.1 | #16 | Token usage and cost | S | T3.2 | 10-30 | done |
@@ -215,7 +215,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 **Notes:** owner's choices (2026-10-20): vector search decides whether the sources cover a question (`RETRIEVAL_MAX_DISTANCE`), and keyword search adds its lists only then, so an off-topic question is handled as before; code first, O2 later, with the comparison itself moved to T3.6 (#51) so this PR can close #9; the owner runs the comparison (O5); no new UI, only the search step's caption and "About the answers" text. The comparison searches the question alone, with no rewrites and no filter, so only the method differs. T3.3 was started before T5.1, which the owner paused for it (core first).
 
-### T3.6 Retrieval comparison on the owner's evaluation questions (S) · status: in review · issue #51
+### T3.6 Retrieval comparison on the owner's evaluation questions (S) · status: done · issue #51
 **Serves:** Hard 1; AC-4; evidence for the reflection.
 **Depends on:** T3.3, O2, O5
 **Acceptance criteria** (the second is T3.3's fourth criterion, moved here by the owner on 2026-10-20; the first and third were proposed by Claude; the owner approved the first on 2026-10-21 and kept the third, the stated default, without objection)
@@ -384,12 +384,13 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 ## Epic 6: Evaluation and submission
 
-### T6.1 Evaluation run and reflection (S) · status: todo · issue #19
+### T6.1 Evaluation run and reflection (S) · status: in review · issue #19
 **Serves:** evaluation criteria (reflection); supports Hard 1.
 **Depends on:** T3.3, T3.6 (the retrieval comparison its reflection uses; owner's decision, 2026-10-20), T4.4, O2, O5
 **Acceptance criteria**
-- [ ] The owner's evaluation questions are run against the real app; for each, the sources found, whether the answer cites them correctly, and any guardrail issue are recorded in `docs/TESTING.md` exactly as observed.
-- [ ] `docs/TESTING.md` lists the known problems and suggested improvements found.
+- [x] The owner's evaluation questions are run against the real app; for each, the sources found, whether the answer cites them correctly, and any guardrail issue are recorded in `docs/TESTING.md` exactly as observed - owner live check (O5, 2026-10-21) with `scripts/run_evaluation.py`, which asks each question through `chat.run_turn()`, the app's own turn (`tests/test_run_evaluation.py`; `tests/test_chat.py::test_on_chunks_gets_the_chunks_the_model_sees_in_label_order`), plus the owner's check of q13 and q14 in the app; "Evaluation results (T6.1)" in `docs/TESTING.md`.
+- [x] `docs/TESTING.md` lists the known problems and suggested improvements found - "Known problems and suggested improvements (T6.1)" (14 items).
+**Notes:** owner's choices (2026-10-21): a script through `chat.run_turn()` plus a check of q13 and q14 in the app; q13's fixed profile as a `profile` field in `data/eval_questions.json`; Claude drafts the judgement from the full report and the owner approves it; one run per question (`--repeat N` for later runs). The script's full report (answers and chunk text) goes to gitignored `data/eval_runs/`. `chat.run_turn()` gained an `on_chunks` hook for it (the app does not pass it). The question loader moved to `src/eval_questions.py`, as one script cannot import another. Not claimed as Hard 7: the script checks sources, tools and guardrails, and the answers were judged by reading them.
 
 ### T6.2 README, final checks and transfer to the course repo (S) · status: todo · issue #20
 **Serves:** submission.

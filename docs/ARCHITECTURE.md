@@ -51,6 +51,7 @@ src/
   prompts/query_translation_system.md  the owner's query translation prompt (O7)
   usage.py                  token counting and cost from OpenRouter prices
   export_pdf.py             session summary PDF, built in memory
+  eval_questions.py         the evaluation questions' format and loader (T3.6, T6.1)
   rag/
     sources.py              manifest model, licence and DOI check on article XML, ATTRIBUTION.md text
     ingest.py               JATS XML -> text sections -> chunks with metadata
@@ -71,10 +72,12 @@ scripts/
   live_check_llm.py         owner's live check: one real chat and one real embedding call
   live_check_retrieval.py   owner's live check: distances of the nearest chunks, to set the limit
   compare_retrieval.py      owner's live check: vector-only, keyword-only and hybrid hit rates (T3.3; run in T3.6)
+  run_evaluation.py         owner's live check: the evaluation questions through the app's whole chat turn (T6.1)
 data/
   sources.json              manifest of approved sources (committed)
   usda_foods.csv            trimmed USDA table (committed, CC0)
-  eval_questions.json       the owner's evaluation questions and expected sources (O2; T3.6, T6.1)
+  eval_questions.json       the owner's evaluation questions and expected sources (O2; T3.6, T6.1; loaded by src/eval_questions.py)
+  eval_runs/                full reports of the evaluation run (gitignored, T6.1)
   raw/                      downloaded article XML (gitignored)
 chroma/                     vector index (gitignored, rebuilt by the script)
 assets/fonts/               DejaVu Sans for the summary PDF, with its LICENSE and a README (T5.2)
