@@ -72,7 +72,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T5.1a | #68 | Live-check tests ignore a local secrets.toml (follow-up to T5.1; owner's request) | S | T5.1 | 10-21 | done |
 | T5.2 | #17 | Session summary PDF | M | T4.4 | 10-31 | done |
 | T7.3 | #35 | Light and dark mode | S | T3.1 | 10-31 | done |
-| T7.4 | #63 | German input guard and guardrails (split from T7.1, owner's decision) | M | T1.3, T5.3 | 10-31 | in review |
+| T7.4 | #63 | German input guard and guardrails (split from T7.1, owner's decision) | M | T1.3, T5.3 | 10-31 | done |
 | T7.1 | #33 | Language switch: English and German UI | M | T4.4, T4.7, T5.3, T1.3, T7.4 | 10-31 | todo |
 | T7.2 | #34 | German answers end to end | M | T7.1, T3.2, O1, O2, O5 | 11-01 | todo |
 | T4.5 | #15 | `evaluate_meal_plan` tool (stretch; done early by the owner's choice) | S | T4.4 | only if ahead | in review |
@@ -403,16 +403,16 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 Added by the owner on 2026-10-20. All three tickets are extras: they come after the core and never delay a core ticket. Concept and layout in `docs/UI_DESIGN.md` ("Language" and "Light and dark mode").
 
-### T7.4 German input guard and guardrails (M) · status: in review · issue #63
+### T7.4 German input guard and guardrails (M) · status: done · issue #63
 **Serves:** Hard 4 (multi-language support), as an extra after the core; core 3 (security measures relevant to the domain) and Medium 3 (prompt injection protection) for German input; AC-16. Beyond the PRD's original English-only scope (owner's request, 2026-10-20).
 **Depends on:** T1.3, T5.3
 **Decision (owner, 2026-10-21):** T7.1 turned out closer to L than M at its start, so its German safety checks were split into this ticket and come first, in their own PR; the German UI (T7.1) ships only once they are merged. The two criteria below moved here from T7.1; the other three were added with the split and approved by the owner.
 **Acceptance criteria**
-- [ ] The input guard rejects German prompt-injection strings (with ß, ss, ü and ue spellings) and passes German benign nutrition questions - parametrised tests with our own strings (`tests/test_guard_de.py`: `test_german_injection_attempts_are_rejected`, 69 attack strings; `test_german_benign_questions_pass`, 49 questions; `test_german_spells_each_umlaut_three_ways`).
-- [ ] The domain guardrails' code-level checks catch German requests (performance-enhancing drug dosing, under 18, pregnancy, medical conditions, disordered eating, an intake below the calorie floor) - parametrised tests with German attack and benign strings (`tests/test_guardrails_de.py`: `test_german_flagged_questions_get_their_guardrail_message`, 135 strings over the five concerns; `test_german_benign_questions_are_not_refused_or_redirected`, 110 questions plus the guard's 49; `test_every_concern_has_a_german_example`; `test_the_german_low_intake_check_follows_the_configured_floor`).
-- [ ] The English checks behave as before - the existing guard and guardrail tests pass unchanged (`tests/test_guard.py`, `tests/test_guardrails.py`, `tests/test_prompt_injection.py`), and English questions with a word the German lists share still pass (`ENGLISH_UNCHANGED` in `tests/test_guardrails_de.py`, 14 questions: the Krebs cycle in five spellings, the chemist Hans Krebs, "tumor", "Hashimoto", "depressive", "diclofenac", "steroid hormone", "diagnose").
-- [ ] The German patterns stay fast on long input - timing tests like the English one (`test_the_german_patterns_stay_fast_on_long_input`, `test_the_german_guardrails_stay_fast_on_long_input`).
-- [ ] `docs/SECURITY.md` and `docs/ARCHITECTURE.md` say the patterns cover English and German, with the German known limits - review.
+- [x] The input guard rejects German prompt-injection strings (with ß, ss, ü and ue spellings) and passes German benign nutrition questions - parametrised tests with our own strings (`tests/test_guard_de.py`: `test_german_injection_attempts_are_rejected`, 69 attack strings; `test_german_benign_questions_pass`, 49 questions; `test_german_spells_each_umlaut_three_ways`).
+- [x] The domain guardrails' code-level checks catch German requests (performance-enhancing drug dosing, under 18, pregnancy, medical conditions, disordered eating, an intake below the calorie floor) - parametrised tests with German attack and benign strings (`tests/test_guardrails_de.py`: `test_german_flagged_questions_get_their_guardrail_message`, 135 strings over the five concerns; `test_german_benign_questions_are_not_refused_or_redirected`, 110 questions plus the guard's 49; `test_every_concern_has_a_german_example`; `test_the_german_low_intake_check_follows_the_configured_floor`).
+- [x] The English checks behave as before - the existing guard and guardrail tests pass unchanged (`tests/test_guard.py`, `tests/test_guardrails.py`, `tests/test_prompt_injection.py`), and English questions with a word the German lists share still pass (`ENGLISH_UNCHANGED` in `tests/test_guardrails_de.py`, 14 questions: the Krebs cycle in five spellings, the chemist Hans Krebs, "tumor", "Hashimoto", "depressive", "diclofenac", "steroid hormone", "diagnose").
+- [x] The German patterns stay fast on long input - timing tests like the English one (`test_the_german_patterns_stay_fast_on_long_input`, `test_the_german_guardrails_stay_fast_on_long_input`).
+- [x] `docs/SECURITY.md` and `docs/ARCHITECTURE.md` say the patterns cover English and German, with the German known limits - review.
 **Notes:**
 - The patterns run on casefolded NFKC text, once with accents and once without (`detection_views()`), so ß is always ss and ü is seen as both ü and u. `german()` in `src/german.py` lets each umlaut in a pattern also match the plain vowel and the typed ue/oe/ae; the patterns are written with ss. No umlaut goes inside a lookbehind (`german()` would make it variable-width).
 - The messages stay English until T7.1 translates the UI. The German test strings are our own writing.
