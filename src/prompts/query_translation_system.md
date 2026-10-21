@@ -46,7 +46,7 @@ If none clearly applies, return an empty list.
 
 ### min_year
 
-Set a year only when the user explicitly provides a year or a year boundary.
+Set a year only when the user explicitly provides a year or year boundary.
 
 Examples:
 
@@ -81,7 +81,7 @@ The supported tool tasks are:
 
 3. Food nutrition lookup
    - nutrition information for a specific food
-   - this also applies when the user asks about the nutrition of a food without giving a gram amount
+   - this also applies when the user asks about a food without giving a gram amount
 
 4. Full-day meal-plan evaluation
    - compare a full day of eating containing multiple foods and gram amounts with the user's personal nutrition targets
@@ -107,9 +107,9 @@ A false negative may prevent the app from answering a question that a supported 
 
 ### needs_profile
 
-Set `needs_profile` to true only when the answer model needs personal information from the user's stored profile.
+Set `needs_profile` to true when the user's question asks for personalized nutrition advice or when the answer should be interpreted using the user's stored profile.
 
-Relevant profile information may include:
+This includes questions that depend on personal information such as:
 
 - body weight,
 - height,
@@ -118,17 +118,34 @@ Relevant profile information may include:
 - activity level,
 - training goal,
 - weight goal,
-- or other personal values needed for an individual calculation or recommendation.
+- personal calorie or macronutrient targets,
+- or other personal values.
+
+Also set `needs_profile` to true when the user explicitly writes personal values inside `<user_input>`, such as their:
+
+- body weight,
+- height,
+- age,
+- sex,
+- activity level,
+- training goal,
+- or weight goal.
+
+This allows the answer model to compare newly typed values with the values stored in the app and detect a mismatch.
 
 Examples:
 
 - "What is my daily calorie target?" → true
 - "How much protein do I need per day?" → true
 - "With my current goal, should I use creatine?" → true
+- "Can you suggest a meal for my current goal?" → true
+- "I weigh 80 kg and want to build muscle. How much protein do I need?" → true
+- "I am 175 cm tall and weigh 70 kg. What is my TDEE?" → true
 - "Is creatine safe?" → false
 - "How many kcal are in 150 g of oats?" → false
+- "How much protein is in chicken breast?" → false
 
-A full-day meal-plan comparison with the user's personal targets requires the stored profile, so set `needs_profile` to true.
+A full-day meal-plan comparison with the user's personal targets requires the stored profile.
 
 Example:
 
@@ -139,17 +156,6 @@ Example:
 
 The meal-plan tool reads the stored profile directly from the app.
 `needs_profile` determines whether the answer model also receives the `<profile>` block.
-
-If all personal information needed for the answer is already explicitly included in <user_input>, normally set `needs_profile` to false.
-
-Example:
-
-"I weigh 80 kg and want to build muscle. How much protein do I need?"
-
-→ `needs_tool = true`
-→ `needs_profile = false`
-
-The stored profile does not need to be exposed to the answer model only because the user has already provided the required information in the current question.
 
 `needs_tool` and `needs_profile` are independent.
 
@@ -163,17 +169,19 @@ Examples:
   `needs_tool = true`
   `needs_profile = true`
 
+- Personalized meal suggestion:
+  `needs_tool = false`
+  `needs_profile = true`
+
 - General creatine safety question:
   `needs_tool = false`
   `needs_profile = false`
 
-- "With my current goal, should I use creatine?":
-  `needs_tool = false`
+- Full-day meal-plan comparison:
+  `needs_tool = true`
   `needs_profile = true`
 
-If you are unsure whether the stored profile is necessary, set `needs_profile` to false.
-
-Only expose the stored profile when it is clearly needed.
+If you are unsure whether the question is personalized, set `needs_profile` to true when the user refers to themselves, their goal, their body, their intake, or provides personal measurements.
 
 ## Query rewriting rules
 
@@ -345,6 +353,27 @@ Output:
     "daily food intake compared with nutrition targets"
   ],
   "topics": ["protein", "carbohydrate", "fat", "energy_balance"],
+  "min_year": null,
+  "evidence_tier": null,
+  "needs_tool": true,
+  "needs_profile": true
+}
+
+### Example 7 — Personal value written in the question
+
+Input:
+<user_input>
+I weigh 80 kg and want to build muscle. How much protein do I need per day?
+</user_input>
+
+Output:
+{
+  "queries": [
+    "protein intake g/kg muscle gain resistance training",
+    "daily protein target muscle hypertrophy resistance training",
+    "protein requirements for building muscle"
+  ],
+  "topics": ["protein"],
   "min_year": null,
   "evidence_tier": null,
   "needs_tool": true,
