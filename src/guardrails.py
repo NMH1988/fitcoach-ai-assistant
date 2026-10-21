@@ -332,9 +332,11 @@ _DE_MINOR_PATTERNS = [
 
 # "Stillen" is also "to still": "stille ich (meinen) Heißhunger" or "zum Stillen des Hungers" is
 # a nutrition question, so a form of "stillen" whose object is hunger, thirst or appetite does
-# not count: right after the verb or after up to two articles, possessives, adverbs or
-# adjectives, and after at least one of them for a noun form. The user's own hunger next to it
-# still counts ("Ich stille und habe Hunger", "Während des Stillens Heißhunger").
+# not count. After the verb the hunger may come right away or after up to two articles,
+# possessives, adverbs or adjectives; after a noun form it needs an article or possessive first
+# and at most one more word ("zum Stillen des ständigen Hungers"), as "beim Stillen großen
+# Hunger" or "beim Stillen schnell Hunger" is the user's own hunger. The user's own hunger next to
+# it still counts ("Ich stille und habe Hunger", "Während des Stillens Heißhunger").
 _DE_HUNGER_LEAD = (
     r"(?:den|des|meinen|meines|deinen|deines|seinen|seines|ihren|ihres|unseren|unseres|euren"
     r"|von|abends|nachts|schnell|damit|so|kurz|gut|am besten|grossen|ständigen|starken|kleinen"
@@ -342,7 +344,11 @@ _DE_HUNGER_LEAD = (
 )
 _DE_HUNGER = r"\w*(?:hunger|durst|appetit)\w*\b"
 _DE_VERB_NOT_HUNGER = rf"(?! (?:{_DE_HUNGER_LEAD} ){{0,2}}{_DE_HUNGER})"
-_DE_NOUN_NOT_HUNGER = rf"(?! (?:{_DE_HUNGER_LEAD} ){{1,2}}{_DE_HUNGER})"
+_DE_HUNGER_ARTICLE = (
+    r"(?:den|des|meinen|meines|deinen|deines|seinen|seines|ihren|ihres|unseren|unseres|euren"
+    r"|von)"
+)
+_DE_NOUN_NOT_HUNGER = rf"(?! {_DE_HUNGER_ARTICLE} (?:\w+ )?{_DE_HUNGER})"
 _DE_PREGNANCY_PATTERNS = [
     r"\b(?:schwanger|schwangere[nrs]?|schwangerschaft(?:en)?|schwangerschafts\w*|trimenon"
     r"|pränatal\w*|postpartal\w*|postnatal\w*|wochenbett|stillzeit|stillende[nr]?|kinderwunsch"
@@ -494,7 +500,8 @@ _DE_LOW_INTAKE_PATTERNS = [
     rf"{_DE_INTAKE_GAP}{{1,4}}? (?:{_DE_QUALIFIERS} ){{0,3}}{_DE_NUMBER}(?P<post> {_DE_DAY})\b"
     rf"{_DE_NOT_A_PART}",
     # "Ich nehme (täglich) nur 800 kcal (am Tag) zu mir".
-    rf"\b(?:nehme|nimmst|nimmt|nehmen)(?P<pre> {_DE_DAY})?{_DE_INTAKE_GAP}{{0,3}}? {_DE_NUMBER}"
+    rf"\b(?:nehme|nimmst|nimmt|nehmen)(?P<pre> {_DE_DAY})?{_DE_INTAKE_GAP}{{0,3}}?"
+    rf"(?: {_DE_QUALIFIERS}){{0,3}} {_DE_NUMBER}"
     rf"(?P<post> {_DE_DAY})?(?: (?!(?:weniger|mehr|zusätzlich|extra)\b)[^\s\d,;]+)? zu mir\b",
     # The verb last: "(täglich) nur 800 kcal (am Tag) essen".
     rf"(?P<pre>\b{_DE_DAY} )?(?:{_DE_QUALIFIERS} ){{0,3}}{_DE_NUMBER}(?P<post> {_DE_DAY})? "

@@ -60,6 +60,13 @@ FLAGGED = [
     ("Ich stille und habe Durst, wie viel trinken?", Concern.PREGNANCY),
     ("Während des Stillens Heißhunger: was hilft?", Concern.PREGNANCY),
     ("Ich stille, Hunger habe ich ständig. Was essen?", Concern.PREGNANCY),
+    # Found in the review of PR #65, round 3: the user's own hunger after a noun form.
+    ("Ich habe beim Stillen großen Hunger, was soll ich essen?", Concern.PREGNANCY),
+    ("Ich habe beim Stillen starken Durst, wie viel trinken?", Concern.PREGNANCY),
+    ("Ich habe beim Stillen ständigen Heißhunger, was hilft?", Concern.PREGNANCY),
+    ("Ich bin beim Stillen so durstig, was trinken?", Concern.PREGNANCY),
+    ("Beim Stillen schnell Hunger, ist das normal?", Concern.PREGNANCY),
+    ("Vom Stillen so durstig, was trinken?", Concern.PREGNANCY),
     # Medical conditions (any mention; a side effect about the user or a group) and medication.
     ("Ich habe Diabetes Typ 2, wie viele Kohlenhydrate?", Concern.MEDICAL),
     ("Ich bin Diabetiker und will Muskeln aufbauen.", Concern.MEDICAL),
@@ -133,6 +140,13 @@ FLAGGED = [
     ("Ich esse seit 2 Monaten nur 700 kcal pro Tag, ist das ok?", Concern.DISORDERED_EATING),
     ("Ich esse in Woche 2 nur 900 kcal am Tag.", Concern.DISORDERED_EATING),
     ("Ich nehme seit 2 Wochen 800 kcal am Tag zu mir.", Concern.DISORDERED_EATING),
+    # Found in the review of PR #65, round 3: "nur" in the "zu mir" form.
+    ("Ich nehme seit 3 Tagen nur 500 kcal am Tag zu mir.", Concern.DISORDERED_EATING),
+    (
+        "Ich nehme seit 2 Wochen nur noch 800 kcal pro Tag zu mir.",
+        Concern.DISORDERED_EATING,
+    ),
+    ("Ich nehme seit einem Monat nur 900 kcal am Tag zu mir.", Concern.DISORDERED_EATING),
 ]
 
 # German questions that must pass: the research's supplements and near misses of every pattern.
@@ -228,6 +242,10 @@ BENIGN = [
     "Wie stille ich meinen großen Hunger nach dem Training?",
     "Wie viel Protein haben Flusskrebse?",
     "Krebs Zyklus einfach erklärt: was passiert im Muskel?",
+    # Found in the review of PR #65, round 3.
+    "Was hilft zum Stillen des quälenden Hungers?",
+    "Was ist gut zum Stillen von Heißhunger?",
+    "Ich stille abends meinen Hunger mit Quark, ist das gut?",
 ]
 
 # English questions that pass on main and use a word the German lists share: they must still

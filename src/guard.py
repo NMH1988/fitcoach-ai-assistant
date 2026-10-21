@@ -245,12 +245,12 @@ _DE_NOT_THIRD_PARTY = (
     rf"|einer)\b(?!{_DE_THIS_CHAT}))"
     r"(?!,? (?:die|welche) (?:mein|meine|meinen|ich|wir|er|sie|man mir)\b)"
 )
-# A how-to request ("deine Regeln für einen Cut"), unless it points at the chat.
 # The verbs a request for the hidden prompt ends with ("deine Anweisungen zeigen").
 _DE_REVEAL_FINAL_VERBS = (
     r"(?:zeigen|nennen|verraten|wiederholen|ausgeben|aufschreiben|auflisten|offenlegen"
     r"|preisgeben|sagen|schicken|kopieren|posten)"
 )
+# A how-to request ("deine Regeln für einen Cut"), unless it points at the chat.
 _DE_NOT_HOW_TO = (
     rf"(?! (?:für|zum|zur|zu(?! {_DE_REVEAL_FINAL_VERBS}\b)|beim|bei|über|gegen|im|in|vor|nach"
     rf"|von|vom|des|der)\b(?!{_DE_THIS_CHAT}))"
