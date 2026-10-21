@@ -37,8 +37,8 @@ class QueryPlan(BaseModel):
         ge=config.QUERY_MIN_YEAR_RANGE[0], le=config.QUERY_MIN_YEAR_RANGE[1]
     )
     evidence_tier: EvidenceTier | None
-    # T3.5. needs_tool: a profile calculation (energy needs, daily targets) or a food lookup could
-    # answer the question; with no relevant source, the answer model is called only then.
+    # T3.5. needs_tool: a profile calculation (energy needs, daily targets, a day's meal plan check)
+    # or a food lookup could answer; with no relevant source, the answer model is called only then.
     # needs_profile: the answer needs the user's own numbers, so only then is <profile> sent.
     # Strict, so a reply such as "yes" or 1 makes the plan unusable rather than a guess.
     needs_tool: StrictBool

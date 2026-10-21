@@ -1,22 +1,25 @@
 """Streamlit entry point: page layout only; the logic lives in src/."""
 
 import re
+from datetime import date
 from typing import get_args
 
 import streamlit as st
 
-from src import chat, config, guard, llm, profile, units
-from src.rag import store
+from src import chat, config, export_pdf, guard, llm, profile, units
+from src.rag import hybrid, store
 from src.rag.sources import ARTICLE_CHANGES_NOTE
-from src.tools import registry
-from src.tools.energy import Macro, TdeeResult
+from src.tools import meal_plan, registry
+from src.tools.energy import Macro, MacroTargetsResult, TdeeResult, protein_lowered_note
 from src.tools.food import FoodLookupResult
+from src.tools.meal_plan import MealPlanResult
 
 st.set_page_config(page_title=config.APP_TITLE, page_icon=":material/nutrition:", layout="wide")
 
 # Session state: "profile" holds the UserProfile (kg and cm), "units" the unit system the user
-# chose and "messages" the chat history (questions and TurnResults). All live for the session
-# only and are never logged (docs/SECURITY.md).
+# chose and "messages" the chat history (questions and TurnResults); "food_result" the Food lookup
+# tab's last result (USDA data only), with its inputs under "food_query" and "food_grams". All live
+# for the session only and are never logged (docs/SECURITY.md).
 st.session_state.setdefault("units", config.DEFAULT_UNIT_SYSTEM)
 st.session_state.setdefault("messages", [])
 
@@ -27,32 +30,26 @@ GOAL_ICONS = {
     "maintain": ":material/balance:",
 }
 ASSISTANT_AVATAR = ":material/nutrition:"
-# The label a turn's status box ends with, by the kind of result.
-STATUS_LABELS = {
-    "answer": "Answered from the research",
-    # An answer that cites no label: the model said the research does not cover the question.
-    "answer_uncited": "Answered without citing the research",
-    "no_sources": "No matching research found",
-    "rejected": "Question not accepted",
-    "guardrail": "Not something this assistant can advise on",
-    "error": "Something went wrong",
-}
 # What each step of a turn does, shown under it in the status box.
 STEP_DETAILS = {
     chat.Step.CHECK: "Length, prompt-injection patterns, safety topics and the question limit.",
     chat.Step.REWRITE: (
         f"A small model rephrases the question {config.QUERY_REWRITES} ways and picks filters."
     ),
-    chat.Step.SEARCH: "Vector search over the approved research for the question and each rewrite.",
+    chat.Step.SEARCH: (
+        "Search by meaning and by keyword over the approved research for the question and each "
+        "rewrite, merged into one ranking."
+    ),
     chat.Step.ANSWER: "The model answers from the passages found and cites them.",
     chat.Step.TOOLS: "Calculations from your profile and the USDA food table.",
 }
-# The heading of each tool's result; None is a call that was refused before any tool ran.
-TOOL_TITLES = {
-    registry.TDEE_TOOL: ":material/local_fire_department: Daily energy needs",
-    registry.MACRO_TOOL: ":material/target: Daily targets",
-    registry.FOOD_TOOL: ":material/restaurant: Food lookup",
-    None: ":material/block: Tool call not run",
+# The icon before each tool result's heading (registry.TOOL_TITLES); None is a refused call.
+TOOL_ICONS = {
+    registry.TDEE_TOOL: ":material/local_fire_department:",
+    registry.MACRO_TOOL: ":material/target:",
+    registry.FOOD_TOOL: ":material/restaurant:",
+    registry.MEAL_PLAN_TOOL: ":material/fact_check:",
+    None: ":material/block:",
 }
 TIER_COLORS = {1: "green", 2: "violet"}
 # The start of a line Markdown would read as a block: "#", "-", "+", "=" or "1." / "1)". A ">"
@@ -60,10 +57,6 @@ TIER_COLORS = {1: "green", 2: "violet"}
 _LINE_START = re.compile(r"^(\d*)([#+=.)-])")
 # How an evidence tier filter is named in "How this answer was found".
 TIER_FILTER_LABELS = {1: "ISSN position stands only", 2: "Peer-reviewed reviews only"}
-CORRECTION_LABELS = {
-    "corrected_by": "A correction to this article was published",
-    "corrects": "This notice corrects",
-}
 
 
 def _form_key(field: str) -> str:
@@ -227,6 +220,7 @@ def _profile_sidebar() -> None:
         border=True,
     )
     st.button("Edit details", icon=":material/edit:", width="stretch", on_click=_open_profile_form)
+    _targets_sidebar(system)
     st.caption(":material/lock: Kept for this session only")
 
 
@@ -234,6 +228,14 @@ def _profile_sidebar() -> None:
 def _index():
     """Open the knowledge base index once per app process; restart the app after a rebuild."""
     return store.open_index()
+
+
+@st.cache_resource(show_spinner=False)
+def _keyword_index(_chroma):
+    """Build the BM25 index of the knowledge base once per app process (T3.3)."""
+    # The leading underscore keeps Streamlit from hashing the Chroma object; the cache is cleared
+    # together with _index, so it always matches the index the app holds.
+    return hybrid.build_keyword_index(_chroma)
 
 
 @st.cache_resource(show_spinner=False)
@@ -257,8 +259,8 @@ def _manifest():
 def _status_label(result: chat.TurnResult) -> str:
     """Return the label a turn's status box ends with."""
     if result.kind == "answer" and not result.sources:
-        return STATUS_LABELS["answer_uncited"]
-    return STATUS_LABELS[result.kind]
+        return config.STATUS_LABELS["answer_uncited"]
+    return config.STATUS_LABELS[result.kind]
 
 
 def _final_state(result: chat.TurnResult) -> str:
@@ -317,10 +319,12 @@ def _run_turn(question: str, turn: int) -> None:
         on_text=on_text,
         # The energy tools read the session's profile; the model cannot change it.
         user=st.session_state.get("profile"),
+        keyword_index=_keyword_index,
     )
     if result.index_not_ready:
         # Open the index again on the next turn, e.g. once the owner has rebuilt it.
         _index.clear()
+        _keyword_index.clear()
     state = _final_state(result)
     if boxes:
         boxes[-1].update(state=state)
@@ -350,7 +354,7 @@ def _source_card(card: chat.SourceCard) -> None:
         st.caption(" · ".join(meta))
         st.markdown(f"[:material/open_in_new: Open article]({chat.markdown_url(card.url)})")
         for correction in card.corrections:
-            relation = CORRECTION_LABELS[correction.relation]
+            relation = config.CORRECTION_LABELS[correction.relation]
             st.caption(
                 f":material/edit_note: {relation}: "
                 f"[{chat.escape_markdown(correction.title)}]({chat.markdown_url(correction.url)})"
@@ -422,19 +426,79 @@ def _macro_bar(kcal: dict[str, int]) -> None:
     st.vega_lite_chart(data, spec, width="stretch", height=config.MACRO_CHART_HEIGHT_PX, alt=alt)
 
 
-def _macro_cells(macro: Macro) -> list[str]:
-    """Return one macro's grams, share of the kcal and grams per kg, as table cells."""
-    return [f"{macro.grams:,} g", f"{macro.percent}%", f"{macro.g_per_kg:g} g/kg"]
+def _per_body_weight(macro: Macro, targets: MacroTargetsResult, system: units.UnitSystem) -> str:
+    """Show a macro's grams per body weight in the user's units, rounded once."""
+    # From the grams and the weight, not Macro.g_per_kg, which is already rounded to 0.1: rounding
+    # it again showed 1.1 g/kg for 42 g at 40.1 kg (1.047; code review on PR #53).
+    return units.format_grams_per_body_weight(macro.grams, targets.weight_kg or 0, system)
+
+
+def _macro_cells(macro: Macro, targets: MacroTargetsResult, system: units.UnitSystem) -> list[str]:
+    """Return one macro's grams, share of the kcal and grams per body weight, as table cells."""
+    return [
+        f"{macro.grams:,} g",
+        f"{macro.percent}%",
+        _per_body_weight(macro, targets, system),
+    ]
+
+
+def _macro_parts(targets: MacroTargetsResult) -> dict[str, tuple[Macro, int]]:
+    """Return each macro's target and its kcal per gram, by name, in the macro colours' order."""
+    parts = {
+        "Protein": (targets.protein, config.KCAL_PER_G_PROTEIN),
+        "Carbohydrate": (targets.carbohydrate, config.KCAL_PER_G_CARBOHYDRATE),
+        "Fat": (targets.fat, config.KCAL_PER_G_FAT),
+    }
+    return {name: (macro, kcal) for name, (macro, kcal) in parts.items() if macro is not None}
+
+
+def _macro_kcal(targets: MacroTargetsResult) -> dict[str, int]:
+    """Return the kcal a day each macro's target gives, by name."""
+    return {name: macro.grams * kcal for name, (macro, kcal) in _macro_parts(targets).items()}
+
+
+def _has_targets(result: object) -> bool:
+    """Return whether a result holds complete daily targets to show."""
+    return (
+        isinstance(result, registry.MacroToolResult)
+        and result.status == "ok"
+        and result.targets.kcal_target is not None
+        and bool(result.targets.weight_kg)
+        and result.energy_needs.tdee_kcal is not None
+        and len(_macro_parts(result.targets)) == len(config.MACRO_COLORS)
+    )
+
+
+def _session_targets() -> registry.MacroToolResult | None:
+    """Return the daily targets for the session's profile, or None without a profile."""
+    # Computed from the profile on every run (no model call), so they follow the goal and details.
+    current = st.session_state.get("profile")
+    if current is None:
+        return None
+    result = registry.macro_targets(current)
+    if isinstance(result, registry.MacroToolResult) and _has_targets(result):
+        return result
+    return None
+
+
+def _protein_range(targets: MacroTargetsResult, system: units.UnitSystem) -> str:
+    """Return the sources' protein range for this body weight, in grams and per body weight."""
+    # Always set with status "ok"; the fallback only satisfies the type.
+    low, high = targets.protein_g_range or (0, 0)
+    per_low, per_high = (
+        units.format_per_body_weight(value, system) for value in config.PROTEIN_G_PER_KG_RANGE
+    )
+    return f"{low:,}-{high:,} g a day ({per_low} to {per_high})"
 
 
 def _show_macros(result: registry.MacroToolResult) -> None:
     """Show the daily targets as a table and the energy split as a stacked bar (AC-6)."""
     targets = result.targets
-    if targets.kcal_target is None or not (
-        targets.protein and targets.carbohydrate and targets.fat
-    ):
+    # The second test only narrows the type: _has_targets() already checked it.
+    if not _has_targets(result) or targets.kcal_target is None:
         st.caption(result.message)
         return
+    system = st.session_state["units"]
     low, high = targets.kcal_range or (targets.kcal_target, targets.kcal_target)
     protein_low, protein_high = targets.protein_g_range or (0, 0)
     _table(
@@ -445,28 +509,233 @@ def _show_macros(result: registry.MacroToolResult) -> None:
             "Protein range": f"{protein_low:,}-{protein_high:,} g",
         }
     )
-    macros = {
-        "Protein": (targets.protein, config.KCAL_PER_G_PROTEIN),
-        "Carbohydrate": (targets.carbohydrate, config.KCAL_PER_G_CARBOHYDRATE),
-        "Fat": (targets.fat, config.KCAL_PER_G_FAT),
-    }
-    cells = [_macro_cells(macro) for macro, _ in macros.values()]
+    macros = _macro_parts(targets)
+    # Per body weight in the units the user chose now (g/kg or g/lb; AC-8).
+    cells = [_macro_cells(macro, targets, system) for macro, _ in macros.values()]
     st.dataframe(
         {
             "Macro": list(macros),
             "Per day": [row[0] for row in cells],
             "Share of kcal": [row[1] for row in cells],
-            "Per kg of body weight": [row[2] for row in cells],
+            f"Per {units.weight_unit(system)} of body weight": [row[2] for row in cells],
         },
         hide_index=True,
         width="stretch",
     )
     # The energy split as one stacked bar; the numbers are in the table above, so colour is never
     # the only signal (docs/UI_DESIGN.md, Accessibility).
-    _macro_bar({name: macro.grams * kcal_per_g for name, (macro, kcal_per_g) in macros.items()})
+    _macro_bar(_macro_kcal(targets))
     st.caption(result.message)
     for note in targets.notes:
         st.caption(f":material/info: {note}")
+
+
+def _macro_donut(kcal: dict[str, int], total: int) -> None:
+    """Draw the energy split as a donut in the macro colours, with the daily kcal in the middle."""
+    names = list(kcal)
+    alt = f"Daily target {total:,} kcal, energy split: " + ", ".join(
+        f"{name} {value:,} kcal" for name, value in kcal.items()
+    )
+    # One text mark per line in the middle, each with its own one-row data, so it is drawn once.
+    # Streamlit's chart theme colours axes and legends but not text marks (black in dark mode), so
+    # the text takes the page's text colour through the SVG's currentColor.
+    centre = [
+        {
+            "data": {"values": [{"line": line}]},
+            "mark": {
+                "type": "text",
+                "fontSize": size,
+                "fontWeight": weight,
+                "dy": dy,
+                "color": "currentColor",
+            },
+            "encoding": {"text": {"field": "line", "type": "nominal"}},
+        }
+        for line, size, weight, dy in ((f"{total:,}", 17, "bold", -7), ("kcal", 12, "normal", 11))
+    ]
+    spec = {
+        "layer": [
+            {
+                "mark": {
+                    "type": "arc",
+                    "innerRadius": config.MACRO_DONUT_INNER_RADIUS_PX,
+                    # Gaps between the parts, so neighbouring colours never touch.
+                    "padAngle": config.MACRO_DONUT_PAD_ANGLE,
+                },
+                "encoding": {
+                    "theta": {"field": "kcal", "type": "quantitative", "stack": True},
+                    "color": {
+                        "field": "macro",
+                        "type": "nominal",
+                        "sort": names,
+                        "scale": {
+                            "domain": names,
+                            "range": [config.MACRO_COLORS[n] for n in names],
+                        },
+                        "legend": {"orient": "right", "title": None},
+                    },
+                    "order": {"field": "position", "type": "quantitative"},
+                    "tooltip": [
+                        {"field": "macro", "type": "nominal"},
+                        {"field": "kcal", "type": "quantitative", "format": ","},
+                    ],
+                },
+            },
+            *centre,
+        ]
+    }
+    data = {"macro": names, "kcal": list(kcal.values()), "position": list(range(len(names)))}
+    st.vega_lite_chart(data, spec, width="stretch", height=config.MACRO_DONUT_HEIGHT_PX, alt=alt)
+
+
+def _targets_sidebar(system: units.UnitSystem) -> None:
+    """Show the daily target and a summary card of the energy split in the sidebar (T4.7)."""
+    result = _session_targets()
+    if result is None:
+        return
+    targets = result.targets
+    st.metric("Daily target", f"{targets.kcal_target:,} kcal", border=True)
+    with st.container(border=True):
+        st.markdown("**:material/target: My targets**")
+        _macro_donut(_macro_kcal(targets), targets.kcal_target or 0)
+        # The values as text, so the colours are never the only signal.
+        for name, (macro, _) in _macro_parts(targets).items():
+            per_weight = _per_body_weight(macro, targets, system)
+            st.caption(f"**{name}** {macro.grams:,} g · {macro.percent}% · {per_weight}")
+        if targets.protein_lowered:
+            st.caption(":material/warning: Protein was lowered to fit the target: see My targets.")
+        st.caption("More in the My targets tab.")
+
+
+def _kcal_delta(difference: int) -> str | None:
+    """Return the daily target's surplus or deficit against daily energy needs, or None."""
+    # Short, as a longer delta is cut off in a quarter of the tab; the caption below says more.
+    return None if difference == 0 else f"{difference:+,} kcal"
+
+
+def _goal_line(goal: profile.Goal, difference: int) -> str:
+    """Say the goal and how far the daily target is from daily energy needs."""
+    if difference == 0:
+        return f"{profile.GOAL_LABELS[goal]}: at maintenance"
+    side = "above" if difference > 0 else "below"
+    return f"{profile.GOAL_LABELS[goal]}: {abs(difference):,} kcal {side} maintenance"
+
+
+def _targets_tab() -> None:
+    """Show the daily targets: four metrics, the energy split and how they were set (T4.7)."""
+    st.subheader(":material/target: My targets")
+    result = _session_targets()
+    if result is None:
+        st.caption("Add your details to get your daily energy and macro targets.")
+        st.button(
+            "Add your details",
+            icon=":material/person_add:",
+            key="targets_add_details",
+            on_click=_open_profile_form,
+        )
+        return
+    system = st.session_state["units"]
+    targets, needs = result.targets, result.energy_needs
+    difference = (targets.kcal_target or 0) - (needs.tdee_kcal or 0)
+    kcal_column, *macro_columns = st.columns(1 + len(config.MACRO_COLORS))
+    kcal_column.metric(
+        "Daily target",
+        f"{targets.kcal_target:,} kcal",
+        # Grey with its sign: a deficit for fat loss is the plan, not a warning.
+        delta=_kcal_delta(difference),
+        delta_color="off",
+        border=True,
+    )
+    if targets.goal is not None:
+        kcal_column.caption(_goal_line(targets.goal, difference))
+    macros = _macro_parts(targets).items()
+    for column, (name, (macro, _)) in zip(macro_columns, macros, strict=True):
+        column.metric(name, f"{macro.grams:,} g", border=True)
+        per_weight = _per_body_weight(macro, targets, system)
+        column.caption(f"{macro.percent}% of kcal · {per_weight}")
+    lowered = protein_lowered_note(targets.goal) if targets.goal is not None else None
+    if targets.protein_lowered and lowered:
+        st.warning(
+            f"{lowered} The sources' protein range for your weight: "
+            f"{_protein_range(targets, system)}.",
+            icon=":material/warning:",
+        )
+    _macro_bar(_macro_kcal(targets))
+    st.caption(
+        f":material/local_fire_department: Maintenance (daily energy needs): about "
+        f"{needs.tdee_kcal:,} kcal/day. {needs.method}"
+    )
+    st.caption(result.message)
+    for note in targets.notes:
+        if note != lowered:
+            st.caption(f":material/info: {note}")
+    sources = "\n".join(f"- {source}" for source in [*needs.sources, *targets.sources])
+    st.caption(f":material/menu_book: Sources:\n{sources}")
+
+
+def _food_result(result: registry.ToolResult) -> None:
+    """Show a lookup from the Food lookup tab: the food and its nutrients, or why not."""
+    # Both messages are fixed text that never repeats the input.
+    if result.status == "invalid":
+        st.warning(result.message, icon=":material/edit:")
+        return
+    if not isinstance(result, FoodLookupResult):
+        # The foods table is missing or broken.
+        st.error(result.message, icon=":material/error:")
+        return
+    if result.status != "found" or result.nutrients is None:
+        # Fixed text; the suggestions are USDA names, so only table cells.
+        st.info(result.message, icon=":material/search_off:")
+        if result.alternatives:
+            st.dataframe({"Did you mean": result.alternatives}, hide_index=True, width="stretch")
+        return
+    nutrients = result.nutrients
+    st.caption(f"Matched USDA food, {result.grams:g} g:")
+    # Plain text: a USDA name is never read as Markdown (docs/SECURITY.md).
+    st.text(result.matched_name or "")
+    energy, protein, carbohydrate, fat = st.columns(4)
+    energy.metric("Energy", f"{nutrients.kcal:,} kcal", border=True)
+    protein.metric("Protein", f"{nutrients.protein_g:g} g", border=True)
+    carbohydrate.metric("Carbohydrate", f"{nutrients.carbohydrate_g:g} g", border=True)
+    fat.metric("Fat", f"{nutrients.fat_g:g} g", border=True)
+    fiber = "not reported" if nutrients.fiber_g is None else f"{nutrients.fiber_g:g} g"
+    st.caption(f"Fiber: {fiber}")
+    if result.alternatives:
+        st.dataframe({"Close alternatives": result.alternatives}, hide_index=True, width="stretch")
+    st.caption(config.USDA_SOURCE_LINE)
+
+
+def _food_tab() -> None:
+    """Look up the nutrients of a food and amount in the USDA table, with no model call (T4.7)."""
+    st.subheader(":material/search: Food lookup")
+    food_column, grams_column, button_column = st.columns([4, 1, 1], vertical_alignment="bottom")
+    food = food_column.text_input(
+        "Food",
+        key="food_query",
+        max_chars=config.FOOD_MAX_NAME_CHARS,
+        placeholder="e.g. rolled oats, chicken breast raw",
+    )
+    grams = grams_column.number_input(
+        "Grams",
+        min_value=config.FOOD_MIN_GRAMS,
+        max_value=float(config.FOOD_MAX_GRAMS),
+        value=config.FOOD_LOOKUP_DEFAULT_GRAMS,
+        step=config.FOOD_LOOKUP_STEP_GRAMS,
+        format="%.1f",
+        key="food_grams",
+    )
+    if button_column.button(
+        "Look up", icon=":material/search:", key="food_lookup", type="primary", width="stretch"
+    ):
+        # Kept for the session, so the result stays while other widgets rerun the page.
+        st.session_state["food_result"] = registry.run_food_lookup(food, grams)
+    st.caption(
+        "Single, unprocessed foods from the USDA FoodData Central Foundation Foods table, "
+        "named in English."
+    )
+    result = st.session_state.get("food_result")
+    if result is not None:
+        _food_result(result)
 
 
 def _show_food(result: FoodLookupResult) -> None:
@@ -491,12 +760,41 @@ def _show_food(result: FoodLookupResult) -> None:
     if result.alternatives:
         rows["Close alternatives"] = "; ".join(result.alternatives)
     _table(rows)
-    st.caption("Source: USDA FoodData Central, Foundation Foods (CC0). Values per 100 g, scaled.")
+    st.caption(config.USDA_SOURCE_LINE)
+
+
+def _columns(names: tuple[str, ...], rows: list[list[str]]) -> dict[str, list[str]]:
+    """Return rows of cells as columns by name, for st.dataframe."""
+    return {name: [row[i] for row in rows] for i, name in enumerate(names)}
+
+
+def _show_meal_plan(result: MealPlanResult) -> None:
+    """Show a meal plan check: each food, then the totals against the daily targets (T4.5)."""
+    # The names asked for and the USDA names as table cells: plain text, never Markdown.
+    foods = _columns(meal_plan.FOOD_COLUMNS, [meal_plan.food_row(i) for i in result.items])
+    foods["Other close USDA names"] = ["; ".join(item.alternatives) for item in result.items]
+    # A long name would take the whole width and push the values out of view; a capped column
+    # cuts it and shows it in full on hover.
+    names = {
+        column: st.column_config.TextColumn(width="medium")
+        for column in ("Food asked", "USDA food", "Other close USDA names")
+    }
+    st.dataframe(foods, hide_index=True, width="stretch", column_config=names)
+    comparison = meal_plan.comparison_rows(result)
+    if comparison:
+        st.dataframe(
+            _columns(meal_plan.COMPARISON_COLUMNS, comparison), hide_index=True, width="stretch"
+        )
+    st.caption(result.message)
+    for note in result.notes:
+        st.caption(f":material/info: {note}")
+    st.caption(config.MEAL_PLAN_SOURCE_LINE)
 
 
 def _show_tool_run(run: registry.ToolRun, key: str) -> None:
     """Show one tool result under its heading; without a profile, a button opens the form."""
-    st.markdown(f"**{TOOL_TITLES.get(run.name, TOOL_TITLES[None])}**")
+    name = run.name if run.name in registry.TOOL_TITLES else None
+    st.markdown(f"**{TOOL_ICONS[name]} {registry.TOOL_TITLES[name]}**")
     result = run.result
     if run.status == "profile_needed":
         st.info(config.PROFILE_NEEDED_HINT, icon=":material/person_add:")
@@ -509,6 +807,8 @@ def _show_tool_run(run: registry.ToolRun, key: str) -> None:
         _show_macros(result)
     elif isinstance(result, FoodLookupResult) and result.status != "invalid":
         _show_food(result)
+    elif isinstance(result, MealPlanResult) and result.status != "invalid":
+        _show_meal_plan(result)
     else:
         # A refused or failed call: the fixed message the model got, never what it sent.
         st.caption(result.message)
@@ -691,8 +991,9 @@ def _about_sidebar() -> None:
             f"- **{summary.articles} open-access research articles**: "
             f"{summary.position_stands} ISSN position stands and {summary.reviews} peer-reviewed "
             f"reviews ({' and '.join(summary.licenses)}).\n"
-            f"- Each question is rephrased {config.QUERY_REWRITES} ways, the closest passages "
-            "are found, and the answer cites them as [S1], [S2]...\n"
+            f"- Each question is rephrased {config.QUERY_REWRITES} ways, passages are found by "
+            "meaning and by keyword and ranked together, and the answer cites them as "
+            "[S1], [S2]...\n"
             f"- Rephrased by `{config.QUERY_TRANSLATION_MODEL}` and written by "
             f"`{config.DEFAULT_ANSWER_MODEL}` through OpenRouter."
         )
@@ -711,6 +1012,37 @@ def _about_sidebar() -> None:
             f"{ARTICLE_CHANGES_NOTE} Full credits, with each article's copyright notice, are in "
             "ATTRIBUTION.md in the repository."
         )
+
+
+def _summary_download() -> None:
+    """Offer the session summary as a PDF, built in memory only when clicked (AC-9)."""
+    # Drawn after the main area, so the turn that just ran is in it. The PDF is built from this
+    # run's snapshot when the user clicks; Streamlit keeps the bytes in memory, never on disk.
+    turns = export_pdf.session_turns(st.session_state["messages"])
+    user = st.session_state.get("profile")
+    system = st.session_state["units"]
+    manifest = _manifest()
+    # One date for the file name and the PDF, even if the click comes after midnight.
+    today = date.today()
+
+    def build() -> bytes:
+        """Build the PDF from this run's session."""
+        return export_pdf.build_summary_pdf(turns, user, system, manifest, today)
+
+    empty = user is None and not turns
+    st.download_button(
+        config.PDF_BUTTON_LABEL,
+        data=build,
+        file_name=config.PDF_FILE_NAME.format(date=today.isoformat()),
+        mime="application/pdf",
+        icon=":material/download:",
+        # The download needs no rerun of the app.
+        on_click="ignore",
+        disabled=empty,
+        help=config.PDF_BUTTON_EMPTY_HELP if empty else config.PDF_BUTTON_HELP,
+        key="summary_pdf",
+        width="stretch",
+    )
 
 
 def _main_area() -> None:
@@ -737,9 +1069,9 @@ def _main_area() -> None:
     with ask:
         _ask_tab()
     with targets:
-        st.caption("Your daily energy and macro targets will appear here in a later version.")
+        _targets_tab()
     with food:
-        st.caption("Looking up the nutrients of a food will be possible here in a later version.")
+        _food_tab()
     with details:
         _details_tab()
 
@@ -747,9 +1079,10 @@ def _main_area() -> None:
 with st.sidebar:
     _profile_sidebar()
     st.caption(config.THEME_HINT)
-    # Filled after the main area, so it shows the turn that just ran; until then the page keeps
-    # the previous run's card. Drawn once per run: a slot drawn twice in one run keeps the first
-    # draw's extra elements (e.g. a badge the new turn does not have; found in the browser).
+    # Both slots are filled after the main area, so they hold the turn that just ran (the PDF too);
+    # until then the page keeps the previous run's card. Drawn once per run: a slot drawn twice in
+    # one run keeps the first draw's extra elements (e.g. a badge the new turn does not have).
+    download_slot = st.empty()
     last_answer_slot = st.empty()
     _about_sidebar()
 if st.session_state.get("profile_form_open"):
@@ -760,5 +1093,7 @@ if st.session_state.get("profile_form_open"):
 _, main, _ = st.columns(config.PAGE_COLUMN_WEIGHTS)
 with main:
     _main_area()
+with download_slot.container():
+    _summary_download()
 with last_answer_slot.container():
     _last_answer_card()

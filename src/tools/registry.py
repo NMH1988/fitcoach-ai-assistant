@@ -1,9 +1,10 @@
 """The answer step's tools for LangChain, and the running of the model's tool calls (T4.4).
 
 Each tool is a `StructuredTool` with an explicit `args_schema` that holds only what the model may
-send: `lookup_food_nutrition` takes `food` and `grams` (`FoodLookupArgs`), the energy tools take
-nothing (`NoArgs`): the app gives them the user's profile when the tools are built, so the model
-can neither read nor change it. `run_tool_call()` checks the arguments against the schema itself
+send: `lookup_food_nutrition` takes `food` and `grams` (`FoodLookupArgs`), `evaluate_meal_plan` a
+list of them (`MealPlanArgs`, T4.5), the energy tools nothing (`NoArgs`): the app gives the energy
+and meal plan tools the user's profile when the tools are built, so the model can neither read nor
+change it. `run_tool_call()` checks the arguments against the schema itself
 before a tool runs (LangChain skips the check for a schema without fields), and every refusal or
 failure comes back as a fixed message the model reads as the tool result, never as an exception.
 """
@@ -32,10 +33,17 @@ from src.tools.food import (
     invalid_lookup_message,
     lookup_food_nutrition,
 )
+from src.tools.meal_plan import (
+    MealPlanArgs,
+    MealPlanResult,
+    evaluate_meal_plan,
+    invalid_meal_plan_message,
+)
 
 TDEE_TOOL = "calculate_tdee"
 MACRO_TOOL = "calculate_macro_targets"
 FOOD_TOOL = "lookup_food_nutrition"
+MEAL_PLAN_TOOL = "evaluate_meal_plan"
 
 # What the model reads about each tool. The profile is never an argument.
 TDEE_DESCRIPTION = (
@@ -57,6 +65,27 @@ FOOD_DESCRIPTION = (
     "closest USDA food may not be the one asked for (e.g. 'pasta' can match a pasta sauce); if it "
     "differs, say so or look up one of the alternatives by its exact name."
 )
+MEAL_PLAN_DESCRIPTION = (
+    "For a whole day's food only: for one meal or one food, use lookup_food_nutrition instead, as "
+    "the comparison is with daily targets. "
+    "Total the kcal, protein, carbohydrate, fat and fiber of one day's foods and amounts (USDA "
+    "FoodData Central Foundation Foods, as in the food lookup) and compare them with the user's "
+    "daily targets for their goal from the profile they entered in the app: for each nutrient the "
+    "plan's total, the target and the gap, and for kcal and protein whether the total is below, "
+    "within or above the sources' range. Takes only the list of foods with grams: the app supplies "
+    f"the profile and the goal. At most {config.MEAL_PLAN_MAX_ITEMS} foods. Check each food's "
+    "matched_name; foods not found are left out of the totals. If the user has not added their "
+    "details, the result says so."
+)
+
+# The heading of each tool's result in the app and the summary PDF; None is a refused call.
+TOOL_TITLES: dict[str | None, str] = {
+    TDEE_TOOL: "Daily energy needs",
+    MACRO_TOOL: "Daily targets",
+    FOOD_TOOL: "Food lookup",
+    MEAL_PLAN_TOOL: "Meal plan check",
+    None: "Tool call not run",
+}
 
 ToolStatus = Literal["ok", "found", "not_found", "invalid", "profile_needed", "error"]
 
@@ -83,7 +112,7 @@ class MacroToolResult(BaseModel):
     targets: MacroTargetsResult
 
 
-ToolResult = TdeeResult | MacroToolResult | FoodLookupResult | ToolNotice
+ToolResult = TdeeResult | MacroToolResult | FoodLookupResult | MealPlanResult | ToolNotice
 
 
 @dataclass(frozen=True)
@@ -108,6 +137,20 @@ def _energy_needs(profile: UserProfile) -> TdeeResult:
     )
 
 
+def macro_targets(profile: UserProfile) -> MacroToolResult | ToolNotice:
+    """Return the daily targets for the profile's goal with its energy needs; no model call."""
+    # Shared by calculate_macro_targets, evaluate_meal_plan (T4.5) and the app's own views (the
+    # summary PDF, T5.2; the sidebar card and the My targets tab, T4.7), so they always agree.
+    needs = _energy_needs(profile)
+    if needs.tdee_kcal is None:
+        # Not reached for a validated profile: its ranges are the tools' ranges.
+        return ToolNotice(status="error", message=config.TOOL_FAILED_MESSAGE)
+    targets = calculate_macro_targets(profile.weight_kg, profile.goal, needs.tdee_kcal)
+    return MacroToolResult(
+        status=targets.status, message=targets.message, energy_needs=needs, targets=targets
+    )
+
+
 def _no_arguments_message(_: ValidationError) -> str:
     """Return the fixed message for an energy tool called with any argument."""
     return config.NO_ARGUMENTS_MESSAGE
@@ -116,7 +159,7 @@ def _no_arguments_message(_: ValidationError) -> str:
 def build_tools(
     profile: UserProfile | None, table: Sequence[Food] | None = None
 ) -> dict[str, StructuredTool]:
-    """Return the tools by name, with the energy tools bound to this profile (None: no profile)."""
+    """Return the tools by name, the energy and meal plan tools bound to this profile (or None)."""
     # `table` replaces the committed foods table (tests); the model can never set it. Run the
     # model's calls only through run_tool_call(): LangChain's own `tool.invoke()` skips the check
     # for the NoArgs tools and would run them with the model's extra fields dropped.
@@ -127,20 +170,21 @@ def build_tools(
 
     def macros() -> MacroToolResult | ToolNotice:
         """Return the daily targets for the profile's goal, or "profile needed"."""
-        if profile is None:
-            return _profile_needed()
-        needs = _energy_needs(profile)
-        if needs.tdee_kcal is None:
-            # Not reached for a validated profile: its ranges are the tools' ranges.
-            return ToolNotice(status="error", message=config.TOOL_FAILED_MESSAGE)
-        targets = calculate_macro_targets(profile.weight_kg, profile.goal, needs.tdee_kcal)
-        return MacroToolResult(
-            status=targets.status, message=targets.message, energy_needs=needs, targets=targets
-        )
+        return _profile_needed() if profile is None else macro_targets(profile)
 
     def food(food: str, grams: float) -> FoodLookupResult:
         """Return the nutrients of the food for the grams."""
         return lookup_food_nutrition(food, grams, table)
+
+    def meal_plan(items: list[dict]) -> MealPlanResult | ToolNotice:
+        """Return the foods' totals against the profile's daily targets, or "profile needed"."""
+        if profile is None:
+            return _profile_needed()
+        daily = macro_targets(profile)
+        if not isinstance(daily, MacroToolResult) or daily.status != "ok":
+            # Not reached for a validated profile, as above.
+            return ToolNotice(status="error", message=config.TOOL_FAILED_MESSAGE)
+        return evaluate_meal_plan(items, daily.targets, table)
 
     return {
         TDEE_TOOL: StructuredTool.from_function(
@@ -164,6 +208,13 @@ def build_tools(
             args_schema=FoodLookupArgs,
             handle_validation_error=invalid_lookup_message,
         ),
+        MEAL_PLAN_TOOL: StructuredTool.from_function(
+            func=meal_plan,
+            name=MEAL_PLAN_TOOL,
+            description=MEAL_PLAN_DESCRIPTION,
+            args_schema=MealPlanArgs,
+            handle_validation_error=invalid_meal_plan_message,
+        ),
     }
 
 
@@ -172,6 +223,7 @@ _INVALID_MESSAGES: dict[str, Callable[[ValidationError], str]] = {
     TDEE_TOOL: _no_arguments_message,
     MACRO_TOOL: _no_arguments_message,
     FOOD_TOOL: invalid_lookup_message,
+    MEAL_PLAN_TOOL: invalid_meal_plan_message,
 }
 
 
@@ -191,6 +243,15 @@ def _run(tool: StructuredTool, args: object) -> ToolResult:
         # the fixed message, never the exception's text.
         return ToolNotice(status="error", message=config.TOOL_FAILED_MESSAGE)
     return result
+
+
+def run_food_lookup(
+    food: object, grams: object, table: Sequence[Food] | None = None
+) -> FoodLookupResult | ToolNotice:
+    """Look a food up as the tool would, for the Food lookup tab: checked, never an exception."""
+    # Same schema check and fixed messages as a model's call; no model is involved (T4.7).
+    tool = build_tools(None, table)[FOOD_TOOL]
+    return cast(FoodLookupResult | ToolNotice, _run(tool, {"food": food, "grams": grams}))
 
 
 def tool_message(call_id: str, result: ToolResult, name: str | None = None) -> ToolMessage:

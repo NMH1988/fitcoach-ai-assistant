@@ -1,6 +1,10 @@
-"""Fakes for chat tests: keyword embeddings, chat and rewrite models, an index, profile, foods."""
+"""Fakes for chat tests: keyword embeddings, chat and rewrite models, an index, profile, foods.
+
+Also `pdf_text()`, which reads a PDF's text back for the summary PDF tests (T5.2).
+"""
 
 import csv
+import io
 import json
 import re
 from collections.abc import Iterator
@@ -16,6 +20,7 @@ from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResu
 from langchain_core.runnables import RunnableLambda
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import Field
+from pypdf import PdfReader
 
 from src import llm
 from src.profile import UserProfile
@@ -289,3 +294,9 @@ def build_fixture_index(path: Path, chunks: list[Document] | None = None) -> Pat
 def open_fixture_index(path: Path):
     """Open the fixture index at path with the keyword embeddings."""
     return _open_index(KeywordEmbeddings(), path)
+
+
+def pdf_text(data: bytes) -> str:
+    """Return a PDF's text, page by page, with each run of whitespace made one space."""
+    reader = PdfReader(io.BytesIO(data))
+    return " ".join(" ".join(page.extract_text().split()) for page in reader.pages)

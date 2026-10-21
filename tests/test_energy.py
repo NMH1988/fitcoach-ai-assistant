@@ -363,6 +363,17 @@ def test_protein_is_lowered_when_it_does_not_fit_the_target():
     assert result.kcal_target <= macro_kcal(result) <= result.kcal_target + 3
     assert any("registered dietitian" in note for note in result.notes)
     assert result.protein_g_range == (480, 660)
+    # The flag and the note tell the UI to show the protein range next to the target (T4.7).
+    assert result.protein_lowered
+    assert energy.protein_lowered_note("lose_fat") in result.notes
+
+
+@pytest.mark.parametrize("goal", GOALS)
+def test_protein_is_not_marked_as_lowered_when_it_fits(goal):
+    """An ordinary profile keeps protein by body weight, so the flag stays off (T4.7)."""
+    result = calculate_macro_targets(80, goal, 2759)
+    assert not result.protein_lowered
+    assert energy.protein_lowered_note(goal) not in result.notes
 
 
 @pytest.mark.parametrize(

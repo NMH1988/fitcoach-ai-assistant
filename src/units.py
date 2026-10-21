@@ -19,6 +19,9 @@ INCHES_PER_FOOT = 12
 
 # Weights are shown to 0.1 kg or lb; heights to the whole cm or inch.
 WEIGHT_DECIMALS = 1
+# Grams per body weight: 0.1 g/kg, and 0.01 g/lb, as the values per lb are under half the per-kg
+# value (T4.7, T5.2).
+PER_BODY_WEIGHT_DECIMALS: dict[UnitSystem, int] = {"metric": 1, "imperial": 2}
 
 
 def kg_to_lb(kg: float) -> float:
@@ -69,3 +72,27 @@ def format_height(cm: float, units: UnitSystem) -> str:
         return f"{round(cm)} cm"
     feet, inches = cm_to_ft_in(cm)
     return f"{feet} ft {inches} in"
+
+
+def per_body_weight(g_per_kg: float, units: UnitSystem) -> float:
+    """Return grams per kg of body weight in the unit system (g/kg or g/lb), rounded as shown."""
+    # Pass the unrounded value: rounding an already rounded g/kg again can be off by one step.
+    # Per lb is per kg times the kg in one lb.
+    value = g_per_kg if units == "metric" else g_per_kg * KG_PER_LB
+    return round(value, PER_BODY_WEIGHT_DECIMALS[units])
+
+
+def per_body_weight_unit(units: UnitSystem) -> str:
+    """Return the unit of grams per body weight in a unit system: "g/kg" or "g/lb"."""
+    return f"g/{weight_unit(units)}"
+
+
+def format_grams_per_body_weight(grams: float, weight_kg: float, units: UnitSystem) -> str:
+    """Show grams per body weight from the grams and the weight in kg, rounded once."""
+    return format_per_body_weight(grams / weight_kg, units)
+
+
+def format_per_body_weight(g_per_kg: float, units: UnitSystem) -> str:
+    """Show grams per body weight in a unit system, e.g. "1.9 g/kg", "2 g/kg" or "0.86 g/lb"."""
+    # Rounded once, then without trailing zeros, as the PDF summary shows them (T5.2).
+    return f"{per_body_weight(g_per_kg, units):g} {per_body_weight_unit(units)}"

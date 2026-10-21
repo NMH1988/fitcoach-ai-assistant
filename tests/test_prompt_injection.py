@@ -242,7 +242,7 @@ def test_an_injected_chunk_does_not_change_the_system_prompt_or_tool_use(tmp_pat
         [kwargs] = model.call_kwargs
         tool_args.append(kwargs)
         requests.append(request)
-    # The injected chunk asks for every tool: the same three tools and no forced choice (T4.4).
+    # The injected chunk asks for every tool: the same tools and no forced choice (T4.4).
     clean_args, poisoned_args = tool_args
     assert clean_args == poisoned_args
     assert sorted(t["function"]["name"] for t in clean_args["tools"]) == sorted(

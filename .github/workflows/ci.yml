@@ -58,9 +58,32 @@ jobs:
       #   PYSEC-2026-3814 = CVE-2026-45833 (authenticated code injection via the server API)
       #   PYSEC-2026-3815 = CVE-2026-45831 (server RBAC ignores tenant/database/collection scope)
       #   PYSEC-2026-3813 = CVE-2026-45830 (server lacks cross-tenant authorization checks)
+      # Accepted risk, documented in docs/SECURITY.md (T1.6): these eight pillow 12.3.0 advisories
+      # are fixed in pillow 13, which streamlit 1.66 does not allow (it requires pillow<13). Each
+      # needs Pillow to open, decode, encode or transform an image an attacker supplies; the app
+      # takes no image from users and its code never imports Pillow, which comes only with
+      # streamlit and reportlab. Remove these lines once a streamlit release allows pillow 13 and
+      # pillow is upgraded.
+      # tests/test_app_export.py (T5.2) fails if the app gains an image input.
+      #   CVE-2026-112895 = GHSA-p4wg-p73j-c528 (PDF page tree or trailer recursion)
+      #   CVE-2026-112400 = GHSA-65qm-jvmh-6pqg (GIF seek past a decompression bomb)
+      #   CVE-2026-112397 = GHSA-58r4-6rv3-gfh8 (ImageMorph out of bounds on a zero-width image)
+      #   CVE-2026-112896 = GHSA-pchr-8j38-3x4p (TIFF encoder colour map out-of-bounds read)
+      #   CVE-2026-112897 = GHSA-q45j-58j2-45rg (TIFF decoder uninitialised memory for JPEG strips)
+      #   CVE-2026-112395 = GHSA-462x-pgg6-55fp (tiled-TIFF decoder buffer over-read)
+      #   CVE-2026-112404 = GHSA-c6hw-5grf-ff96 (TIFF decoder tile and RGBA out-of-bounds read)
+      #   CVE-2026-112899 = GHSA-vx6w-vv9f-6gvg (EPS scale past the decompression bomb limit)
       - run: >-
           pip-audit .
           --ignore-vuln PYSEC-2026-311
           --ignore-vuln PYSEC-2026-3814
           --ignore-vuln PYSEC-2026-3815
           --ignore-vuln PYSEC-2026-3813
+          --ignore-vuln CVE-2026-112895
+          --ignore-vuln CVE-2026-112400
+          --ignore-vuln CVE-2026-112397
+          --ignore-vuln CVE-2026-112896
+          --ignore-vuln CVE-2026-112897
+          --ignore-vuln CVE-2026-112395
+          --ignore-vuln CVE-2026-112404
+          --ignore-vuln CVE-2026-112899

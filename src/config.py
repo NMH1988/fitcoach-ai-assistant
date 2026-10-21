@@ -175,7 +175,8 @@ BUILD_INDEX_COMMAND = "python scripts/build_index.py"
 EMBEDDING_BATCH_SIZE = 64
 
 # Retrieval and answers for one chat turn (T3.1; query translation and hybrid search extend it in
-# T3.2 and T3.3). The nearest chunks given to the answer model, labelled [S1]...[S6].
+# T3.2 and T3.3). The best chunks after RRF given to the answer model, labelled [S1]...[S6]; also
+# the length of each vector and keyword list that RRF merges.
 RETRIEVAL_TOP_K = 6
 # Cosine distance (0 = same meaning, up to 2) above which a chunk counts as not relevant to the
 # question. Measured on the real index (O5, 2026-10-20, 28 questions; docs/TESTING.md): questions
@@ -184,6 +185,13 @@ RETRIEVAL_TOP_K = 6
 # and favours answering: a near-domain question that passes costs one model call, which the
 # prompt declines or redirects, while a covered question that is blocked gets no answer at all.
 RETRIEVAL_MAX_DISTANCE = 0.62
+# Reciprocal Rank Fusion (T3.3, Hard 1): a chunk scores the sum of 1 / (RRF_K + rank) over the
+# ranked lists it is in (rank 1 is the top). 60 is the constant of the original RRF paper; it
+# keeps one list's top rank from outweighing a chunk that several lists rank a little lower.
+RRF_K = 60
+# The owner's evaluation questions (O2), each with the sources it should find; read by
+# scripts/compare_retrieval.py (T3.3) and the evaluation run (T6.1).
+EVAL_QUESTIONS_PATH = PROJECT_ROOT / "data" / "eval_questions.json"
 # The answer system prompt, written by the owner (O1; .claude/rules/workflow.md).
 ANSWER_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "answer_system.md"
 
@@ -233,6 +241,22 @@ QUERY_PROMPT_MISSING_MESSAGE = (
 # How the evidence tiers are named in the answer's sources (docs/UI_DESIGN.md).
 EVIDENCE_TIER_LABELS: dict[int, str] = {1: "ISSN position stand", 2: "Peer-reviewed review"}
 UNKNOWN_TIER_LABEL = "Review"
+# The label a turn's status box ends with, by the kind of result; the summary PDF uses the same
+# labels for turns with no answer.
+STATUS_LABELS: dict[str, str] = {
+    "answer": "Answered from the research",
+    # An answer that cites no label: the model said the research does not cover the question.
+    "answer_uncited": "Answered without citing the research",
+    "no_sources": "No matching research found",
+    "rejected": "Question not accepted",
+    "guardrail": "Not something this assistant can advise on",
+    "error": "Something went wrong",
+}
+# How a source card (and the summary PDF) names a correction notice linked to a cited article.
+CORRECTION_LABELS: dict[str, str] = {
+    "corrected_by": "A correction to this article was published",
+    "corrects": "This notice corrects",
+}
 # Authors named on a source card before "et al." (the full list is in ATTRIBUTION.md).
 CARD_AUTHORS_SHOWN = 3
 # Characters of the question shown on the sidebar's "Last answer" card before "…" (T3.2).
@@ -366,6 +390,12 @@ USDA_CHANGES = (
     "once (latest publication); negative values are set to 0; an empty fiber value means not "
     "reported."
 )
+# The line under a food lookup's values, in the app and the summary PDF.
+USDA_SOURCE_LINE = (
+    "Source: USDA FoodData Central, Foundation Foods (CC0). Values per 100 g, scaled."
+)
+# The line under a meal plan check (T4.5), in the app and the summary PDF.
+MEAL_PLAN_SOURCE_LINE = USDA_SOURCE_LINE + " Targets: the daily targets from your details."
 
 # lookup_food_nutrition: argument limits and fuzzy name matching (rapidfuzz scores, 0-100).
 # A one-letter name matches by chance ("a" scores 100 on "Eggs, Grade A, ..."), so the name, and
@@ -383,6 +413,11 @@ FOOD_MAX_ALTERNATIVES = 3
 # Decimal places of the scaled values (grams of nutrients); kcal are rounded to whole numbers.
 FOOD_DECIMALS = 1
 
+# evaluate_meal_plan (T4.5): foods in one day's plan, each looked up like lookup_food_nutrition.
+# Bounds the lookups and the tool message's length (each food comes back with its USDA name and
+# alternatives); 20 covers a day of meals and snacks.
+MEAL_PLAN_MAX_ITEMS = 20
+
 # The tool loop of the answer step (T4.4; docs/ARCHITECTURE.md, D2). A round is one model reply that
 # calls tools and the running of those calls. After the last round the model is called once more
 # with tool_choice "none", so it writes the answer from the results it has: at most
@@ -391,6 +426,12 @@ MAX_TOOL_ROUNDS = 4
 # Tool calls run from one reply; the rest are answered with TOO_MANY_TOOL_CALLS_MESSAGE. Each result
 # is sent back to the model with every later call, so this bounds the tokens a turn can use.
 MAX_TOOL_CALLS_PER_ROUND = 6
+# evaluate_meal_plan calls run from one reply (T4.5; owner's choice after code review). A 20-food
+# result is about 7,000 characters, against about 500 for a food lookup, so 6 of them in each of 4
+# rounds could send about 420,000 characters (about 100k tokens) over a turn's model calls; with 1
+# a round the worst case with real food names is about 95,000 (docs/SECURITY.md, "Runaway cost").
+# One day's plan needs one call; the rest get TOO_MANY_MEAL_PLANS_MESSAGE.
+MAX_MEAL_PLAN_CALLS_PER_ROUND = 1
 # Tool messages are data for the model, in English (docs/UI_DESIGN.md, "Language"); the UI shows
 # the same text. None of them repeats what the model sent, and none gives the model orders: they
 # state facts, and the owner's prompt says what to do with them (it treats tool results as data).
@@ -406,18 +447,50 @@ INVALID_TOOL_JSON_MESSAGE = "Invalid call: the arguments were not valid JSON."
 TOO_MANY_TOOL_CALLS_MESSAGE = (
     f"Not run: at most {MAX_TOOL_CALLS_PER_ROUND} tool calls are run from one reply."
 )
+TOO_MANY_MEAL_PLANS_MESSAGE = (
+    f"Not run: at most {MAX_MEAL_PLAN_CALLS_PER_ROUND} meal plan check is run from one reply."
+)
 TOOL_FAILED_MESSAGE = "Not available: the tool could not run, so there is no result."
 # Shown in the Tool results when an energy tool had no profile, above the "Add your details" button.
 PROFILE_NEEDED_HINT = "This calculation needs your details. Add them, then ask again."
 # Height of the macro chart in "Tool results", its axis and legend included: at 140 px the bar was a
 # hairline in the browser, at 220 px it is drawn clearly (checked with a fake model, T4.4).
 MACRO_CHART_HEIGHT_PX = 220
-# Macro colours in charts (docs/UI_DESIGN.md), in the order the macros are listed.
+# The donut of the energy split in the sidebar's My targets card (T4.7): its height with the legend,
+# the hole for the daily kcal, and the gap between the parts (radians).
+MACRO_DONUT_HEIGHT_PX = 150
+MACRO_DONUT_INNER_RADIUS_PX = 46
+MACRO_DONUT_PAD_ANGLE = 0.03
+# The amount the Food lookup tab starts with, and its +/- step, in grams (T4.7).
+FOOD_LOOKUP_DEFAULT_GRAMS = 100.0
+FOOD_LOOKUP_STEP_GRAMS = 10.0
+# Macro colours in charts (docs/UI_DESIGN.md), in the order the macros are listed. One palette for
+# both modes: each has at least 3:1 contrast on the main and sidebar backgrounds of the light and
+# the dark theme (WCAG 1.4.11; tests/test_theme.py), so they differ by hue, not lightness (T4.7).
 MACRO_COLORS: dict[str, str] = {
-    "Protein": "#0F6E56",
-    "Carbohydrate": "#5DCAA5",
-    "Fat": "#EF9F27",
+    "Protein": "#168A6C",
+    "Carbohydrate": "#7A6FD0",
+    "Fat": "#B87318",
 }
+
+# The session summary PDF (T5.2; docs/ARCHITECTURE.md section 7). DejaVu Sans 2.37, committed with
+# its licence in assets/fonts/: ReportLab's own fonts have no Greek letters, and an approved source
+# title has "β".
+PDF_FONT_PATH = PROJECT_ROOT / "assets" / "fonts" / "DejaVuSans.ttf"
+PDF_BOLD_FONT_PATH = PROJECT_ROOT / "assets" / "fonts" / "DejaVuSans-Bold.ttf"
+# The fonts' licence, printed word for word at the end of every PDF (owner's choice, 2026-10-20):
+# its notices go with every copy, and each PDF embeds the fonts. Only the part before this heading
+# is printed; the rest covers DejaVu's math font, which the app does not ship.
+PDF_FONT_LICENSE_PATH = PROJECT_ROOT / "assets" / "fonts" / "LICENSE"
+PDF_FONT_LICENSE_END = "TeX Gyre DJV Math"
+# The sidebar button that downloads it; {date} in the file name is the day (YYYY-MM-DD).
+PDF_BUTTON_LABEL = "Download summary (PDF)"
+PDF_BUTTON_HELP = (
+    "Your profile, targets, questions and answers with their sources, as a PDF. Built when you "
+    "click; not saved on the server."
+)
+PDF_BUTTON_EMPTY_HELP = "Add your details or ask a question first."
+PDF_FILE_NAME = "nutrition-summary-{date}.pdf"
 
 
 class MissingAPIKeyError(RuntimeError):
