@@ -232,8 +232,8 @@ def find_chunks(
     # One embedding call for all the queries; the vectors serve the retry too.
     vectors = embed_queries(index, queries, recorder=recorder)
     chunks = hybrid.hybrid_search(index, queries, vectors, where, keyword_index)
-    # Empty only when no chunk is within the distance limit; a filter that keeps fewer but
-    # relevant chunks stays.
+    # Empty only when the question itself has no chunk within the distance limit (T3.8), even if a
+    # rewrite has one; a filter that keeps fewer but relevant chunks stays.
     filter_dropped = not chunks and where is not None
     if filter_dropped:
         chunks = hybrid.hybrid_search(index, queries, vectors, None, keyword_index)
