@@ -970,20 +970,23 @@ def _filter_badges(details: chat.SearchDetails) -> None:
             st.badge(label, icon=":material/verified:", color="blue")
 
 
-def _routing_badges(details: chat.SearchDetails) -> None:
-    """Show whether the rewrite step expected a tool and sent the user's details (T3.5)."""
-    if details.needs_tool is None or details.needs_profile is None:
+def _routing_badges(result: chat.TurnResult) -> None:
+    """Show whether the rewrite step expected a tool, and whether <profile> was sent (T3.5)."""
+    if result.search is None or result.search.needs_tool is None:
         # No usable plan: the note from _search_notes() says what happened instead.
         return
+    st.markdown("**Tools and your details**")
     with st.container(horizontal=True, gap="small"):
-        if details.needs_tool:
+        if result.search.needs_tool:
             st.badge("A tool may help", icon=":material/build:", color="blue")
         else:
             st.badge("No tool expected", icon=":material/build:", color="gray")
-        if details.needs_profile:
-            st.badge("Your details sent", icon=":material/person:", color="blue")
+        # What the answer model really got: no block when no answer call was made, even if
+        # the plan asked for one. Tool results can still name some values (docs/SECURITY.md).
+        if result.profile_sent:
+            st.badge("Profile block sent", icon=":material/person:", color="blue")
         else:
-            st.badge("Your details not sent", icon=":material/person_off:", color="gray")
+            st.badge("Profile block not sent", icon=":material/person_off:", color="gray")
 
 
 def _search_notes(details: chat.SearchDetails) -> None:
@@ -991,7 +994,7 @@ def _search_notes(details: chat.SearchDetails) -> None:
     if details.fell_back:
         st.caption(
             ":material/info: The rewrite step gave no usable result, so only your question "
-            "was searched, with no filters, and your details were not sent."
+            "was searched, with no filters, and the profile block was not sent."
         )
     if details.filter_dropped:
         st.caption(
@@ -1020,9 +1023,7 @@ def _details_tab() -> None:
     st.markdown("\n".join(lines))
     st.markdown("**Filters**")
     _filter_badges(details)
-    if details.needs_tool is not None:
-        st.markdown("**Tools and your details**")
-        _routing_badges(details)
+    _routing_badges(message["result"])
     _search_notes(details)
     _usage_section(message.get("usage"))
 

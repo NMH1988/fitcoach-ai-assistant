@@ -578,6 +578,25 @@ def test_the_search_details_carry_the_plans_flags(index, plan, expected):
     assert (result.search.needs_tool, result.search.needs_profile) == expected
 
 
+@pytest.mark.parametrize(
+    ("question", "rewrites", "needs_tool", "needs_profile", "sent"),
+    [
+        (QUESTION, [QUESTION] * 3, True, True, True),
+        (QUESTION, [QUESTION] * 3, True, False, False),
+        (OFF_TOPIC_QUESTION, OFF_TOPIC_REWRITES, False, True, False),
+    ],
+    ids=["asked and sent", "not asked", "asked but no answer call"],
+)
+def test_the_turn_says_whether_the_profile_block_was_sent(
+    index, question, rewrites, needs_tool, needs_profile, sent
+):
+    """TurnResult.profile_sent is True only when an answer call got the <profile> block."""
+    plan = plan_json(rewrites, needs_tool=needs_tool, needs_profile=needs_profile)
+    result, model = _turn(index, AIMessage(ANSWER), question=question, plan=plan)
+    assert result.profile_sent is sent
+    assert sent == any("<profile>" in m.text for call in model.calls for m in call)
+
+
 def test_build_messages_leaves_the_profile_block_out_on_request():
     """include_profile=False gives <sources> and <user_input> only, even with a profile."""
     _, user = chat.build_messages(QUESTION, [], "Prompt.", PROFILE, include_profile=False)

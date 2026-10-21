@@ -396,11 +396,13 @@ def test_a_rejected_question_shows_the_guard_message(monkeypatch):
 REWRITES = ["protein per meal for muscle", "protein dose in one sitting", "meal protein amount"]
 
 
-# The routing badges of the fakes' default plan, which sets needs_tool and needs_profile (T3.5).
-ROUTED = [
-    ":blue-badge[:material/build: A tool may help]",
-    ":blue-badge[:material/person: Your details sent]",
-]
+# The routing badges of an answered turn with the fakes' default plan, which sets needs_tool and
+# needs_profile, so the answer model got the profile block (T3.5).
+TOOL_MAY_HELP = ":blue-badge[:material/build: A tool may help]"
+NO_TOOL = ":gray-badge[:material/build: No tool expected]"
+BLOCK_SENT = ":blue-badge[:material/person: Profile block sent]"
+BLOCK_NOT_SENT = ":gray-badge[:material/person_off: Profile block not sent]"
+ROUTED = [TOOL_MAY_HELP, BLOCK_SENT]
 
 
 def _details_tab(at: AppTest):
@@ -482,7 +484,7 @@ def test_details_says_when_only_the_question_was_searched(monkeypatch):
     assert any("only your question was searched" in c.value for c in tab.caption)
     # With no plan there is no tool or profile decision to show; the note says what happened.
     assert "**Tools and your details**" not in [m.value for m in tab.markdown]
-    assert any("your details were not sent" in c.value for c in tab.caption)
+    assert any("the profile block was not sent" in c.value for c in tab.caption)
 
 
 def test_details_shows_the_search_even_when_nothing_was_found(monkeypatch):
@@ -491,29 +493,29 @@ def test_details_shows_the_search_even_when_nothing_was_found(monkeypatch):
     tab = _details_tab(_ask(_start(), OFF_TOPIC))
     assert any(m.value.startswith("1. What is the offside rule") for m in tab.markdown)
     assert "**Tools and your details**" in [m.value for m in tab.markdown]
-    assert _badges(tab)[-2:] == [
-        ":gray-badge[:material/build: No tool expected]",
-        ":gray-badge[:material/person_off: Your details not sent]",
-    ]
+    assert _badges(tab)[-2:] == [NO_TOOL, BLOCK_NOT_SENT]
 
 
-@pytest.mark.parametrize(("needs_tool", "needs_profile"), [(True, False), (False, True)])
-def test_details_shows_each_flag_of_the_plan(monkeypatch, needs_tool, needs_profile):
-    """Each badge follows its own flag of the plan (T3.5)."""
+@pytest.mark.parametrize(
+    ("needs_tool", "needs_profile", "expected"),
+    [(True, False, [TOOL_MAY_HELP, BLOCK_NOT_SENT]), (False, True, [NO_TOOL, BLOCK_SENT])],
+)
+def test_details_shows_each_flag_of_the_plan(monkeypatch, needs_tool, needs_profile, expected):
+    """With sources, the tool badge follows needs_tool and the block badge needs_profile."""
     plan = plan_json(REWRITES, needs_tool=needs_tool, needs_profile=needs_profile)
     _use_model(monkeypatch, _answers("Four meals [S1]."), ScriptedTranslator(plans=[plan]))
     tab = _details_tab(_ask(_start(), QUESTION))
-    tool = (
-        "blue-badge[:material/build: A tool may help]"
-        if needs_tool
-        else ("gray-badge[:material/build: No tool expected]")
-    )
-    details = (
-        "blue-badge[:material/person: Your details sent]"
-        if needs_profile
-        else ("gray-badge[:material/person_off: Your details not sent]")
-    )
-    assert _badges(tab)[-2:] == [f":{tool}", f":{details}"]
+    assert _badges(tab)[-2:] == expected
+
+
+def test_details_says_no_block_was_sent_when_no_answer_call_was_made(monkeypatch):
+    """No source and no needs_tool: the plan asked for the profile, but no block was sent."""
+    rewrites = ["offside rule football", "football offside law", "offside position"]
+    plan = plan_json(rewrites, needs_tool=False, needs_profile=True)
+    model = _use_model(monkeypatch, _answers("Offside is..."), ScriptedTranslator(plans=[plan]))
+    tab = _details_tab(_ask(_start(), OFF_TOPIC))
+    assert model.calls == []
+    assert _badges(tab)[-2:] == [NO_TOOL, BLOCK_NOT_SENT]
 
 
 def test_details_follows_the_last_question(monkeypatch):

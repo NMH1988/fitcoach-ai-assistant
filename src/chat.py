@@ -136,6 +136,9 @@ class TurnResult:
     # The tokens of each model and embedding call the turn made, in order, including the calls
     # made before an error (T5.1); empty when the guard stopped the question.
     usage: tuple[CallUsage, ...] = ()
+    # True when the answer model was called with a <profile> block (T3.5): False when the plan
+    # did not ask for it and when no answer call was made. Tool results are not counted here.
+    profile_sent: bool = False
 
 
 # A citation is one bracket holding labels or ranges: [S1], [S1, S3], [S2; S4], [S1 and S2],
@@ -584,12 +587,9 @@ def answer_question(
     on_step(Step.ANSWER)
     # The user's own question, never the rewrites, goes to the answer model. The profile goes
     # only when the plan says the answer needs the user's numbers (security-privacy.md; T3.5).
+    include_profile = plan is not None and plan.needs_profile
     messages = build_messages(
-        question,
-        chunks,
-        models.system_prompt,
-        user,
-        include_profile=plan is not None and plan.needs_profile,
+        question, chunks, models.system_prompt, user, include_profile=include_profile
     )
     # The energy and meal plan tools get the profile here, never from the model, with or without
     # <profile>.
@@ -606,9 +606,21 @@ def answer_question(
         recorder=recorder,
     )
     if answer is None:
-        return TurnResult("no_sources", config.NO_SOURCES_MESSAGE, search=details)
+        return TurnResult(
+            "no_sources",
+            config.NO_SOURCES_MESSAGE,
+            search=details,
+            profile_sent=include_profile,
+        )
     cards = source_cards(chunks, cited_labels(answer, len(chunks)), manifest)
-    return TurnResult("answer", answer, cards, search=details, tool_runs=runs)
+    return TurnResult(
+        "answer",
+        answer,
+        cards,
+        search=details,
+        tool_runs=runs,
+        profile_sent=include_profile,
+    )
 
 
 def run_turn(
