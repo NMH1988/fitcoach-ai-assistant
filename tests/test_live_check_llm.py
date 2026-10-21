@@ -19,6 +19,8 @@ from tests.fakes import ScriptedChatModel
 from tests.test_llm import STREAM_USAGE, Recorder, StreamServer
 
 FAKE_KEY = "sk-test-not-a-real-key"
+# Stands in for the key in a developer's own .streamlit/secrets.toml.
+OTHER_KEY = "sk-test-other-local-key"
 # The real function, kept before the autouse fixture below replaces it.
 REAL_FETCH_GENERATION = live_check_llm.fetch_generation
 REAL_BUILD_STREAMING_MODEL = live_check_llm.build_streaming_model
@@ -89,6 +91,8 @@ def _streaming_fake(usage=STREAM_REPLY_USAGE, ids=()):
 @pytest.fixture(autouse=True)
 def offline(monkeypatch):
     """Keep main() offline: a fake streamed call, no prices, no generation record by default."""
+    # No key unless a test sets one with _use_fake_key(): a local secrets.toml is never read.
+    monkeypatch.setattr(config.st, "secrets", {})
     monkeypatch.setattr(live_check_llm, "read_prices", lambda: None)
     monkeypatch.setattr(live_check_llm, "fetch_generation", lambda generation_id, key: None)
     monkeypatch.setattr(live_check_llm, "build_streaming_model", _streaming_fake)
@@ -98,6 +102,24 @@ def _use_clients(monkeypatch, chat, embeddings):
     """Make the script build the given fake clients instead of real ones."""
     monkeypatch.setattr(llm, "build_chat_model", lambda: chat)
     monkeypatch.setattr(llm, "build_embeddings", lambda: embeddings)
+
+
+def _use_fake_key(monkeypatch):
+    """Make get_api_key() return FAKE_KEY, whatever a local secrets.toml holds."""
+    # st.secrets is read before the env var, so setting only the env var is not enough.
+    monkeypatch.setattr(config.st, "secrets", {config.API_KEY_NAME: FAKE_KEY})
+
+
+def _record_generation_keys(monkeypatch) -> list[tuple[str, bool]]:
+    """Answer every generation request and note its ID and whether the key was FAKE_KEY."""
+    # A bool, not the key itself, so a failing assertion never prints a key.
+    asked = []
+    monkeypatch.setattr(
+        live_check_llm,
+        "fetch_generation",
+        lambda generation_id, key: asked.append((generation_id, key == FAKE_KEY)) or GENERATION,
+    )
+    return asked
 
 
 def test_run_checks_reports_both_calls():
@@ -112,7 +134,7 @@ def test_run_checks_reports_both_calls():
 def test_main_prints_results_and_succeeds(monkeypatch, capsys, no_env_key):
     """With working clients the script prints both lines and exits 0."""
     # The key is read again for OpenRouter's cost record (T5.1).
-    monkeypatch.setenv(config.API_KEY_NAME, FAKE_KEY)
+    _use_fake_key(monkeypatch)
     _use_clients(monkeypatch, FakeChat(), FakeEmbeddings())
     assert live_check_llm.main() == 0
     assert "embedding:" in capsys.readouterr().out
@@ -166,14 +188,9 @@ def test_main_prints_both_costs_for_the_plain_and_the_streamed_call(
     monkeypatch, capsys, no_env_key
 ):
     """main() prints the app's cost and OpenRouter's record for both chat calls."""
-    monkeypatch.setenv(config.API_KEY_NAME, FAKE_KEY)
-    asked = []
+    _use_fake_key(monkeypatch)
+    asked = _record_generation_keys(monkeypatch)
     monkeypatch.setattr(live_check_llm, "read_prices", lambda: PRICES)
-    monkeypatch.setattr(
-        live_check_llm,
-        "fetch_generation",
-        lambda generation_id, key: asked.append((generation_id, key)) or GENERATION,
-    )
     monkeypatch.setattr(
         live_check_llm, "build_streaming_model", lambda: _streaming_fake(ids=["gen-stream"])
     )
@@ -190,8 +207,28 @@ def test_main_prints_both_costs_for_the_plain_and_the_streamed_call(
     # 14 x 0.00000025 + 40 x 0.000002 = 0.0000835
     assert "cost (app, streamed): $0.00008350" in out
     assert "cost (OpenRouter, streamed): $0.00010000" in out
-    assert asked == [("gen-test", FAKE_KEY), ("gen-stream", FAKE_KEY)]
+    assert asked == [("gen-test", True), ("gen-stream", True)]
     assert FAKE_KEY not in out
+
+
+def test_a_local_secrets_file_does_not_reach_the_live_check_tests(
+    monkeypatch, capsys, no_env_key, secrets_from_file
+):
+    """With a secrets.toml holding another key, as in a developer's checkout, FAKE_KEY is used."""
+    secrets_from_file(f'{config.API_KEY_NAME} = "{OTHER_KEY}"\n')
+    # The file wins over the env var, which is how the real key once reached these tests.
+    monkeypatch.setenv(config.API_KEY_NAME, FAKE_KEY)
+    file_wins = config.get_api_key() == OTHER_KEY
+    assert file_wins
+    _use_fake_key(monkeypatch)
+    asked = _record_generation_keys(monkeypatch)
+    monkeypatch.setattr(
+        live_check_llm, "build_streaming_model", lambda: _streaming_fake(ids=["gen-stream"])
+    )
+    _use_clients(monkeypatch, FakeChat(), FakeEmbeddings())
+    assert live_check_llm.main() == 0
+    assert asked == [("gen-test", True), ("gen-stream", True)]
+    assert OTHER_KEY not in capsys.readouterr().out
 
 
 def test_costs_say_when_nothing_could_be_read():
@@ -255,11 +292,11 @@ def test_the_streaming_model_is_built_through_the_apps_builder(monkeypatch):
     assert list(kwargs) == ["http_client"]
 
 
-def test_the_streamed_reply_is_asked_for_uncompressed(monkeypatch):
+def test_the_streamed_reply_is_asked_for_uncompressed(monkeypatch, no_env_key):
     """The streamed request says Accept-Encoding: identity, so the ID is readable in the body."""
     server = StreamServer()
     monkeypatch.setattr(httpx2, "HTTPTransport", lambda: httpx2.MockTransport(server))
-    monkeypatch.setenv(config.API_KEY_NAME, FAKE_KEY)
+    _use_fake_key(monkeypatch)
     model, transport = REAL_BUILD_STREAMING_MODEL()
     live_check_llm.stream_check(model)
     assert server.requests[-1].headers["accept-encoding"] == "identity"

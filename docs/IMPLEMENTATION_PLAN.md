@@ -64,10 +64,12 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T3.5 | #50 | Skip the answer call for off-topic questions with no source (owner's request after T4.4) | S | T4.4, T3.2, O7, O1 | 10-29 | in review |
 | T5.3 | #18 | Domain guardrails | S | T3.1, T4.2 | 10-29 | done |
 | T3.6 | #51 | Retrieval comparison on the owner's evaluation questions (split from T3.3, owner's decision) | S | T3.3, O2, O5 | 10-30 | todo |
+| T3.7 | #66 | Drop registration boilerplate and merge short chunk pieces at ingest (found in T3.5's live check) | S | T2.2, T2.3, O5 | 10-29 | in review |
 | T6.1 | #19 | Evaluation run and reflection | S | T3.3, T3.6, T4.4, O2, O5 | 10-30 | todo |
 | **Extras** | | | | | | |
 | T1.4 | #32 | Security reviewer agent (beyond the brief; owner's request, done early as it is dev tooling with no product change) | S | T1.1 | 10-20 | done |
-| T5.1 | #16 | Token usage and cost | S | T3.2 | 10-30 | in review |
+| T5.1 | #16 | Token usage and cost | S | T3.2 | 10-30 | done |
+| T5.1a | #68 | Live-check tests ignore a local secrets.toml (follow-up to T5.1; owner's request) | S | T5.1 | 10-21 | in review |
 | T5.2 | #17 | Session summary PDF | M | T4.4 | 10-31 | done |
 | T7.3 | #35 | Light and dark mode | S | T3.1 | 10-31 | done |
 | T7.1 | #33 | Language switch: English and German UI | M | T4.4, T4.7, T5.3, T1.3 | 10-31 | todo |
@@ -162,7 +164,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 **Depends on:** T2.1
 **Acceptance criteria**
 - [x] `src/rag/ingest.py` keeps the title, abstract and body sections and drops figures, tables, display formulas (inline formulas keep their plain text, owner's choice in T2.2), supplementary material and references - unit test on fixture XML containing each element (`tests/test_ingest.py`: `test_the_article_title_is_kept`, `test_abstract_and_body_sections_are_kept_in_reading_order`, `test_dropped_content_never_appears`, `test_inline_formulas_keep_their_plain_text`; fixture `tests/fixtures/jats/ingest_article.xml`).
-- [x] Chunks are about 1,000 characters with 150 overlap, never span two sections, and start with their section title - unit tests (`test_long_sections_split_into_chunks_of_about_1000_characters`, `test_neighbouring_chunks_overlap_by_at_most_150_characters`, `test_chunks_never_span_two_sections`, `test_text_after_a_subsection_is_its_own_section`, `test_every_chunk_starts_with_its_section_title`, `test_chunks_cut_at_a_paragraph_break_share_no_text`). The overlap (up to 150) applies where a cut falls inside a paragraph; a cut at a paragraph break carries nothing over (owner's confirmation, 2026-10-19).
+- [x] Chunks are about 1,000 characters with 150 overlap, never span two sections, and start with their section title - unit tests (`test_long_sections_split_into_chunks_of_about_1000_characters`, `test_neighbouring_chunks_overlap_by_at_most_150_characters`, `test_chunks_never_span_two_sections`, `test_text_after_a_subsection_is_its_own_section`, `test_every_chunk_starts_with_its_section_title`, `test_chunks_cut_at_a_paragraph_break_share_no_text`). The overlap (up to 150) applies where a cut falls inside a paragraph; a cut at a paragraph break carries nothing over (owner's confirmation, 2026-10-19). Since T3.7 a piece under 300 characters joins a neighbouring chunk of its section, so a chunk can reach 1,300 characters.
 - [x] Every chunk has `source_id`, `title`, `authors`, `year`, `section`, `topics`, `evidence_tier`, `license`, `source_url`, `chunk_index` - unit test (`test_every_chunk_has_the_source_metadata`, `test_chunk_index_runs_across_sections`, `test_load_chunks_reads_each_downloaded_article`).
 **Notes:** back matter that many articles put inside `<body>` (acknowledgements, funding, disclosures, author contributions, data availability, publisher's notes, supplementary, references, appendices of plots) is dropped too (owner's choice). The correction #18a and #18 point to each other through `corrects` / `corrected_by` metadata (owner's choice; serves copyright policy rule 7). Real run on the 21 downloaded articles recorded in `docs/TESTING.md`.
 
@@ -220,6 +222,17 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] On those questions, vector-only, keyword-only and hybrid retrieval are compared with `python scripts/compare_retrieval.py`, and the hit rates and the run are recorded in `docs/TESTING.md` - owner live check (O5).
 - [ ] Any surprising result (e.g. hybrid below vector-only on a question) is noted in `docs/TESTING.md` with a suggested follow-up, for T6.1's reflection.
 **Notes:** from the review of PR #52 (T3.3): once a vector hit passes `RETRIEVAL_MAX_DISTANCE`, chunks found by keyword only join the fused list with no distance limit, so a general word ("help", "take", "day") could bring in a weak passage. The script marks such chunks with `*` in the hybrid row and counts them over all questions; include some near-domain questions in O2 and record how many keyword-only chunks reach the top 6, so T6.1 can judge whether they need a limit.
+
+### T3.7 Drop registration boilerplate and merge short chunk pieces at ingest (S) · status: in review · issue #66
+**Serves:** core 1 (chunking and similarity search); AC-2. Refines T2.2.
+**Depends on:** T2.2, T2.3, O5 (the owner rebuilds the index and re-runs the live check); before T3.6 and T6.1, which measure retrieval on the rebuilt index.
+**Acceptance criteria** (approved by the owner on 2026-10-21)
+- [x] Abstract sections titled "Clinical trial registration", "Systematic review registration" or "Trial registration" are dropped at ingest; a Methods section "Protocol and registration" is kept - unit tests on fixture XML (`tests/test_ingest.py`: `test_registration_notes_in_the_abstract_are_dropped`, three titles; `test_a_methods_protocol_and_registration_section_is_kept`).
+- [x] A piece of a section shorter than `CHUNK_MIN_CHARS` (300, title included), wherever it sits in the section (first, middle or last), is joined to the piece before it, or, when there is none or the result would be too long, to the piece after it, as one contiguous passage of the section's text (no repeated overlap, no text lost); a join never makes a chunk longer than `CHUNK_SIZE + CHUNK_MIN_CHARS` (1,300), so a short piece stays when neither join fits; a section whose only chunk is short stays as it is; no chunk spans two sections - unit tests (owner's extension, 2026-10-21: first and middle pieces too, with the cap) (`tests/test_ingest.py`: `test_a_short_last_paragraph_joins_the_chunk_before_it`, `test_a_short_middle_paragraph_joins_the_chunk_before_it`, `test_a_short_first_paragraph_joins_the_chunk_after_it`, `test_merge_short_spans_joins_within_the_cap` over seven cases, `test_a_short_last_paragraph_that_repeats_a_sentence_is_not_lost`, `test_a_short_last_piece_of_repeated_lines_is_joined`, `test_pieces_that_cannot_be_placed_in_the_text_stay_as_split`, `test_short_pieces_are_merged_as_one_passage_of_the_section` over 100 section lengths, `test_a_section_with_one_short_chunk_stays_as_it_is`, `test_long_sections_split_into_chunks_of_about_1000_characters`, `test_chunks_never_span_two_sections`).
+- [x] Chunk metadata and `chunk_index` (0..n-1 across the article) keep their shape; corrections keep `corrects` / `corrected_by` - existing tests still pass (`test_every_chunk_has_the_source_metadata`, `test_chunk_index_runs_across_sections`, `test_a_correction_and_the_corrected_article_point_to_each_other`, `test_load_chunks_reads_each_downloaded_article`).
+- [x] The chunk counts before and after (total, under 300 characters, the 3 registration chunks gone) are recorded in `docs/TESTING.md` - offline `load_chunks()` run by Claude, no API call (2026-10-21: 1,810 to 1,703 chunks; under 300 characters 125 to 18).
+- [ ] After the owner rebuilds the index, `scripts/live_check_retrieval.py` is run on "A", "B", "C", the Vietnamese placeholder sentence, "What is the offside rule in football?" (and its rewrites from the Details tab) and the covered and near-domain questions recorded verbatim in `docs/TESTING.md`; the distances and the owner's choice for `RETRIEVAL_MAX_DISTANCE` are recorded in `docs/TESTING.md` - owner live check (O5). If the single-letter probes still pass, a query-side fix is decided in its own ticket.
+**Notes:** found in T3.5's live check (2026-10-21): tiny chunks such as `Abstract > Clinical Trial Registration` with only a PROSPERO ID (64 characters, #14) were within 0.62 of the queries "A", "B" and "C" (nearest 0.550-0.596). Offline count on the 21 articles: 125 of 1,810 chunks under 300 characters; 40 are the last piece of a longer section and 65 a first or middle piece (both mostly the overlap repeated from the chunk before: median 77 and 58 new characters); 20 are a whole section, of which 3 are registration boilerplate and 17 real content (abstract objectives and conclusions, results subsections), which stay. Short chunks are not central in the embedding space (only 1 among the 100 chunks most similar to all others), so they match short queries because both are short; removing them cannot guarantee that a one-letter query finds nothing, hence the live check. Owner's decision (2026-10-21): options A (drop the registration sections, by title, since they have no `sec-type`) and B (merge short pieces into a neighbouring chunk: first the last piece only; after the implementation showed 64 short first and middle pieces left, the owner extended it to them, capped at `CHUNK_SIZE + CHUNK_MIN_CHARS`) of: a minimum chunk length (would drop real content), merging abstract subsections (would span sections), keeping the section title out of the embedded text (would change every embedding and T2.2's criterion), or a stricter distance for rewrites (`RETRIEVAL_MAX_DISTANCE` was calibrated on questions only; left until the live check's numbers). Known limit (PR #69 review): the pieces are placed in the text by the code (the last one from the end); a middle piece whose words repeat exactly where two pieces overlap could be placed at the earlier copy; the pieces then either stay as split (a short piece may remain) or are joined at slightly shifted positions, and in both cases no text is lost or repeated (PR #69 review round 2). None of the 489 sections of the 21 articles hits this.
 
 ### T3.4 Prompt injection hardening (S) · status: done · issue #10
 **Serves:** Medium 3; AC-11.
@@ -327,7 +340,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 ## Epic 5: Cost, export and guardrails
 
-### T5.1 Token usage and cost (S) · status: in review · issue #16
+### T5.1 Token usage and cost (S) · status: done · issue #16
 **Serves:** Medium 5 (extra, after the core); AC-10.
 **Depends on:** T3.2
 **Acceptance criteria**
@@ -338,6 +351,16 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] (added, owner's approval 2026-10-21) `scripts/live_check_llm.py` prints the app's cost of a plain and of a streamed chat call (the answer rounds' path) next to the cost and native tokens OpenRouter records (`/api/v1/generation`) - mocked tests (`tests/test_live_check_llm.py`) and the owner's O5 run on 2026-10-21 (`docs/TESTING.md`: the streamed call's tokens and cost equal OpenRouter's record; reasoning is not billed on top).
 
 **Notes:** owner's choices (2026-10-20): usage in all three places (under the answer, the sidebar card, the Details tab); embedding tokens counted exactly; reasoning tokens coded to OpenAI's convention (included in the output tokens), to be confirmed by the O5 cost check. Defaults stated and not objected to: tokens spent before an error count; a failed price read is not cached (5 s timeout, "price unknown"); cached input priced at `input_cache_read`; USD, "<$0.0001" below a hundredth of a cent. T5.1 was paused for T3.3 (core first) and restarted on 2026-10-21. Built from `main` while T3.5 (#50, no PR yet) also changes `src/chat.py`: whichever merges second resolves the conflict.
+
+### T5.1a Live-check tests ignore a local secrets.toml (S) · status: in review · issue #68
+**Serves:** none directly; keeps the T5.1 tests (Medium 5) safe to run in a checkout that holds the real key. Test-only fix (owner's request, 2026-10-21).
+**Depends on:** T5.1
+**Acceptance criteria**
+- [x] The live-check tests that need a key use the fake key whatever a local `.streamlit/secrets.toml` holds - regression test `tests/test_live_check_llm.py::test_a_local_secrets_file_does_not_reach_the_live_check_tests` (a temporary secrets file with another key; checked to fail with the old env-only setup).
+- [x] Assertions about the key never print it on failure (they compare to a bool) - code review (`_record_generation_keys()` records `key == FAKE_KEY`).
+- [x] Lint, format check and the full test suite pass - `ruff check .`, `ruff format --check .`, `python -m pytest -q` (2007 passed locally) and CI.
+
+**Notes:** `get_api_key()` reads `st.secrets` before the env var, so setting only `OPENROUTER_API_KEY` let a local secrets file win; a failing assertion then printed the owner's key (2026-10-21, while merging `main` into the T3.5 branch). No network call was made.
 
 ### T5.2 Session summary PDF (M) · status: done · issue #17
 **Serves:** Medium 7 and Easy 1 (extra); AC-9.
