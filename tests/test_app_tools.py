@@ -67,10 +67,11 @@ def _use_model(monkeypatch, *replies: AIMessage) -> ScriptedChatModel:
     return model
 
 
-def _ask(question: str = QUESTION, profile=PROFILE) -> AppTest:
-    """Run the app with the profile in the session (None: no profile), then ask a question."""
+def _ask(question: str = QUESTION, profile=PROFILE, system: str = "metric") -> AppTest:
+    """Run the app with the profile (None: none) and unit system in the session, then ask."""
     at = AppTest.from_file(str(APP))
     at.secrets["UNRELATED"] = "x"
+    at.session_state["units"] = system
     if profile is not None:
         at.session_state["profile"] = profile
     at.run(timeout=30)
@@ -147,6 +148,20 @@ def test_macro_targets_also_appear_as_a_chart_in_the_macro_colours(monkeypatch):
     assert chart.proto.alt == (
         "Energy split per day: Protein 608 kcal, Carbohydrate 1,672 kcal, Fat 756 kcal"
     )
+
+
+@pytest.mark.parametrize(
+    ("system", "column", "values"),
+    [
+        ("metric", "Per kg of body weight", ["1.9 g/kg", "5.2 g/kg", "1.1 g/kg"]),
+        ("imperial", "Per lb of body weight", ["0.86 g/lb", "2.37 g/lb", "0.48 g/lb"]),
+    ],
+)
+def test_macro_values_per_body_weight_follow_the_unit_system(monkeypatch, system, column, values):
+    """The macro table shows g/kg in metric and g/lb in imperial (T4.7, AC-8)."""
+    _use_model(monkeypatch, tool_reply((MACRO_TOOL, {})), AIMessage(ANSWER))
+    _, macros = _tool_results(_ask(system=system)).dataframe
+    assert list(macros.value[column]) == values
 
 
 def test_a_food_lookup_alone_draws_no_chart(monkeypatch):

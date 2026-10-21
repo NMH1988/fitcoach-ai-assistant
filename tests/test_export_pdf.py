@@ -119,7 +119,8 @@ def test_without_a_profile_the_pdf_says_so_and_has_no_targets():
 
 @pytest.mark.parametrize(
     ("system", "per_body_weight"),
-    [("metric", ["1.9 g/kg", "5.2 g/kg", "1.1 g/kg"]), ("imperial", ["0.86 g/lb", "2.36 g/lb"])],
+    # 418 g at 80 kg is 2.37 g/lb, rounded once (T4.7); from the rounded 5.2 g/kg it was 2.36.
+    [("metric", ["1.9 g/kg", "5.2 g/kg", "1.1 g/kg"]), ("imperial", ["0.86 g/lb", "2.37 g/lb"])],
 )
 def test_the_targets_come_from_the_profile_in_the_chosen_units(system, per_body_weight):
     """The targets are the macro tool's result for the profile, per kg or per lb of body weight."""
@@ -222,6 +223,18 @@ def test_tool_results_without_values_show_their_message():
     assert f"Daily energy needs {config.PROFILE_NEEDED_HINT}" in text
     assert f"Tool call not run {config.UNKNOWN_TOOL_MESSAGE}" in text
     assert " ".join(not_found.result.message.split()) in text
+
+
+def test_macro_targets_without_their_weight_show_only_the_message():
+    """Targets with no weight_kg cannot give grams per body weight, so only the message shows."""
+    result = registry.macro_targets(PROFILE)
+    weightless = result.model_copy(
+        update={"targets": result.targets.model_copy(update={"weight_kg": None})}
+    )
+    run = registry.ToolRun(MACRO_TOOL, "ok", weightless)
+    text = pdf_text(_pdf([("Targets?", _answer("See below.", runs=(run,)))], user=None))
+    assert " ".join(result.message.split()) in text
+    assert "of body weight" not in text and "Share of kcal" not in text
 
 
 def test_the_credits_name_every_cited_article_in_full():

@@ -140,7 +140,7 @@ def _energy_needs(profile: UserProfile) -> TdeeResult:
 def macro_targets(profile: UserProfile) -> MacroToolResult | ToolNotice:
     """Return the daily targets for the profile's goal with its energy needs; no model call."""
     # Shared by calculate_macro_targets, evaluate_meal_plan (T4.5) and the app's own views (the
-    # summary PDF, T5.2).
+    # summary PDF, T5.2; the sidebar card and the My targets tab, T4.7), so they always agree.
     needs = _energy_needs(profile)
     if needs.tdee_kcal is None:
         # Not reached for a validated profile: its ranges are the tools' ranges.
@@ -243,6 +243,15 @@ def _run(tool: StructuredTool, args: object) -> ToolResult:
         # the fixed message, never the exception's text.
         return ToolNotice(status="error", message=config.TOOL_FAILED_MESSAGE)
     return result
+
+
+def run_food_lookup(
+    food: object, grams: object, table: Sequence[Food] | None = None
+) -> FoodLookupResult | ToolNotice:
+    """Look a food up as the tool would, for the Food lookup tab: checked, never an exception."""
+    # Same schema check and fixed messages as a model's call; no model is involved (T4.7).
+    tool = build_tools(None, table)[FOOD_TOOL]
+    return cast(FoodLookupResult | ToolNotice, _run(tool, {"food": food, "grams": grams}))
 
 
 def tool_message(call_id: str, result: ToolResult, name: str | None = None) -> ToolMessage:

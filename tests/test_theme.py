@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from src import config
+
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG = ROOT / ".streamlit" / "config.toml"
 UI_DESIGN = ROOT / "docs" / "UI_DESIGN.md"
@@ -20,6 +22,8 @@ CAPTION_OPACITY = 0.6
 # White text on the primary button: AA in light mode; in dark mode the owner kept #1D9E75 at 3.4:1
 # (WCAG's 3:1 for interface parts), as a darker green fails AA for the accent text instead (T7.3).
 MIN_BUTTON_TEXT_CONTRAST = {"light": MIN_TEXT_CONTRAST, "dark": 3.0}
+# WCAG 2.x 1.4.11 (non-text contrast) for the parts of a chart (T4.7).
+MIN_GRAPHIC_CONTRAST = 3.0
 
 
 def _config() -> dict:
@@ -128,3 +132,24 @@ def test_the_toolbar_keeps_the_theme_switch():
     # "minimal" hides the switch; "developer" would show Rerun and Clear cache (which drops the
     # cached index and clients for everyone) to every visitor of a deployed app.
     assert _config()["client"]["toolbarMode"] in {"auto", "viewer"}
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("background", ["backgroundColor", "secondaryBackgroundColor"])
+@pytest.mark.parametrize("macro", list(config.MACRO_COLORS))
+def test_macro_colours_stand_out_on_both_backgrounds(mode, background, macro):
+    """Each macro colour has 3:1 against the main and sidebar backgrounds in each mode (T4.7)."""
+    # One palette for both modes: the charts cannot follow a theme switch reliably in Streamlit
+    # 1.66 (st.context.theme can be wrong right after one), so each colour works on all four.
+    colours = _config()["theme"][mode]
+    colour = config.MACRO_COLORS[macro]
+    assert HEX_COLOUR.fullmatch(colour)
+    assert _contrast(colour, colours[background]) >= MIN_GRAPHIC_CONTRAST
+
+
+def test_the_macro_colours_match_the_ui_design_doc():
+    """docs/UI_DESIGN.md names the macro colours the charts use."""
+    doc = UI_DESIGN.read_text(encoding="utf-8")
+    line = next(line for line in doc.splitlines() if line.startswith("Macro colours"))
+    for macro, colour in config.MACRO_COLORS.items():
+        assert f"{macro.lower()} `{colour}`" in line
