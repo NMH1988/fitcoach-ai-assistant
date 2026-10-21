@@ -15,6 +15,21 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-21 · T3.8 Only the question itself decides whether the sources cover it · #72 (closes #71)
+- **Brief:** core 1 (RAG with query translation); AC-2. Makes T3.5's skip of the answer call apply (cost control, beyond the brief).
+- **What:**
+  - `src/rag/hybrid.py`: `hybrid_search()` returns nothing unless the question's own vector list (`queries[0]`) has a chunk within `RETRIEVAL_MAX_DISTANCE`; before, a hit of any rewrite was enough. Once the question is covered, every rewrite's vector list and keyword search join RRF as before. `find_chunks()` and the filter retry are unchanged, so the retry also runs when only a rewrite has a hit under the filter.
+  - `tests/test_chat.py`: T3.2's `test_a_rewrite_finds_chunks_the_question_alone_misses` now uses a covered question whose rewrite adds a passage by meaning; new tests for a vague question whose rewrites alone come close (no chunk), an off-topic question with a drifting rewrite (no answer call with `needs_tool` false, T3.5's unseen tools-only call with it true, no excerpt sent) and a filter under which only a rewrite has a hit (dropped). T3.2's review test `test_a_chunk_found_only_by_a_rewrite_counts` is turned round (`..._does_not_reach_the_model`). The five tests fail with the old gate (checked).
+  - Docs: `src/config.py`'s comment on the limit, `docs/ARCHITECTURE.md` (steps 4 and 5, the error table), `docs/SECURITY.md` ("Answers without evidence", the known limit now about single-letter questions), `docs/TESTING.md` (how to run the T3.8 check), the plan.
+- **Why:** the limit was measured on questions as asked (T3.1, 28 questions), never on rewrites, and after T3.7 the off-topic offside question still reached the answer model in 2 of 3 app runs through one rewrite ("VAR and offside rule in football", 6 of 6 chunks within 0.62 while the question had none). Owner's choice (2026-10-21), option 1 of: the question decides; a stricter limit for rewrites (it would have to be under 0.548, from one observation); a chunk counts only when close to at least two queries (rewrites stay uncalibrated); a prompt rule against acronyms (fragile). A looser limit for the question alone is no use: the offside question itself is at 0.659-0.665.
+- **Decisions & gotchas:**
+  - `hybrid_search()` relies on the question being the first query; `find_chunks()` builds `(question, *rewrites)` and `scripts/compare_retrieval.py` passes the question alone, so neither changed.
+  - What option 1 loses: a vague question whose own wording is further than 0.62 while its rewrites come close now gets `NO_SOURCES_MESSAGE`; a question a tool could answer still takes T3.5's `needs_tool` path. The owner's live check measures short and vague covered questions.
+  - Code review (2026-10-21): German questions get English rewrites (O7), so before T3.8 the rewrites made a covered German question covered; now its own German wording must come within the limit, which was calibrated on English questions. Not measured; German questions added to the live check (criterion 6) for the owner to decide, as it affects T7.2's design ("retrieval runs in English").
+  - A single letter or other very short question typed by the user can still sit within the limit itself (T3.7's last criterion left it to its own ticket); kept as a known limit, out of T3.8's scope (owner's choice).
+  - Branch started from `main` after PR #67 (T3.5) merged; the plan row was committed first.
+- **Follow-ups:** the owner's live check (O5, criterion 6: the offside question 3 times, short and vague covered questions); a minimum length or another check for very short questions, if wanted (own ticket); T3.6 and T6.1 measure retrieval with this gate.
+
 ## 2026-10-21 · T3.5 Skip the answer call for off-topic questions with no source · #67 (closes #50)
 - **Brief:** beyond the brief (owner's request): cost control and personal data minimisation, in support of core 3; keeps AC-2 and AC-6.
 - **What:**
