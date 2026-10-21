@@ -396,9 +396,23 @@ _DE_DISEASES = (
 # ("Kreatin bei Nierenproblemen?" asks about people who have them), so "was hilft bei
 # Sodbrennen?" is redirected (docs/SECURITY.md).
 _DE_SIDE_EFFECTS = (
-    r"(?:(?:nieren|leber|herz|schilddrüsen)(?:schäden|schaden|problemen?|beschwerden|werten?)"
+    r"(?:(?:nieren|leber|herz|schilddrüsen)(?:schäden|schaden|problemen?|beschwerden)"
     r"|sodbrennen|reflux|saures aufstossen)"
 )
+# Lab values ("Nierenwerte", "Leberwerte") are a research question on their own ("Erhöht Kreatin
+# meine Nierenwerte?" is answered from the sources, as "does creatine raise my creatinine?" is in
+# English; owner's choice, 2026-10-21); they count only when said to be bad, high or abnormal
+# ("Meine Nierenwerte sind erhöht", "Ich habe schlechte Leberwerte").
+_DE_LAB_VALUES = r"(?:nieren|leber|schilddrüsen)werte?n?"
+_DE_BAD = (
+    r"(?:schlecht|erhöht|zu hoch|hoch|zu niedrig|auffällig|abnormal|abnorm|kritisch"
+    r"|nicht (?:gut|in ordnung|ok|okay|normal))"
+)
+_DE_BAD_LAB_VALUES = [
+    rf"\b(?:schlechte[nm]?|erhöhte[nm]?|hohe[nm]?|zu hohe[nm]?|auffällige[nm]?|abnormale[nm]?"
+    rf"|abnorme[nm]?|kritische[nm]?) {_DE_LAB_VALUES}\b",
+    rf"\b{_DE_LAB_VALUES} (?:sind|waren|wären|seien|bleiben) (?:\S+ ){{0,2}}?{_DE_BAD}\b",
+]
 _DE_CONDITION_FRAME = (
     r"\b(?:ich habe|ich hab|ich hatte|hatte ich|ich leide an|ich leide unter|leide an|leide unter"
     r"|leidet an|leidet unter|diagnostiziert mit"
@@ -414,6 +428,7 @@ _DE_CONDITION_FRAME = (
 _DE_MEDICAL_PATTERNS = [
     rf"\b{_DE_DISEASES}\b",
     _DE_CONDITION_FRAME,
+    *_DE_BAD_LAB_VALUES,
     rf"\bwenn (?:ich|man|du|er|sie) (?:\w+ ){{0,2}}?{_DE_SIDE_EFFECTS} (?:habe|hab|hat|hast|hatte"
     r"|haben)\b",
     # "Ist Kreatin ein Medikament?" is not about the user's medication, as in English.

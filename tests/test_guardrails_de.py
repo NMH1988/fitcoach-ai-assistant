@@ -88,6 +88,13 @@ FLAGGED = [
     ("Ist Kreatin sicher bei Leberschäden?", Concern.MEDICAL),
     ("Darf ich Kreatin nehmen, wenn ich Nierenprobleme habe?", Concern.MEDICAL),
     ("Meine Nierenwerte sind schlecht, wie viel Eiweiß?", Concern.MEDICAL),
+    # Lab values said to be bad, high or abnormal (owner's choice B, 2026-10-21).
+    ("Meine Nierenwerte sind erhöht, darf ich Kreatin nehmen?", Concern.MEDICAL),
+    ("Meine Nierenwerte sind leicht erhöht, wie viel Protein?", Concern.MEDICAL),
+    ("Ich habe erhöhte Nierenwerte, wie viel Protein?", Concern.MEDICAL),
+    ("Meine Leberwerte sind seit Monaten zu hoch.", Concern.MEDICAL),
+    ("Mein Arzt sagt, meine Nierenwerte sind auffällig.", Concern.MEDICAL),
+    ("Ich habe schlechte Leberwerte, ist Whey ok?", Concern.MEDICAL),
     ("Ich nehme Blutverdünner, darf ich Fischöl nehmen?", Concern.MEDICAL),
     ("Ich nehme Medikamente gegen Depressionen, ist Koffein okay?", Concern.MEDICAL),
     ("Ich nehme die Pille, beeinflusst das meinen Muskelaufbau?", Concern.MEDICAL),
@@ -232,6 +239,12 @@ BENIGN = [
     "Ich habe 2 Tage nichts gegessen, weil ich krank war. Was jetzt?",
     "Ich esse 300 kcal am Tag aus Snacks, ist das zu viel?",
     "Ich nehme 300 kcal am Tag aus Snacks zu mir.",
+    # Lab values as a research question are answered (owner's choice B, 2026-10-21).
+    "Erhöht Kreatin meine Nierenwerte?",
+    "Erhöht Kreatin meine Nierenwerte im Bluttest?",
+    "Kreatin erhöht die Nierenwerte, ist das schlimm?",
+    "Steigen meine Nierenwerte durch viel Protein?",
+    "Verändert Kreatin meine Leberwerte?",
     # Found in the review of PR #65: a difference, a second amount or a food's energy.
     "Ich nehme täglich 500 kcal weniger zu mir, ist das ein gutes Defizit?",
     "Ich nehme 300 kcal pro Tag mehr zu mir als ich verbrauche.",
