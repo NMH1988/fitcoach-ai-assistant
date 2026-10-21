@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-21 · T3.6 Retrieval comparison on the owner's evaluation questions · #PR (closes #51)
+## 2026-10-21 · T3.6 Retrieval comparison on the owner's evaluation questions · #73 (closes #51)
 - **Brief:** Hard 1 (hybrid search); AC-4; evidence for the reflection. The German file serves T7.2 (Hard 4, an extra).
 - **What:**
   - `data/eval_questions.json` (new): the owner's 16 evaluation questions (O2): 10 the sources cover (protein per day and per meal, carbohydrate, omega-3, fat loss, timing, creatine safety, caffeine, HMB, EAA), 2 near-domain ones they do not (water, vitamin D), 2 tool questions (daily targets with a fixed profile, oats) and 2 guardrail questions (steroid dosing, a 16-year-old asking for 1,000 kcal). Each has `expected_sources` and a `good_answer` for T6.1.
