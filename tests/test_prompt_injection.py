@@ -20,6 +20,7 @@ from src.tools import registry
 from src.tools.food import Food
 from tests.fakes import (
     PROFILE,
+    TEST_LANGUAGE_PARTS,
     ScriptedChatModel,
     ScriptedTranslator,
     build_fixture_index,
@@ -252,7 +253,8 @@ def test_an_injected_chunk_does_not_change_the_system_prompt_or_tool_use(tmp_pat
     for request in requests:
         system, user = request
         assert type(system) is SystemMessage and type(user) is HumanMessage
-        assert system.content == TEST_PROMPT
+        # The owner's prompt and the English language part (T7.2), nothing from the chunks.
+        assert system.content == f"{TEST_PROMPT}\n\n{TEST_LANGUAGE_PARTS['en']}"
         assert system.additional_kwargs == user.additional_kwargs == {}
     sources, _, user_input = _blocks(requests[1][1].content)
     assert POISONED_TEXT in html.unescape(sources)

@@ -11,9 +11,10 @@ import pytest
 from pypdf import PdfReader
 from reportlab.pdfbase import pdfmetrics
 
-from src import chat, config, export_pdf
+from src import chat, config, export_pdf, guardrails, i18n
+from src.guardrails import Concern
 from src.rag.sources import ARTICLE_CHANGES_NOTE, Source
-from src.tools import registry
+from src.tools import meal_plan, registry
 from src.tools.energy import FORMULA_SOURCES, MACRO_SOURCES, TDEE_METHOD
 from src.tools.food import lookup_food_nutrition
 from src.tools.registry import (
@@ -711,3 +712,154 @@ def test_fitted_widths_fall_back_to_equal_columns():
 def pdfmetrics_width(text: str, size: float) -> float:
     """Return the width of the text in the PDF's font at this size."""
     return pdfmetrics.stringWidth(text, export_pdf.FONT, size)
+
+
+# --- The PDF in German (T7.2) ---------------------------------------------------------------------
+
+
+def _german_pdf(turns=(), user=PROFILE, system="metric", manifest=MANIFEST) -> str:
+    """Build the summary PDF in German, dated TODAY, and return its text."""
+    data = export_pdf.build_summary_pdf(list(turns), user, system, manifest, TODAY, "de")
+    return pdf_text(data)
+
+
+def _de(key: str, **params) -> str:
+    """Return a German UI or PDF text with its whitespace made single spaces, as pdf_text does."""
+    return " ".join(i18n.t(key, "de", **params).split())
+
+
+def test_the_german_pdf_reads_back_its_german_headings():
+    """The title, date, disclaimer and every heading are German; the English ones are gone."""
+    run = _run(FOOD_TOOL, {"food": "rolled oats", "grams": 80})
+    text = _german_pdf(
+        [("Wie viel Protein?", _answer("Vier Mahlzeiten [S1].", _card(HMB), runs=(run,)))]
+    )
+    for heading in (
+        "KI-Ernährungsassistent: Zusammenfassung der Sitzung",
+        "Erstellt am 20.10.2026",
+        f"Keine medizinische Beratung. {_de('app.disclaimer')}",
+        "Ihr Profil",
+        "Ihre Tagesziele",
+        "Fragen und Antworten",
+        "Frage 1 Wie viel Protein? Antwort Vier Mahlzeiten [S1].",
+        "Quellen",
+        "Werkzeugergebnisse",
+        "Nachweise",
+        "Lebensmitteldaten",
+        "Schrift",
+    ):
+        assert heading in text
+    for english in ("session summary", "Created on", "Your profile", "Your daily targets"):
+        assert english not in text
+    for english in ("Questions and answers", "Question 1", "Tool results", "Credits", "Food data"):
+        assert english not in text
+
+
+def test_every_page_of_the_german_pdf_has_the_german_footer():
+    """Each page's footer says "Keine medizinische Beratung" and "Seite" with its number."""
+    turns = [(f"Frage {n}?", _answer("Eine lange Antwort. " * 120)) for n in range(4)]
+    data = export_pdf.build_summary_pdf(turns, PROFILE, "metric", MANIFEST, TODAY, "de")
+    reader = PdfReader(io.BytesIO(data))
+    assert len(reader.pages) > 1
+    for number, page in enumerate(reader.pages, start=1):
+        assert f"Keine medizinische Beratung · Seite {number}" in page.extract_text()
+
+
+@pytest.mark.parametrize(
+    ("system", "weight", "height"),
+    [("metric", "80 kg", "180 cm"), ("imperial", "176,4 lb", "5 ft 11 in")],
+)
+def test_the_german_profile_has_german_labels_and_numbers(system, weight, height):
+    """The profile's labels and values are the German sidebar's, with a German decimal comma."""
+    text = _german_pdf(system=system)
+    for expected in (
+        f"{_de('profile.weight')} {weight}",
+        f"{_de('profile.height')} {height}",
+        f"{_de('profile.age')} 30 Jahre",
+        f"{_de('profile.sex')} {_de('sex.male')}",
+        f"{_de('profile.activity')} {_de('activity.moderate')}",
+        f"{_de('profile.goal')} {_de('goal.build_muscle')}",
+    ):
+        assert expected in text
+
+
+def test_the_german_targets_have_german_labels_and_numbers():
+    """The targets' tables use the German labels, thousands marks and "30 %"; notes stay English."""
+    targets = registry.macro_targets(PROFILE)
+    text = _german_pdf()
+    kcal = f"{targets.targets.kcal_target:,}".replace(",", ".")
+    assert f"{_de('targets.daily_target')} {kcal} kcal" in text
+    assert f"{_de('macros.needs')} 2.759 kcal" in text
+    protein = targets.targets.protein
+    assert f"{_de('macro.protein')} {protein.grams} g {protein.percent} %" in text
+    assert _de("macros.per_weight", unit="kg") in text
+    # The tool's own text stays English, as in the app (owner's choice in T7.1).
+    assert " ".join(targets.message.split()) in text
+    assert TDEE_METHOD in text
+
+
+def test_german_tool_results_have_german_labels_and_decimal_commas():
+    """The food lookup's table is German and its grams use a comma; the USDA name stays English."""
+    run = _run(FOOD_TOOL, {"food": "rolled oats", "grams": 150})
+    text = _german_pdf([("Haferflocken?", _answer("Siehe unten.", runs=(run,)))], user=None)
+    nutrients = run.result.nutrients
+    protein = f"{nutrients.protein_g:g}".replace(".", ",")
+    assert f"{_de('tool.title.lookup_food_nutrition')} {_de('food.usda_food')} " in text
+    assert run.result.matched_name in text
+    assert f"{_de('nutrient.energy')} {nutrients.kcal} kcal" in text
+    assert f"{_de('nutrient.protein')} {protein} g" in text
+    assert _de("usda.source_line") in text
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        chat.TurnResult(
+            "guardrail", guardrails.MESSAGES[Concern.PREGNANCY], code="guardrail.pregnancy"
+        ),
+        chat.TurnResult("no_sources", config.NO_SOURCES_MESSAGE, code="answer.no_sources"),
+        chat.TurnResult("rejected", "Too long.", code="guard.too_long", params={"limit": 2000}),
+    ],
+)
+def test_a_german_pdf_shows_fixed_messages_in_german(result):
+    """A turn ending in a fixed message shows the German status label and message, as the app."""
+    text = _german_pdf([("Eine Frage?", result)])
+    expected = f"Frage 1 Eine Frage? {_de(f'status.{result.kind}')}: "
+    expected += _de(result.code, **result.params)
+    assert expected in text
+    assert result.text.split()[0] + " " + result.text.split()[1] not in text
+
+
+def test_the_german_pdf_keeps_answers_titles_and_credits_as_written():
+    """An answer stays in its language; titles, licences and credit lines stay English."""
+    answer = _answer("Spread it over four meals [S1].", _card(HMB))
+    text = _german_pdf([("How much protein per meal?", answer)])
+    tier = _de("tier.1")
+    assert f"[S1] {HMB.title} ({HMB.year}). {tier}. CC BY 4.0. {HMB.url}" in text
+    assert "Antwort Spread it over four meals [S1]." in text
+    assert ARTICLE_CHANGES_NOTE in text
+    assert f"Licensed under {HMB.license}" in text
+    assert export_pdf.font_licence_paragraphs()[0] in text
+
+
+def test_the_german_meal_plan_check_uses_the_app_s_german_tables():
+    """The meal plan's tables have the German columns and cells the app shows (T7.1)."""
+    run = _run(MEAL_PLAN_TOOL, {"items": [{"food": "rolled oats", "grams": 80}]})
+    text = _german_pdf([("Mein Tag?", _answer("Siehe unten.", runs=(run,)))])
+    for column in meal_plan.food_columns("de")[:2]:
+        assert column in text
+    assert _de("meal.source_line") in text
+
+
+def test_every_pdf_text_is_used_and_has_its_own_german_version():
+    """The "pdf.*" keys (but the button's) are the PDF's texts, each with a German text (T7.2)."""
+    button = {"pdf.label", "pdf.help", "pdf.empty_help"}
+    keys = {key for key in i18n.TEXT["en"] if key.startswith("pdf.")} - button
+    assert keys == {f"pdf.{key}" for key in export_pdf.TEXT_KEYS}
+    assert [key for key in keys if i18n.TEXT["de"][key] == i18n.TEXT["en"][key]] == []
+
+
+@pytest.mark.parametrize(("lang", "expected"), [("en", "2026-10-20"), ("de", "20.10.2026")])
+def test_the_date_is_written_as_the_language_writes_it(lang, expected):
+    """English keeps the ISO date; German writes day, month and year with dots."""
+    assert export_pdf.format_date(TODAY, lang) == expected

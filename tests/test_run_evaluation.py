@@ -20,6 +20,7 @@ from src.usage import ModelPrice
 from tests.fakes import (
     CHUNKS,
     PROFILE,
+    TEST_LANGUAGE_PARTS,
     ScriptedChatModel,
     ScriptedTranslator,
     build_fixture_index,
@@ -310,6 +311,45 @@ def test_main_refuses_bad_arguments(real_pieces, tmp_path, monkeypatch, capsys, 
     monkeypatch.chdir(tmp_path)
     assert run_evaluation.main(args) == 2
     assert capsys.readouterr().err
+    assert real_pieces.calls == []
+
+
+@pytest.mark.parametrize("language", ["en", "de"])
+def test_each_run_asks_in_the_answer_language_given(index, language):
+    """The language reaches the app's turn as the EN | DE control would set it (T7.2)."""
+    model = ScriptedChatModel(replies=[AIMessage(ANSWER)])
+    run_evaluation.evaluate(
+        [_item("de1", "Wie viel Protein pro Mahlzeit?")],
+        index=index,
+        chat_model=model,
+        translation_model=ScriptedTranslator(),
+        manifest=chat.manifest_by_id(),
+        prices=None,
+        language=language,
+    )
+    [[system, _]] = model.calls
+    assert system.content.endswith(TEST_LANGUAGE_PARTS[language])
+
+
+@pytest.mark.parametrize(("args", "language"), [([], "en"), (["--language", "de"], "de")])
+def test_main_runs_in_the_language_asked_and_says_so(real_pieces, tmp_path, capsys, args, language):
+    """English by default, German with --language de; the summary and the report name it."""
+    item = {"id": "de1", "question": QUESTION, "expected_sources": [], "good_answer": "x"}
+    assert run_evaluation.main([*args, _questions_file(tmp_path, [item])]) == 0
+    [[system, _]] = real_pieces.calls
+    assert system.content.endswith(TEST_LANGUAGE_PARTS[language])
+    assert f"Answer language: {language}" in capsys.readouterr().out
+    [report] = (tmp_path / "eval_runs").glob("run-*.md")
+    assert f"**Answer language:** {language}" in report.read_text(encoding="utf-8")
+
+
+def test_main_refuses_a_language_the_app_does_not_offer(real_pieces, tmp_path, capsys):
+    """--language fr stops before any question, with argparse's usage error (exit code 2)."""
+    item = {"id": "q1", "question": QUESTION, "expected_sources": [], "good_answer": "x"}
+    with pytest.raises(SystemExit) as stopped:
+        run_evaluation.main(["--language", "fr", _questions_file(tmp_path, [item])])
+    assert stopped.value.code == 2
+    assert "--language" in capsys.readouterr().err
     assert real_pieces.calls == []
 
 

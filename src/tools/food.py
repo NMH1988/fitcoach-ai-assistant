@@ -69,7 +69,8 @@ class FoodLookupArgs(BaseModel):
         description=(
             "One food in plain English, with at least one real word (2 or more letters), as "
             "specific as possible (cut, form, raw or cooked), e.g. 'chicken breast skinless raw' "
-            "or 'rolled oats'."
+            "or 'rolled oats'. Translate a food named in another language into English first "
+            "(e.g. 'Hähnchenbrust' as 'chicken breast')."
         ),
     )
     # Strict: a JSON number only (no strings or booleans); an int is accepted.

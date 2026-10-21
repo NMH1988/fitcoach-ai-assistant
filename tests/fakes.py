@@ -28,6 +28,12 @@ from src.profile import UserProfile
 from src.rag import store
 from src.tools.food import TABLE_COLUMNS, Food
 
+# What the test files of the answer's language parts hold (tests/conftest.py, T7.2).
+TEST_LANGUAGE_PARTS = {
+    "en": "Test language part: write the answer in English.",
+    "de": "Test language part: write the answer in German.",
+}
+
 # Bound at import, so UI tests that replace store.open_index can still open the fixture index.
 _open_index = store.open_index
 

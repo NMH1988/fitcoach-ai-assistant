@@ -2,13 +2,19 @@
 
 Run by the owner from the repo root, after the index is built, with the key set up:
 
-    python scripts/run_evaluation.py [--repeat N] [data/eval_questions.json]
+    python scripts/run_evaluation.py [--repeat N] [--language en|de] [data/eval_questions.json]
+
+For the German questions (T7.2):
+
+    python scripts/run_evaluation.py --language de data/eval_questions_de.json
 
 Each question goes through `chat.run_turn()`, the function the app calls: the input guard and the
 domain guardrails, query translation, hybrid search, the answer model with its tools. The models
 are the app's own (`llm.build_chat_model()`). A question with a "profile" (q13) runs twice: with
 that fixed session profile, then with none. Other questions run with no profile, as a new visitor
-asks them. `--repeat N` runs every question N times (default 1).
+asks them. `--repeat N` runs every question N times (default 1). `--language` is the answer
+language the app's EN | DE control would set (default en, T7.2); the questions keep their own
+language either way.
 
 For each run the script prints how the turn ended, the plan's flags and filters, the sources found
 (in [S#] order; "*" marks a chunk found by keyword only), the sources the answer cites, whether
@@ -29,7 +35,7 @@ from pathlib import Path
 from langchain_chroma import Chroma
 from langchain_core.language_models import BaseChatModel
 
-from src import chat, config, guard, llm, usage
+from src import chat, config, guard, i18n, llm, usage
 from src.eval_questions import EvalItem, QuestionsFileError, load_eval_items
 from src.rag import hybrid, store
 from src.rag.retriever import RetrievedChunk
@@ -73,8 +79,9 @@ def evaluate(
     manifest: Mapping[str, Source],
     prices: Mapping[str, ModelPrice] | None,
     repeat: int = 1,
+    language: i18n.Language = "en",
 ) -> list[EvalRun]:
-    """Ask every question through the app's chat turn and return what each run gave."""
+    """Ask every question through the app's chat turn, in this answer language; return the runs."""
     runs = planned_runs(items, repeat)
     # One run may ask more questions than the app's per-minute limit allows.
     limiter = guard.RateLimiter(per_window=len(runs), per_session=len(runs))
@@ -92,6 +99,7 @@ def evaluate(
             user=item.profile if with_profile else None,
             keyword_index=lambda _: keywords,
             on_chunks=seen.append,
+            language=language,
         )
         chunks = tuple(seen[0]) if seen else ()
         done.append(
@@ -212,11 +220,12 @@ def _chunk_block(label: int, chunk: RetrievedChunk) -> str:
     return f"{head}\n\n{_fence(chunk.text)}"
 
 
-def report_text(runs: Sequence[EvalRun], started: datetime) -> str:
+def report_text(runs: Sequence[EvalRun], started: datetime, language: i18n.Language = "en") -> str:
     """Return the full Markdown report: each run's answer, tool results and chunks found."""
     parts = [
         f"# Evaluation run {started:%Y-%m-%d %H:%M}",
         "Local report of scripts/run_evaluation.py (T6.1). Not committed: it holds article text.",
+        f"**Answer language:** {language}",
         _fence("\n".join(summary_lines(runs))),
     ]
     for run in runs:
@@ -251,11 +260,13 @@ def report_text(runs: Sequence[EvalRun], started: datetime) -> str:
     return "\n\n".join(parts) + "\n"
 
 
-def write_report(runs: Sequence[EvalRun], started: datetime, folder: Path) -> Path:
+def write_report(
+    runs: Sequence[EvalRun], started: datetime, folder: Path, language: i18n.Language = "en"
+) -> Path:
     """Write the full report into the folder and return its path."""
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / f"run-{started:%Y%m%d-%H%M%S}.md"
-    path.write_text(report_text(runs, started), encoding="utf-8")
+    path.write_text(report_text(runs, started, language), encoding="utf-8")
     return path
 
 
@@ -272,6 +283,12 @@ def main(args: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the owner's evaluation questions (T6.1).")
     parser.add_argument("path", nargs="?", type=Path, default=config.EVAL_QUESTIONS_PATH)
     parser.add_argument("--repeat", type=int, default=1, help="times to ask each question")
+    parser.add_argument(
+        "--language",
+        choices=i18n.LANGUAGES,
+        default="en",
+        help="the answer language, as the app's EN | DE control sets it (T7.2)",
+    )
     options = parser.parse_args(sys.argv[1:] if args is None else args)
     if options.repeat < 1:
         print("--repeat must be at least 1.", file=sys.stderr)
@@ -306,9 +323,12 @@ def main(args: Sequence[str] | None = None) -> int:
         manifest=chat.manifest_by_id(),
         prices=_prices(),
         repeat=options.repeat,
+        language=options.language,
     )
+    print(f"Answer language: {options.language}")
     print("\n".join(summary_lines(runs)))
-    print(f"Full report: {write_report(runs, started, config.EVAL_RUNS_DIR)}")
+    report = write_report(runs, started, config.EVAL_RUNS_DIR, options.language)
+    print(f"Full report: {report}")
     return 1 if any(run.result.kind == "error" for run in runs) else 0
 
 

@@ -43,6 +43,11 @@ def number(value: float, lang: Language) -> str:
     return text.translate(_DE_MARKS) if lang == "de" else text
 
 
+def percent(value: int, lang: Language) -> str:
+    """Show a percentage as the language writes it: "20%" or "20 %"."""
+    return f"{value} %" if lang == "de" else f"{value}%"
+
+
 def plain(value: float, lang: Language) -> str:
     """Show a number without thousands marks, with the language's decimal mark: 1.5 or 1,5."""
     text = f"{value:g}"
@@ -371,10 +376,45 @@ _EN: dict[str, str] = {
         "Full credits, with each article's copyright notice, are in ATTRIBUTION.md in the "
         "repository."
     ),
-    # The summary PDF button (the PDF itself stays English until T7.2).
+    # The summary PDF button, then the PDF's own headings and fixed labels (T7.2). The PDF also
+    # uses the UI's texts for what the app shows the same way (tables, labels, fixed messages).
     "pdf.label": config.PDF_BUTTON_LABEL,
     "pdf.help": config.PDF_BUTTON_HELP,
     "pdf.empty_help": config.PDF_BUTTON_EMPTY_HELP,
+    "pdf.title": f"{config.APP_TITLE}: session summary",
+    "pdf.created": "Created on {date}",
+    "pdf.disclaimer": "Not medical advice.",
+    "pdf.profile": "Your profile",
+    "pdf.no_profile": "No details were added in this session.",
+    "pdf.age": "{age} years",
+    "pdf.targets": "Your daily targets",
+    "pdf.targets_note": "Calculated by the app from the profile above, with no AI model.",
+    "pdf.no_targets": "Add your details in the app to get personal targets.",
+    "pdf.turns": "Questions and answers",
+    "pdf.no_turns": "No questions were asked in this session.",
+    "pdf.question": "Question {number}",
+    "pdf.answer": "Answer",
+    "pdf.sources": "Sources",
+    "pdf.tool_results": "Tool results",
+    "pdf.credits": "Credits",
+    "pdf.credits_intro": (
+        "The answers and targets draw on the open access articles below; each is used under its "
+        "own licence. The full list of the app's sources, with every article's copyright notice, "
+        "is in ATTRIBUTION.md in the repository."
+    ),
+    "pdf.formula_sources": (
+        "Formula sources (the energy calculations use their equation or factors)"
+    ),
+    "pdf.food_data": "Food data",
+    "pdf.font": "Font",
+    # Every PDF embeds subsets of the font, and its licence asks for its notices with every copy,
+    # so the licence follows this line word for word (owner's choices in T5.2's review, 2026-10-20).
+    "pdf.font_credit": (
+        "Set in DejaVu Sans 2.37 "
+        "(https://github.com/dejavu-fonts/dejavu-fonts/releases/tag/version_2_37). Its licence, "
+        "as published with the fonts:"
+    ),
+    "pdf.footer": f"{config.APP_TITLE} · Not medical advice · Page {{page}}",
     # Messages from src/ (TurnResult.code): the guard, the guardrails, errors.
     "guard.empty": "Please type a question first.",
     "guard.too_long": (
@@ -445,12 +485,16 @@ _EN: dict[str, str] = {
     ),
     "prompt.answer_missing": config.PROMPT_MISSING_MESSAGE,
     "prompt.query_missing": config.QUERY_PROMPT_MISSING_MESSAGE,
+    "prompt.language_missing": config.LANGUAGE_PROMPT_MISSING_MESSAGE,
     "key.missing": config.MISSING_KEY_MESSAGE,
     "key.secrets_file": config.SECRETS_FILE_MESSAGE,
 }
 
+# The app's German name, also in the summary PDF's title and footer (T7.2).
+_DE_APP_TITLE = "KI-Ernährungsassistent"
+
 _DE: dict[str, str] = {
-    "app.title": "KI-Ernährungsassistent",
+    "app.title": _DE_APP_TITLE,
     "app.intro": (
         "Evidenzbasierte Antworten zur Ernährung für Erwachsene, die Krafttraining machen, mit "
         "der Forschung dahinter."
@@ -769,12 +813,45 @@ _DE: dict[str, str] = {
         "Vollständige Nachweise mit dem Urheberrechtshinweis jedes Artikels stehen in "
         "ATTRIBUTION.md im Repository."
     ),
-    "pdf.label": "Zusammenfassung herunterladen (PDF, Englisch)",
+    "pdf.label": "Zusammenfassung herunterladen (PDF)",
     "pdf.help": (
-        "Ihr Profil, Ihre Ziele, Fragen und Antworten mit ihren Quellen als PDF auf Englisch. "
-        "Wird beim Klick erstellt; nicht auf dem Server gespeichert."
+        "Ihr Profil, Ihre Ziele, Fragen und Antworten mit ihren Quellen als PDF. Wird beim Klick "
+        "erstellt; nicht auf dem Server gespeichert."
     ),
     "pdf.empty_help": "Geben Sie zuerst Ihre Angaben ein oder stellen Sie eine Frage.",
+    "pdf.title": f"{_DE_APP_TITLE}: Zusammenfassung der Sitzung",
+    "pdf.created": "Erstellt am {date}",
+    "pdf.disclaimer": "Keine medizinische Beratung.",
+    "pdf.profile": "Ihr Profil",
+    "pdf.no_profile": "In dieser Sitzung wurden keine Angaben gemacht.",
+    "pdf.age": "{age} Jahre",
+    "pdf.targets": "Ihre Tagesziele",
+    "pdf.targets_note": "Von der App aus dem Profil oben berechnet, ohne KI-Modell.",
+    "pdf.no_targets": "Geben Sie Ihre Angaben in der App ein, um persönliche Ziele zu erhalten.",
+    "pdf.turns": "Fragen und Antworten",
+    "pdf.no_turns": "In dieser Sitzung wurden keine Fragen gestellt.",
+    "pdf.question": "Frage {number}",
+    "pdf.answer": "Antwort",
+    "pdf.sources": "Quellen",
+    "pdf.tool_results": "Werkzeugergebnisse",
+    "pdf.credits": "Nachweise",
+    "pdf.credits_intro": (
+        "Die Antworten und Ziele stützen sich auf die unten genannten Open-Access-Artikel; jeder "
+        "wird unter seiner eigenen Lizenz verwendet. Die Nachweise stehen auf Englisch, wie in "
+        "ATTRIBUTION.md im Repository, wo die vollständige Liste der Quellen der App mit dem "
+        "Urheberrechtshinweis jedes Artikels steht."
+    ),
+    "pdf.formula_sources": (
+        "Quellen der Formeln (die Energieberechnungen verwenden ihre Gleichung oder Faktoren)"
+    ),
+    "pdf.food_data": "Lebensmitteldaten",
+    "pdf.font": "Schrift",
+    "pdf.font_credit": (
+        "Gesetzt in DejaVu Sans 2.37 "
+        "(https://github.com/dejavu-fonts/dejavu-fonts/releases/tag/version_2_37). Ihre Lizenz, "
+        "wie sie mit den Schriften veröffentlicht wurde:"
+    ),
+    "pdf.footer": f"{_DE_APP_TITLE} · Keine medizinische Beratung · Seite {{page}}",
     "guard.empty": "Geben Sie zuerst eine Frage ein.",
     "guard.too_long": (
         f"Ihre Nachricht ist zu lang. Sie darf höchstens {_MAX_CHARS} Zeichen haben."
@@ -879,6 +956,11 @@ _DE: dict[str, str] = {
         "Der Prompt für die Umformulierung `src/prompts/query_translation_system.md` fehlt oder "
         "ist leer, daher kann die Frage nicht gesucht werden. Stellen Sie die Datei wieder her "
         "und fragen Sie erneut."
+    ),
+    "prompt.language_missing": (
+        "Der Sprach-Prompt für die Antwort (`src/prompts/answer_language_en.md` oder "
+        "`answer_language_de.md`) fehlt oder ist leer, daher kann keine Antwort geschrieben "
+        "werden. Stellen Sie die Datei wieder her und fragen Sie erneut."
     ),
     "key.missing": (
         "Der OpenRouter-API-Schlüssel fehlt. Tragen Sie ihn in `.streamlit/secrets.toml` ein oder "

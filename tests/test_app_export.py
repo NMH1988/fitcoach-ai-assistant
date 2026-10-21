@@ -8,7 +8,7 @@ import streamlit as st
 from langchain_core.messages import AIMessage
 from streamlit.testing.v1 import AppTest
 
-from src import chat, config, llm
+from src import chat, config, i18n, llm
 from src.rag import store
 from tests.fakes import (
     PROFILE,
@@ -123,6 +123,18 @@ def test_the_pdf_is_built_only_on_click_and_never_written():
 
 def test_the_pdf_built_on_click_holds_the_turn_that_just_ran(monkeypatch):
     """The button's build function gives a PDF with the profile and the question just asked."""
+    built = _recorded_builds(monkeypatch)
+    at = _start(PROFILE)
+    at.chat_input(key="chat_input").set_value("How much protein per meal?").run(timeout=30)
+    assert not at.exception
+    text = pdf_text(built[-1]())
+    assert "Question 1 How much protein per meal? Answer Four meals [S1]." in text
+    assert "Weight 80 kg" in text
+    assert config.DISCLAIMER in text
+
+
+def _recorded_builds(monkeypatch) -> list:
+    """Record the data function of every download button the app draws."""
     built = []
     real_button = st.download_button
 
@@ -132,13 +144,32 @@ def test_the_pdf_built_on_click_holds_the_turn_that_just_ran(monkeypatch):
         return real_button(*args, **kwargs)
 
     monkeypatch.setattr(st, "download_button", recording_button)
+    return built
+
+
+def test_the_german_ui_downloads_a_german_pdf(monkeypatch):
+    """In German the button builds the PDF in German; the answer stays as the model wrote it."""
+    built = _recorded_builds(monkeypatch)
+    monkeypatch.setattr(i18n, "browser_locale", lambda: "de-DE")
     at = _start(PROFILE)
-    at.chat_input(key="chat_input").set_value("How much protein per meal?").run(timeout=30)
+    at.chat_input(key="chat_input").set_value("Wie viel Protein pro Mahlzeit?").run(timeout=30)
     assert not at.exception
+    assert _button(at).label == i18n.t("pdf.label", "de")
     text = pdf_text(built[-1]())
-    assert "Question 1 How much protein per meal? Answer Four meals [S1]." in text
-    assert "Weight 80 kg" in text
-    assert config.DISCLAIMER in text
+    assert "Zusammenfassung der Sitzung" in text
+    assert "Frage 1 Wie viel Protein pro Mahlzeit? Antwort Four meals [S1]." in text
+    assert f"{i18n.t('profile.weight', 'de')} 80 kg" in text
+
+
+def test_the_pdf_keeps_the_language_of_the_run_that_drew_the_button(monkeypatch):
+    """The language is bound when the button is drawn: the click may build it outside the run."""
+    built = _recorded_builds(monkeypatch)
+    at = _start(PROFILE)
+    at.segmented_control(key=i18n.SESSION_KEY).set_value("de").run(timeout=30)
+    german = built[-1]
+    at.segmented_control(key=i18n.SESSION_KEY).set_value("en").run(timeout=30)
+    assert "Ihr Profil" in pdf_text(german())
+    assert "Your profile" in pdf_text(built[-1]())
 
 
 # What would let the app open an image (docs/SECURITY.md, Accepted risks: the pillow 12.3.0
