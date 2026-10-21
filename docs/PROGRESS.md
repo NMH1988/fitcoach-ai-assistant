@@ -29,6 +29,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
   - Code review (before the PR) fixes: the regression test's own check that the file wins, and the two `tests/test_config.py` tests that read a real `Secrets()`, now assert a bool too; `tests/conftest.py` imports `API_KEY_NAME` through `config` only; the plan marks T5.1 (#64, merged) as done.
   - Code review on PR #70 (ready to merge; nits taken): the file's autouse `offline` fixture also sets `st.secrets` to `{}`, so a later test there that sets only the env var cannot reach a local secrets file either.
 - **Follow-ups:** the owner may want to rotate the key that was printed. Optional: an autouse fixture in `tests/conftest.py` that blocks the local secrets file for every test.
+
 ## 2026-10-21 · T3.7 Drop registration boilerplate and merge short chunk pieces at ingest · #69 (closes #66)
 - **Brief:** core 1 (chunking and similarity search); AC-2. Refines T2.2. Found in T3.5's live check.
 - **What:**
