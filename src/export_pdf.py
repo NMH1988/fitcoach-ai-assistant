@@ -3,11 +3,11 @@
 The PDF is built in memory with ReportLab and handed to the download button; nothing is written to
 disk and nothing is logged (.claude/rules/security-privacy.md). ReportLab's `Paragraph` reads its
 text as markup (`<b>`, `<font>`, `<link href=...>`), so every text that is not ours (the question,
-the model's answer, source titles, USDA names) goes through `_text()`, which escapes it: no model
-text can add formatting or a link, and a "<" cannot break the PDF. Answers are first unescaped
-(`html.unescape`), as the model may copy an entity from the escaped prompt (T3.4), and their
-Markdown is turned into plain text by `clean_answer()`. The PDF holds no link annotations at all:
-URLs are printed as text.
+the model's answer, source titles, USDA names, the food names the model sent to the meal plan
+check) goes through `_text()`, which escapes it: no model text can add formatting or a link, and a
+"<" cannot break the PDF. Answers are first unescaped (`html.unescape`), as the model may copy an
+entity from the escaped prompt (T3.4), and their Markdown is turned into plain text by
+`clean_answer()`. The PDF holds no link annotations at all: URLs are printed as text.
 """
 
 import html
@@ -42,9 +42,10 @@ from src.rag.sources import (
     FORMULA_CHANGES_MADE,
     Source,
 )
-from src.tools import registry
-from src.tools.energy import FORMULA_SOURCES, FormulaSource, Macro, TdeeResult
+from src.tools import meal_plan, registry
+from src.tools.energy import FORMULA_SOURCES, MACRO_SOURCES, FormulaSource, Macro, TdeeResult
 from src.tools.food import FoodLookupResult, FoodTableError, read_usda_release
+from src.tools.meal_plan import MealPlanResult
 from src.units import UnitSystem
 
 FONT = "DejaVuSans"
@@ -53,6 +54,10 @@ BOLD_FONT = "DejaVuSans-Bold"
 MARGIN = 18 * mm
 CONTENT_WIDTH = A4[0] - 2 * MARGIN
 LABEL_WIDTH = 55 * mm
+# ReportLab's default left and right padding of a table cell (6 points each).
+CELL_PADDING = 12
+# The narrowest a name column of a fitted table may get before its columns are made equal.
+MIN_WIDE_COLUMN = 25 * mm
 BODY_SIZE = 10
 SMALL_SIZE = 8.5
 LEADING = 1.35
@@ -166,6 +171,7 @@ STYLES = {
         "correction", fontSize=SMALL_SIZE, textColor=MUTED, leftIndent=INDENT, spaceAfter=1 * mm
     ),
     "cell": _style("cell"),
+    "small_cell": _style("small_cell", fontSize=SMALL_SIZE),
 }
 
 
@@ -309,13 +315,36 @@ def _answer_flowables(answer: str) -> list[Flowable]:
     return flowables
 
 
-def _table(rows: Mapping[str, str] | Sequence[Sequence[str]], header: bool = False) -> Table:
+def _fitted_widths(rows: Sequence[Sequence[str]], wide: Sequence[int], size: float) -> list[float]:
+    """Return column widths: each column fits its longest text, the wide ones share the rest."""
+    # Measuring needs the font; registering it is cached, so this costs nothing in a build.
+    _register_fonts()
+    columns = len(rows[0])
+    widths = [
+        max(pdfmetrics.stringWidth(str(row[i]), FONT, size) for row in rows) + CELL_PADDING
+        for i in range(columns)
+    ]
+    rest = CONTENT_WIDTH - sum(w for i, w in enumerate(widths) if i not in wide)
+    if rest < MIN_WIDE_COLUMN * len(wide):
+        # Values too long to fit side by side: equal columns, which wrap.
+        return [CONTENT_WIDTH / columns] * columns
+    return [rest / len(wide) if i in wide else w for i, w in enumerate(widths)]
+
+
+def _table(
+    rows: Mapping[str, str] | Sequence[Sequence[str]],
+    header: bool = False,
+    widths: Sequence[float] | None = None,
+    cell_style: str = "cell",
+) -> Table:
     """Return label and value rows (or rows of cells) as a table of escaped paragraphs."""
     data = list(rows.items()) if isinstance(rows, Mapping) else [list(row) for row in rows]
-    cells = [[Paragraph(_text(str(cell)), STYLES["cell"]) for cell in row] for row in data]
-    # Paragraph cells need set widths: a label column and the rest, or equal columns.
+    cells = [[Paragraph(_text(str(cell)), STYLES[cell_style]) for cell in row] for row in data]
+    # Paragraph cells need set widths: given, a label column and the rest, or equal columns.
     columns = len(data[0])
-    if header:
+    if widths is not None:
+        widths = list(widths)
+    elif header:
         widths = [CONTENT_WIDTH / columns] * columns
     else:
         widths = [LABEL_WIDTH, CONTENT_WIDTH - LABEL_WIDTH]
@@ -423,6 +452,31 @@ def _food_flowables(result: FoodLookupResult) -> list[Flowable]:
     return [_table(rows), _para(config.USDA_SOURCE_LINE, "small")]
 
 
+def _meal_plan_flowables(result: MealPlanResult) -> list[Flowable]:
+    """Return a meal plan check: the foods, the plan against the targets, message and notes."""
+    # The same cells as the app's tables (src/tools/meal_plan.py); _table() escapes each one, so
+    # a USDA name or the name the model asked for cannot add markup (T4.5).
+    foods = [list(meal_plan.FOOD_COLUMNS), *(meal_plan.food_row(i) for i in result.items)]
+    # Eight columns: small cells, the values as wide as their longest text and the two name
+    # columns sharing the rest, so no header or value breaks mid-word (code review, round 2).
+    widths = _fitted_widths(foods, wide=(0, 1), size=SMALL_SIZE)
+    flowables: list[Flowable] = [_table(foods, header=True, widths=widths, cell_style="small_cell")]
+    # The app's "Other close USDA names" column, as lines under the table.
+    for item in result.items:
+        if item.alternatives:
+            label = "Did you mean:" if item.status == "not_found" else "Close alternatives:"
+            names = "; ".join(item.alternatives)
+            flowables.append(_labelled(label, f"{item.requested}: {names}", "small"))
+    comparison = meal_plan.comparison_rows(result)
+    if comparison:
+        rows = [list(meal_plan.COMPARISON_COLUMNS), *comparison]
+        flowables += [Spacer(1, 2 * mm), _table(rows, header=True)]
+    flowables.append(_para(result.message, "small"))
+    flowables += [_para(note, "small") for note in result.notes]
+    flowables.append(_para(config.MEAL_PLAN_SOURCE_LINE, "small"))
+    return flowables
+
+
 def _tool_run_flowables(run: registry.ToolRun, system: UnitSystem) -> list[Flowable]:
     """Return one tool result under its heading, as the app's "Tool results" shows it."""
     title = registry.TOOL_TITLES.get(run.name, registry.TOOL_TITLES[None])
@@ -436,6 +490,8 @@ def _tool_run_flowables(run: registry.ToolRun, system: UnitSystem) -> list[Flowa
         body = _macro_flowables(result, system)
     elif isinstance(result, FoodLookupResult) and result.status != "invalid":
         body = _food_flowables(result)
+    elif isinstance(result, MealPlanResult) and result.status != "invalid":
+        body = _meal_plan_flowables(result)
     else:
         # A refused or failed call: the fixed message, never what the model sent.
         body = [_para(result.message, "small")]
@@ -565,6 +621,14 @@ def _credits(
     if targets is not None:
         energy_results.append(targets)
     used_lines = {line for result in energy_results for line in result.targets.sources}
+    # A meal plan check compares with the macro targets, so it uses their sources too (T4.5). Its
+    # result does not carry the targets, so this reads MACRO_SOURCES, the default of
+    # MacroTargetsResult.sources; if a target ever lists other sources, credit those here too.
+    meal_plans = [
+        run.result for run in runs if isinstance(run.result, MealPlanResult) and run.status == "ok"
+    ]
+    if meal_plans:
+        used_lines |= set(MACRO_SOURCES)
     for source in manifest.values():
         if any(source.url in line for line in used_lines):
             cited.setdefault(source.id, source)
@@ -574,13 +638,18 @@ def _credits(
             cited.setdefault(source.id, source)
         elif source.id in cited and source.corrects in manifest:
             cited.setdefault(source.corrects, manifest[source.corrects])
-    uses_formulas = targets is not None or any(
-        isinstance(run.result, TdeeResult | registry.MacroToolResult) and run.status == "ok"
-        for run in runs
+    uses_formulas = (
+        targets is not None
+        or bool(meal_plans)
+        or any(
+            isinstance(run.result, TdeeResult | registry.MacroToolResult) and run.status == "ok"
+            for run in runs
+        )
     )
-    # A lookup shows USDA names or values, found or not; an invalid call reads no data.
+    # A lookup or a meal plan shows USDA names or values, found or not; an invalid call reads none.
     uses_usda = any(
-        isinstance(run.result, FoodLookupResult) and run.status != "invalid" for run in runs
+        isinstance(run.result, FoodLookupResult | MealPlanResult) and run.status != "invalid"
+        for run in runs
     )
 
     flowables: list[Flowable] = [

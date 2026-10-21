@@ -10,7 +10,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Tool
 from src import chat, config, guard, llm
 from src.chat import Step
 from src.tools import registry
-from src.tools.registry import FOOD_TOOL, MACRO_TOOL, TDEE_TOOL
+from src.tools.registry import FOOD_TOOL, MACRO_TOOL, MEAL_PLAN_TOOL, TDEE_TOOL
 from tests.fakes import (
     HOSTILE_FOOD_NAME,
     PROFILE,
@@ -97,13 +97,30 @@ def test_one_tool_call_runs_and_the_model_answers_from_its_result(index):
     assert _content(reply)["tdee_kcal"] == 2759
 
 
-def test_every_call_binds_the_three_tools(index):
-    """Each model call gets the three tools' schemas and no forced tool choice before the limit."""
+def test_every_call_binds_the_four_tools(index):
+    """Each model call gets the four tools' schemas and no forced tool choice before the limit."""
     _, model = _turn(index, tool_reply((TDEE_TOOL, {})), AIMessage(ANSWER))
     for kwargs in model.call_kwargs:
         names = [tool["function"]["name"] for tool in kwargs["tools"]]
-        assert sorted(names) == sorted([TDEE_TOOL, MACRO_TOOL, FOOD_TOOL])
+        assert sorted(names) == sorted([TDEE_TOOL, MACRO_TOOL, FOOD_TOOL, MEAL_PLAN_TOOL])
         assert kwargs["tool_choice"] is None
+
+
+def test_a_meal_plan_call_runs_and_its_result_reaches_the_model(index):
+    """The model calls evaluate_meal_plan from the chat; the totals and gaps come back to it."""
+    plan = {"items": [OATS, {"food": "chicken breast", "grams": 200}]}
+    result, model = _turn(
+        index,
+        tool_reply((MEAL_PLAN_TOOL, plan)),
+        AIMessage(ANSWER),
+        question="How does 80 g of oats and 200 g of chicken breast compare with my targets?",
+    )
+    assert result.kind == "answer"
+    assert [(run.name, run.status) for run in result.tool_runs] == [(MEAL_PLAN_TOOL, "ok")]
+    [reply] = _tool_messages(model)
+    content = _content(reply)
+    assert content["totals"]["kcal"] == 544
+    assert [check["gap"] for check in content["comparison"]] == [2491, 96.4, 363.6, 73.7]
 
 
 def test_two_tools_in_one_round_both_run_in_order(index):
@@ -173,6 +190,40 @@ def test_the_loop_stops_after_four_rounds_and_asks_for_the_answer(index):
     assert [kwargs["tool_choice"] for kwargs in model.call_kwargs] == [None] * 4 + ["none"]
     assert len(result.tool_runs) == 4
     assert result.text == ANSWER
+
+
+def test_one_meal_plan_runs_per_reply_and_the_rest_get_the_fixed_message(index):
+    """A second meal plan in one reply is refused; the other tools of that reply still run."""
+    plan = {"items": [OATS]}
+    result, model = _turn(
+        index,
+        tool_reply((MEAL_PLAN_TOOL, plan), (FOOD_TOOL, OATS), (MEAL_PLAN_TOOL, plan)),
+        AIMessage(ANSWER),
+    )
+    assert config.MAX_MEAL_PLAN_CALLS_PER_ROUND == 1
+    assert [(run.name, run.status) for run in result.tool_runs] == [
+        (MEAL_PLAN_TOOL, "ok"),
+        (FOOD_TOOL, "found"),
+        (None, "invalid"),
+    ]
+    first, food, refused = _tool_messages(model)
+    assert refused.tool_call_id == "call-2"
+    assert _content(refused)["message"] == config.TOO_MANY_MEAL_PLANS_MESSAGE
+    assert config.TOO_MANY_MEAL_PLANS_MESSAGE == (
+        "Not run: at most 1 meal plan check is run from one reply."
+    )
+
+
+def test_the_meal_plan_limit_is_per_round(index):
+    """A meal plan in each of two rounds runs both times."""
+    plan = {"items": [OATS]}
+    result, _ = _turn(
+        index,
+        tool_reply((MEAL_PLAN_TOOL, plan)),
+        tool_reply((MEAL_PLAN_TOOL, plan)),
+        AIMessage(ANSWER),
+    )
+    assert [(run.name, run.status) for run in result.tool_runs] == [(MEAL_PLAN_TOOL, "ok")] * 2
 
 
 def test_tool_calls_after_the_last_round_end_the_turn_with_an_error(index):
@@ -430,7 +481,7 @@ def _wire_loop(server: StreamServer) -> tuple[str, tuple]:
 
 
 def test_the_real_client_sends_the_tools_and_the_tool_round(no_env_key):
-    """ChatOpenAI sends the three tools, then the tool call and its result with matching ids."""
+    """ChatOpenAI sends the four tools, then the tool call and its result with matching ids."""
     server = StreamServer(TOOL_CALL_STREAM, ANSWER_STREAM)
     answer, runs = _wire_loop(server)
     assert answer == ANSWER
@@ -479,3 +530,14 @@ def test_a_usda_name_reaches_the_model_only_inside_the_tool_message(index):
     assert HOSTILE_FOOD_NAME not in user.content
     [reply] = _tool_messages(model)
     assert html.unescape(_content(reply)["matched_name"]) == HOSTILE_FOOD_NAME
+
+
+def test_a_usda_name_in_a_meal_plan_reaches_the_model_only_inside_the_tool_message(index):
+    """In a meal plan result, the hostile name is in the escaped tool message only (T4.5)."""
+    plan = {"items": [{"food": HOSTILE_FOOD_NAME, "grams": 100}]}
+    _, model = _turn(index, tool_reply((MEAL_PLAN_TOOL, plan)), AIMessage(ANSWER))
+    system, user, *_ = model.calls[-1]
+    assert HOSTILE_FOOD_NAME not in system.content + user.content
+    [reply] = _tool_messages(model)
+    assert "<" not in reply.content and ">" not in reply.content
+    assert html.unescape(_content(reply)["items"][0]["matched_name"]) == HOSTILE_FOOD_NAME

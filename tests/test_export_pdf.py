@@ -9,13 +9,21 @@ from datetime import date
 
 import pytest
 from pypdf import PdfReader
+from reportlab.pdfbase import pdfmetrics
 
 from src import chat, config, export_pdf
 from src.rag.sources import ARTICLE_CHANGES_NOTE, Source
 from src.tools import registry
-from src.tools.energy import FORMULA_SOURCES, TDEE_METHOD
+from src.tools.energy import FORMULA_SOURCES, MACRO_SOURCES, TDEE_METHOD
 from src.tools.food import lookup_food_nutrition
-from src.tools.registry import FOOD_TOOL, MACRO_TOOL, TDEE_TOOL, ToolNotice, ToolRun
+from src.tools.registry import (
+    FOOD_TOOL,
+    MACRO_TOOL,
+    MEAL_PLAN_TOOL,
+    TDEE_TOOL,
+    ToolNotice,
+    ToolRun,
+)
 from tests.fakes import FOODS, HOSTILE_FOOD_NAME, PROFILE, pdf_text
 
 TODAY = date(2026, 10, 20)
@@ -513,7 +521,7 @@ def test_every_turn_kind_has_a_label():
 
 def test_tool_titles_match_the_tools():
     """Every tool, and a refused call (None), has a heading in the app and the PDF."""
-    assert set(registry.TOOL_TITLES) == {TDEE_TOOL, MACRO_TOOL, FOOD_TOOL, None}
+    assert set(registry.TOOL_TITLES) == {TDEE_TOOL, MACRO_TOOL, FOOD_TOOL, MEAL_PLAN_TOOL, None}
 
 
 def test_the_fonts_cover_every_character_of_the_approved_sources():
@@ -589,3 +597,117 @@ def test_the_font_licence_is_read_in_paragraphs_without_title_underlines():
     assert paragraphs[1] == "Bitstream Vera Fonts Copyright"
     assert "Arev Fonts Copyright" in paragraphs
     assert all(set(paragraph) != {"-"} and "\n" not in paragraph for paragraph in paragraphs)
+
+
+# --- The meal plan check (T4.5) -------------------------------------------------------------------
+
+DAY = {
+    "items": [
+        {"food": "rolled oats", "grams": 80},
+        {"food": "chicken breast", "grams": 200},
+        {"food": "zzzz qqqq", "grams": 50},
+    ]
+}
+
+
+def test_a_meal_plan_check_shows_its_foods_targets_and_notes():
+    """The meal plan shows both of the app's tables, its message, its notes and the source line."""
+    run = _run(MEAL_PLAN_TOOL, DAY)
+    text = pdf_text(_pdf([("My day?", _answer("See below.", runs=(run,)))]))
+    part = text.split("My day?", 1)[1]
+    assert "Meal plan check Food asked USDA food Amount" in part
+    assert "rolled oats Oats, whole grain, rolled, old fashioned 80 g 304 kcal" in part
+    assert "zzzz qqqq Not found 50 g" in part
+    energy = "Energy 544 kcal 3,035 kcal 2,491 kcal below the target Below 3,035-3,311 kcal"
+    assert energy in part
+    assert "Fiber 8 g No target" in part
+    for line in (run.result.message, *run.result.notes, config.MEAL_PLAN_SOURCE_LINE):
+        assert " ".join(line.split()) in part
+
+
+def test_a_meal_plan_with_no_food_found_has_no_totals_table():
+    """With no food found, the foods table and the message are shown, and no comparison."""
+    run = _run(MEAL_PLAN_TOOL, {"items": [{"food": "zzzz qqqq", "grams": 50}]})
+    text = pdf_text(_pdf([("My day?", _answer("See below.", runs=(run,)))]))
+    assert "zzzz qqqq Not found 50 g" in text
+    assert "Plan total" not in text
+    assert " ".join(run.result.message.split()) in text
+
+
+def test_meal_plan_names_stay_text_in_the_pdf():
+    """The name asked for and a hostile USDA name are escaped: no markup, no link."""
+    asked = "<b>oats</b> & </para>"
+    run = _run(MEAL_PLAN_TOOL, {"items": [{"food": HOSTILE_FOOD_NAME, "grams": 100}]})
+    asked_run = _run(MEAL_PLAN_TOOL, {"items": [{"food": asked, "grams": 100}]})
+    data = _pdf([("Day?", _answer("Ok.", runs=(run, asked_run)))], manifest={})
+    # The table's narrow cells wrap long names, so compare without whitespace.
+    compact = "".join(pdf_text(data).split())
+    assert "".join(HOSTILE_FOOD_NAME.split()) in compact
+    assert "".join(asked.split()) in compact
+    assert _annotations(data) == []
+
+
+@pytest.mark.parametrize("items", [DAY["items"], [{"food": "zzzz qqqq", "grams": 50}]])
+def test_a_meal_plan_credits_usda(items):
+    """A meal plan shows USDA names or values, found or not, so USDA is credited (T4.5)."""
+    run = _run(MEAL_PLAN_TOOL, {"items": items})
+    assert run.status in ("ok", "not_found")
+    text = pdf_text(_pdf([("Day?", _answer("See below.", runs=(run,)))], user=None))
+    credits = text.split(export_pdf.TEXT["credits"], 1)[1]
+    assert f"Licence: {config.USDA_LICENSE}" in credits
+
+
+def test_a_meal_plan_credits_the_targets_and_formula_sources():
+    """A meal plan compares with the targets, so their articles and the formulas are credited."""
+    run = _run(MEAL_PLAN_TOOL, DAY)
+    text = pdf_text(_pdf([("Day?", _answer("See below.", runs=(run,)))], user=None))
+    credits = text.split(export_pdf.TEXT["credits"], 1)[1]
+    assert export_pdf.TEXT["formula_sources"] in credits
+    for source in MANIFEST.values():
+        if any(source.url in line for line in MACRO_SOURCES):
+            assert source.url in credits, source.id
+
+
+def test_a_meal_plan_shows_the_alternatives_and_suggestions():
+    """The app's "Other close USDA names" reach the PDF: suggestions and close alternatives."""
+    plan = {
+        "items": [{"food": "chicken thigh", "grams": 100}, {"food": "rolled oats", "grams": 80}]
+    }
+    run = _run(MEAL_PLAN_TOOL, plan)
+    compact = "".join(pdf_text(_pdf([("Day?", _answer("Ok.", runs=(run,)))])).split())
+    did_you_mean = "Did you mean: chicken thigh: Chicken, breast, boneless, skinless, raw"
+    assert "".join(did_you_mean.split()) in compact
+    close = f"Close alternatives: rolled oats: {HOSTILE_FOOD_NAME}"
+    assert "".join(close.split()) in compact
+
+
+def test_the_meal_plan_foods_table_splits_no_header_word():
+    """Each header of the foods table reads back whole, so none is split mid-word."""
+    run = _run(MEAL_PLAN_TOOL, DAY)
+    text = pdf_text(_pdf([("Day?", _answer("Ok.", runs=(run,)))]))
+    assert "Amount Energy Protein Carbohydrate Fat Fiber" in text
+    # The values in their columns' order. pdf_text() joins lines with a space, so this cannot see
+    # a value that wraps between its number and its unit; the widths test below covers the fit.
+    assert "80 g 304 kcal 10.6 g 54.4 g 5.1 g 8 g" in text
+
+
+def test_fitted_widths_fit_each_value_and_fill_the_page():
+    """Value columns get their longest text plus padding; the name columns share the rest."""
+    rows = [["Name", "Other", "Carbohydrate"], ["a", "b", "54.4 g"]]
+    widths = export_pdf._fitted_widths(rows, wide=(0, 1), size=export_pdf.SMALL_SIZE)
+    text = pdfmetrics_width("Carbohydrate", export_pdf.SMALL_SIZE)
+    assert widths[2] == pytest.approx(text + export_pdf.CELL_PADDING)
+    assert widths[0] == widths[1]
+    assert sum(widths) == pytest.approx(export_pdf.CONTENT_WIDTH)
+
+
+def test_fitted_widths_fall_back_to_equal_columns():
+    """When the values leave the name columns too little room, every column is equal."""
+    rows = [["Name", "x" * 400]]
+    widths = export_pdf._fitted_widths(rows, wide=(0,), size=export_pdf.SMALL_SIZE)
+    assert widths == [export_pdf.CONTENT_WIDTH / 2] * 2
+
+
+def pdfmetrics_width(text: str, size: float) -> float:
+    """Return the width of the text in the PDF's font at this size."""
+    return pdfmetrics.stringWidth(text, export_pdf.FONT, size)

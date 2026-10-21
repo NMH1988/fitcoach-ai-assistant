@@ -393,6 +393,8 @@ USDA_CHANGES = (
 USDA_SOURCE_LINE = (
     "Source: USDA FoodData Central, Foundation Foods (CC0). Values per 100 g, scaled."
 )
+# The line under a meal plan check (T4.5), in the app and the summary PDF.
+MEAL_PLAN_SOURCE_LINE = USDA_SOURCE_LINE + " Targets: the daily targets from your details."
 
 # lookup_food_nutrition: argument limits and fuzzy name matching (rapidfuzz scores, 0-100).
 # A one-letter name matches by chance ("a" scores 100 on "Eggs, Grade A, ..."), so the name, and
@@ -410,6 +412,11 @@ FOOD_MAX_ALTERNATIVES = 3
 # Decimal places of the scaled values (grams of nutrients); kcal are rounded to whole numbers.
 FOOD_DECIMALS = 1
 
+# evaluate_meal_plan (T4.5): foods in one day's plan, each looked up like lookup_food_nutrition.
+# Bounds the lookups and the tool message's length (each food comes back with its USDA name and
+# alternatives); 20 covers a day of meals and snacks.
+MEAL_PLAN_MAX_ITEMS = 20
+
 # The tool loop of the answer step (T4.4; docs/ARCHITECTURE.md, D2). A round is one model reply that
 # calls tools and the running of those calls. After the last round the model is called once more
 # with tool_choice "none", so it writes the answer from the results it has: at most
@@ -418,6 +425,12 @@ MAX_TOOL_ROUNDS = 4
 # Tool calls run from one reply; the rest are answered with TOO_MANY_TOOL_CALLS_MESSAGE. Each result
 # is sent back to the model with every later call, so this bounds the tokens a turn can use.
 MAX_TOOL_CALLS_PER_ROUND = 6
+# evaluate_meal_plan calls run from one reply (T4.5; owner's choice after code review). A 20-food
+# result is about 7,000 characters, against about 500 for a food lookup, so 6 of them in each of 4
+# rounds could send about 420,000 characters (about 100k tokens) over a turn's model calls; with 1
+# a round the worst case with real food names is about 95,000 (docs/SECURITY.md, "Runaway cost").
+# One day's plan needs one call; the rest get TOO_MANY_MEAL_PLANS_MESSAGE.
+MAX_MEAL_PLAN_CALLS_PER_ROUND = 1
 # Tool messages are data for the model, in English (docs/UI_DESIGN.md, "Language"); the UI shows
 # the same text. None of them repeats what the model sent, and none gives the model orders: they
 # state facts, and the owner's prompt says what to do with them (it treats tool results as data).
@@ -432,6 +445,9 @@ UNKNOWN_TOOL_MESSAGE = "Invalid call: there is no tool with that name."
 INVALID_TOOL_JSON_MESSAGE = "Invalid call: the arguments were not valid JSON."
 TOO_MANY_TOOL_CALLS_MESSAGE = (
     f"Not run: at most {MAX_TOOL_CALLS_PER_ROUND} tool calls are run from one reply."
+)
+TOO_MANY_MEAL_PLANS_MESSAGE = (
+    f"Not run: at most {MAX_MEAL_PLAN_CALLS_PER_ROUND} meal plan check is run from one reply."
 )
 TOOL_FAILED_MESSAGE = "Not available: the tool could not run, so there is no result."
 # Shown in the Tool results when an energy tool had no profile, above the "Add your details" button.

@@ -9,9 +9,10 @@ import streamlit as st
 from src import chat, config, export_pdf, guard, llm, profile, units
 from src.rag import hybrid, store
 from src.rag.sources import ARTICLE_CHANGES_NOTE
-from src.tools import registry
+from src.tools import meal_plan, registry
 from src.tools.energy import Macro, MacroTargetsResult, TdeeResult, protein_lowered_note
 from src.tools.food import FoodLookupResult
+from src.tools.meal_plan import MealPlanResult
 
 st.set_page_config(page_title=config.APP_TITLE, page_icon=":material/nutrition:", layout="wide")
 
@@ -47,6 +48,7 @@ TOOL_ICONS = {
     registry.TDEE_TOOL: ":material/local_fire_department:",
     registry.MACRO_TOOL: ":material/target:",
     registry.FOOD_TOOL: ":material/restaurant:",
+    registry.MEAL_PLAN_TOOL: ":material/fact_check:",
     None: ":material/block:",
 }
 TIER_COLORS = {1: "green", 2: "violet"}
@@ -761,6 +763,34 @@ def _show_food(result: FoodLookupResult) -> None:
     st.caption(config.USDA_SOURCE_LINE)
 
 
+def _columns(names: tuple[str, ...], rows: list[list[str]]) -> dict[str, list[str]]:
+    """Return rows of cells as columns by name, for st.dataframe."""
+    return {name: [row[i] for row in rows] for i, name in enumerate(names)}
+
+
+def _show_meal_plan(result: MealPlanResult) -> None:
+    """Show a meal plan check: each food, then the totals against the daily targets (T4.5)."""
+    # The names asked for and the USDA names as table cells: plain text, never Markdown.
+    foods = _columns(meal_plan.FOOD_COLUMNS, [meal_plan.food_row(i) for i in result.items])
+    foods["Other close USDA names"] = ["; ".join(item.alternatives) for item in result.items]
+    # A long name would take the whole width and push the values out of view; a capped column
+    # cuts it and shows it in full on hover.
+    names = {
+        column: st.column_config.TextColumn(width="medium")
+        for column in ("Food asked", "USDA food", "Other close USDA names")
+    }
+    st.dataframe(foods, hide_index=True, width="stretch", column_config=names)
+    comparison = meal_plan.comparison_rows(result)
+    if comparison:
+        st.dataframe(
+            _columns(meal_plan.COMPARISON_COLUMNS, comparison), hide_index=True, width="stretch"
+        )
+    st.caption(result.message)
+    for note in result.notes:
+        st.caption(f":material/info: {note}")
+    st.caption(config.MEAL_PLAN_SOURCE_LINE)
+
+
 def _show_tool_run(run: registry.ToolRun, key: str) -> None:
     """Show one tool result under its heading; without a profile, a button opens the form."""
     name = run.name if run.name in registry.TOOL_TITLES else None
@@ -777,6 +807,8 @@ def _show_tool_run(run: registry.ToolRun, key: str) -> None:
         _show_macros(result)
     elif isinstance(result, FoodLookupResult) and result.status != "invalid":
         _show_food(result)
+    elif isinstance(result, MealPlanResult) and result.status != "invalid":
+        _show_meal_plan(result)
     else:
         # A refused or failed call: the fixed message the model got, never what it sent.
         st.caption(result.message)
