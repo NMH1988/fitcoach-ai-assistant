@@ -1,10 +1,6 @@
 """Tests for src/config.py: models, limits and API key loading."""
 
-import os
-
 import pytest
-from streamlit import config as st_config
-from streamlit.runtime.secrets import Secrets
 
 from src import config
 
@@ -53,28 +49,6 @@ class _NoSecretsFile:
     def get(self, key, default=None):
         """Fail like Streamlit does when there is no secrets file."""
         raise FileNotFoundError("No secrets found.")
-
-
-@pytest.fixture
-def secrets_from_file(monkeypatch, tmp_path):
-    """Return a helper that points a real st.secrets at a secrets.toml with the given text."""
-    original = st_config.get_option("secrets.files")
-    # Streamlit copies parsed string secrets into os.environ, so restore the key afterwards.
-    saved_env = os.environ.get(config.API_KEY_NAME)
-
-    def use(text):
-        """Write `text` as secrets.toml and install a fresh Secrets object that reads it."""
-        path = tmp_path / "secrets.toml"
-        path.write_text(text, encoding="utf-8")
-        st_config.set_option("secrets.files", [str(path)])
-        monkeypatch.setattr(config.st, "secrets", Secrets())
-
-    yield use
-    st_config.set_option("secrets.files", original)
-    if saved_env is None:
-        os.environ.pop(config.API_KEY_NAME, None)
-    else:
-        os.environ[config.API_KEY_NAME] = saved_env
 
 
 def test_api_key_from_secrets(monkeypatch, no_env_key):
@@ -149,13 +123,16 @@ def test_unparseable_secrets_file_falls_back_to_env(secrets_from_file, monkeypat
     """A broken secrets.toml does not block a key set in the environment."""
     secrets_from_file(f"{config.API_KEY_NAME} = sk-test-unquoted\n")
     monkeypatch.setenv(config.API_KEY_NAME, "sk-test-from-env")
-    assert config.get_api_key() == "sk-test-from-env"
+    # A bool, so a failure never prints the key a real secrets.toml might give (T5.1a).
+    env_key_used = config.get_api_key() == "sk-test-from-env"
+    assert env_key_used
 
 
 def test_valid_secrets_file_is_read(secrets_from_file, no_env_key):
     """A correctly quoted key in a real secrets.toml is returned."""
     secrets_from_file(f'{config.API_KEY_NAME} = "sk-test-from-file"\n')
-    assert config.get_api_key() == "sk-test-from-file"
+    file_key_used = config.get_api_key() == "sk-test-from-file"
+    assert file_key_used
 
 
 def test_missing_key_error_does_not_contain_a_key(monkeypatch):
