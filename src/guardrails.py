@@ -296,7 +296,7 @@ _DE_NOT_A_UNIT = (
     r"(?![\w'\"%]|[.,:/]\d| %| ?(?:kg|kilo|kilos|kilogramm|g|gramm|cm|zentimeter|m|meter|km"
     r"|prozent|wochen?|tage?n?|monate?n?|stunden?|std|minuten?|min|mal|sätze?n?|wiederholungen"
     r"|wdh|kcal|kalorien|portionen?|messlöffel|eier|x|einheiten|trainings?|schritte|pfund|stück"
-    r"|scheiben|kilometer|uhr)\b)"
+    r"|scheiben|kilometer|uhr|h)\b)"
 )
 _DE_MINOR_AGE = r"(?:1[0-7]|[1-9]|zehn|elf|zwölf|dreizehn|vierzehn|fünfzehn|sechzehn|siebzehn)"
 _DE_MINOR_PATTERNS = [
@@ -304,11 +304,12 @@ _DE_MINOR_PATTERNS = [
     # "Ich bin 16 Jahre alt" is an age, "ich bin 10 Jahre im Training" is not.
     rf"(?:1[0-7](?! jahre?n?\b(?! alt\b)){_DE_NOT_A_UNIT}|{_DE_MINOR_AGE} jahre alt\b)",
     # A teenager named ("ein 16-Jähriger"), not the past ("als 16-Jähriger", "mit 16 Jahren") or
-    # an adjective of a thing ("nach 10-jähriger Trainingspause", "die 12-jährige Studie").
+    # an adjective of a thing, told by the noun's ending ("nach 10-jähriger Trainingspause",
+    # "die 12-jährige Studie", "meine 15-jährige Laufbahn").
     r"(?<!als )(?<!mit )(?<!seit )(?<!nach )\b(?:1[0-7][- ]?|dreizehn|vierzehn|fünfzehn|sechzehn"
-    r"|siebzehn)jährige?[nmrs]?\b(?! \w*(?:pause|erfahrung|studie|praxis|karriere|geschichte"
-    r"|tradition|forschung|laufzeit|beobachtung|daten|zeit|phase|dauer|ehe|beziehung"
-    r"|mitgliedschaft|training)\b)",
+    r"|siebzehn)jährige?[nmrs]?\b(?! \w*(?:ung|heit|keit|schaft|bahn|historie|pause|zeit"
+    r"|erfahrung|praxis|studie|karriere|geschichte|tradition|daten|phase|dauer|ehe|training"
+    r"|programm|plan|jubiläum|lauf)\b)",
     # A younger child only as the subject ("für meinen 8-Jährigen"), as in English.
     rf"\b(?:für|kann|soll|sollte|darf|muss) (?:mein|meine|meinen|meinem|ein|eine|einen|unser"
     rf"|unsere|unseren) {_DE_MINOR_AGE}[- ]?jährige[nmrs]?\b",
@@ -329,10 +330,14 @@ _DE_MINOR_PATTERNS = [
     r"\bich bin (?:noch )?(?:schüler|schülerin)\b",
 ]
 
-# "Stillen" is also "to still": "den Hunger stillen" or "stille ich meinen Heißhunger" is a
-# nutrition question, so a form of "stillen" with hunger, thirst or appetite in the next three
-# words does not count. Hunger named before it ("den Hunger beim Stillen") still does.
-_DE_NOT_HUNGER = r"(?! (?:\S+ ){0,2}?\w*(?:hunger|durst|appetit)\w*\b)"
+# "Stillen" is also "to still": "stille ich meinen Heißhunger" or "zum Stillen des Hungers" is
+# a nutrition question, so a form of "stillen" whose object is hunger, thirst or appetite (after
+# one or two articles, possessives or adverbs) does not count. The user's own hunger next to it
+# still does ("Ich stille und habe Hunger", "Während des Stillens Heißhunger").
+_DE_NOT_HUNGER = (
+    r"(?! (?:(?:den|des|meinen|deinen|seinen|ihren|unseren|euren|von|abends|nachts|schnell"
+    r"|damit|so|kurz|gut|am besten) ){1,2}\w*(?:hunger|durst|appetit)\w*\b)"
+)
 _DE_PREGNANCY_PATTERNS = [
     r"\b(?:schwanger|schwangere[nrs]?|schwangerschaft(?:en)?|schwangerschafts\w*|trimenon"
     r"|pränatal\w*|postpartal\w*|postnatal\w*|wochenbett|stillzeit|stillende[nr]?|kinderwunsch"
@@ -349,10 +354,11 @@ _DE_DISEASES = (
     r"|fettleber|leberzirrhose|zirrhose|leberentzündung|herzinsuffizienz|herzschwäche"
     r"|herzinfarkts?|herz-kreislauf-erkrankung(?:en)?|koronare herzkrankheit|khk|bluthochdruck"
     r"|(?:hohe[mnr]?|niedrige[mnr]?|erhöhte[mnr]?) blutdruck|hypertonie|hypotonie"
-    # Not the Krebs cycle (in English sentences too); "Tumor" and "Hashimoto" only in German
-    # frames, so the English words keep the English rules above.
+    # Not the Krebs cycle: "cycle" or "Zyklus" later in the same sentence ("the Krebs' cycle",
+    # "the citric acid (Krebs) cycle", "Krebs or citric acid cycle", "Krebs-Zyklus"). "Tumor" and
+    # "Hashimoto" only in German frames, so the English words keep the English rules above.
     r"|(?:hohe[mnrs]?|erhöhte[mnrs]?) cholesterin\w*|hypercholesterinämie"
-    r"|krebs(?![- ]?(?:zyklus|zyklen|cycle)\b)|krebserkrankung"
+    r"|krebs(?![^.?!;]{0,40}?(?:cycle|zyklus|zyklen))|krebserkrankung"
     r"|(?:einen|ein|meinen|mein|der|den|dem|gutartige[nmr]?|bösartige[nmr]?) tumor|tumore|tumoren"
     r"|tumorerkrankung(?:en)?|leukämie|polyzystische[sn]? ovarsyndrom|schilddrüsenunterfunktion"
     r"|schilddrüsenüberfunktion|hypothyreose|hyperthyreose"
@@ -377,9 +383,9 @@ _DE_SIDE_EFFECTS = (
 )
 _DE_CONDITION_FRAME = (
     r"\b(?:ich habe|ich hab|ich hatte|hatte ich|ich leide an|ich leide unter|leide an|leide unter"
-    r"|leidet an|leidet unter|diagnostiziert mit|diagnose|mit meinen|mit meiner|mit meinem|meine"
-    r"|meinen|meiner|mein|menschen mit|leute mit|personen mit|patienten mit|jemand mit"
-    r"|jemanden mit|sportler mit|männer mit|frauen mit|bei|trotz"
+    r"|leidet an|leidet unter|diagnostiziert mit|(?:die|meine|eine) diagnose|mit meinen|mit meiner"
+    r"|mit meinem|meine|meinen|meiner|mein|menschen mit|leute mit|personen mit|patienten mit"
+    r"|jemand mit|jemanden mit|sportler mit|männer mit|frauen mit|bei|trotz"
     r"|(?:sicher|unbedenklich|ok|okay|gut|schlecht|gefährlich|riskant|gesund) (?:bei|für|mit))"
     r"(?: (?:leichte[nmr]?|schwere[nmr]?|chronische[nmr]?|starke[nmr]?|starkem|erhöhte[nmr]?"
     rf"|schlechte[nmr]?))? {_DE_SIDE_EFFECTS}\b"
@@ -454,6 +460,10 @@ _DE_NOT_A_PART = (
     r"(?! (?:weniger|mehr|zusätzlich|extra|über|unter|defizit|überschuss|von|aus|durch|im|als"
     r"|an)\b)"
 )
+# A word between the verb and the amount: no number, no comma and no joining word, so a second
+# verb and amount ("ich esse 2500 kcal und verbrenne 500 kcal am Tag") or a food's own energy
+# ("Proteinriegel mit 200 kcal am Tag") is not read as the day's intake.
+_DE_INTAKE_GAP = r"(?: (?!(?:und|oder|aber|mit|je|sowie|plus)\b)[^\s\d,;]+)"
 _DE_LOW_INTAKE_PATTERNS = [
     # The verb first: "ich esse (am Tag) nur 800 kcal (am Tag)".
     r"\b(?:esse|isst|essen|esst|ass|gegessen|lebe von|leben von|komme mit|überlebe mit"
@@ -464,11 +474,11 @@ _DE_LOW_INTAKE_PATTERNS = [
     # The verb first with other words before the amount and the day right after it: "ich esse
     # seit zwei Wochen nur 800 kcal am Tag".
     r"\b(?:esse|isst|essen|esst|ass|lebe von|leben von|komme mit|bleibe unter|bleiben unter)"
-    rf"(?: \S+){{1,4}}? (?:{_DE_QUALIFIERS} ){{0,3}}{_DE_NUMBER}(?P<post> {_DE_DAY})\b"
+    rf"{_DE_INTAKE_GAP}{{1,4}}? (?:{_DE_QUALIFIERS} ){{0,3}}{_DE_NUMBER}(?P<post> {_DE_DAY})\b"
     rf"{_DE_NOT_A_PART}",
     # "Ich nehme (täglich) nur 800 kcal (am Tag) zu mir".
-    rf"\b(?:nehme|nimmst|nimmt|nehmen)(?P<pre> {_DE_DAY})?(?: \S+){{0,3}}? {_DE_NUMBER}"
-    rf"(?P<post> {_DE_DAY})?(?: \S+)? zu mir\b",
+    rf"\b(?:nehme|nimmst|nimmt|nehmen)(?P<pre> {_DE_DAY})?{_DE_INTAKE_GAP}{{0,3}}? {_DE_NUMBER}"
+    rf"(?P<post> {_DE_DAY})?(?: (?!(?:weniger|mehr|zusätzlich|extra)\b)[^\s\d,;]+)? zu mir\b",
     # The verb last: "(täglich) nur 800 kcal (am Tag) essen".
     rf"(?P<pre>\b{_DE_DAY} )?(?:{_DE_QUALIFIERS} ){{0,3}}{_DE_NUMBER}(?P<post> {_DE_DAY})? "
     r"(?:zu )?(?:essen|esse|isst|zu mir nehmen|aufnehmen|leben|auskommen|überleben)\b",

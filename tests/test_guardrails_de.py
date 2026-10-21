@@ -54,6 +54,11 @@ FLAGGED = [
     ("Im zweiten Trimester trainieren: was essen?", Concern.PREGNANCY),
     ("Ich erwarte ein Baby und will fit bleiben.", Concern.PREGNANCY),
     ("Ist Koffein beim Stillen ok?", Concern.PREGNANCY),
+    # Found in the review of PR #65: the user's own hunger next to "stillen".
+    ("Ich stille und habe Hunger, was soll ich essen?", Concern.PREGNANCY),
+    ("Beim Stillen habe ich Hunger, was essen?", Concern.PREGNANCY),
+    ("Ich stille und habe Durst, wie viel trinken?", Concern.PREGNANCY),
+    ("Während des Stillens Heißhunger: was hilft?", Concern.PREGNANCY),
     # Medical conditions (any mention; a side effect about the user or a group) and medication.
     ("Ich habe Diabetes Typ 2, wie viele Kohlenhydrate?", Concern.MEDICAL),
     ("Ich bin Diabetiker und will Muskeln aufbauen.", Concern.MEDICAL),
@@ -81,6 +86,7 @@ FLAGGED = [
     ("Ich habe Hashimoto, wie viel Jod?", Concern.MEDICAL),
     ("Ich habe einen Tumor, was soll ich essen?", Concern.MEDICAL),
     ("Ich habe Krebs und will Muskeln erhalten.", Concern.MEDICAL),
+    ("Fördert Zucker Krebs?", Concern.MEDICAL),
     # Signs of disordered eating and intakes below the calorie floor (redirected).
     ("Ich habe Magersucht, wie viel soll ich essen?", Concern.DISORDERED_EATING),
     ("Ich glaube, ich habe eine Essstörung.", Concern.DISORDERED_EATING),
@@ -181,6 +187,15 @@ BENIGN = [
     "Ich habe 2 Tage nichts gegessen, weil ich krank war. Was jetzt?",
     "Ich esse 300 kcal am Tag aus Snacks, ist das zu viel?",
     "Ich nehme 300 kcal am Tag aus Snacks zu mir.",
+    # Found in the review of PR #65: a difference, a second amount or a food's energy.
+    "Ich nehme täglich 500 kcal weniger zu mir, ist das ein gutes Defizit?",
+    "Ich nehme 300 kcal pro Tag mehr zu mir als ich verbrauche.",
+    "Ich esse 2500 kcal und verbrenne 500 kcal am Tag beim Laufen.",
+    "Ich esse normal, verbrauche aber 900 kcal am Tag beim Sport.",
+    "Ich esse Proteinriegel mit 200 kcal am Tag.",
+    "Meine 15-jährige Laufbahn im Gym: brauche ich mehr Protein?",
+    "Nach einer 12-jährigen Trainingshistorie, wie viel Eiweiß?",
+    "Ich bin 16 h am Fasten, wann soll ich Protein essen?",
 ]
 
 # English questions that pass on main and use a word the German lists share: they must still
@@ -193,6 +208,11 @@ ENGLISH_UNCHANGED = [
     "Does Hashimoto affect metabolism?",
     "Does alcohol have a depressive effect on recovery?",
     "Vitamin D is a steroid hormone, how much should I take?",
+    # Found in the review of PR #65.
+    "What is the Krebs' cycle?",
+    "What happens in the citric acid (Krebs) cycle during cardio?",
+    "Is the Krebs or citric acid cycle affected by creatine?",
+    "Can a doctor diagnose reflux from diet?",
 ]
 
 

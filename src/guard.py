@@ -239,7 +239,7 @@ _DE_DETERMINERS = (
     r"|ihre[nmrs]?|unser|unsere[nmrs]?|diese[nmrs]?)"
 )
 _DE_NOT_THIRD_PARTY = (
-    rf"(?! (?:(?:von|aus|auf|in|für|zu|über|bei|mit) {_DE_DETERMINERS}|vom|im|zum|zur|beim|ins"
+    rf"(?! (?:(?:von|aus|auf|in|für|über|bei) {_DE_DETERMINERS}|vom|im|zum|zur|beim|ins"
     r"|des|der|meines|meiner|meinem|meinen|seines|seiner|ihres|ihrer|unseres|unserer|eines"
     rf"|einer)\b(?!{_DE_THIS_CHAT}))"
     r"(?!,? (?:die|welche) (?:mein|meine|meinen|ich|wir|er|sie|man mir)\b)"
@@ -248,6 +248,11 @@ _DE_NOT_THIRD_PARTY = (
 _DE_NOT_HOW_TO = (
     r"(?! (?:für|zum|zur|zu|beim|bei|über|gegen|im|in|vor|nach|von|vom|des|der)\b"
     rf"(?!{_DE_THIS_CHAT}))"
+)
+# What a request for the hidden prompt names, with an optional adjective.
+_DE_SECRET_NOUN = (
+    r"(?:(?:komplette[n]?|gesamte[n]?|ganze[n]?|genaue[n]?|ursprünglichen|versteckten) )?"
+    r"(?:anweisungen|instruktionen|prompt|systemprompt|konfiguration|regeln|richtlinien|vorgaben)"
 )
 # The informal verbs take "dein"; "Ihre" counts only after a formal "zeigen Sie" (above).
 _DE_REVEAL_VERBS = (
@@ -276,9 +281,12 @@ _DE_FOLDED_PATTERNS = [
     # Like "ignore the above", also a self-correction ("vergiss das Obige, ich meinte 80 kg").
     rf"\b{_DE_VERBS} (?:das |alles |alle )?(?:obige|obiges|oben|vorherige|vorheriges|bisherige"
     r"|bisheriges|davor)\b",
-    rf"\b{_DE_VERBS},? (?:alles|das),? was (?:man )?(?:dir|ihnen) (?:\S+ ){{0,2}}?(?:gesagt"
+    # "Ihnen" is also "them" ("Meine Eltern vergessen alles, was ihnen der Arzt gesagt hat"),
+    # so it counts only after a formal imperative ("Vergessen Sie alles, was Ihnen ...").
+    rf"\b{_DE_VERBS}(?:,? (?:alles|das),? was (?:man )?dir| sie,? (?:alles|das),? was (?:man )?"
+    r"(?:dir|ihnen)) (?:\S+ ){0,2}?(?:gesagt"
     r"|aufgetragen|befohlen|vorgegeben|beigebracht|mitgegeben) (?:wurde|hat|worden ist)\b",
-    r"\b(?:regeln|anweisungen|richtlinien|vorgaben|instruktionen),? die (?:man )?(?:dir|ihnen) "
+    r"\b(?:regeln|anweisungen|richtlinien|vorgaben|instruktionen),? die (?:man )?dir "
     r"(?:\S+ ){0,2}?(?:gegeben|gesagt|vorgegeben|aufgetragen|mitgegeben) (?:wurden|hat|hast)\b",
     r"\b(?:hör|höre|hört|hören sie) (?:\S+ ){0,2}?auf,? (?:deine[n]?|ihre[n]?) (?:regeln"
     r"|anweisungen|richtlinien|vorgaben|programmierung) zu (?:befolgen|folgen)\b",
@@ -299,6 +307,9 @@ _DE_FOLDED_PATTERNS = [
     rf"\b{_DE_REVEAL_VERBS} (?:komplette[n]? "
     r"|gesamte[n]? |ganze[n]? |genaue[n]? )?(?:anweisungen|instruktionen|prompt|systemprompt"
     rf"|konfiguration|regeln|richtlinien|vorgaben)\b{_DE_NOT_HOW_TO}",
+    rf"\b(?:deine[n]?|(?<=sie mir )ihre[n]?|(?<=sie )ihre[n]?) {_DE_SECRET_NOUN}\b{_DE_NOT_HOW_TO}"
+    r"(?: \S+){0,2}? (?:zeigen|nennen|verraten|wiederholen|ausgeben|aufschreiben|auflisten"
+    r"|offenlegen|preisgeben|sagen|schicken|kopieren|posten)\b",
     r"\bwas (?:sind|waren) (?:deine|ihre) (?:genauen |ursprünglichen )?(?:anweisungen"
     rf"|instruktionen|vorgaben)\b(?! an mich){_DE_NOT_HOW_TO}",
     r"\b(?:wiederhole|wiederhol|drucke|druck|gib|schreibe|schreib|kopiere|kopier) (?:\S+ )?"
