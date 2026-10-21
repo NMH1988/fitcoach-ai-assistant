@@ -68,7 +68,8 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T6.1 | #19 | Evaluation run and reflection | S | T3.3, T3.6, T4.4, O2, O5 | 10-30 | todo |
 | **Extras** | | | | | | |
 | T1.4 | #32 | Security reviewer agent (beyond the brief; owner's request, done early as it is dev tooling with no product change) | S | T1.1 | 10-20 | done |
-| T5.1 | #16 | Token usage and cost | S | T3.2 | 10-30 | in review |
+| T5.1 | #16 | Token usage and cost | S | T3.2 | 10-30 | done |
+| T5.1a | #68 | Live-check tests ignore a local secrets.toml (follow-up to T5.1; owner's request) | S | T5.1 | 10-21 | in review |
 | T5.2 | #17 | Session summary PDF | M | T4.4 | 10-31 | done |
 | T7.3 | #35 | Light and dark mode | S | T3.1 | 10-31 | done |
 | T7.1 | #33 | Language switch: English and German UI | M | T4.4, T4.7, T5.3, T1.3 | 10-31 | todo |
@@ -339,7 +340,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 ## Epic 5: Cost, export and guardrails
 
-### T5.1 Token usage and cost (S) · status: in review · issue #16
+### T5.1 Token usage and cost (S) · status: done · issue #16
 **Serves:** Medium 5 (extra, after the core); AC-10.
 **Depends on:** T3.2
 **Acceptance criteria**
@@ -350,6 +351,16 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] (added, owner's approval 2026-10-21) `scripts/live_check_llm.py` prints the app's cost of a plain and of a streamed chat call (the answer rounds' path) next to the cost and native tokens OpenRouter records (`/api/v1/generation`) - mocked tests (`tests/test_live_check_llm.py`) and the owner's O5 run on 2026-10-21 (`docs/TESTING.md`: the streamed call's tokens and cost equal OpenRouter's record; reasoning is not billed on top).
 
 **Notes:** owner's choices (2026-10-20): usage in all three places (under the answer, the sidebar card, the Details tab); embedding tokens counted exactly; reasoning tokens coded to OpenAI's convention (included in the output tokens), to be confirmed by the O5 cost check. Defaults stated and not objected to: tokens spent before an error count; a failed price read is not cached (5 s timeout, "price unknown"); cached input priced at `input_cache_read`; USD, "<$0.0001" below a hundredth of a cent. T5.1 was paused for T3.3 (core first) and restarted on 2026-10-21. Built from `main` while T3.5 (#50, no PR yet) also changes `src/chat.py`: whichever merges second resolves the conflict.
+
+### T5.1a Live-check tests ignore a local secrets.toml (S) · status: in review · issue #68
+**Serves:** none directly; keeps the T5.1 tests (Medium 5) safe to run in a checkout that holds the real key. Test-only fix (owner's request, 2026-10-21).
+**Depends on:** T5.1
+**Acceptance criteria**
+- [x] The live-check tests that need a key use the fake key whatever a local `.streamlit/secrets.toml` holds - regression test `tests/test_live_check_llm.py::test_a_local_secrets_file_does_not_reach_the_live_check_tests` (a temporary secrets file with another key; checked to fail with the old env-only setup).
+- [x] Assertions about the key never print it on failure (they compare to a bool) - code review (`_record_generation_keys()` records `key == FAKE_KEY`).
+- [x] Lint, format check and the full test suite pass - `ruff check .`, `ruff format --check .`, `python -m pytest -q` (2007 passed locally) and CI.
+
+**Notes:** `get_api_key()` reads `st.secrets` before the env var, so setting only `OPENROUTER_API_KEY` let a local secrets file win; a failing assertion then printed the owner's key (2026-10-21, while merging `main` into the T3.5 branch). No network call was made.
 
 ### T5.2 Session summary PDF (M) · status: done · issue #17
 **Serves:** Medium 7 and Easy 1 (extra); AC-9.

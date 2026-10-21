@@ -15,6 +15,21 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-21 · T5.1a Live-check tests ignore a local secrets.toml · #70 (closes #68)
+- **Brief:** beyond the brief (owner's request); keeps the T5.1 tests (Medium 5) safe to run in a checkout with the real key. Test-only fix.
+- **What:**
+  - `tests/test_live_check_llm.py`: `_use_fake_key()` replaces `st.secrets` with a dict holding the fake key, used by the three tests that set the key (`main()` and the streamed-request test) instead of only setting `OPENROUTER_API_KEY`. `_record_generation_keys()` records whether each generation request got the fake key (a bool), not the key. New regression test: a temporary secrets.toml with another key is in place, and `main()` still sends only the fake key.
+  - `tests/conftest.py`: the `secrets_from_file` fixture moved here from `tests/test_config.py`, so other test files can point a real `st.secrets` at a temporary file.
+- **Why:** `get_api_key()` reads `st.secrets` before the env var, so in a checkout with `.streamlit/secrets.toml` the tests ran with the owner's real key. A failing assertion compared the recorded keys and printed the real key in pytest's diff (seen on 2026-10-21 while merging `main` into the T3.5 branch). CI passed only because it has no secrets file. No network call was made; the generation request was already patched.
+- **Decisions & gotchas:**
+  - A test that needs a key now replaces `st.secrets` (as `tests/test_llm.py` and the AppTest files do); setting only the env var is not enough while a local secrets.toml exists.
+  - Assertions about a key compare to a bool or check that it is absent, so a failure never prints the key.
+  - The regression test was checked to fail with the old env-only setup.
+  - Only this file called `get_api_key()` without replacing `st.secrets`; the other key tests and the AppTest tests (non-empty `at.secrets`) were already isolated. The code review confirmed it with a full run that noted every read of the default secrets file: none.
+  - Code review (before the PR) fixes: the regression test's own check that the file wins, and the two `tests/test_config.py` tests that read a real `Secrets()`, now assert a bool too; `tests/conftest.py` imports `API_KEY_NAME` through `config` only; the plan marks T5.1 (#64, merged) as done.
+  - Code review on PR #70 (ready to merge; nits taken): the file's autouse `offline` fixture also sets `st.secrets` to `{}`, so a later test there that sets only the env var cannot reach a local secrets file either.
+- **Follow-ups:** the owner may want to rotate the key that was printed. Optional: an autouse fixture in `tests/conftest.py` that blocks the local secrets file for every test.
+
 ## 2026-10-21 · T3.7 Drop registration boilerplate and merge short chunk pieces at ingest · #69 (closes #66)
 - **Brief:** core 1 (chunking and similarity search); AC-2. Refines T2.2. Found in T3.5's live check.
 - **What:**
