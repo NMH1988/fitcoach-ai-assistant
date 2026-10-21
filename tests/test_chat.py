@@ -706,6 +706,17 @@ def test_every_ui_language_has_an_answer_language_part(monkeypatch):
     assert all(path.is_file() for path in config.ANSWER_LANGUAGE_PROMPT_PATHS.values())
 
 
+@pytest.mark.parametrize("lang", ["en", "de"])
+def test_a_fixed_message_follows_the_language_and_an_answer_stays_as_written(lang):
+    """chat.fixed_text() gives a code's text in the language, else the turn's own text."""
+    rejected = chat.TurnResult("rejected", "Too long.", code="guard.too_long", params={"limit": 9})
+    assert chat.fixed_text(rejected, lang) == i18n.t("guard.too_long", lang, limit=9)
+    answer = chat.TurnResult("answer", "Vier Mahlzeiten [S1].")
+    assert chat.fixed_text(answer, lang) == "Vier Mahlzeiten [S1]."
+    unknown = chat.TurnResult("error", "Old English text.", code="no.such.key")
+    assert chat.fixed_text(unknown, lang) == "Old English text."
+
+
 def test_an_unknown_language_is_refused_before_any_call():
     """A language the app does not offer is the caller's bug: refused before the guard or a call."""
     opened = []

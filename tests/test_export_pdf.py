@@ -851,7 +851,7 @@ def test_the_german_meal_plan_check_uses_the_app_s_german_tables():
     assert _de("meal.source_line") in text
 
 
-def test_every_pdf_text_is_used_and_has_its_own_german_version():
+def test_the_pdf_text_keys_match_i18n_and_each_has_its_own_german_text():
     """The "pdf.*" keys (but the button's) are the PDF's texts, each with a German text (T7.2)."""
     button = {"pdf.label", "pdf.help", "pdf.empty_help"}
     keys = {key for key in i18n.TEXT["en"] if key.startswith("pdf.")} - button

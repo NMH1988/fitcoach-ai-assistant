@@ -976,11 +976,8 @@ def _show_tool_runs(runs: tuple[registry.ToolRun, ...], turn: int) -> None:
 
 def _fixed_text(result: chat.TurnResult) -> str:
     """Return a turn's fixed message in the language chosen now, or the model's own answer."""
-    # Past turns follow the language too; the answer stays in the language it was written in. An
-    # unknown key falls back to the English text rather than breaking every later run.
-    if result.code in i18n.TEXT[_lang()]:
-        return _t(result.code, **result.params)
-    return result.text
+    # Past turns follow the language too; the answer stays in the language it was written in.
+    return chat.fixed_text(result, _lang())
 
 
 def _show_result(result: chat.TurnResult, turn: int) -> None:

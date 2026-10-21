@@ -40,7 +40,7 @@ from reportlab.platypus import (
 )
 
 from src import config, i18n, units
-from src.chat import SourceCard, TurnResult
+from src.chat import SourceCard, TurnResult, fixed_text
 from src.i18n import Language
 from src.profile import UserProfile
 from src.rag.sources import (
@@ -553,14 +553,6 @@ def session_turns(messages: Sequence[Mapping]) -> tuple[tuple[str, TurnResult], 
             turns.append((question, message["result"]))
             question = None
     return tuple(turns)
-
-
-def fixed_text(result: TurnResult, lang: Language = "en") -> str:
-    """Return a turn's fixed message in the language, as the app shows it; else its own text."""
-    # An unknown key falls back to the English text, as in the app.
-    if result.code is not None and result.code in i18n.TEXT[lang]:
-        return i18n.t(result.code, lang, **result.params)
-    return result.text
 
 
 def _turn_flowables(

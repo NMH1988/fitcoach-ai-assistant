@@ -650,6 +650,15 @@ def answer_question(
     )
 
 
+def fixed_text(result: TurnResult, lang: i18n.Language) -> str:
+    """Return a turn's fixed message in the language, or the model's own answer as written."""
+    # Shared by the chat and the summary PDF (T7.2), so the two cannot word a message differently.
+    # An unknown key falls back to the English text rather than breaking every later run.
+    if result.code is not None and result.code in i18n.TEXT[lang]:
+        return i18n.t(result.code, lang, **result.params)
+    return result.text
+
+
 def run_turn(
     text: str,
     limiter: guard.RateLimiter,
@@ -665,7 +674,7 @@ def run_turn(
     on_chunks: Callable[[Sequence[RetrievedChunk]], None] | None = None,
     language: i18n.Language = "en",
 ) -> TurnResult:
-    """Run one chat turn: the guard first, then retrieval and the answer; never raise for errors."""
+    """Run one chat turn: guard, retrieval, answer; never raise for an error a user can cause."""
     # on_step(step) is called as each step starts; on_text(text) as the answer streams in. `user`
     # is the session's profile, for the energy and meal plan tools and, when the query plan says
     # needs_profile, the model's <profile> block.
