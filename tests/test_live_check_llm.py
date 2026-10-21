@@ -1,9 +1,11 @@
 """Tests for scripts/live_check_llm.py with fake clients (the real run is the owner's check)."""
 
+import http.client
 import io
 import json
 import urllib.error
 from decimal import Decimal
+from types import SimpleNamespace
 
 import httpx2
 import openai
@@ -12,11 +14,14 @@ from langchain_core.messages import AIMessage
 
 from scripts import live_check_llm
 from src import config, llm
-from src.usage import ModelPrice
+from src.usage import CallUsage, ModelPrice
+from tests.fakes import ScriptedChatModel
+from tests.test_llm import STREAM_USAGE, StreamServer
 
 FAKE_KEY = "sk-test-not-a-real-key"
 # The real function, kept before the autouse fixture below replaces it.
 REAL_FETCH_GENERATION = live_check_llm.fetch_generation
+REAL_BUILD_STREAMING_MODEL = live_check_llm.build_streaming_model
 
 
 class FakeChat:
@@ -67,11 +72,26 @@ def _rate_limit_error() -> openai.RateLimitError:
     return openai.RateLimitError(f"echo {FAKE_KEY}", response=response, body=None)
 
 
+STREAM_REPLY_USAGE = {
+    "input_tokens": 14,
+    "output_tokens": 40,
+    "total_tokens": 54,
+    "output_token_details": {"reasoning": 24},
+}
+
+
+def _streaming_fake(usage=STREAM_REPLY_USAGE, ids=()):
+    """Return a fake streaming model whose reply reports this usage, and a transport stand-in."""
+    reply = AIMessage("Protein is made of amino acids.", usage_metadata=usage)
+    return ScriptedChatModel(replies=[reply]), SimpleNamespace(ids=list(ids))
+
+
 @pytest.fixture(autouse=True)
 def offline(monkeypatch):
-    """Keep main() offline: no prices and no generation record, unless a test sets them."""
+    """Keep main() offline: a fake streamed call, no prices, no generation record by default."""
     monkeypatch.setattr(live_check_llm, "read_prices", lambda: None)
     monkeypatch.setattr(live_check_llm, "fetch_generation", lambda generation_id, key: None)
+    monkeypatch.setattr(live_check_llm, "build_streaming_model", _streaming_fake)
 
 
 def _use_clients(monkeypatch, chat, embeddings):
@@ -142,8 +162,10 @@ GENERATION = {
 }
 
 
-def test_main_prints_both_costs(monkeypatch, capsys, no_env_key):
-    """main() prints the app's cost and OpenRouter's recorded cost and native tokens."""
+def test_main_prints_both_costs_for_the_plain_and_the_streamed_call(
+    monkeypatch, capsys, no_env_key
+):
+    """main() prints the app's cost and OpenRouter's record for both chat calls."""
     monkeypatch.setenv(config.API_KEY_NAME, FAKE_KEY)
     asked = []
     monkeypatch.setattr(live_check_llm, "read_prices", lambda: PRICES)
@@ -151,6 +173,9 @@ def test_main_prints_both_costs(monkeypatch, capsys, no_env_key):
         live_check_llm,
         "fetch_generation",
         lambda generation_id, key: asked.append((generation_id, key)) or GENERATION,
+    )
+    monkeypatch.setattr(
+        live_check_llm, "build_streaming_model", lambda: _streaming_fake(ids=["gen-stream"])
     )
     _use_clients(monkeypatch, FakeChat(), FakeEmbeddings())
     assert live_check_llm.main() == 0
@@ -161,18 +186,73 @@ def test_main_prints_both_costs(monkeypatch, capsys, no_env_key):
         "cost (OpenRouter): $0.00010000, native tokens: prompt 12, completion 30, reasoning 20"
         in out
     )
-    assert asked == [("gen-test", FAKE_KEY)]
+    assert "recorded tokens in 14 / out 40 (reasoning 24)" in out
+    # 14 x 0.00000025 + 40 x 0.000002 = 0.0000835
+    assert "cost (app, streamed): $0.00008350" in out
+    assert "cost (OpenRouter, streamed): $0.00010000" in out
+    assert asked == [("gen-test", FAKE_KEY), ("gen-stream", FAKE_KEY)]
     assert FAKE_KEY not in out
 
 
 def test_costs_say_when_nothing_could_be_read():
-    """Without prices or a generation record both cost lines say so."""
-    reply = FakeChat().invoke("x")
-    lines = live_check_llm.cost_lines(reply, config.DEFAULT_ANSWER_MODEL, None, None)
+    """Without usage, prices or a generation record both cost lines say so."""
+    lines = live_check_llm.cost_lines(None, None, None, ", streamed")
     assert lines == [
-        "cost (app): n/a from OpenRouter's prices and the reported tokens",
-        "cost (OpenRouter): not available (GET /api/v1/generation gave no record)",
+        "cost (app, streamed): n/a from OpenRouter's prices and the tokens",
+        "cost (OpenRouter, streamed): not available (GET /api/v1/generation gave no record)",
     ]
+
+
+# --- The streamed call, as the app's answer rounds make it (PR #64 review) ------------------------
+
+
+def _stream_model(transport) -> object:
+    """Build the real answer client with the fake key, sending to this transport."""
+    return llm.build_chat_model(api_key=FAKE_KEY, http_client=httpx2.Client(transport=transport))
+
+
+def test_the_stream_check_records_the_real_clients_usage_once():
+    """With the real client and an OpenAI-style stream, the usage is recorded once, not twice."""
+    lines, call = live_check_llm.stream_check(_stream_model(httpx2.MockTransport(StreamServer())))
+    assert call == CallUsage(
+        live_check_llm.STREAM_STEP,
+        config.DEFAULT_ANSWER_MODEL,
+        STREAM_USAGE["prompt_tokens"],
+        STREAM_USAGE["completion_tokens"],
+        0,
+        STREAM_USAGE["completion_tokens_details"]["reasoning_tokens"],
+    )
+    assert lines == [
+        "chat (streamed, as the app's answer rounds): 3 characters, recorded tokens in 2400 / "
+        "out 350 (reasoning 128)"
+    ]
+
+
+def test_a_stream_without_usage_is_reported():
+    """A stream that reports no token use says the app would count no answer round."""
+    model, _ = _streaming_fake(usage=None)
+    lines, call = live_check_llm.stream_check(model)
+    assert call is None
+    assert "the stream reported no token use" in lines[0]
+
+
+def test_the_transport_notes_the_generation_id_and_keeps_the_stream():
+    """The generation ID is read from the streamed body, which reaches langchain unchanged."""
+    transport = live_check_llm.GenerationIdTransport(httpx2.MockTransport(StreamServer()))
+    _, call = live_check_llm.stream_check(_stream_model(transport))
+    assert transport.ids == ["gen-test"]
+    assert call is not None and call.input_tokens == STREAM_USAGE["prompt_tokens"]
+
+
+def test_the_streaming_model_is_built_through_the_apps_builder(monkeypatch):
+    """The streamed call's client comes from build_chat_model, so allowlist and cap apply."""
+    built = []
+    monkeypatch.setattr(llm, "build_chat_model", lambda **kwargs: built.append(kwargs) or "model")
+    model, transport = REAL_BUILD_STREAMING_MODEL()
+    assert model == "model"
+    assert isinstance(transport, live_check_llm.GenerationIdTransport)
+    [kwargs] = built
+    assert list(kwargs) == ["http_client"]
 
 
 class _Body(io.BytesIO):
@@ -189,7 +269,7 @@ def _opener(*results):
         result = results[len(requests) - 1]
         if isinstance(result, Exception):
             raise result
-        return _Body(json.dumps(result).encode())
+        return _Body(result if isinstance(result, bytes) else json.dumps(result).encode())
 
     return open_, requests
 
@@ -218,8 +298,11 @@ def test_fetch_generation_asks_with_the_key_and_waits_for_the_record():
         [urllib.error.URLError("offline")],
         [{"data": "x"}],
         [_http_error(404)] * live_check_llm.GENERATION_ATTEMPTS,
+        [http.client.IncompleteRead(b"{")],
+        [{"data": "x" * live_check_llm.GENERATION_MAX_BYTES}],
+        [b"[" * 100_000],
     ],
-    ids=["401", "offline", "malformed", "never-recorded"],
+    ids=["401", "offline", "malformed", "never-recorded", "cut-off", "too-large", "too-deep"],
 )
 def test_fetch_generation_gives_none_when_there_is_no_record(results):
     """Any other status, a network failure, a malformed body or no record in time give None."""

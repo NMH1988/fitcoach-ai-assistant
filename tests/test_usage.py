@@ -243,17 +243,22 @@ def test_get_json_turns_network_failures_into_price_error(monkeypatch, failure):
 
 @pytest.mark.parametrize(
     ("body", "message"),
-    [(b"<html>", "not JSON"), (b"x" * 11, "too large"), (b"[" * 9, "not JSON")],
-    ids=["not-json", "too-large", "too-deep"],
+    [(b"<html>", "not JSON"), (b"x" * 11, "too large")],
+    ids=["not-json", "too-large"],
 )
 def test_get_json_refuses_a_body_that_is_not_a_small_json(monkeypatch, body, message):
     """A body that is not JSON, or larger than PRICE_MAX_BYTES, gives PriceError."""
     monkeypatch.setattr(config, "PRICE_MAX_BYTES", 10)
     monkeypatch.setattr(usage._OPENER, "open", lambda request, timeout: _Response(body))
-    if body.startswith(b"["):
-        # Stands in for JSON nested deeper than Python's recursion limit.
-        monkeypatch.setattr(usage.json, "loads", _too_deep)
     with pytest.raises(PriceError, match=message):
+        usage._get_json(config.CHAT_PRICES_URL)
+
+
+def test_get_json_refuses_json_nested_too_deeply(monkeypatch):
+    """Really nested JSON (json.loads raises RecursionError) gives PriceError, not a crash."""
+    body = b"[" * 100_000
+    monkeypatch.setattr(usage._OPENER, "open", lambda request, timeout: _Response(body))
+    with pytest.raises(PriceError, match="not JSON"):
         usage._get_json(config.CHAT_PRICES_URL)
 
 
@@ -450,8 +455,3 @@ def test_format_turn_and_tokens():
 def test_format_session(session, shown):
     """The session line says when part of its cost is unknown."""
     assert usage.format_session(session) == shown
-
-
-def _too_deep(body):
-    """Fail as json.loads does on JSON nested deeper than the recursion limit."""
-    raise RecursionError("maximum recursion depth exceeded")
