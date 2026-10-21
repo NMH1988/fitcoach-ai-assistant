@@ -65,7 +65,7 @@ Never guess a year.
 
 ### needs_tool
 
-Set `needs_tool` to true when at least one of the app's supported tools can answer all or part of the user's question.
+Set `needs_tool` to true when at least one of the app's supported tools can answer all or part of the user's question or provide personal target values needed to support a personalized answer.
 
 The supported tool tasks are:
 
@@ -78,13 +78,18 @@ The supported tool tasks are:
    - protein target
    - carbohydrate target
    - fat target
+   - personal target values that can support personalized meal or nutrition suggestions
 
 3. Food nutrition lookup
    - nutrition information for a specific food
-   - this also applies when the user asks about a food without giving a gram amount
+   - this also applies when the user asks about the nutrition of a food without giving a gram amount
 
 4. Full-day meal-plan evaluation
    - compare a full day of eating containing multiple foods and gram amounts with the user's personal nutrition targets
+
+A personalized meal or nutrition suggestion can require `needs_tool = true` even when the user is not explicitly asking for a calculation.
+
+If the user asks for a meal, menu, or nutrition suggestion that should fit their own goal, calorie target, macronutrient target, or other personal nutrition target, set `needs_tool` to true because the daily-target tool can provide values needed to support that answer.
 
 Examples:
 
@@ -92,18 +97,25 @@ Examples:
 - "How much protein is in chicken breast?" → true
 - "What is my TDEE?" → true
 - "How much protein should I eat per day?" → true
+- "Can you suggest a meal for my current goal?" → true
+- "Can you suggest a menu that fits my calorie and protein targets?" → true
+- "What should I eat today to support my muscle-gain goal?" → true
 - "I ate 200 g oats, 150 g chicken and 300 g rice today. How does this compare with my targets?" → true
+- "What is a good post-workout meal?" → false
+- "What are some high-protein meal ideas?" → false
 - "Is creatine safe?" → false
 - "What does the ISSN say about caffeine?" → false
 - "What is the largest economy in the world?" → false
 
-If the question contains both supported and unsupported parts, set `needs_tool` to true when a supported tool can answer at least one part.
+A general nutrition or meal-suggestion question that does not depend on the user's own profile or personal targets does not require a tool merely because it asks for food or meal advice.
+
+If the question contains both supported and unsupported parts, set `needs_tool` to true when a supported tool can answer or support at least one part.
 
 `needs_tool` does not mean that unrelated parts of the question become supported.
 
-If you are unsure whether one of the supported tools can contribute to the answer, set `needs_tool` to true.
+If you are unsure whether one of the supported tools can contribute to a personalized answer, set `needs_tool` to true.
 
-A false negative may prevent the app from answering a question that a supported tool could handle.
+A false negative may prevent the app from reaching a tool that is needed to support the answer.
 
 ### needs_profile
 
@@ -139,11 +151,13 @@ Examples:
 - "How much protein do I need per day?" → true
 - "With my current goal, should I use creatine?" → true
 - "Can you suggest a meal for my current goal?" → true
+- "Can you suggest a menu that fits my calorie target?" → true
 - "I weigh 80 kg and want to build muscle. How much protein do I need?" → true
 - "I am 175 cm tall and weigh 70 kg. What is my TDEE?" → true
 - "Is creatine safe?" → false
 - "How many kcal are in 150 g of oats?" → false
 - "How much protein is in chicken breast?" → false
+- "What is a good post-workout meal?" → false
 
 A full-day meal-plan comparison with the user's personal targets requires the stored profile.
 
@@ -155,6 +169,7 @@ Example:
 → `needs_profile = true`
 
 The meal-plan tool reads the stored profile directly from the app.
+
 `needs_profile` determines whether the answer model also receives the `<profile>` block.
 
 `needs_tool` and `needs_profile` are independent.
@@ -169,9 +184,13 @@ Examples:
   `needs_tool = true`
   `needs_profile = true`
 
-- Personalized meal suggestion:
-  `needs_tool = false`
+- Personalized meal suggestion based on the user's goal or targets:
+  `needs_tool = true`
   `needs_profile = true`
+
+- General meal suggestion that does not depend on the user's profile:
+  `needs_tool = false`
+  `needs_profile = false`
 
 - General creatine safety question:
   `needs_tool = false`
@@ -378,6 +397,48 @@ Output:
   "evidence_tier": null,
   "needs_tool": true,
   "needs_profile": true
+}
+
+### Example 8 — Personalized meal suggestion
+
+Input:
+<user_input>
+Can you suggest a meal for my current goal?
+</user_input>
+
+Output:
+{
+  "queries": [
+    "meal planning resistance training nutrition goals",
+    "meal composition calorie protein targets resistance training",
+    "nutrition meal recommendations muscle gain fat loss maintenance"
+  ],
+  "topics": ["protein", "carbohydrate", "fat", "energy_balance"],
+  "min_year": null,
+  "evidence_tier": null,
+  "needs_tool": true,
+  "needs_profile": true
+}
+
+### Example 9 — General meal suggestion
+
+Input:
+<user_input>
+What is a good post-workout meal?
+</user_input>
+
+Output:
+{
+  "queries": [
+    "post-workout meal resistance training nutrition",
+    "post-exercise protein carbohydrate meal",
+    "recovery nutrition after resistance exercise"
+  ],
+  "topics": ["protein", "carbohydrate", "nutrient_timing"],
+  "min_year": null,
+  "evidence_tier": null,
+  "needs_tool": false,
+  "needs_profile": false
 }
 
 Use the examples only as patterns.
