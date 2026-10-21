@@ -142,7 +142,7 @@ def test_a_broken_index_clears_the_cached_keyword_index(monkeypatch):
     assert len(builds) == 2
 
 
-def _unreadable_index(index, queries):
+def _unreadable_index(index, queries, recorder=None):
     """Fail as the retriever does when the index can no longer be read."""
     raise store.IndexNotReadyError(store.UNREADABLE)
 
@@ -414,6 +414,12 @@ def _badges(block) -> list[str]:
     return [m.value for m in block.markdown if "-badge[" in m.value]
 
 
+def _search_notes(tab) -> list[str]:
+    """Return the search notes of the Details tab (not the captions of its usage section)."""
+    notes = (":material/info:", ":material/filter_alt_off:")
+    return [c.value for c in tab.caption if c.value.startswith(notes)]
+
+
 def _card(at: AppTest):
     """Return the sidebar's "Last answer" card, or None if it is not shown."""
     cards = [
@@ -443,7 +449,7 @@ def test_details_shows_the_rewrites_and_the_filters(monkeypatch):
         ":blue-badge[:material/verified: ISSN position stands only]",
         *ROUTED,
     ]
-    assert not tab.caption
+    assert not _search_notes(tab)
 
 
 def test_details_says_no_filters_when_none_were_chosen(monkeypatch):
@@ -460,7 +466,7 @@ def test_details_says_when_the_filters_were_dropped(monkeypatch):
     at = _ask(_start(), QUESTION)
     tab = _details_tab(at)
     assert _badges(tab) == [":blue-badge[:material/sell: Fat]", *ROUTED]
-    assert [c.value for c in tab.caption] == [
+    assert _search_notes(tab) == [
         ":material/filter_alt_off: No passage close enough matched these filters, so the "
         "search ran again without them."
     ]

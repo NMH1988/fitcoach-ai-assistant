@@ -17,6 +17,7 @@ import urllib.parse
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from enum import StrEnum
+from functools import partial
 from pathlib import Path
 from typing import Any, Literal
 
@@ -30,10 +31,11 @@ from langchain_core.messages import (
     SystemMessage,
     ToolMessage,
 )
+from langchain_core.messages.ai import UsageMetadata
 from langchain_core.runnables import Runnable
 from langchain_core.tools import StructuredTool
 
-from src import config, guard, llm, profile, units
+from src import config, guard, llm, profile, units, usage
 from src.prompt_data import escape_prompt_data
 from src.rag import hybrid, query_translation
 from src.rag.hybrid import KeywordIndex
@@ -43,6 +45,7 @@ from src.rag.sources import ManifestError, Source, license_url_for, load_manifes
 from src.rag.store import IndexNotReadyError
 from src.tools import registry
 from src.tools.registry import ToolRun
+from src.usage import CallUsage, UsageRecorder
 
 
 class Step(StrEnum):
@@ -130,6 +133,9 @@ class TurnResult:
     index_not_ready: bool = False
     # The tool calls the model made, in order, with their results (T4.4).
     tool_runs: tuple[ToolRun, ...] = ()
+    # The tokens of each model and embedding call the turn made, in order, including the calls
+    # made before an error (T5.1); empty when the guard stopped the question.
+    usage: tuple[CallUsage, ...] = ()
 
 
 # A citation is one bracket holding labels or ranges: [S1], [S1, S3], [S2; S4], [S1 and S2],
@@ -214,13 +220,14 @@ def find_chunks(
     index: Chroma,
     *,
     keyword_index: Callable[[Chroma], KeywordIndex] = hybrid.build_keyword_index,
+    recorder: UsageRecorder | None = None,
 ) -> tuple[list[RetrievedChunk], SearchDetails]:
     """Search the question and its rewrites by meaning and by keyword, merged with RRF (T3.3)."""
     rewrites = search_queries(question, plan)
     queries = (question, *rewrites)
     where = query_translation.build_filter(plan)
     # One embedding call for all the queries; the vectors serve the retry too.
-    vectors = embed_queries(index, queries)
+    vectors = embed_queries(index, queries, recorder=recorder)
     chunks = hybrid.hybrid_search(index, queries, vectors, where, keyword_index)
     # Empty only when no chunk is within the distance limit; a filter that keeps fewer but
     # relevant chunks stays.
@@ -429,8 +436,10 @@ def stream_reply(
     chat_model: Runnable[Any, BaseMessage],
     messages: Sequence[BaseMessage],
     on_text: Callable[[str], None] | None = None,
+    record: Callable[[UsageMetadata | None], None] | None = None,
 ) -> AIMessageChunk:
     """Stream one model reply, reporting its text so far as it grows; return the whole reply."""
+    # record(usage) gets the reply's token use, which comes with the last chunk (T5.1).
     reply: AIMessageChunk | None = None
     with llm.mapped_errors():
         for chunk in chat_model.stream(messages):
@@ -440,6 +449,9 @@ def stream_reply(
                 on_text(remove_images(reply.text))
     if reply is None:
         raise llm.LLMError(diagnostic="no answer chunks")
+    if record is not None:
+        # Before the check below: a cut-off reply was paid for too.
+        record(reply.usage_metadata)
     if reply.response_metadata.get("finish_reason") == "length":
         # A cut-off answer is not shown half-written, and cut-off tool arguments are not run.
         raise llm.ReplyCutOffError(diagnostic="finish_reason length in the answer step")
@@ -481,6 +493,7 @@ def answer_with_tools(
     on_text: Callable[[str], None] | None = None,
     *,
     tools_only: bool = False,
+    recorder: UsageRecorder | None = None,
 ) -> tuple[str | None, tuple[ToolRun, ...]]:
     """Let the model call tools for at most MAX_TOOL_ROUNDS rounds; return its answer and runs."""
     # tools_only (no relevant source): replies are not shown until a tool has really run (a refused
@@ -494,8 +507,12 @@ def answer_with_tools(
         # Only the tools are bound (never the model or max_tokens; security-privacy.md). After the
         # last round the model must answer from the results it has.
         bound = chat_model.bind_tools(list(tools.values()), tool_choice="none" if last else None)
+        record = None
+        if recorder is not None:
+            step = config.USAGE_STEP_ANSWER.format(round=round_number + 1)
+            record = partial(recorder.add_chat, step, usage.model_name(chat_model))
         try:
-            reply = stream_reply(bound, history, None if hidden else on_text)
+            reply = stream_reply(bound, history, None if hidden else on_text, record)
         except llm.ReplyCutOffError:
             if hidden:
                 # Nothing was shown and no tool ran: the turn ends as "not covered".
@@ -546,15 +563,19 @@ def answer_question(
     user: profile.UserProfile | None = None,
     *,
     keyword_index: Callable[[Chroma], KeywordIndex] = hybrid.build_keyword_index,
+    recorder: UsageRecorder | None = None,
 ) -> TurnResult:
     """Rewrite an accepted question, retrieve its chunks and answer from them, citing [S#]."""
+    # recorder collects the tokens of every call; the caller keeps it, so an error keeps them too.
     on_step(Step.REWRITE)
     plan = query_translation.translate(
-        question, models.translation_model, models.translation_prompt
+        question, models.translation_model, models.translation_prompt, recorder
     )
     on_step(Step.SEARCH)
     with llm.mapped_errors():
-        chunks, details = find_chunks(question, plan, index, keyword_index=keyword_index)
+        chunks, details = find_chunks(
+            question, plan, index, keyword_index=keyword_index, recorder=recorder
+        )
     # With no relevant chunk the model may still answer from a tool (a food lookup rarely matches
     # a research passage; owner's choice in T4.4), but only when the plan says a tool could: an
     # off-topic question, or one with no usable plan, costs no answer call (AC-2; T3.5).
@@ -576,7 +597,13 @@ def answer_question(
     # With no relevant chunk, replies stay hidden until a tool really runs; if the model calls
     # none, the fixed "not covered" message is shown.
     answer, runs = answer_with_tools(
-        models.chat_model, messages, tools, on_step, on_text, tools_only=not chunks
+        models.chat_model,
+        messages,
+        tools,
+        on_step,
+        on_text,
+        tools_only=not chunks,
+        recorder=recorder,
     )
     if answer is None:
         return TurnResult("no_sources", config.NO_SOURCES_MESSAGE, search=details)
@@ -603,6 +630,7 @@ def run_turn(
     # needs_profile, the model's <profile> block.
     # keyword_index(index) gives the BM25 index of the opened index; the app passes a cached one.
     steps: list[Step] = []
+    recorder = UsageRecorder()
 
     def step(name: Step) -> None:
         """Record a step and report it to the caller's progress indicator."""
@@ -629,6 +657,17 @@ def run_turn(
             on_text,
             user,
             keyword_index=keyword_index,
+            recorder=recorder,
+        )
+
+    def failed(message: str, *, index_not_ready: bool = False) -> TurnResult:
+        """Return an error result with the steps run and the tokens spent before the error."""
+        return TurnResult(
+            "error",
+            message,
+            steps=tuple(steps),
+            index_not_ready=index_not_ready,
+            usage=tuple(recorder.calls),
         )
 
     step(Step.CHECK)
@@ -636,16 +675,16 @@ def run_turn(
         decision, result = guard.run_guarded(text, limiter, answer)
     except llm.LLMError as exc:
         # A fixed text, safe to show (never the server's reply or the key).
-        return TurnResult("error", str(exc), steps=tuple(steps))
+        return failed(str(exc))
     except IndexNotReadyError as exc:
-        return TurnResult("error", str(exc), steps=tuple(steps), index_not_ready=True)
+        return failed(str(exc), index_not_ready=True)
     except PromptMissingError as exc:
-        return TurnResult("error", str(exc), steps=tuple(steps))
+        return failed(str(exc))
     except config.SecretsFileError:
-        return TurnResult("error", config.SECRETS_FILE_MESSAGE, steps=tuple(steps))
+        return failed(config.SECRETS_FILE_MESSAGE)
     except config.MissingAPIKeyError:
-        return TurnResult("error", config.MISSING_KEY_MESSAGE, steps=tuple(steps))
+        return failed(config.MISSING_KEY_MESSAGE)
     if result is None:
         kind = "guardrail" if decision.reason is guard.Rejection.GUARDRAIL else "rejected"
         return TurnResult(kind, decision.message or "", steps=tuple(steps))
-    return replace(result, steps=tuple(steps))
+    return replace(result, steps=tuple(steps), usage=tuple(recorder.calls))
