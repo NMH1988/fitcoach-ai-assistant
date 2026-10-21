@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-21 · T7.1 Language switch: English and German UI · #<PR> (closes #33)
+## 2026-10-21 · T7.1 Language switch: English and German UI · #74 (closes #33)
 - **Brief:** Hard 4 (multi-language support) as an extra after the core; AC-16. Beyond the PRD's original English-only scope (owner's request, 2026-10-20).
 - **What:**
   - `src/i18n.py` (new): every UI text in English and German under a key, `t(key, lang, **params)`, `language_for_locale()`, `browser_locale()` (`st.context.locale`), `number()` and `plain()` for the language's thousands and decimal marks.
