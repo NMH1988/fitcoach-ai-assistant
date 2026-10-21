@@ -35,6 +35,12 @@ _MISSING = "The knowledge base index is missing."
 UNREADABLE = "The knowledge base index could not be read."
 _EMPTY = "The knowledge base index is empty."
 _OTHER_MODEL = "The knowledge base index was built with a different embedding model."
+_CODES = {
+    _MISSING: "index.missing",
+    UNREADABLE: "index.unreadable",
+    _EMPTY: "index.empty",
+    _OTHER_MODEL: "index.other_model",
+}
 
 
 class IndexNotReadyError(RuntimeError):
@@ -43,6 +49,8 @@ class IndexNotReadyError(RuntimeError):
     def __init__(self, reason: str) -> None:
         """Build the fixed message: the reason, then the command that builds the index."""
         super().__init__(f"{reason} Run `{config.BUILD_INDEX_COMMAND}` to build it.")
+        # The key of the message in src/i18n.py, so the UI shows it in the chosen language.
+        self.code = _CODES[reason]
 
 
 def chunk_id(chunk: Document) -> str:

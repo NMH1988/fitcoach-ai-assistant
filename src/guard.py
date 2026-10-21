@@ -12,8 +12,8 @@ import re
 import time
 import unicodedata
 from collections import deque
-from collections.abc import Callable, MutableMapping
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, MutableMapping
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
@@ -410,11 +410,23 @@ class GuardResult:
     reason: Rejection | None = None
     message: str | None = None
     concern: guardrails.Concern | None = None
+    # The numbers in the message (the seconds to wait, the session limit), for the UI's own
+    # language (T7.1); the message above is the English text.
+    params: Mapping[str, int] = field(default_factory=dict)
+
+    @property
+    def code(self) -> str | None:
+        """Return the key of the message in src/i18n.py, or None for an accepted message."""
+        if self.reason is None:
+            return None
+        if self.concern is not None:
+            return f"guardrail.{self.concern.value}"
+        return f"guard.{self.reason.value}"
 
 
-def _reject(reason: Rejection, message: str) -> GuardResult:
-    """Build a rejected result with its fixed message and no text."""
-    return GuardResult(allowed=False, reason=reason, message=message)
+def _reject(reason: Rejection, message: str, **params: int) -> GuardResult:
+    """Build a rejected result with its fixed message, the numbers in it and no text."""
+    return GuardResult(allowed=False, reason=reason, message=message, params=params)
 
 
 class RateLimiter:
@@ -441,14 +453,18 @@ class RateLimiter:
         """Count one question and return None, or return the rejection if a limit is reached."""
         if self.total >= self.per_session:
             return _reject(
-                Rejection.RATE_SESSION, RATE_SESSION_MESSAGE.format(limit=self.per_session)
+                Rejection.RATE_SESSION,
+                RATE_SESSION_MESSAGE.format(limit=self.per_session),
+                limit=self.per_session,
             )
         now = self._clock()
         while self._recent and self._recent[0] <= now - self.window_seconds:
             self._recent.popleft()
         if len(self._recent) >= self.per_window:
             wait = max(1, math.ceil(self._recent[0] + self.window_seconds - now))
-            return _reject(Rejection.RATE_WINDOW, RATE_WINDOW_MESSAGE.format(seconds=wait))
+            return _reject(
+                Rejection.RATE_WINDOW, RATE_WINDOW_MESSAGE.format(seconds=wait), seconds=wait
+            )
         self._recent.append(now)
         self.total += 1
         return None

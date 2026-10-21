@@ -23,7 +23,8 @@ from typing import Any
 
 from langchain_core.messages.ai import UsageMetadata
 
-from src import config
+from src import config, i18n
+from src.i18n import Language
 
 
 @dataclass(frozen=True)
@@ -269,31 +270,35 @@ def session_usage(turns: Iterable[TurnUsage]) -> SessionUsage:
     return SessionUsage(tokens, cost, partial)
 
 
-def format_cost(cost: Decimal | None) -> str:
+def format_cost(cost: Decimal | None, lang: Language = "en") -> str:
     """Return a cost in dollars to 4 decimals, "<$0.0001" for less, or "price unknown"."""
     if cost is None:
-        return config.PRICE_UNKNOWN_LABEL
-    if cost == 0:
-        return "$0"
-    if cost < Decimal(config.COST_SHOWN_MIN):
-        return f"<${config.COST_SHOWN_MIN}"
-    return f"${cost:.4f}"
+        return i18n.t("usage.price_unknown", lang)
+    below = cost != 0 and cost < Decimal(config.COST_SHOWN_MIN)
+    amount = "0" if cost == 0 else config.COST_SHOWN_MIN if below else f"{cost:.4f}"
+    sign = "<" if below else ""
+    if lang == "de":
+        # German puts the dollar sign after the amount, with a decimal comma: "0,0012 $" (T7.1).
+        return f"{sign}{amount.replace('.', ',')} $"
+    return f"{sign}${amount}"
 
 
-def format_tokens(tokens: int) -> str:
+def format_tokens(tokens: int, lang: Language = "en") -> str:
     """Return a token count with thousands separators and the right noun."""
-    return f"{tokens:,} {'token' if tokens == 1 else 'tokens'}"
+    noun = i18n.t("usage.token" if tokens == 1 else "usage.tokens", lang)
+    return f"{i18n.number(tokens, lang)} {noun}"
 
 
-def format_turn(turn: TurnUsage) -> str:
+def format_turn(turn: TurnUsage, lang: Language = "en") -> str:
     """Return a turn's usage in one line, e.g. "1,234 tokens · $0.0012"."""
-    return f"{format_tokens(turn.tokens)} · {format_cost(turn.cost)}"
+    return f"{format_tokens(turn.tokens, lang)} · {format_cost(turn.cost, lang)}"
 
 
-def format_session(session: SessionUsage) -> str:
+def format_session(session: SessionUsage, lang: Language = "en") -> str:
     """Return the session's usage in one line, saying when some prices were unknown."""
+    unknown = i18n.t("usage.price_unknown", lang)
     if session.partial and session.cost == 0:
-        return f"{format_tokens(session.tokens)} · {config.PRICE_UNKNOWN_LABEL}"
-    cost = format_cost(session.cost)
-    suffix = f" + {config.PRICE_UNKNOWN_LABEL}" if session.partial else ""
-    return f"{format_tokens(session.tokens)} · {cost}{suffix}"
+        return f"{format_tokens(session.tokens, lang)} · {unknown}"
+    cost = format_cost(session.cost, lang)
+    suffix = f" + {unknown}" if session.partial else ""
+    return f"{format_tokens(session.tokens, lang)} · {cost}{suffix}"

@@ -7,7 +7,7 @@ from typing import get_args
 import pytest
 from pydantic import ValidationError
 
-from src import config, profile, units
+from src import config, i18n, profile, units
 from src.profile import ProfileError, UserProfile, build_profile
 
 VALID_METRIC = {
@@ -233,7 +233,9 @@ def test_every_option_has_a_label():
     """Each sex, activity level and goal has a label for the form."""
     assert set(profile.SEX_LABELS) == set(get_args(profile.Sex))
     assert set(profile.ACTIVITY_LABELS) == set(get_args(profile.ActivityLevel))
-    assert set(profile.ACTIVITY_SHORT_LABELS) == set(get_args(profile.ActivityLevel))
+    assert {f"activity_short.{level}" for level in get_args(profile.ActivityLevel)} <= set(
+        i18n.TEXT["en"]
+    )
     assert set(profile.GOAL_LABELS) == set(get_args(profile.Goal))
 
 

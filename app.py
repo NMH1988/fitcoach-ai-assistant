@@ -1,26 +1,35 @@
 """Streamlit entry point: page layout only; the logic lives in src/."""
 
 import re
+from collections.abc import Callable
 from datetime import date
 from typing import get_args
 
 import streamlit as st
 
-from src import chat, config, export_pdf, guard, llm, profile, units, usage
+from src import chat, config, export_pdf, guard, i18n, llm, profile, units, usage
 from src.rag import hybrid, store
-from src.rag.sources import ARTICLE_CHANGES_NOTE
 from src.tools import meal_plan, registry
 from src.tools.energy import Macro, MacroTargetsResult, TdeeResult, protein_lowered_note
 from src.tools.food import FoodLookupResult
 from src.tools.meal_plan import MealPlanResult
 
-st.set_page_config(page_title=config.APP_TITLE, page_icon=":material/nutrition:", layout="wide")
+# The language: the browser's at the start of a session, then the user's choice from the header
+# (T7.1). Written once, before the control is drawn, so it is kept for the session.
+if i18n.SESSION_KEY not in st.session_state:
+    st.session_state[i18n.SESSION_KEY] = i18n.language_for_locale(i18n.browser_locale())
+
+st.set_page_config(
+    page_title=i18n.t("app.title", st.session_state[i18n.SESSION_KEY]),
+    page_icon=":material/nutrition:",
+    layout="wide",
+)
 
 # Session state: "profile" holds the UserProfile (kg and cm), "units" the unit system the user
-# chose and "messages" the chat history (questions, and TurnResults with their priced TurnUsage
-# under "usage", T5.1); "food_result" the Food lookup tab's last result (USDA data only), with its
-# inputs under "food_query" and "food_grams". All live for the session only and are never logged
-# (docs/SECURITY.md).
+# chose, "language" the UI language (T7.1) and "messages" the chat history (questions, and
+# TurnResults with their priced TurnUsage under "usage", T5.1); "food_result" the Food lookup
+# tab's last result (USDA data only), with its inputs under "food_query" and "food_grams". All
+# live for the session only and are never logged (docs/SECURITY.md).
 st.session_state.setdefault("units", config.DEFAULT_UNIT_SYSTEM)
 st.session_state.setdefault("messages", [])
 
@@ -31,20 +40,7 @@ GOAL_ICONS = {
     "maintain": ":material/balance:",
 }
 ASSISTANT_AVATAR = ":material/nutrition:"
-# What each step of a turn does, shown under it in the status box.
-STEP_DETAILS = {
-    chat.Step.CHECK: "Length, prompt-injection patterns, safety topics and the question limit.",
-    chat.Step.REWRITE: (
-        f"A small model rephrases the question {config.QUERY_REWRITES} ways and picks filters."
-    ),
-    chat.Step.SEARCH: (
-        "Search by meaning and by keyword over the approved research for the question and each "
-        "rewrite, merged into one ranking."
-    ),
-    chat.Step.ANSWER: "The model answers from the passages found and cites them.",
-    chat.Step.TOOLS: "Calculations from your profile and the USDA food table.",
-}
-# The icon before each tool result's heading (registry.TOOL_TITLES); None is a refused call.
+# The icon before each tool result's heading; None is a refused call.
 TOOL_ICONS = {
     registry.TDEE_TOOL: ":material/local_fire_department:",
     registry.MACRO_TOOL: ":material/target:",
@@ -56,19 +52,45 @@ TIER_COLORS = {1: "green", 2: "violet"}
 # The start of a line Markdown would read as a block: "#", "-", "+", "=" or "1." / "1)". A ">"
 # (quote) is not here: chat.escape_markdown() escapes it first, so keep both in step.
 _LINE_START = re.compile(r"^(\d*)([#+=.)-])")
-# How an evidence tier filter is named in "How this answer was found".
-TIER_FILTER_LABELS = {1: "ISSN position stands only", 2: "Peer-reviewed reviews only"}
 USAGE_ICON = ":material/data_usage:"
-# The columns of the Details tab's table of a turn's calls (T5.1).
-USAGE_COLUMNS = (
-    "Step",
-    "Model",
-    "Input tokens",
-    "Cached input",
-    "Output tokens",
-    "Reasoning",
-    "Cost",
+# The columns of the Details tab's table of a turn's calls (T5.1), as keys in src/i18n.py.
+USAGE_COLUMNS = ("step", "model", "input", "cached", "output", "reasoning", "cost")
+# A call of the answer step is named with its round ("Answer, round 2"), read back for the UI.
+_ANSWER_STEP = re.compile(
+    re.escape(config.USAGE_STEP_ANSWER).replace(re.escape("{round}"), r"(\d+)")
 )
+
+
+def _lang() -> i18n.Language:
+    """Return the session's UI language."""
+    return st.session_state[i18n.SESSION_KEY]
+
+
+def _t(key: str, **params: object) -> str:
+    """Return a UI text in the session's language."""
+    return i18n.t(key, _lang(), **params)
+
+
+def _n(value: float) -> str:
+    """Show a number with thousands marks in the session's language ("2,500" or "2.500")."""
+    return i18n.number(value, _lang())
+
+
+def _plain(value: float) -> str:
+    """Show a number with no thousands marks in the session's language ("1.5" or "1,5")."""
+    return i18n.plain(value, _lang())
+
+
+def _percent(value: int) -> str:
+    """Show a percentage as the language writes it: "20%" or "20 %"."""
+    return f"{value} %" if _lang() == "de" else f"{value}%"
+
+
+def _label_of(prefix: str) -> Callable[[str], str]:
+    """Return a widget's format_func: a value's label under a key prefix, in today's language."""
+    # The language is bound now: Streamlit (and AppTest) may call format_func outside the run.
+    lang = _lang()
+    return lambda value: i18n.t(f"{prefix}.{value}", lang)
 
 
 def _form_key(field: str) -> str:
@@ -117,16 +139,15 @@ def _change_goal() -> None:
         st.session_state["profile"] = profile.with_goal(current, goal)
 
 
-@st.dialog("Your details", on_dismiss=_close_profile_form)
 def _profile_form() -> None:
     """Show the profile form; Save checks it and keeps the profile for this session."""
     # Drawn only while the dialog is open: a style-only st.html takes no space (T4.6).
     st.html(config.PROFILE_DIALOG_CSS)
-    st.caption(f":material/info: {config.PROFILE_FORM_HINT}")
+    st.caption(f":material/info: {_t('profile.form_hint')}")
     st.segmented_control(
-        "Units",
+        _t("profile.units"),
         units.UNIT_SYSTEMS,
-        format_func=units.UNIT_SYSTEM_LABELS.get,
+        format_func=_label_of("units"),
         required=True,
         key="profile_form_units",
         on_change=_switch_form_units,
@@ -134,75 +155,80 @@ def _profile_form() -> None:
     )
     system = st.session_state["profile_form_units"]
     st.segmented_control(
-        "Goal",
+        _t("profile.goal"),
         get_args(profile.Goal),
-        format_func=profile.GOAL_LABELS.get,
+        format_func=_label_of("goal"),
         key=_form_key("goal"),
         width="stretch",
     )
     left, right = st.columns(2)
     with left:
         st.number_input(
-            f"Weight ({units.weight_unit(system)})",
+            _t("profile.weight_unit", unit=units.weight_unit(system)),
             min_value=0.0,
             step=10**-units.WEIGHT_DECIMALS,
             format=f"%.{units.WEIGHT_DECIMALS}f",
             key=_form_key("weight"),
         )
     with right:
-        st.number_input("Age (years)", min_value=0, step=1, key=_form_key("age"))
+        st.number_input(_t("profile.age_years"), min_value=0, step=1, key=_form_key("age"))
     if system == "metric":
-        st.number_input("Height (cm)", min_value=0, step=1, key=_form_key("height_cm"))
+        st.number_input(_t("profile.height_cm"), min_value=0, step=1, key=_form_key("height_cm"))
     else:
         feet, inches = st.columns(2)
         with feet:
-            st.number_input("Height (ft)", min_value=0, step=1, key=_form_key("height_ft"))
+            st.number_input(
+                _t("profile.height_ft"), min_value=0, step=1, key=_form_key("height_ft")
+            )
         with inches:
             st.number_input(
-                "Height (in)",
+                _t("profile.height_in"),
                 min_value=0,
                 max_value=units.INCHES_PER_FOOT - 1,
                 step=1,
                 key=_form_key("height_in"),
             )
     st.segmented_control(
-        "Sex",
+        _t("profile.sex"),
         get_args(profile.Sex),
-        format_func=profile.SEX_LABELS.get,
+        format_func=_label_of("sex"),
         key=_form_key("sex"),
-        help="Used by the energy equation, which has a male and a female form.",
+        help=_t("profile.sex_help"),
         width="stretch",
     )
     st.selectbox(
-        "Activity",
+        _t("profile.activity"),
         get_args(profile.ActivityLevel),
         index=None,
-        format_func=profile.ACTIVITY_LABELS.get,
-        placeholder="Choose your activity level",
+        format_func=_label_of("activity"),
+        placeholder=_t("profile.activity_placeholder"),
         key=_form_key("activity"),
     )
-    if st.button("Save", type="primary", icon=":material/check:", width="stretch"):
+    if st.button(_t("profile.save"), type="primary", icon=":material/check:", width="stretch"):
         values = {field: st.session_state.get(_form_key(field)) for field in FORM_FIELDS}
         try:
             saved = profile.save_profile(values, system, st.session_state.get("profile"))
         except profile.ProfileError as error:
-            st.error("\n".join(f"- {message}" for message in error.messages), title="Check these")
+            messages = error.messages_in(_lang())
+            st.error(
+                "\n".join(f"- {message}" for message in messages), title=_t("profile.check_these")
+            )
         else:
             st.session_state["profile"] = saved
             st.session_state["units"] = system
             st.session_state["profile_form_open"] = False
             st.rerun()
-    st.caption(":material/lock: Kept for this session only, never stored.")
+    st.caption(f":material/lock: {_t('profile.kept_never_stored')}")
 
 
 def _profile_sidebar() -> None:
     """Show the profile in the sidebar, in the chosen units, with a button to edit it."""
-    st.header(":material/person: Your profile")
+    st.header(f":material/person: {_t('profile.your_profile')}")
     current = st.session_state.get("profile")
     if current is None:
-        st.caption("Add your details to get personal targets.")
+        st.caption(_t("profile.add_caption"))
         st.button(
-            "Add your details",
+            _t("profile.add"),
             icon=":material/person_add:",
             width="stretch",
             on_click=_open_profile_form,
@@ -210,10 +236,11 @@ def _profile_sidebar() -> None:
         return
     system = st.session_state["units"]
     st.session_state["sidebar_goal"] = current.goal
+    goal_label = _label_of("goal")
     st.segmented_control(
-        "Goal",
+        _t("profile.goal"),
         get_args(profile.Goal),
-        format_func=lambda goal: f"{GOAL_ICONS[goal]} {profile.GOAL_LABELS[goal]}",
+        format_func=lambda goal: f"{GOAL_ICONS[goal]} {goal_label(goal)}",
         required=True,
         key="sidebar_goal",
         on_change=_change_goal,
@@ -221,19 +248,22 @@ def _profile_sidebar() -> None:
         width="stretch",
     )
     left, right = st.columns(2)
-    left.metric("Weight", units.format_weight(current.weight_kg, system), border=True)
-    right.metric("Height", units.format_height(current.height_cm, system), border=True)
-    left.metric("Age", current.age, border=True)
-    right.metric("Sex", profile.SEX_LABELS[current.sex], border=True)
+    weight = units.format_weight(current.weight_kg, system, _lang())
+    left.metric(_t("profile.weight"), weight, border=True)
+    right.metric(_t("profile.height"), units.format_height(current.height_cm, system), border=True)
+    left.metric(_t("profile.age"), current.age, border=True)
+    right.metric(_t("profile.sex"), _t(f"sex.{current.sex}"), border=True)
     st.metric(
-        "Activity",
-        profile.ACTIVITY_SHORT_LABELS[current.activity],
-        help=profile.ACTIVITY_LABELS[current.activity],
+        _t("profile.activity"),
+        _t(f"activity_short.{current.activity}"),
+        help=_t(f"activity.{current.activity}"),
         border=True,
     )
-    st.button("Edit details", icon=":material/edit:", width="stretch", on_click=_open_profile_form)
+    st.button(
+        _t("profile.edit"), icon=":material/edit:", width="stretch", on_click=_open_profile_form
+    )
     _targets_sidebar(system)
-    st.caption(":material/lock: Kept for this session only")
+    st.caption(f":material/lock: {_t('profile.kept')}")
 
 
 @st.cache_resource(show_spinner=False)
@@ -271,8 +301,8 @@ def _manifest():
 def _status_label(result: chat.TurnResult) -> str:
     """Return the label a turn's status box ends with."""
     if result.kind == "answer" and not result.sources:
-        return config.STATUS_LABELS["answer_uncited"]
-    return config.STATUS_LABELS[result.kind]
+        return _t("status.answer_uncited")
+    return _t(f"status.{result.kind}")
 
 
 def _final_state(result: chat.TurnResult) -> str:
@@ -281,11 +311,16 @@ def _final_state(result: chat.TurnResult) -> str:
     return "error" if result.kind in ("rejected", "error") else "complete"
 
 
+def _step_label(step: chat.Step) -> str:
+    """Return the name of a turn's step in the session's language."""
+    return _t(f"step.{step.name.lower()}")
+
+
 def _step_box(step: chat.Step, state: str):
     """Show one step of a turn with a line on what it does, and return its status box."""
-    box = st.status(step.value, type="step", state=state)
+    box = st.status(_step_label(step), type="step", state=state)
     # A step without content ends Streamlit's timeline and hides the steps after it.
-    box.caption(STEP_DETAILS[step])
+    box.caption(_t(f"step.{step.name.lower()}.detail"))
     return box
 
 
@@ -299,7 +334,7 @@ def _show_steps(result: chat.TurnResult) -> None:
 
 def _run_turn(question: str, turn: int) -> None:
     """Run one chat turn: steps in a status box, the answer as it streams in, then the result."""
-    status = st.status(f":shimmer[{chat.Step.CHECK.value}]", type="compact")
+    status = st.status(f":shimmer[{_step_label(chat.Step.CHECK)}]", type="compact")
     # Below the status: the answer while it streams, replaced by the full result at the end.
     answer_slot = st.empty()
     # Under the answer: the turn's tokens and cost, once it is priced (T5.1).
@@ -312,7 +347,7 @@ def _run_turn(question: str, turn: int) -> None:
             boxes[-1].update(state="complete")
         with status:
             boxes.append(_step_box(step, "running"))
-        status.update(label=f":shimmer[{step.value}]")
+        status.update(label=f":shimmer[{_step_label(step)}]")
 
     def show_text(text: str) -> None:
         """Show the answer so far, so the user reads it while the model is still writing."""
@@ -364,7 +399,7 @@ def _price(result: chat.TurnResult) -> usage.TurnUsage:
 def _usage_caption(turn_usage: usage.TurnUsage | None) -> None:
     """Show a turn's tokens and cost under its answer, if it made any model call (AC-10)."""
     if turn_usage is not None and turn_usage.calls:
-        st.caption(f"{USAGE_ICON} {_dollars(usage.format_turn(turn_usage))}")
+        st.caption(f"{USAGE_ICON} {_dollars(usage.format_turn(turn_usage, _lang()))}")
 
 
 def _dollars(text: str) -> str:
@@ -372,27 +407,31 @@ def _dollars(text: str) -> str:
     return text.replace("$", r"\$")
 
 
+def _tier_label(tier: int) -> str:
+    """Return the name of an evidence tier, or "Review" for a tier the app does not know."""
+    return _t(f"tier.{tier}") if tier in config.EVIDENCE_TIERS else _t("tier.unknown")
+
+
 def _source_card(card: chat.SourceCard) -> None:
     """Show one cited article: title, authors, tier, journal, year, licence and link (AC-1)."""
     with st.container(border=True):
+        # Titles, journals, authors and licence names stay as the articles give them (English).
         st.markdown(f"**{chat.escape_markdown(card.title)}**")
         if card.authors:
             # Credits the authors on the card itself (CC BY; copyright policy rule 6).
             st.caption(chat.escape_markdown(chat.format_authors(card.authors)))
-        st.badge(
-            config.EVIDENCE_TIER_LABELS.get(card.evidence_tier, config.UNKNOWN_TIER_LABEL),
-            color=TIER_COLORS.get(card.evidence_tier, "gray"),
-        )
+        st.badge(_tier_label(card.evidence_tier), color=TIER_COLORS.get(card.evidence_tier, "gray"))
         meta = [chat.escape_markdown(card.journal)] if card.journal else []
         meta += [
             str(card.year),
             f"[{card.license}]({chat.markdown_url(card.license_url)})",
-            f"cited as {', '.join(card.labels)}",
+            _t("card.cited_as", labels=", ".join(card.labels)),
         ]
         st.caption(" · ".join(meta))
-        st.markdown(f"[:material/open_in_new: Open article]({chat.markdown_url(card.url)})")
+        open_article = _t("card.open_article")
+        st.markdown(f"[:material/open_in_new: {open_article}]({chat.markdown_url(card.url)})")
         for correction in card.corrections:
-            relation = config.CORRECTION_LABELS[correction.relation]
+            relation = _t(f"correction.{correction.relation}")
             st.caption(
                 f":material/edit_note: {relation}: "
                 f"[{chat.escape_markdown(correction.title)}]({chat.markdown_url(correction.url)})"
@@ -404,61 +443,84 @@ def _table(rows: dict[str, str]) -> None:
     # st.dataframe shows cells as plain text; st.table would read Markdown in them, so a USDA name
     # could add a link or an image (docs/SECURITY.md).
     st.dataframe(
-        {"Item": list(rows), "Value": list(rows.values())}, hide_index=True, width="stretch"
+        {_t("table.item"): list(rows), _t("table.value"): list(rows.values())},
+        hide_index=True,
+        width="stretch",
     )
 
 
 def _show_tdee(result: TdeeResult) -> None:
     """Show calculate_tdee's result: resting energy, activity factor and daily needs."""
+    per_day = _t("unit.kcal_per_day")
     _table(
         {
-            "Resting energy (BMR)": f"{result.bmr_kcal:,} kcal/day",
-            "Activity factor": f"{result.activity_factor:g}",
-            "Daily energy needs (TDEE)": f"{result.tdee_kcal:,} kcal/day",
+            _t("tdee.bmr"): f"{_n(result.bmr_kcal)} {per_day}",
+            _t("tdee.factor"): _plain(result.activity_factor),
+            _t("tdee.tdee"): f"{_n(result.tdee_kcal)} {per_day}",
         }
     )
+    # The method is the tool's own text, the same the model received (English).
     st.caption(result.method)
+
+
+def _macro_label(name: str) -> str:
+    """Return a macro's name ("Protein", "Carbohydrate", "Fat") in the session's language."""
+    return _t(f"macro.{name.lower()}")
+
+
+def _kcal_encoding() -> dict:
+    """Return the tooltip field of a chart's kcal: a formatted number, as the language writes it."""
+    # Vega formats numbers the English way; German gets the text the app formatted itself.
+    if _lang() == "de":
+        return {"field": "kcal_text", "type": "nominal", "title": "kcal"}
+    return {"field": "kcal", "type": "quantitative", "format": ","}
 
 
 def _macro_bar(kcal: dict[str, int]) -> None:
     """Draw the kcal of each macro as one horizontal stacked bar, in the macro colours."""
     names = list(kcal)
+    labels = [_macro_label(name) for name in names]
     # A Vega-Lite spec rather than st.bar_chart, so the value axis starts at 0 (st.bar_chart's
     # started at -500 in a narrow window). `alt` is the chart's text alternative.
-    alt = "Energy split per day: " + ", ".join(
-        f"{name} {value:,} kcal" for name, value in kcal.items()
+    alt = _t(
+        "chart.bar_alt",
+        parts=", ".join(
+            f"{label} {_n(value)} kcal" for label, value in zip(labels, kcal.values(), strict=True)
+        ),
     )
+    x = {
+        "field": "kcal",
+        "type": "quantitative",
+        "stack": "zero",
+        # From 0 to the next round value, so the bar never ends at the chart's edge.
+        "scale": {"domainMin": 0, "nice": True},
+        "title": _t("chart.kcal_per_day"),
+    }
+    if _lang() == "de":
+        # German thousands marks on the axis ("2.000").
+        x["axis"] = {"labelExpr": "replace(format(datum.value, ','), /,/g, '.')"}
     spec = {
         "mark": {"type": "bar"},
         "encoding": {
-            "x": {
-                "field": "kcal",
-                "type": "quantitative",
-                "stack": "zero",
-                # From 0 to the next round value, so the bar never ends at the chart's edge.
-                "scale": {"domainMin": 0, "nice": True},
-                "title": "kcal per day",
-            },
+            "x": x,
             "y": {"field": "split", "type": "nominal", "title": None},
             "color": {
                 "field": "macro",
                 "type": "nominal",
-                "sort": names,
-                "scale": {"domain": names, "range": [config.MACRO_COLORS[n] for n in names]},
+                "sort": labels,
+                "scale": {"domain": labels, "range": [config.MACRO_COLORS[n] for n in names]},
                 "legend": {"orient": "bottom", "title": None},
             },
             # Typed as numbers: an untyped field is nominal, and a nominal kcal ignores the format.
             "order": {"field": "position", "type": "quantitative"},
-            "tooltip": [
-                {"field": "macro", "type": "nominal"},
-                {"field": "kcal", "type": "quantitative", "format": ","},
-            ],
+            "tooltip": [{"field": "macro", "type": "nominal"}, _kcal_encoding()],
         },
     }
     data = {
-        "macro": names,
+        "macro": labels,
         "kcal": list(kcal.values()),
-        "split": ["Energy"] * len(names),
+        "kcal_text": [_n(value) for value in kcal.values()],
+        "split": [_t("chart.energy")] * len(names),
         "position": list(range(len(names))),
     }
     st.vega_lite_chart(data, spec, width="stretch", height=config.MACRO_CHART_HEIGHT_PX, alt=alt)
@@ -468,14 +530,14 @@ def _per_body_weight(macro: Macro, targets: MacroTargetsResult, system: units.Un
     """Show a macro's grams per body weight in the user's units, rounded once."""
     # From the grams and the weight, not Macro.g_per_kg, which is already rounded to 0.1: rounding
     # it again showed 1.1 g/kg for 42 g at 40.1 kg (1.047; code review on PR #53).
-    return units.format_grams_per_body_weight(macro.grams, targets.weight_kg or 0, system)
+    return units.format_grams_per_body_weight(macro.grams, targets.weight_kg or 0, system, _lang())
 
 
 def _macro_cells(macro: Macro, targets: MacroTargetsResult, system: units.UnitSystem) -> list[str]:
     """Return one macro's grams, share of the kcal and grams per body weight, as table cells."""
     return [
-        f"{macro.grams:,} g",
-        f"{macro.percent}%",
+        f"{_n(macro.grams)} g",
+        _percent(macro.percent),
         _per_body_weight(macro, targets, system),
     ]
 
@@ -524,9 +586,12 @@ def _protein_range(targets: MacroTargetsResult, system: units.UnitSystem) -> str
     # Always set with status "ok"; the fallback only satisfies the type.
     low, high = targets.protein_g_range or (0, 0)
     per_low, per_high = (
-        units.format_per_body_weight(value, system) for value in config.PROTEIN_G_PER_KG_RANGE
+        units.format_per_body_weight(value, system, _lang())
+        for value in config.PROTEIN_G_PER_KG_RANGE
     )
-    return f"{low:,}-{high:,} g a day ({per_low} to {per_high})"
+    return _t(
+        "targets.protein_range", low=_n(low), high=_n(high), per_low=per_low, per_high=per_high
+    )
 
 
 def _show_macros(result: registry.MacroToolResult) -> None:
@@ -541,10 +606,10 @@ def _show_macros(result: registry.MacroToolResult) -> None:
     protein_low, protein_high = targets.protein_g_range or (0, 0)
     _table(
         {
-            "Daily target": f"{targets.kcal_target:,} kcal",
-            "Range for the goal": f"{low:,}-{high:,} kcal",
-            "Daily energy needs": f"{result.energy_needs.tdee_kcal:,} kcal",
-            "Protein range": f"{protein_low:,}-{protein_high:,} g",
+            _t("targets.daily_target"): f"{_n(targets.kcal_target)} kcal",
+            _t("macros.range"): f"{_n(low)}-{_n(high)} kcal",
+            _t("macros.needs"): f"{_n(result.energy_needs.tdee_kcal)} kcal",
+            _t("macros.protein_range"): f"{_n(protein_low)}-{_n(protein_high)} g",
         }
     )
     macros = _macro_parts(targets)
@@ -552,10 +617,10 @@ def _show_macros(result: registry.MacroToolResult) -> None:
     cells = [_macro_cells(macro, targets, system) for macro, _ in macros.values()]
     st.dataframe(
         {
-            "Macro": list(macros),
-            "Per day": [row[0] for row in cells],
-            "Share of kcal": [row[1] for row in cells],
-            f"Per {units.weight_unit(system)} of body weight": [row[2] for row in cells],
+            _t("macros.macro"): [_macro_label(name) for name in macros],
+            _t("macros.per_day"): [row[0] for row in cells],
+            _t("macros.share"): [row[1] for row in cells],
+            _t("macros.per_weight", unit=units.weight_unit(system)): [row[2] for row in cells],
         },
         hide_index=True,
         width="stretch",
@@ -563,6 +628,7 @@ def _show_macros(result: registry.MacroToolResult) -> None:
     # The energy split as one stacked bar; the numbers are in the table above, so colour is never
     # the only signal (docs/UI_DESIGN.md, Accessibility).
     _macro_bar(_macro_kcal(targets))
+    # The tool's own message and notes, the same the model received (English).
     st.caption(result.message)
     for note in targets.notes:
         st.caption(f":material/info: {note}")
@@ -571,9 +637,11 @@ def _show_macros(result: registry.MacroToolResult) -> None:
 def _macro_donut(kcal: dict[str, int], total: int) -> None:
     """Draw the energy split as a donut in the macro colours, with the daily kcal in the middle."""
     names = list(kcal)
-    alt = f"Daily target {total:,} kcal, energy split: " + ", ".join(
-        f"{name} {value:,} kcal" for name, value in kcal.items()
+    labels = [_macro_label(name) for name in names]
+    parts = ", ".join(
+        f"{label} {_n(value)} kcal" for label, value in zip(labels, kcal.values(), strict=True)
     )
+    alt = _t("chart.donut_alt", total=_n(total), parts=parts)
     # One text mark per line in the middle, each with its own one-row data, so it is drawn once.
     # Streamlit's chart theme colours axes and legends but not text marks (black in dark mode), so
     # the text takes the page's text colour through the SVG's currentColor.
@@ -589,7 +657,7 @@ def _macro_donut(kcal: dict[str, int], total: int) -> None:
             },
             "encoding": {"text": {"field": "line", "type": "nominal"}},
         }
-        for line, size, weight, dy in ((f"{total:,}", 17, "bold", -7), ("kcal", 12, "normal", 11))
+        for line, size, weight, dy in ((_n(total), 17, "bold", -7), ("kcal", 12, "normal", 11))
     ]
     spec = {
         "layer": [
@@ -605,24 +673,26 @@ def _macro_donut(kcal: dict[str, int], total: int) -> None:
                     "color": {
                         "field": "macro",
                         "type": "nominal",
-                        "sort": names,
+                        "sort": labels,
                         "scale": {
-                            "domain": names,
+                            "domain": labels,
                             "range": [config.MACRO_COLORS[n] for n in names],
                         },
                         "legend": {"orient": "right", "title": None},
                     },
                     "order": {"field": "position", "type": "quantitative"},
-                    "tooltip": [
-                        {"field": "macro", "type": "nominal"},
-                        {"field": "kcal", "type": "quantitative", "format": ","},
-                    ],
+                    "tooltip": [{"field": "macro", "type": "nominal"}, _kcal_encoding()],
                 },
             },
             *centre,
         ]
     }
-    data = {"macro": names, "kcal": list(kcal.values()), "position": list(range(len(names)))}
+    data = {
+        "macro": labels,
+        "kcal": list(kcal.values()),
+        "kcal_text": [_n(value) for value in kcal.values()],
+        "position": list(range(len(names))),
+    }
     st.vega_lite_chart(data, spec, width="stretch", height=config.MACRO_DONUT_HEIGHT_PX, alt=alt)
 
 
@@ -632,41 +702,45 @@ def _targets_sidebar(system: units.UnitSystem) -> None:
     if result is None:
         return
     targets = result.targets
-    st.metric("Daily target", f"{targets.kcal_target:,} kcal", border=True)
+    st.metric(_t("targets.daily_target"), f"{_n(targets.kcal_target)} kcal", border=True)
     with st.container(border=True):
-        st.markdown("**:material/target: My targets**")
+        st.markdown(f"**:material/target: {_t('targets.my_targets')}**")
         _macro_donut(_macro_kcal(targets), targets.kcal_target or 0)
         # The values as text, so the colours are never the only signal.
         for name, (macro, _) in _macro_parts(targets).items():
             per_weight = _per_body_weight(macro, targets, system)
-            st.caption(f"**{name}** {macro.grams:,} g · {macro.percent}% · {per_weight}")
+            share = _percent(macro.percent)
+            st.caption(f"**{_macro_label(name)}** {_n(macro.grams)} g · {share} · {per_weight}")
         if targets.protein_lowered:
-            st.caption(":material/warning: Protein was lowered to fit the target: see My targets.")
-        st.caption("More in the My targets tab.")
+            st.caption(f":material/warning: {_t('targets.protein_lowered')}")
+        st.caption(_t("targets.more"))
 
 
 def _kcal_delta(difference: int) -> str | None:
     """Return the daily target's surplus or deficit against daily energy needs, or None."""
     # Short, as a longer delta is cut off in a quarter of the tab; the caption below says more.
-    return None if difference == 0 else f"{difference:+,} kcal"
+    if difference == 0:
+        return None
+    return f"{'+' if difference > 0 else '-'}{_n(abs(difference))} kcal"
 
 
 def _goal_line(goal: profile.Goal, difference: int) -> str:
     """Say the goal and how far the daily target is from daily energy needs."""
+    name = _t(f"goal.{goal}")
     if difference == 0:
-        return f"{profile.GOAL_LABELS[goal]}: at maintenance"
-    side = "above" if difference > 0 else "below"
-    return f"{profile.GOAL_LABELS[goal]}: {abs(difference):,} kcal {side} maintenance"
+        return _t("targets.at_maintenance", goal=name)
+    key = "targets.above_maintenance" if difference > 0 else "targets.below_maintenance"
+    return _t(key, goal=name, kcal=_n(abs(difference)))
 
 
 def _targets_tab() -> None:
     """Show the daily targets: four metrics, the energy split and how they were set (T4.7)."""
-    st.subheader(":material/target: My targets")
+    st.subheader(f":material/target: {_t('targets.my_targets')}")
     result = _session_targets()
     if result is None:
-        st.caption("Add your details to get your daily energy and macro targets.")
+        st.caption(_t("targets.empty"))
         st.button(
-            "Add your details",
+            _t("profile.add"),
             icon=":material/person_add:",
             key="targets_add_details",
             on_click=_open_profile_form,
@@ -677,8 +751,8 @@ def _targets_tab() -> None:
     difference = (targets.kcal_target or 0) - (needs.tdee_kcal or 0)
     kcal_column, *macro_columns = st.columns(1 + len(config.MACRO_COLORS))
     kcal_column.metric(
-        "Daily target",
-        f"{targets.kcal_target:,} kcal",
+        _t("targets.daily_target"),
+        f"{_n(targets.kcal_target)} kcal",
         # Grey with its sign: a deficit for fat loss is the plan, not a warning.
         delta=_kcal_delta(difference),
         delta_color="off",
@@ -688,73 +762,96 @@ def _targets_tab() -> None:
         kcal_column.caption(_goal_line(targets.goal, difference))
     macros = _macro_parts(targets).items()
     for column, (name, (macro, _)) in zip(macro_columns, macros, strict=True):
-        column.metric(name, f"{macro.grams:,} g", border=True)
+        column.metric(_macro_label(name), f"{_n(macro.grams)} g", border=True)
         per_weight = _per_body_weight(macro, targets, system)
-        column.caption(f"{macro.percent}% of kcal · {per_weight}")
+        column.caption(_t("targets.share", percent=macro.percent, per_weight=per_weight))
     lowered = protein_lowered_note(targets.goal) if targets.goal is not None else None
     if targets.protein_lowered and lowered:
         st.warning(
-            f"{lowered} The sources' protein range for your weight: "
-            f"{_protein_range(targets, system)}.",
+            _t("targets.protein_warning", note=lowered, range=_protein_range(targets, system)),
             icon=":material/warning:",
         )
     _macro_bar(_macro_kcal(targets))
-    st.caption(
-        f":material/local_fire_department: Maintenance (daily energy needs): about "
-        f"{needs.tdee_kcal:,} kcal/day. {needs.method}"
-    )
+    maintenance = _t("targets.maintenance", kcal=_n(needs.tdee_kcal), method=needs.method)
+    st.caption(f":material/local_fire_department: {maintenance}")
+    # The tool's own message, notes and sources, the same the model received (English).
     st.caption(result.message)
     for note in targets.notes:
         if note != lowered:
             st.caption(f":material/info: {note}")
     sources = "\n".join(f"- {source}" for source in [*needs.sources, *targets.sources])
-    st.caption(f":material/menu_book: Sources:\n{sources}")
+    st.caption(f":material/menu_book: {_t('targets.sources')}\n{sources}")
+
+
+def _fiber_text(fiber_g: float | None) -> str:
+    """Return a food's fiber in grams, or "not reported" when USDA gives no value."""
+    return _t("food.not_reported") if fiber_g is None else f"{_plain(fiber_g)} g"
+
+
+def _food_tab_message(result: registry.ToolResult) -> str:
+    """Return why a Food lookup tab lookup found nothing, in the session's language."""
+    # The tab calls no model, so its messages follow the language (owner's choice in the review
+    # of PR #74); English keeps the tool's own fixed text, as before. The tab's widgets keep the
+    # grams in range, so an invalid lookup is always the food's name.
+    if _lang() == "en":
+        return result.message
+    if result.status == "invalid":
+        return _t("food.tab.invalid")
+    if not isinstance(result, FoodLookupResult):
+        return _t("food.tab.error")
+    alternatives = "alternatives" if result.alternatives else "none"
+    return _t(f"food.tab.not_found_{alternatives}")
 
 
 def _food_result(result: registry.ToolResult) -> None:
     """Show a lookup from the Food lookup tab: the food and its nutrients, or why not."""
-    # Both messages are fixed text that never repeats the input.
+    # Every message is fixed text that never repeats the input.
     if result.status == "invalid":
-        st.warning(result.message, icon=":material/edit:")
+        st.warning(_food_tab_message(result), icon=":material/edit:")
         return
     if not isinstance(result, FoodLookupResult):
         # The foods table is missing or broken.
-        st.error(result.message, icon=":material/error:")
+        st.error(_food_tab_message(result), icon=":material/error:")
         return
     if result.status != "found" or result.nutrients is None:
         # Fixed text; the suggestions are USDA names, so only table cells.
-        st.info(result.message, icon=":material/search_off:")
+        st.info(_food_tab_message(result), icon=":material/search_off:")
         if result.alternatives:
-            st.dataframe({"Did you mean": result.alternatives}, hide_index=True, width="stretch")
+            st.dataframe(
+                {_t("food.did_you_mean"): result.alternatives}, hide_index=True, width="stretch"
+            )
         return
     nutrients = result.nutrients
-    st.caption(f"Matched USDA food, {result.grams:g} g:")
-    # Plain text: a USDA name is never read as Markdown (docs/SECURITY.md).
+    st.caption(_t("food.matched", grams=result.grams))
+    # Plain text: a USDA name is never read as Markdown (docs/SECURITY.md). USDA names stay English.
     st.text(result.matched_name or "")
     energy, protein, carbohydrate, fat = st.columns(4)
-    energy.metric("Energy", f"{nutrients.kcal:,} kcal", border=True)
-    protein.metric("Protein", f"{nutrients.protein_g:g} g", border=True)
-    carbohydrate.metric("Carbohydrate", f"{nutrients.carbohydrate_g:g} g", border=True)
-    fat.metric("Fat", f"{nutrients.fat_g:g} g", border=True)
-    fiber = "not reported" if nutrients.fiber_g is None else f"{nutrients.fiber_g:g} g"
-    st.caption(f"Fiber: {fiber}")
+    energy.metric(_t("nutrient.energy"), f"{_n(nutrients.kcal)} kcal", border=True)
+    protein.metric(_t("nutrient.protein"), f"{_plain(nutrients.protein_g)} g", border=True)
+    carbohydrate.metric(
+        _t("nutrient.carbohydrate"), f"{_plain(nutrients.carbohydrate_g)} g", border=True
+    )
+    fat.metric(_t("nutrient.fat"), f"{_plain(nutrients.fat_g)} g", border=True)
+    st.caption(_t("food.fiber_line", fiber=_fiber_text(nutrients.fiber_g)))
     if result.alternatives:
-        st.dataframe({"Close alternatives": result.alternatives}, hide_index=True, width="stretch")
-    st.caption(config.USDA_SOURCE_LINE)
+        st.dataframe(
+            {_t("food.close_alternatives"): result.alternatives}, hide_index=True, width="stretch"
+        )
+    st.caption(_t("usda.source_line"))
 
 
 def _food_tab() -> None:
     """Look up the nutrients of a food and amount in the USDA table, with no model call (T4.7)."""
-    st.subheader(":material/search: Food lookup")
+    st.subheader(f":material/search: {_t('food.title')}")
     food_column, grams_column, button_column = st.columns([4, 1, 1], vertical_alignment="bottom")
     food = food_column.text_input(
-        "Food",
+        _t("food.food"),
         key="food_query",
         max_chars=config.FOOD_MAX_NAME_CHARS,
-        placeholder="e.g. rolled oats, chicken breast raw",
+        placeholder=_t("food.placeholder"),
     )
     grams = grams_column.number_input(
-        "Grams",
+        _t("food.grams"),
         min_value=config.FOOD_MIN_GRAMS,
         max_value=float(config.FOOD_MAX_GRAMS),
         value=config.FOOD_LOOKUP_DEFAULT_GRAMS,
@@ -763,14 +860,16 @@ def _food_tab() -> None:
         key="food_grams",
     )
     if button_column.button(
-        "Look up", icon=":material/search:", key="food_lookup", type="primary", width="stretch"
+        _t("food.look_up"),
+        icon=":material/search:",
+        key="food_lookup",
+        type="primary",
+        width="stretch",
     ):
         # Kept for the session, so the result stays while other widgets rerun the page.
         st.session_state["food_result"] = registry.run_food_lookup(food, grams)
-    st.caption(
-        "Single, unprocessed foods from the USDA FoodData Central Foundation Foods table, "
-        "named in English."
-    )
+    # In German it also says to enter the name in English: the USDA table has English names only.
+    st.caption(_t("food.caption"))
     result = st.session_state.get("food_result")
     if result is not None:
         _food_result(result)
@@ -782,23 +881,24 @@ def _show_food(result: FoodLookupResult) -> None:
         st.caption(result.message)
         if result.alternatives:
             # USDA names as table cells: plain text, never Markdown.
-            st.dataframe({"Did you mean": result.alternatives}, hide_index=True, width="stretch")
+            st.dataframe(
+                {_t("food.did_you_mean"): result.alternatives}, hide_index=True, width="stretch"
+            )
         return
     nutrients = result.nutrients
-    fiber = "not reported" if nutrients.fiber_g is None else f"{nutrients.fiber_g:g} g"
     rows = {
-        "USDA food": result.matched_name or "",
-        "Amount": f"{result.grams:g} g",
-        "Energy": f"{nutrients.kcal:,} kcal",
-        "Protein": f"{nutrients.protein_g:g} g",
-        "Carbohydrate": f"{nutrients.carbohydrate_g:g} g",
-        "Fat": f"{nutrients.fat_g:g} g",
-        "Fiber": fiber,
+        _t("food.usda_food"): result.matched_name or "",
+        _t("food.amount"): f"{_plain(result.grams)} g",
+        _t("nutrient.energy"): f"{_n(nutrients.kcal)} kcal",
+        _t("nutrient.protein"): f"{_plain(nutrients.protein_g)} g",
+        _t("nutrient.carbohydrate"): f"{_plain(nutrients.carbohydrate_g)} g",
+        _t("nutrient.fat"): f"{_plain(nutrients.fat_g)} g",
+        _t("nutrient.fiber"): _fiber_text(nutrients.fiber_g),
     }
     if result.alternatives:
-        rows["Close alternatives"] = "; ".join(result.alternatives)
+        rows[_t("food.close_alternatives")] = "; ".join(result.alternatives)
     _table(rows)
-    st.caption(config.USDA_SOURCE_LINE)
+    st.caption(_t("usda.source_line"))
 
 
 def _columns(names: tuple[str, ...], rows: list[list[str]]) -> dict[str, list[str]]:
@@ -808,36 +908,42 @@ def _columns(names: tuple[str, ...], rows: list[list[str]]) -> dict[str, list[st
 
 def _show_meal_plan(result: MealPlanResult) -> None:
     """Show a meal plan check: each food, then the totals against the daily targets (T4.5)."""
+    lang = _lang()
     # The names asked for and the USDA names as table cells: plain text, never Markdown.
-    foods = _columns(meal_plan.FOOD_COLUMNS, [meal_plan.food_row(i) for i in result.items])
-    foods["Other close USDA names"] = ["; ".join(item.alternatives) for item in result.items]
+    columns = meal_plan.food_columns(lang)
+    foods = _columns(columns, [meal_plan.food_row(item, lang) for item in result.items])
+    other_names = _t("meal.other_names")
+    foods[other_names] = ["; ".join(item.alternatives) for item in result.items]
     # A long name would take the whole width and push the values out of view; a capped column
     # cuts it and shows it in full on hover.
     names = {
         column: st.column_config.TextColumn(width="medium")
-        for column in ("Food asked", "USDA food", "Other close USDA names")
+        for column in (columns[0], columns[1], other_names)
     }
     st.dataframe(foods, hide_index=True, width="stretch", column_config=names)
-    comparison = meal_plan.comparison_rows(result)
+    comparison = meal_plan.comparison_rows(result, lang)
     if comparison:
         st.dataframe(
-            _columns(meal_plan.COMPARISON_COLUMNS, comparison), hide_index=True, width="stretch"
+            _columns(meal_plan.comparison_columns(lang), comparison),
+            hide_index=True,
+            width="stretch",
         )
+    # The tool's own message and notes, the same the model received (English).
     st.caption(result.message)
     for note in result.notes:
         st.caption(f":material/info: {note}")
-    st.caption(config.MEAL_PLAN_SOURCE_LINE)
+    st.caption(_t("meal.source_line"))
 
 
 def _show_tool_run(run: registry.ToolRun, key: str) -> None:
     """Show one tool result under its heading; without a profile, a button opens the form."""
     name = run.name if run.name in registry.TOOL_TITLES else None
-    st.markdown(f"**{TOOL_ICONS[name]} {registry.TOOL_TITLES[name]}**")
+    st.markdown(f"**{TOOL_ICONS[name]} {_t(f'tool.title.{name or "none"}')}**")
     result = run.result
     if run.status == "profile_needed":
-        st.info(config.PROFILE_NEEDED_HINT, icon=":material/person_add:")
+        st.info(_t("tool.profile_needed"), icon=":material/person_add:")
         st.button(
-            "Add your details", icon=":material/person_add:", key=key, on_click=_open_profile_form
+            _t("profile.add"), icon=":material/person_add:", key=key, on_click=_open_profile_form
         )
     elif isinstance(result, TdeeResult) and result.status == "ok":
         _show_tdee(result)
@@ -857,7 +963,7 @@ def _show_tool_runs(runs: tuple[registry.ToolRun, ...], turn: int) -> None:
     # Open when a result needs the profile, so the "Add your details" button is in view.
     needs_profile = any(run.status == "profile_needed" for run in runs)
     with st.expander(
-        f"Tool results ({len(runs)})", icon=":material/calculate:", expanded=needs_profile
+        _t("tool.results", count=len(runs)), icon=":material/calculate:", expanded=needs_profile
     ):
         for number, run in enumerate(runs):
             if number:
@@ -865,20 +971,31 @@ def _show_tool_runs(runs: tuple[registry.ToolRun, ...], turn: int) -> None:
             _show_tool_run(run, key=f"tool_profile_{turn}_{number}")
 
 
+def _fixed_text(result: chat.TurnResult) -> str:
+    """Return a turn's fixed message in the language chosen now, or the model's own answer."""
+    # Past turns follow the language too; the answer stays in the language it was written in. An
+    # unknown key falls back to the English text rather than breaking every later run.
+    if result.code in i18n.TEXT[_lang()]:
+        return _t(result.code, **result.params)
+    return result.text
+
+
 def _show_result(result: chat.TurnResult, turn: int) -> None:
     """Show a turn's answer with its sources and tool results, or its fixed message."""
     if result.kind == "rejected":
-        st.warning(result.text, icon=":material/block:")
+        st.warning(_fixed_text(result), icon=":material/block:")
     elif result.kind == "guardrail":
         # A refusal or a pointer to a professional (AC-12), not an error.
-        st.info(result.text, icon=":material/health_and_safety:")
+        st.info(_fixed_text(result), icon=":material/health_and_safety:")
     elif result.kind == "error":
-        st.error(result.text, icon=":material/error:")
+        st.error(_fixed_text(result), icon=":material/error:")
     else:
         # Model output as Markdown, never with unsafe_allow_html (docs/SECURITY.md).
-        st.markdown(result.text)
+        st.markdown(_fixed_text(result))
         if result.sources:
-            with st.expander(f"Sources ({len(result.sources)})", icon=":material/menu_book:"):
+            with st.expander(
+                _t("sources.count", count=len(result.sources)), icon=":material/menu_book:"
+            ):
                 for card in result.sources:
                     _source_card(card)
         if result.tool_runs:
@@ -912,38 +1029,53 @@ def _session_usage() -> usage.SessionUsage:
     return usage.session_usage(turns)
 
 
+def _usage_step(step: str) -> str:
+    """Return the name of a call's step in the session's language."""
+    if step == config.USAGE_STEP_REWRITE:
+        return _t("usage.step.rewrite")
+    if step == config.USAGE_STEP_SEARCH:
+        return _t("usage.step.search")
+    answer = _ANSWER_STEP.fullmatch(step)
+    return _t("usage.step.answer", round=int(answer[1])) if answer else step
+
+
 def _usage_rows(turn_usage: usage.TurnUsage) -> dict[str, list]:
     """Return a turn's calls as table columns: step, model, the token counts and the cost."""
     rows = [
         [
-            call.step,
+            _usage_step(call.step),
             call.model,
             call.input_tokens,
             call.cached_tokens,
             call.output_tokens,
             call.reasoning_tokens,
-            usage.format_cost(cost),
+            usage.format_cost(cost, _lang()),
         ]
         for call, cost in zip(turn_usage.calls, turn_usage.costs, strict=True)
     ]
-    return {name: [row[i] for row in rows] for i, name in enumerate(USAGE_COLUMNS)}
+    names = [_t(f"usage.col.{column}") for column in USAGE_COLUMNS]
+    return {name: [row[i] for row in rows] for i, name in enumerate(names)}
 
 
 def _usage_section(turn_usage: usage.TurnUsage | None) -> None:
     """Show the tokens and cost of each call of the last answer, and the session totals."""
-    st.subheader(f"{USAGE_ICON} Tokens and cost")
+    lang = _lang()
+    st.subheader(f"{USAGE_ICON} {_t('usage.title')}")
     if turn_usage is not None and turn_usage.calls:
         st.dataframe(_usage_rows(turn_usage), hide_index=True)
-        st.markdown(f"**This answer:** {_dollars(usage.format_turn(turn_usage))}")
+        this_answer = _dollars(usage.format_turn(turn_usage, lang))
+        st.markdown(_bold_label(_t("usage.this_answer", usage=this_answer)))
     else:
-        st.caption("This answer made no model call that reported its tokens.")
-    st.markdown(f"**This session:** {_dollars(usage.format_session(_session_usage()))}")
-    st.caption(
-        "Costs are priced on the input and output tokens, with OpenRouter's prices per token, "
-        "read once a day. Reasoning is shown as OpenRouter reports it and is not priced again; "
-        'it can be higher than the output count. "price unknown" means the prices could not be '
-        "read when the answer ended."
-    )
+        st.caption(_t("usage.no_calls"))
+    session = _dollars(usage.format_session(_session_usage(), lang))
+    st.markdown(_bold_label(_t("usage.this_session", usage=session)))
+    st.caption(_t("usage.explain"))
+
+
+def _bold_label(line: str) -> str:
+    """Return "Label: value" with the label in bold: "**This answer:** 1,234 tokens"."""
+    label, value = line.split(": ", 1)
+    return f"**{label}:** {value}"
 
 
 def _one_line(text: str) -> str:
@@ -955,18 +1087,27 @@ def _one_line(text: str) -> str:
     return _LINE_START.sub(r"\1\\\2", line)
 
 
+def _topic_label(topic: str) -> str:
+    """Return a topic filter's name, or the topic itself if the app does not know it."""
+    return _t(f"topic.{topic}") if topic in config.TOPICS else topic
+
+
 def _filter_badges(details: chat.SearchDetails) -> None:
     """Show the filters the rewrite step chose as badges, or say there were none."""
     if not details.has_filters:
-        st.badge("No filters", icon=":material/filter_alt_off:", color="gray")
+        st.badge(_t("filter.none"), icon=":material/filter_alt_off:", color="gray")
         return
     with st.container(horizontal=True, gap="small"):
         for topic in details.topics:
-            st.badge(config.TOPIC_LABELS.get(topic, topic), icon=":material/sell:", color="blue")
+            st.badge(_topic_label(topic), icon=":material/sell:", color="blue")
         if details.min_year is not None:
-            st.badge(f"From {details.min_year}", icon=":material/calendar_month:", color="blue")
+            year = _t("filter.from_year", year=str(details.min_year))
+            st.badge(year, icon=":material/calendar_month:", color="blue")
         if details.evidence_tier is not None:
-            label = TIER_FILTER_LABELS.get(details.evidence_tier, config.UNKNOWN_TIER_LABEL)
+            tier = details.evidence_tier
+            label = (
+                _t(f"tier_filter.{tier}") if tier in config.EVIDENCE_TIERS else _tier_label(tier)
+            )
             st.badge(label, icon=":material/verified:", color="blue")
 
 
@@ -975,53 +1116,44 @@ def _routing_badges(result: chat.TurnResult) -> None:
     if result.search is None or result.search.needs_tool is None:
         # No usable plan: the note from _search_notes() says what happened instead.
         return
-    st.markdown("**Tools and your details**")
+    st.markdown(f"**{_t('routing.title')}**")
     with st.container(horizontal=True, gap="small"):
         if result.search.needs_tool:
-            st.badge("A tool may help", icon=":material/build:", color="blue")
+            st.badge(_t("routing.tool"), icon=":material/build:", color="blue")
         else:
-            st.badge("No tool expected", icon=":material/build:", color="gray")
+            st.badge(_t("routing.no_tool"), icon=":material/build:", color="gray")
         # What the answer model really got: no block when no answer call was made, even if
         # the plan asked for one. Tool results can still name some values (docs/SECURITY.md).
         if result.profile_sent:
-            st.badge("Profile block sent", icon=":material/person:", color="blue")
+            st.badge(_t("routing.profile_sent"), icon=":material/person:", color="blue")
         else:
-            st.badge("Profile block not sent", icon=":material/person_off:", color="gray")
+            st.badge(_t("routing.profile_not_sent"), icon=":material/person_off:", color="gray")
 
 
 def _search_notes(details: chat.SearchDetails) -> None:
     """Say when the rewrite step gave nothing usable or the filters were dropped."""
     if details.fell_back:
-        st.caption(
-            ":material/info: The rewrite step gave no usable result, so only your question "
-            "was searched, with no filters, and the profile block was not sent."
-        )
+        st.caption(f":material/info: {_t('search.fell_back')}")
     if details.filter_dropped:
-        st.caption(
-            ":material/filter_alt_off: No passage close enough matched these filters, so the "
-            "search ran again without them."
-        )
+        st.caption(f":material/filter_alt_off: {_t('search.filter_dropped')}")
 
 
 def _details_tab() -> None:
     """Show how the last answer was found: what was searched and the filters used (AC-3)."""
     message = _last_searched()
-    st.subheader(":material/manage_search: How this answer was found")
+    st.subheader(f":material/manage_search: {_t('details.title')}")
     if message is None:
-        st.caption(
-            "Ask a question in the Ask tab to see how its answer was found: the searches run "
-            "and the filters used."
-        )
+        st.caption(_t("details.empty"))
         return
     details = message["result"].search
-    st.markdown("**Searched for**")
+    st.markdown(f"**{_t('details.searched_for')}**")
     # The question is the user's text and the rewrites the model's: both shown escaped.
-    lines = [f"1. {_one_line(details.question)} *(your question)*"]
+    lines = [f"1. {_one_line(details.question)} *{_t('details.your_question')}*"]
     lines += [
         f"{number}. {_one_line(rewrite)}" for number, rewrite in enumerate(details.rewrites, 2)
     ]
     st.markdown("\n".join(lines))
-    st.markdown("**Filters**")
+    st.markdown(f"**{_t('details.filters')}**")
     _filter_badges(details)
     _routing_badges(message["result"])
     _search_notes(details)
@@ -1030,38 +1162,39 @@ def _details_tab() -> None:
 
 def _last_answer_card() -> None:
     """Show a short summary of how the last answer was found, and its cost, in the sidebar."""
+    lang = _lang()
     message = _last_searched()
     if message is None:
         # No turn has searched yet, but one may have spent tokens before failing (AC-10).
         session = _session_usage()
         if session.tokens:
-            st.caption(f"{USAGE_ICON} Session: {_dollars(usage.format_session(session))}")
+            line = _t("usage.session", usage=_dollars(usage.format_session(session, lang)))
+            st.caption(f"{USAGE_ICON} {line}")
         return
     details = message["result"].search
     with st.container(border=True):
-        st.markdown("**:material/manage_search: Last answer**")
+        st.markdown(f"**:material/manage_search: {_t('card.last_answer')}**")
         # Names the question, as a rejected or failed turn leaves an earlier search here.
         question = _one_line(details.question)
         if len(question) > config.CARD_QUESTION_CHARS:
             question = question[: config.CARD_QUESTION_CHARS].rstrip("\\ ") + "…"
-        st.caption(f"For: {question}")
+        st.caption(_t("card.for", question=question))
         if details.rewrites:
             rewrites = len(details.rewrites)
-            st.caption(
-                f"Searched {len(details.queries)} ways: your question and {rewrites} "
-                f"{'rewrite' if rewrites == 1 else 'rewrites'}."
-            )
+            key = "card.searched_one" if rewrites == 1 else "card.searched_many"
+            st.caption(_t(key, queries=len(details.queries), rewrites=rewrites))
         else:
-            st.caption("Searched for your question only.")
+            st.caption(_t("card.question_only"))
         _filter_badges(details)
         if details.filter_dropped:
-            st.caption("No match with these filters, so they were dropped.")
+            st.caption(_t("card.filters_dropped"))
         turn_usage = message.get("usage")
         if turn_usage is not None and turn_usage.calls:
-            st.caption(f"{USAGE_ICON} This answer: {_dollars(usage.format_turn(turn_usage))}")
-        session = _dollars(usage.format_session(_session_usage()))
-        st.caption(f"{USAGE_ICON} Session: {session}")
-        st.caption("More in the Details tab.")
+            this_answer = _dollars(usage.format_turn(turn_usage, lang))
+            st.caption(f"{USAGE_ICON} {_t('usage.this_answer', usage=this_answer)}")
+        session = _dollars(usage.format_session(_session_usage(), lang))
+        st.caption(f"{USAGE_ICON} {_t('usage.session', usage=session)}")
+        st.caption(_t("card.more"))
 
 
 def _ask_tab() -> None:
@@ -1071,13 +1204,10 @@ def _ask_tab() -> None:
     with box:
         invitation = st.empty()
         if not history:
-            invitation.caption(
-                "Ask a question about nutrition for strength training. "
-                "Answers cite the research they use."
-            )
+            invitation.caption(_t("ask.invitation"))
         for turn, message in enumerate(history):
             _show_message(message, turn)
-    question = st.chat_input("Ask about nutrition for your training", key="chat_input")
+    question = st.chat_input(_t("ask.placeholder"), key="chat_input")
     if not question:
         return
     invitation.empty()
@@ -1097,38 +1227,41 @@ def _about_sidebar() -> None:
     st.divider()
     # An expander since the last answer's card sits above it (docs/UI_DESIGN.md); Streamlit cannot
     # nest expanders, so the credits are a section inside it.
-    with st.expander("About the answers", icon=":material/menu_book:"):
-        st.markdown(
-            f"- **{summary.articles} open-access research articles**: "
-            f"{summary.position_stands} ISSN position stands and {summary.reviews} peer-reviewed "
-            f"reviews ({' and '.join(summary.licenses)}).\n"
-            f"- Each question is rephrased {config.QUERY_REWRITES} ways, passages are found by "
-            "meaning and by keyword and ranked together, and the answer cites them as "
-            "[S1], [S2]...\n"
-            f"- Rephrased by `{config.QUERY_TRANSLATION_MODEL}` and written by "
-            f"`{config.DEFAULT_ANSWER_MODEL}` through OpenRouter."
+    with st.expander(_t("about.title"), icon=":material/menu_book:"):
+        articles = _t(
+            "about.articles",
+            articles=summary.articles,
+            stands=summary.position_stands,
+            reviews=summary.reviews,
+            licenses=_t("about.and").join(summary.licenses),
         )
+        models = _t(
+            "about.models",
+            rewrite_model=config.QUERY_TRANSLATION_MODEL,
+            answer_model=config.DEFAULT_ANSWER_MODEL,
+        )
+        st.markdown(f"- {articles}\n- {_t('about.method')}\n- {models}")
         # Credits every source (copyright policy rule 6): authors, title, journal, licence, link,
-        # and the change made with the no-endorsement note, as in ATTRIBUTION.md.
-        st.markdown("**:material/license: Sources and credits**")
+        # and the change made with the no-endorsement note, as in ATTRIBUTION.md. The credits
+        # themselves stay as the articles give them.
+        st.markdown(f"**:material/license: {_t('about.credits')}**")
+        article = _t("about.article")
         for source in manifest.values():
             st.markdown(
                 f"**{source.id}.** {chat.escape_markdown(chat.format_authors(source.authors))}. "
                 f"{chat.escape_markdown(source.title)} ({source.year}). "
                 f"{chat.escape_markdown(source.journal)}. "
                 f"[{source.license}]({chat.markdown_url(source.license_url)}) · "
-                f"[Article]({chat.markdown_url(source.url)})"
+                f"[{article}]({chat.markdown_url(source.url)})"
             )
-        st.caption(
-            f"{ARTICLE_CHANGES_NOTE} Full credits, with each article's copyright notice, are in "
-            "ATTRIBUTION.md in the repository."
-        )
+        st.caption(f"{_t('about.changes')} {_t('about.full_credits')}")
 
 
 def _summary_download() -> None:
     """Offer the session summary as a PDF, built in memory only when clicked (AC-9)."""
     # Drawn after the main area, so the turn that just ran is in it. The PDF is built from this
-    # run's snapshot when the user clicks; Streamlit keeps the bytes in memory, never on disk.
+    # run's snapshot when the user clicks; Streamlit keeps the bytes in memory, never on disk. It
+    # is in English whatever the language (German comes with T7.2); the German label says so.
     turns = export_pdf.session_turns(st.session_state["messages"])
     user = st.session_state.get("profile")
     system = st.session_state["units"]
@@ -1142,7 +1275,7 @@ def _summary_download() -> None:
 
     empty = user is None and not turns
     st.download_button(
-        config.PDF_BUTTON_LABEL,
+        _t("pdf.label"),
         data=build,
         file_name=config.PDF_FILE_NAME.format(date=today.isoformat()),
         mime="application/pdf",
@@ -1150,10 +1283,26 @@ def _summary_download() -> None:
         # The download needs no rerun of the app.
         on_click="ignore",
         disabled=empty,
-        help=config.PDF_BUTTON_EMPTY_HELP if empty else config.PDF_BUTTON_HELP,
+        help=_t("pdf.empty_help") if empty else _t("pdf.help"),
         key="summary_pdf",
         width="stretch",
     )
+
+
+def _language_control() -> None:
+    """Show the EN | DE switch: an icon and a segmented control whose label is collapsed."""
+    with st.container(horizontal=True, gap="small", vertical_alignment="center", width="content"):
+        st.markdown(":material/translate:")
+        # required=True: a click on the chosen language cannot deselect it to None. The value is
+        # the session's language, written before the control is drawn (no default here).
+        st.segmented_control(
+            _t("language.label"),
+            i18n.LANGUAGES,
+            format_func=i18n.LANGUAGE_LABELS.get,
+            required=True,
+            key=i18n.SESSION_KEY,
+            label_visibility="collapsed",
+        )
 
 
 def _main_area() -> None:
@@ -1161,20 +1310,29 @@ def _main_area() -> None:
     with st.container(
         horizontal=True, horizontal_alignment="distribute", vertical_alignment="center"
     ):
-        st.title(config.APP_TITLE)
-        st.badge(
-            "Not medical advice", icon=":material/info:", color="orange", help=config.DISCLAIMER
-        )
-    st.markdown(config.APP_INTRO)
+        st.title(_t("app.title"))
+        with st.container(
+            horizontal=True, gap="medium", vertical_alignment="center", width="content"
+        ):
+            st.badge(
+                _t("app.not_medical_advice"),
+                icon=":material/info:",
+                color="orange",
+                help=_t("app.disclaimer"),
+            )
+            _language_control()
+    st.markdown(_t("app.intro"))
     # Shown on every page state (AC-12), large enough to notice (owner's request, 2026-10-20).
-    st.warning(f"**Not medical advice.** {config.DISCLAIMER}", icon=":material/info:")
+    st.warning(
+        f"**{_t('app.not_medical_advice')}.** {_t('app.disclaimer')}", icon=":material/info:"
+    )
 
     ask, targets, food, details = st.tabs(
         [
-            ":material/chat: **Ask**",
-            ":material/target: **My targets**",
-            ":material/search: **Food lookup**",
-            ":material/list: **Details**",
+            f":material/chat: **{_t('tab.ask')}**",
+            f":material/target: **{_t('tab.targets')}**",
+            f":material/search: **{_t('tab.food')}**",
+            f":material/list: **{_t('tab.details')}**",
         ]
     )
     with ask:
@@ -1189,7 +1347,7 @@ def _main_area() -> None:
 
 with st.sidebar:
     _profile_sidebar()
-    st.caption(config.THEME_HINT)
+    st.caption(_t("theme.hint"))
     # Both slots are filled after the main area, so they hold the turn that just ran (the PDF too);
     # until then the page keeps the previous run's card. Drawn once per run: a slot drawn twice in
     # one run keeps the first draw's extra elements (e.g. a badge the new turn does not have).
@@ -1197,7 +1355,8 @@ with st.sidebar:
     last_answer_slot = st.empty()
     _about_sidebar()
 if st.session_state.get("profile_form_open"):
-    _profile_form()
+    # Built on each run, so the dialog's title is in the language chosen now.
+    st.dialog(_t("profile.dialog_title"), on_dismiss=_close_profile_form)(_profile_form)()
 
 
 # The content sits in the middle column of the wide layout (config.PAGE_COLUMN_WEIGHTS).
