@@ -10,10 +10,6 @@ from src.i18n import Language
 
 UnitSystem = Literal["metric", "imperial"]
 UNIT_SYSTEMS: tuple[UnitSystem, ...] = ("metric", "imperial")
-UNIT_SYSTEM_LABELS: dict[UnitSystem, str] = {
-    "metric": "Metric (kg, cm)",
-    "imperial": "Imperial (lb, ft/in)",
-}
 
 # Exact by definition (the international yard and pound, 1959).
 KG_PER_LB = 0.45359237

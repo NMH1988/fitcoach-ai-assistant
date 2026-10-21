@@ -1,6 +1,7 @@
 """UI tests for the language switch (T7.1): the header control, the default, German everywhere."""
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -181,6 +182,32 @@ def test_the_food_lookup_tells_german_users_to_use_english_names(monkeypatch):
     ]
 
 
+def _look_up(at: AppTest, food: str) -> AppTest:
+    """Type a food into the Food lookup tab and press its button."""
+    at.text_input(key="food_query").set_value(food)
+    return at.button(key="food_lookup").click().run(timeout=30)
+
+
+def test_the_food_lookup_s_own_messages_are_german(monkeypatch):
+    """The tab calls no model, so "not found" and an invalid name are German (PR #74 review)."""
+    at = _look_up(_start(monkeypatch, "de-DE"), "Haferflocken")
+    [info] = at.tabs[FOOD_TAB].info
+    assert info.value in (
+        i18n.t("food.tab.not_found_alternatives", "de"),
+        i18n.t("food.tab.not_found_none", "de"),
+    )
+    at = _look_up(at, "x")
+    [warning] = at.tabs[FOOD_TAB].warning
+    assert warning.value == i18n.t("food.tab.invalid", "de")
+
+
+def test_the_english_food_lookup_keeps_the_tool_s_messages(monkeypatch):
+    """In English the tab shows the food tool's own text, as before T7.1."""
+    at = _look_up(_start(monkeypatch), "x")
+    [warning] = at.tabs[FOOD_TAB].warning
+    assert warning.value.startswith("Invalid food lookup:")
+
+
 # --- Messages from src/ follow the language (AC 2) ------------------------------------------------
 
 
@@ -239,12 +266,15 @@ def clear_caches():
 
 
 def _english_only() -> list[str]:
-    """Return the English texts with no placeholder whose German differs, to spot leftovers."""
-    return [
-        text
-        for key, text in i18n.TEXT["en"].items()
-        if "{" not in text and text != i18n.TEXT["de"][key] and len(text) > 4
-    ]
+    """Return the English texts, or their fixed parts around {placeholders}, German lacks."""
+    # "Sources ({count})" is checked by its fixed part "Sources (", which German does not have.
+    parts = []
+    for key, text in i18n.TEXT["en"].items():
+        german = i18n.TEXT["de"][key]
+        for part in re.split(r"\{\w+\}", text):
+            if len(part.strip()) > 4 and part not in german:
+                parts.append(part)
+    return parts
 
 
 def _leftovers(texts: list[str]) -> list[str]:

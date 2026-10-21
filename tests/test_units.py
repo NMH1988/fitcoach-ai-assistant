@@ -2,7 +2,7 @@
 
 import pytest
 
-from src import units
+from src import i18n, units
 
 
 @pytest.mark.parametrize(
@@ -91,7 +91,7 @@ def test_format_height(cm, system, expected):
 
 def test_every_unit_system_has_a_label():
     """Each unit system has a label for the units switch."""
-    assert set(units.UNIT_SYSTEM_LABELS) == set(units.UNIT_SYSTEMS)
+    assert {f"units.{system}" for system in units.UNIT_SYSTEMS} <= set(i18n.TEXT["en"])
 
 
 @pytest.mark.parametrize(

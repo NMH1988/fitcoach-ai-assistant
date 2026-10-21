@@ -52,17 +52,17 @@ def no_price_fetch(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def turn_codes_are_keys(monkeypatch):
-    """Check that every turn ending in a fixed message names a key in both languages (T7.1)."""
+    """Check that every turn ending in a fixed message has a text in both languages (T7.1)."""
     run_turn = chat.run_turn
 
     def checked(*args, **kwargs):
-        """Run the turn; unless the model answered, its message key must be in src/i18n.py."""
+        """Run the turn; unless the model answered, its message must fill in both languages."""
         result = run_turn(*args, **kwargs)
         if result.kind != "answer":
-            assert all(result.code in i18n.TEXT[lang] for lang in i18n.LANGUAGES), (
-                result.kind,
-                result.code,
-            )
+            # A missing key or a {placeholder} the params do not fill would break every later
+            # run of the session, as the chat history is drawn again each time.
+            for lang in i18n.LANGUAGES:
+                assert i18n.t(result.code, lang, **result.params), (result.kind, result.code)
         return result
 
     monkeypatch.setattr(chat, "run_turn", checked)

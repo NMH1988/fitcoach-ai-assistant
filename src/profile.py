@@ -26,14 +26,6 @@ ACTIVITY_LABELS: dict[ActivityLevel, str] = {
     "very_active": "Very active · exercise 6-7 times a week",
     "extra_active": "Extra active · exercise more than 7 times a week, extra heavy workouts",
 }
-# For the sidebar tile, where the full label does not fit.
-ACTIVITY_SHORT_LABELS: dict[ActivityLevel, str] = {
-    "sedentary": "Sedentary",
-    "light": "Light · 1-3 times",
-    "moderate": "Moderate · 4-5 times",
-    "very_active": "Very active · 6-7 times",
-    "extra_active": "Extra active",
-}
 
 Goal = Literal["build_muscle", "lose_fat", "maintain"]
 GOAL_LABELS: dict[Goal, str] = {

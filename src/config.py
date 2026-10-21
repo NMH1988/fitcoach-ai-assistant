@@ -74,15 +74,6 @@ TOPICS: tuple[str, ...] = (
     "nutrient_timing",
     "supplements",
 )
-# How the topics are named in the app's "How this answer was found" view.
-TOPIC_LABELS: dict[str, str] = {
-    "protein": "Protein",
-    "carbohydrate": "Carbohydrate",
-    "fat": "Fat",
-    "energy_balance": "Energy balance",
-    "nutrient_timing": "Nutrient timing",
-    "supplements": "Supplements",
-}
 # 1 = ISSN position stand, 2 = other peer-reviewed review or meta-analysis (docs/SOURCES.md).
 EVIDENCE_TIERS: tuple[int, ...] = (1, 2)
 

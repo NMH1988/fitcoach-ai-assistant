@@ -788,19 +788,34 @@ def _fiber_text(fiber_g: float | None) -> str:
     return _t("food.not_reported") if fiber_g is None else f"{_plain(fiber_g)} g"
 
 
+def _food_tab_message(result: registry.ToolResult) -> str:
+    """Return why a Food lookup tab lookup found nothing, in the session's language."""
+    # The tab calls no model, so its messages follow the language (owner's choice in the review
+    # of PR #74); English keeps the tool's own fixed text, as before. The tab's widgets keep the
+    # grams in range, so an invalid lookup is always the food's name.
+    if _lang() == "en":
+        return result.message
+    if result.status == "invalid":
+        return _t("food.tab.invalid")
+    if not isinstance(result, FoodLookupResult):
+        return _t("food.tab.error")
+    alternatives = "alternatives" if result.alternatives else "none"
+    return _t(f"food.tab.not_found_{alternatives}")
+
+
 def _food_result(result: registry.ToolResult) -> None:
     """Show a lookup from the Food lookup tab: the food and its nutrients, or why not."""
-    # Both messages are fixed text that never repeats the input (the tool's own, in English).
+    # Every message is fixed text that never repeats the input.
     if result.status == "invalid":
-        st.warning(result.message, icon=":material/edit:")
+        st.warning(_food_tab_message(result), icon=":material/edit:")
         return
     if not isinstance(result, FoodLookupResult):
         # The foods table is missing or broken.
-        st.error(result.message, icon=":material/error:")
+        st.error(_food_tab_message(result), icon=":material/error:")
         return
     if result.status != "found" or result.nutrients is None:
         # Fixed text; the suggestions are USDA names, so only table cells.
-        st.info(result.message, icon=":material/search_off:")
+        st.info(_food_tab_message(result), icon=":material/search_off:")
         if result.alternatives:
             st.dataframe(
                 {_t("food.did_you_mean"): result.alternatives}, hide_index=True, width="stretch"

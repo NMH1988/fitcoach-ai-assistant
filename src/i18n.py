@@ -226,6 +226,21 @@ _EN: dict[str, str] = {
         "Single, unprocessed foods from the USDA FoodData Central Foundation Foods table, named "
         "in English."
     ),
+    # The Food lookup tab's own messages (no model call there; owner's choice in the review of
+    # PR #74). The English ones are the food tool's, as the English tab showed before.
+    "food.tab.invalid": (
+        "Invalid food lookup: food must be the name of one food in 2 to 100 characters, with at "
+        "least one word of 2 or more letters or digits."
+    ),
+    "food.tab.not_found_alternatives": (
+        "No close match in the USDA Foundation Foods table. Did you mean one of the alternatives? "
+        "They are the closest names in it."
+    ),
+    "food.tab.not_found_none": (
+        "No close match in the USDA Foundation Foods table. No similar name: the table holds "
+        "single, unprocessed foods under plainer names (e.g. 'rolled oats')."
+    ),
+    "food.tab.error": config.TOOL_FAILED_MESSAGE,
     "food.did_you_mean": "Did you mean",
     "food.matched": "Matched USDA food, {grams} g:",
     "food.fiber_line": "Fiber: {fiber}",
@@ -599,6 +614,23 @@ _DE: dict[str, str] = {
         "Einzelne, unverarbeitete Lebensmittel aus der Tabelle Foundation Foods von USDA "
         "FoodData Central. Geben Sie den Namen auf Englisch ein: Die Tabelle hat nur englische "
         "Namen."
+    ),
+    "food.tab.invalid": (
+        "Geben Sie den Namen eines Lebensmittels auf Englisch ein: 2 bis 100 Zeichen, mit "
+        "mindestens einem Wort aus 2 oder mehr Buchstaben oder Ziffern."
+    ),
+    "food.tab.not_found_alternatives": (
+        "Keine genaue Übereinstimmung in der USDA-Tabelle Foundation Foods. Meinten Sie einen der "
+        "ähnlichen Einträge unten? Es sind die nächsten Namen in der Tabelle."
+    ),
+    "food.tab.not_found_none": (
+        "Keine genaue Übereinstimmung in der USDA-Tabelle Foundation Foods und kein ähnlicher "
+        "Name: Die Tabelle enthält einzelne, unverarbeitete Lebensmittel unter einfachen "
+        "englischen Namen (z. B. 'rolled oats')."
+    ),
+    "food.tab.error": (
+        "Die Lebensmittelsuche ist gerade nicht verfügbar: Die Lebensmitteltabelle konnte nicht "
+        "gelesen werden."
     ),
     "food.did_you_mean": "Meinten Sie",
     "food.matched": "Gefundenes USDA-Lebensmittel, {grams} g:",

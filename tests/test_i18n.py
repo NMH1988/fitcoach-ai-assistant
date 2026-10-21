@@ -3,12 +3,13 @@
 import re
 import string
 from decimal import Decimal
+from typing import get_args
 
 import pytest
 
 from src import chat, config, guard, guardrails, i18n, llm, profile, units, usage
 from src.rag import sources, store
-from src.tools import meal_plan, registry
+from src.tools import food, meal_plan, registry
 
 # --- Every key in both languages (AC 1) -----------------------------------------------------------
 
@@ -99,12 +100,9 @@ def test_the_english_labels_are_the_ones_the_model_and_the_pdf_get():
         ("goal", profile.GOAL_LABELS),
         ("sex", profile.SEX_LABELS),
         ("activity", profile.ACTIVITY_LABELS),
-        ("activity_short", profile.ACTIVITY_SHORT_LABELS),
-        ("units", units.UNIT_SYSTEM_LABELS),
         ("status", config.STATUS_LABELS),
         ("tier", config.EVIDENCE_TIER_LABELS),
         ("correction", config.CORRECTION_LABELS),
-        ("topic", config.TOPIC_LABELS),
     ]
     for prefix, mapping in labels:
         for value, label in mapping.items():
@@ -245,3 +243,39 @@ def test_the_meal_plan_cells_in_german():
     assert meal_plan.food_row(item, "de")[1:3] == ["Nicht gefunden", "80,5 g"]
     assert meal_plan.food_columns("de")[0] == "Angefragtes Lebensmittel"
     assert meal_plan.FOOD_COLUMNS[0] == "Food asked"
+
+
+def test_every_unit_system_activity_level_and_topic_has_its_labels():
+    """The form's and the filters' values each have a label in both languages."""
+    values = [
+        ("units", units.UNIT_SYSTEMS),
+        ("activity_short", get_args(profile.ActivityLevel)),
+        ("topic", config.TOPICS),
+    ]
+    for lang in i18n.LANGUAGES:
+        for prefix, options in values:
+            assert {f"{prefix}.{value}" for value in options} <= set(i18n.TEXT[lang])
+
+
+def test_the_food_tab_s_english_messages_are_the_food_tool_s():
+    """The Food lookup tab's English messages are the tool's own texts, so English is unchanged."""
+    table = [
+        food.Food(
+            fdc_id=1,
+            description="Oats",
+            kcal=389,
+            protein_g=16.9,
+            carbohydrate_g=66.3,
+            fat_g=6.9,
+            fiber_g=10.6,
+        )
+    ]
+    invalid = registry.run_food_lookup("", 100, table)
+    assert i18n.t("food.tab.invalid", "en") == invalid.message
+    suggestion = registry.run_food_lookup("toast", 100, table)
+    assert suggestion.alternatives
+    assert i18n.t("food.tab.not_found_alternatives", "en") == suggestion.message
+    nothing = registry.run_food_lookup("zzzz qqqq", 100, table)
+    assert not nothing.alternatives
+    assert i18n.t("food.tab.not_found_none", "en") == nothing.message
+    assert i18n.t("food.tab.error", "en") == config.TOOL_FAILED_MESSAGE
