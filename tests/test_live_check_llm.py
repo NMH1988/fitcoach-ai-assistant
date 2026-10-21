@@ -91,6 +91,8 @@ def _streaming_fake(usage=STREAM_REPLY_USAGE, ids=()):
 @pytest.fixture(autouse=True)
 def offline(monkeypatch):
     """Keep main() offline: a fake streamed call, no prices, no generation record by default."""
+    # No key unless a test sets one with _use_fake_key(): a local secrets.toml is never read.
+    monkeypatch.setattr(config.st, "secrets", {})
     monkeypatch.setattr(live_check_llm, "read_prices", lambda: None)
     monkeypatch.setattr(live_check_llm, "fetch_generation", lambda generation_id, key: None)
     monkeypatch.setattr(live_check_llm, "build_streaming_model", _streaming_fake)
