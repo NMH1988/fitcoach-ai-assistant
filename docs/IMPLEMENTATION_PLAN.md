@@ -74,7 +74,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T5.2 | #17 | Session summary PDF | M | T4.4 | 10-31 | done |
 | T7.3 | #35 | Light and dark mode | S | T3.1 | 10-31 | done |
 | T7.4 | #63 | German input guard and guardrails (split from T7.1, owner's decision) | M | T1.3, T5.3 | 10-31 | done |
-| T7.1 | #33 | Language switch: English and German UI | M | T4.4, T4.7, T5.3, T1.3, T7.4 | 10-31 | in review |
+| T7.1 | #33 | Language switch: English and German UI | M | T4.4, T4.7, T5.3, T1.3, T7.4 | 10-31 | done |
 | T7.2 | #34 | German answers end to end | M | T7.1, T3.2, O1, O2, O5 | 11-01 | todo |
 | T4.5 | #15 | `evaluate_meal_plan` tool (stretch; done early by the owner's choice) | S | T4.4 | only if ahead | done |
 | T4.6 | #40 | Profile form: a hint instead of "Press Enter to apply" (beyond the brief; owner's request, done early as a small fix) | S | T4.1, T3.1 | 10-20 | done |
@@ -432,7 +432,7 @@ Added by the owner on 2026-10-20. All three tickets are extras: they come after 
 - The patterns run on casefolded NFKC text, once with accents and once without (`detection_views()`), so ß is always ss and ü is seen as both ü and u. `german()` in `src/german.py` lets each umlaut in a pattern also match the plain vowel and the typed ue/oe/ae; the patterns are written with ss. No umlaut goes inside a lookbehind (`german()` would make it variable-width).
 - The messages stay English until T7.1 translates the UI. The German test strings are our own writing.
 
-### T7.1 Language switch: English and German UI (M) · status: in review · issue #33
+### T7.1 Language switch: English and German UI (M) · status: done · issue #33
 **Serves:** Hard 4 (multi-language support), as an extra after the core; AC-16. Changes the PRD's English-only decision: beyond the PRD (owner's request, 2026-10-20).
 **Depends on:** T4.4, T4.7, T5.3 (so most UI text and the guardrails exist before they are translated), T1.3, T7.4 (the German guard and guardrails, split from this ticket on 2026-10-21)
 **Acceptance criteria**
