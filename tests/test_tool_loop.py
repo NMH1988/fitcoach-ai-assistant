@@ -543,20 +543,24 @@ def test_without_the_profile_block_the_energy_tools_still_use_the_profile(index)
 
 
 def test_without_the_profile_block_an_energy_result_still_names_some_profile_values(index):
-    """No needs_profile: no <profile>, but energy results name the weight, goal and activity."""
-    # Pins the known limit in docs/SECURITY.md: T4.7's result fields reach the model when it calls
-    # an energy tool, with or without the block.
+    """No needs_profile: no <profile>, but tool results name the weight, goal and activity."""
+    # Pins the known limit in docs/SECURITY.md: these result fields reach the model when it calls
+    # an energy or meal plan tool, with or without the block.
     plan = plan_json([QUESTION] * 3, needs_tool=True, needs_profile=False)
-    replies = (tool_reply((MACRO_TOOL, {}), (TDEE_TOOL, {})), AIMessage(ANSWER))
-    _, model = _turn(index, *replies, plan=plan)
+    day = {"items": [OATS, {"food": "chicken breast", "grams": 200}]}
+    calls = ((MACRO_TOOL, {}), (TDEE_TOOL, {}), (MEAL_PLAN_TOOL, day))
+    _, model = _turn(index, tool_reply(*calls), AIMessage(ANSWER), plan=plan)
     assert "<profile>" not in model.calls[0][1].content
-    macro, tdee = (_content(message) for message in _tool_messages(model))
+    macro, tdee, meal_plan = (_content(message) for message in _tool_messages(model))
     targets = macro["targets"]
     assert (targets["weight_kg"], targets["goal"]) == (80.0, "build_muscle")
     assert macro["energy_needs"]["activity_factor"] == tdee["activity_factor"] == 1.55
-    # Height, age and sex are not in any tool message.
+    assert "'Build muscle'" in meal_plan["message"]
+    # No tool message has a height, age or sex field, nor the stored height or sex.
     sent = _all_text(model)
-    assert "180" not in sent and "Male" not in sent and '"age"' not in sent
+    for key in ('"height_cm"', '"age"', '"sex"'):
+        assert key not in sent
+    assert "180" not in sent and "male" not in sent.casefold()
 
 
 def test_build_messages_leaves_the_profile_block_out_on_request():
