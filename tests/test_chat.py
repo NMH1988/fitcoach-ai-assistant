@@ -225,14 +225,68 @@ def test_the_question_and_each_rewrite_are_searched_with_the_filter(index, monke
 
 
 def test_a_rewrite_finds_chunks_the_question_alone_misses(index):
-    """A vague question finds nothing by itself; its rewrites find the matching passages."""
-    vague = "What should I eat late at night?"
-    assert retriever.retrieve(index, vague) == []
-    plan = plan_json(["casein protein before sleep", "protein at night", "a snack before bed"])
-    model = _model("Casein before sleep [S1].")
-    result = _turn(vague, index, model, translator=ScriptedTranslator(plans=[plan]))
+    """A covered question: a rewrite adds by meaning a passage the question alone does not find."""
+    carbohydrate = "Carbohydrate: carbohydrate on heavy training days."
+    assert carbohydrate not in [c.text for c in retriever.retrieve(index, QUESTION)]
+    rewrites = ["protein per meal", "carbohydrate around training", "protein timing"]
+    plan = QueryPlan.model_validate_json(plan_json(rewrites))
+    found, _ = chat.find_chunks(QUESTION, plan, index)
+    [added] = [c for c in found if c.text == carbohydrate]
+    # A distance: vector search found it (a chunk found by keyword only has none), within the limit.
+    assert added.distance is not None and added.distance <= config.RETRIEVAL_MAX_DISTANCE
+    model = _model("Protein and carbohydrate [S1].")
+    result = _turn(
+        QUESTION, index, model, translator=ScriptedTranslator(plans=[plan_json(rewrites)])
+    )
     assert result.kind == "answer"
-    assert "Protein before sleep: casein" in _user_message(model)
+    assert carbohydrate in _user_message(model)
+
+
+VAGUE = "What should I eat late at night?"
+VAGUE_REWRITES = ["casein protein before sleep", "protein at night", "a snack before bed"]
+
+
+def test_rewrites_alone_do_not_make_a_question_covered(index):
+    """The question itself has no chunk within the limit: its rewrites' hits do not count (T3.8)."""
+    assert retriever.retrieve(index, VAGUE) == []
+    plan = QueryPlan.model_validate_json(plan_json(VAGUE_REWRITES))
+    # Two of the three rewrites are close to the casein chunk; before T3.8 that was enough.
+    assert retriever.search(index, retriever.embed_queries(index, VAGUE_REWRITES[:2]))
+    found, details = chat.find_chunks(VAGUE, plan, index)
+    assert found == []
+    assert details.rewrites == tuple(VAGUE_REWRITES)
+
+
+def test_with_only_a_rewrite_close_and_no_tool_no_answer_call_is_made(index):
+    """An off-topic question whose rewrite drifts into the domain costs no answer call (T3.8)."""
+    # As in T3.5's live check, where "VAR and offside rule in football" alone came within the limit.
+    model = _model("The sources do not cover football rules.")
+    rewrites = ["protein for football players", "offside rule", "football laws"]
+    assert retriever.retrieve(index, OFF_TOPIC) == []
+    assert retriever.retrieve(index, rewrites[0])
+    plan = plan_json(rewrites, needs_tool=False, needs_profile=False)
+    result = _turn(OFF_TOPIC, index, model, translator=ScriptedTranslator(plans=[plan]))
+    assert (result.kind, result.text) == ("no_sources", config.NO_SOURCES_MESSAGE)
+    assert result.steps == (Step.CHECK, Step.REWRITE, Step.SEARCH)
+    assert model.calls == []
+    assert result.search.rewrites == tuple(rewrites)
+
+
+def test_with_only_a_rewrite_close_and_needs_tool_the_tools_only_call_runs(index):
+    """No relevant chunk for the question but needs_tool: T3.5's one unseen call with the tools."""
+    casein = "Protein before sleep: casein"
+    found = retriever.search(index, retriever.embed_queries(index, VAGUE_REWRITES))
+    assert any(c.text.startswith(casein) for c in found)
+    model = _model("Casein is a slow protein.")
+    plan = plan_json(VAGUE_REWRITES, needs_tool=True)
+    result = _turn(VAGUE, index, model, translator=ScriptedTranslator(plans=[plan]))
+    assert (result.kind, result.text) == ("no_sources", config.NO_SOURCES_MESSAGE)
+    [[_, user]] = model.calls
+    [kwargs] = model.call_kwargs
+    assert kwargs["tools"]
+    # The rewrites' chunks are not sent: the model sees that no excerpt is close enough.
+    assert f"<sources>\n{config.NO_SOURCES_BLOCK}\n</sources>" in user.content
+    assert casein not in user.content
 
 
 def test_the_filter_keeps_only_matching_chunks(index):
@@ -257,6 +311,21 @@ def test_with_no_hits_the_search_runs_again_without_the_filter(index, monkeypatc
     assert result.search.filter_dropped
     assert result.search.topics == ("fat",)
     assert "Made-up article 1" in _user_message(model)
+
+
+def test_a_filter_under_which_only_a_rewrite_has_a_hit_is_dropped(index):
+    """Under the filter only a rewrite comes close, not the question: the search runs unfiltered."""
+    rewrites = ["protein per meal", "carbohydrate around training", "protein timing"]
+    vectors = retriever.embed_queries(index, [QUESTION, rewrites[1]])
+    where = {"topics": {"$contains": "carbohydrate"}}
+    question_hits, rewrite_hits = retriever.vector_lists(index, vectors, where)
+    assert question_hits == [] and rewrite_hits
+    plan = plan_json(rewrites, ["carbohydrate"])
+    model = _model("Four meals [S1].")
+    result = _turn(QUESTION, index, model, translator=ScriptedTranslator(plans=[plan]))
+    assert result.kind == "answer"
+    assert result.search.filter_dropped
+    assert "Protein: spread protein over four meals." in _user_message(model)
 
 
 def test_with_no_hits_even_without_the_filter_the_sources_do_not_cover_it(index, monkeypatch):
@@ -1027,13 +1096,17 @@ def test_the_answer_prompt_is_the_owners(monkeypatch):
     assert not text.startswith("TODO (owner)"), "The owner has not written the answer prompt yet."
 
 
-def test_a_chunk_found_only_by_a_rewrite_counts(index):
-    """The distance limit applies to each query: a chunk close to any rewrite reaches the model."""
-    # Pins the chosen merge: an off-topic question with an on-topic rewrite is answered from the
-    # chunks that rewrite finds, and the answer prompt is left to decline it (T3.2 review).
+def test_a_chunk_found_only_by_a_rewrite_does_not_reach_the_model(index):
+    """An off-topic question with an on-topic rewrite is not answered from that rewrite's chunks."""
+    # Pinned the other way in T3.2's review (the answer prompt declined it); since T3.8 only the
+    # question decides whether the sources cover it. The fakes' plan says needs_tool, so the model
+    # gets one unseen call with the tools and no excerpt.
     assert retriever.retrieve(index, OFF_TOPIC) == []
-    plan = plan_json(["protein for football players", "offside rule", "football laws"])
+    rewrites = ["protein for football players", "offside rule", "football laws"]
+    assert retriever.retrieve(index, rewrites[0])
+    plan = plan_json(rewrites)
     model = _model("The sources do not cover football rules.")
     result = _turn(OFF_TOPIC, index, model, translator=ScriptedTranslator(plans=[plan]))
-    assert result.kind == "answer"
-    assert len(model.calls) == 1
+    assert result.kind == "no_sources"
+    [[_, user]] = model.calls
+    assert "Made-up article" not in user.content
