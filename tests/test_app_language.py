@@ -192,13 +192,28 @@ def test_the_food_lookup_s_own_messages_are_german(monkeypatch):
     """The tab calls no model, so "not found" and an invalid name are German (PR #74 review)."""
     at = _look_up(_start(monkeypatch, "de-DE"), "Haferflocken")
     [info] = at.tabs[FOOD_TAB].info
-    assert info.value in (
-        i18n.t("food.tab.not_found_alternatives", "de"),
-        i18n.t("food.tab.not_found_none", "de"),
-    )
+    assert info.value == i18n.t("food.tab.not_found_none", "de")
     at = _look_up(at, "x")
     [warning] = at.tabs[FOOD_TAB].warning
     assert warning.value == i18n.t("food.tab.invalid", "de")
+
+
+def test_a_german_misspelt_food_shows_the_german_suggestion_message(monkeypatch):
+    """A near miss gets the German "did you mean" message above its suggestions."""
+    tab = _look_up(_start(monkeypatch, "de-DE"), "chicken brest").tabs[FOOD_TAB]
+    [info] = tab.info
+    assert info.value == i18n.t("food.tab.not_found_alternatives", "de")
+    [suggestions] = tab.dataframe
+    assert list(suggestions.value[i18n.t("food.did_you_mean", "de")])
+
+
+def test_a_missing_foods_table_shows_the_german_error(monkeypatch, tmp_path):
+    """Without the foods table the German tab shows its own fixed error, never a traceback."""
+    at = _start(monkeypatch, "de-DE")
+    monkeypatch.setattr(config, "USDA_FOODS_PATH", tmp_path / "missing.csv")
+    at = _look_up(at, "rolled oats")
+    assert not at.exception
+    assert [e.value for e in at.tabs[FOOD_TAB].error] == [i18n.t("food.tab.error", "de")]
 
 
 def test_the_english_food_lookup_keeps_the_tool_s_messages(monkeypatch):

@@ -279,3 +279,9 @@ def test_the_food_tab_s_english_messages_are_the_food_tool_s():
     assert not nothing.alternatives
     assert i18n.t("food.tab.not_found_none", "en") == nothing.message
     assert i18n.t("food.tab.error", "en") == config.TOOL_FAILED_MESSAGE
+
+
+def test_the_german_invalid_food_message_names_the_configured_limits():
+    """The German invalid-name text spells out the limits, so it must follow the config."""
+    expected = f"{config.FOOD_MIN_NAME_CHARS} bis {config.FOOD_MAX_NAME_CHARS} Zeichen"
+    assert expected in i18n.t("food.tab.invalid", "de")
