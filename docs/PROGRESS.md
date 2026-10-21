@@ -29,6 +29,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
   - A single letter or other very short question typed by the user can still sit within the limit itself (T3.7's last criterion left it to its own ticket); kept as a known limit, out of T3.8's scope (owner's choice).
   - Branch started from `main` after PR #67 (T3.5) merged; the plan row was committed first.
 - **Follow-ups:** the owner's live check (O5, criterion 6: the offside question 3 times, short and vague covered questions); a minimum length or another check for very short questions, if wanted (own ticket); T3.6 and T6.1 measure retrieval with this gate.
+
 ## 2026-10-21 · T3.6 Retrieval comparison on the owner's evaluation questions · #73 (closes #51)
 - **Brief:** Hard 1 (hybrid search); AC-4; evidence for the reflection. The German file serves T7.2 (Hard 4, an extra).
 - **What:**
