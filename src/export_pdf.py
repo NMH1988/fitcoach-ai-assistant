@@ -355,20 +355,27 @@ def _tdee_flowables(result: TdeeResult) -> list[Flowable]:
     return [_table(rows), _para(result.method, "small")]
 
 
-def _macro_cells(macro: Macro, system: UnitSystem) -> list[str]:
+def _macro_cells(macro: Macro, weight_kg: float, system: UnitSystem) -> list[str]:
     """Return one macro's grams, share of the kcal and grams per body weight."""
+    # From the grams and the weight, rounded once, as the app shows them (T4.7): Macro.g_per_kg
+    # is already rounded to 0.1, and converting it again can be off by 0.01-0.03 g/lb.
     return [
         f"{macro.grams:,} g",
         f"{macro.percent}%",
-        units.format_per_body_weight(macro.g_per_kg, system),
+        units.format_grams_per_body_weight(macro.grams, weight_kg, system),
     ]
 
 
 def _macro_flowables(result: registry.MacroToolResult, system: UnitSystem) -> list[Flowable]:
     """Return the daily targets as two tables, the message, the notes and the method."""
     targets = result.targets
-    if targets.kcal_target is None or not (
-        targets.protein and targets.carbohydrate and targets.fat
+    # Grams per body weight need the weight the targets are for (T4.7); without it, as without
+    # the targets, only the message is shown.
+    weight = targets.weight_kg
+    if (
+        targets.kcal_target is None
+        or not (targets.protein and targets.carbohydrate and targets.fat)
+        or not weight
     ):
         return [_para(result.message, "small")]
     low, high = targets.kcal_range or (targets.kcal_target, targets.kcal_target)
@@ -382,9 +389,9 @@ def _macro_flowables(result: registry.MacroToolResult, system: UnitSystem) -> li
     per_body_weight = f"Per {units.weight_unit(system)} of body weight"
     macros = [
         ["Macro", "Per day", "Share of kcal", per_body_weight],
-        ["Protein", *_macro_cells(targets.protein, system)],
-        ["Carbohydrate", *_macro_cells(targets.carbohydrate, system)],
-        ["Fat", *_macro_cells(targets.fat, system)],
+        ["Protein", *_macro_cells(targets.protein, weight, system)],
+        ["Carbohydrate", *_macro_cells(targets.carbohydrate, weight, system)],
+        ["Fat", *_macro_cells(targets.fat, weight, system)],
     ]
     flowables: list[Flowable] = [_table(summary), Spacer(1, 2 * mm), _table(macros, header=True)]
     flowables.append(_para(result.message, "small"))

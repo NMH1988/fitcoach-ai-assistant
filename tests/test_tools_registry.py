@@ -216,7 +216,50 @@ def test_usda_names_are_returned_inside_the_tool_message_as_data():
     assert "<" not in tool_message.content and ">" not in tool_message.content
 
 
+# --- The targets and the food lookup outside the chat (T4.7) --------------------------------------
+
+
 def test_macro_targets_give_what_the_tool_gives_with_no_model():
     """macro_targets() is the macro tool's result for the profile, for the app's own views."""
     _, run = _run(MACRO_TOOL, {})
     assert registry.macro_targets(PROFILE) == run.result
+
+
+def test_macro_targets_carry_the_kcal_the_needs_and_the_weight():
+    """The targets for the views hold the kcal, the energy needs and the weight they are for."""
+    targets = registry.macro_targets(PROFILE)
+    assert targets.status == "ok" and targets.targets.kcal_target == 3035
+    assert targets.energy_needs.tdee_kcal == 2759
+    # The weight the targets are for, so the app rounds grams per body weight once (T4.7).
+    assert targets.targets.weight_kg == 80.0
+
+
+def test_macro_targets_follow_the_goal():
+    """Another goal gives another target from the same energy needs."""
+    lose = registry.macro_targets(PROFILE.model_copy(update={"goal": "lose_fat"}))
+    keep = registry.macro_targets(PROFILE.model_copy(update={"goal": "maintain"}))
+    assert keep.targets.kcal_target == 2759
+    assert lose.targets.kcal_target < keep.targets.kcal_target
+
+
+def test_the_food_lookup_runs_like_the_tool():
+    """run_food_lookup gives the tool's result for a food and grams."""
+    result = registry.run_food_lookup("rolled oats", 80.0, FOODS)
+    assert result.status == "found"
+    assert result.matched_name == "Oats, whole grain, rolled, old fashioned"
+    assert result.nutrients.kcal == 304
+
+
+@pytest.mark.parametrize(("food", "grams"), [("", 100.0), ("oats", 0.0), ("oats", 5000.0)])
+def test_an_invalid_food_lookup_gives_the_fixed_message(food, grams):
+    """Bad input gives the tool's fixed "invalid" message, not an exception or an echo."""
+    result = registry.run_food_lookup(food, grams, FOODS)
+    assert result.status == "invalid"
+    assert result.message.startswith("Invalid food lookup:")
+
+
+def test_a_missing_foods_table_gives_the_fixed_error(monkeypatch, tmp_path):
+    """Without the foods table the lookup fails with the fixed message, never the exception."""
+    monkeypatch.setattr(config, "USDA_FOODS_PATH", tmp_path / "missing.csv")
+    result = registry.run_food_lookup("oats", 100.0)
+    assert (result.status, result.message) == ("error", config.TOOL_FAILED_MESSAGE)
