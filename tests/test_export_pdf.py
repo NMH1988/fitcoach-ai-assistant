@@ -681,11 +681,13 @@ def test_a_meal_plan_shows_the_alternatives_and_suggestions():
     assert "".join(close.split()) in compact
 
 
-def test_the_meal_plan_foods_table_breaks_no_header_or_value():
-    """The foods table's headers and values fit their columns, so none is split mid-word."""
+def test_the_meal_plan_foods_table_splits_no_header_word():
+    """Each header of the foods table reads back whole, so none is split mid-word."""
     run = _run(MEAL_PLAN_TOOL, DAY)
     text = pdf_text(_pdf([("Day?", _answer("Ok.", runs=(run,)))]))
     assert "Amount Energy Protein Carbohydrate Fat Fiber" in text
+    # The values in their columns' order. pdf_text() joins lines with a space, so this cannot see
+    # a value that wraps between its number and its unit; the widths test below covers the fit.
     assert "80 g 304 kcal 10.6 g 54.4 g 5.1 g 8 g" in text
 
 

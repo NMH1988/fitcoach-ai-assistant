@@ -335,11 +335,11 @@ def _table(
     rows: Mapping[str, str] | Sequence[Sequence[str]],
     header: bool = False,
     widths: Sequence[float] | None = None,
-    style: str = "cell",
+    cell_style: str = "cell",
 ) -> Table:
     """Return label and value rows (or rows of cells) as a table of escaped paragraphs."""
     data = list(rows.items()) if isinstance(rows, Mapping) else [list(row) for row in rows]
-    cells = [[Paragraph(_text(str(cell)), STYLES[style]) for cell in row] for row in data]
+    cells = [[Paragraph(_text(str(cell)), STYLES[cell_style]) for cell in row] for row in data]
     # Paragraph cells need set widths: given, a label column and the rest, or equal columns.
     columns = len(data[0])
     if widths is not None:
@@ -460,7 +460,7 @@ def _meal_plan_flowables(result: MealPlanResult) -> list[Flowable]:
     # Eight columns: small cells, the values as wide as their longest text and the two name
     # columns sharing the rest, so no header or value breaks mid-word (code review, round 2).
     widths = _fitted_widths(foods, wide=(0, 1), size=SMALL_SIZE)
-    flowables: list[Flowable] = [_table(foods, header=True, widths=widths, style="small_cell")]
+    flowables: list[Flowable] = [_table(foods, header=True, widths=widths, cell_style="small_cell")]
     # The app's "Other close USDA names" column, as lines under the table.
     for item in result.items:
         if item.alternatives:
