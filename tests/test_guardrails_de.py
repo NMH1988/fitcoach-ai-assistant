@@ -67,6 +67,13 @@ FLAGGED = [
     ("Ich bin beim Stillen so durstig, was trinken?", Concern.PREGNANCY),
     ("Beim Stillen schnell Hunger, ist das normal?", Concern.PREGNANCY),
     ("Vom Stillen so durstig, was trinken?", Concern.PREGNANCY),
+    # Found in the review of PR #65, round 4: the child named in the genitive.
+    (
+        "Ich bekomme beim Stillen meines Babys Heißhunger, was soll ich essen?",
+        Concern.PREGNANCY,
+    ),
+    ("Ich habe beim Stillen meines Sohnes Durst, wie viel trinken?", Concern.PREGNANCY),
+    ("Beim Stillen des Kindes Appetit auf Süßes, normal?", Concern.PREGNANCY),
     # Medical conditions (any mention; a side effect about the user or a group) and medication.
     ("Ich habe Diabetes Typ 2, wie viele Kohlenhydrate?", Concern.MEDICAL),
     ("Ich bin Diabetiker und will Muskeln aufbauen.", Concern.MEDICAL),
@@ -246,6 +253,13 @@ BENIGN = [
     "Was hilft zum Stillen des quälenden Hungers?",
     "Was ist gut zum Stillen von Heißhunger?",
     "Ich stille abends meinen Hunger mit Quark, ist das gut?",
+    # Found in the review of PR #65, round 4: a surplus, and adjectives before the hunger.
+    "Ich esse zusätzlich 500 kcal am Tag, um Muskeln aufzubauen.",
+    "Ich nehme zusätzlich 500 kcal am Tag zu mir, reicht das für den Aufbau?",
+    "Ich esse extra 300 kcal am Tag im Bulk.",
+    "Was hilft zum Stillen des großen Hungers nach dem Training?",
+    "Zum Stillen des Durstes: Wasser oder Saftschorle?",
+    "Was ist gut zum Stillen von starkem Heißhunger?",
 ]
 
 # English questions that pass on main and use a word the German lists share: they must still

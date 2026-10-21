@@ -334,7 +334,9 @@ _DE_MINOR_PATTERNS = [
 # a nutrition question, so a form of "stillen" whose object is hunger, thirst or appetite does
 # not count. After the verb the hunger may come right away or after up to two articles,
 # possessives, adverbs or adjectives; after a noun form it needs an article or possessive first
-# and at most one more word ("zum Stillen des ständigen Hungers"), as "beim Stillen großen
+# and at most one adjective ending in -en or -em ("zum Stillen des ständigen Hungers"), so a
+# child named in the genitive is not read as the object ("beim Stillen meines Babys Heißhunger"),
+# and "beim Stillen großen
 # Hunger" or "beim Stillen schnell Hunger" is the user's own hunger. The user's own hunger next to
 # it still counts ("Ich stille und habe Hunger", "Während des Stillens Heißhunger").
 _DE_HUNGER_LEAD = (
@@ -348,7 +350,7 @@ _DE_HUNGER_ARTICLE = (
     r"(?:den|des|meinen|meines|deinen|deines|seinen|seines|ihren|ihres|unseren|unseres|euren"
     r"|von)"
 )
-_DE_NOUN_NOT_HUNGER = rf"(?! {_DE_HUNGER_ARTICLE} (?:\w+ )?{_DE_HUNGER})"
+_DE_NOUN_NOT_HUNGER = rf"(?! {_DE_HUNGER_ARTICLE} (?:\w+e[nm] )?{_DE_HUNGER})"
 _DE_PREGNANCY_PATTERNS = [
     r"\b(?:schwanger|schwangere[nrs]?|schwangerschaft(?:en)?|schwangerschafts\w*|trimenon"
     r"|pränatal\w*|postpartal\w*|postnatal\w*|wochenbett|stillzeit|stillende[nr]?|kinderwunsch"
@@ -481,10 +483,11 @@ _DE_NOT_A_PART = (
 )
 # A word between the verb and the amount: no amount of energy, no comma and no joining word, so
 # a second verb and amount ("ich esse 2500 kcal und verbrenne 500 kcal am Tag"), a food's own
-# energy ("Proteinriegel mit 200 kcal", "3 Mahlzeiten à 600 kcal") is not read as the day's
-# intake, while a time is ("seit 3 Wochen nur 800 kcal am Tag").
+# energy ("Proteinriegel mit 200 kcal", "3 Mahlzeiten à 600 kcal") or a surplus ("zusätzlich
+# 500 kcal am Tag") is not read as the day's intake, while a time is ("seit 3 Wochen nur 800 kcal
+# am Tag").
 _DE_INTAKE_GAP = (
-    r"(?: (?!(?:und|oder|aber|mit|je|sowie|plus|à|a|zu)\b)"
+    r"(?: (?!(?:und|oder|aber|mit|je|sowie|plus|à|a|zu|zusätzlich|extra)\b)"
     r"(?![^\s,;]*?\d ?(?:k?cals?|kilokalorien|kalorien)\b)[^\s,;]+)"
 )
 _DE_LOW_INTAKE_PATTERNS = [
