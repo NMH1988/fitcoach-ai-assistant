@@ -336,9 +336,9 @@ _DE_MINOR_PATTERNS = [
 # possessives, adverbs or adjectives; after a noun form it needs an article or possessive first
 # and at most one adjective ending in -en or -em ("zum Stillen des ständigen Hungers"), so a
 # child named in the genitive is not read as the object ("beim Stillen meines Babys Heißhunger"),
-# and "beim Stillen großen
-# Hunger" or "beim Stillen schnell Hunger" is the user's own hunger. The user's own hunger next to
-# it still counts ("Ich stille und habe Hunger", "Während des Stillens Heißhunger").
+# and "beim Stillen großen Hunger" or "beim Stillen schnell Hunger" is the user's own hunger. The
+# user's own hunger next to it still counts ("Ich stille und habe Hunger", "Während des Stillens
+# Heißhunger").
 _DE_HUNGER_LEAD = (
     r"(?:den|des|meinen|meines|deinen|deines|seinen|seines|ihren|ihres|unseren|unseres|euren"
     r"|von|abends|nachts|schnell|damit|so|kurz|gut|am besten|grossen|ständigen|starken|kleinen"
@@ -483,11 +483,12 @@ _DE_NOT_A_PART = (
 )
 # A word between the verb and the amount: no amount of energy, no comma and no joining word, so
 # a second verb and amount ("ich esse 2500 kcal und verbrenne 500 kcal am Tag"), a food's own
-# energy ("Proteinriegel mit 200 kcal", "3 Mahlzeiten à 600 kcal") or a surplus ("zusätzlich
-# 500 kcal am Tag") is not read as the day's intake, while a time is ("seit 3 Wochen nur 800 kcal
-# am Tag").
+# energy ("Proteinriegel mit 200 kcal", "3 Mahlzeiten à 600 kcal") or a surplus right before
+# the amount ("zusätzlich 500 kcal am Tag") is not read as the day's intake, while a time is
+# ("seit 3 Wochen nur 800 kcal am Tag"), and so is "extra" in another sense ("extra wenig, nur
+# 800 kcal am Tag" said without the comma).
 _DE_INTAKE_GAP = (
-    r"(?: (?!(?:und|oder|aber|mit|je|sowie|plus|à|a|zu|zusätzlich|extra)\b)"
+    r"(?: (?!(?:und|oder|aber|mit|je|sowie|plus|à|a|zu)\b|(?:zusätzlich|extra) ~?\d)"
     r"(?![^\s,;]*?\d ?(?:k?cals?|kilokalorien|kalorien)\b)[^\s,;]+)"
 )
 _DE_LOW_INTAKE_PATTERNS = [

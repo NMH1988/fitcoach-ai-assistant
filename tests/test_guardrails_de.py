@@ -154,6 +154,10 @@ FLAGGED = [
         Concern.DISORDERED_EATING,
     ),
     ("Ich nehme seit einem Monat nur 900 kcal am Tag zu mir.", Concern.DISORDERED_EATING),
+    # Found in the review of PR #65, round 5: "extra" not right before the amount.
+    ("Ich esse extra wenig nur 800 kcal am Tag.", Concern.DISORDERED_EATING),
+    ("Ich esse seit Wochen extra wenig nur 800 kcal am Tag.", Concern.DISORDERED_EATING),
+    ("Ich esse jetzt extra nur 800 kcal am Tag.", Concern.DISORDERED_EATING),
 ]
 
 # German questions that must pass: the research's supplements and near misses of every pattern.
