@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-21 · T3.7 Drop registration boilerplate and merge short chunk pieces at ingest · #TBD (closes #66)
+## 2026-10-21 · T3.7 Drop registration boilerplate and merge short chunk pieces at ingest · #69 (closes #66)
 - **Brief:** core 1 (chunking and similarity search); AC-2. Refines T2.2. Found in T3.5's live check.
 - **What:**
   - `src/config.py`: "clinical trial registration", "systematic review registration" and "trial registration" join `INGEST_DROPPED_SEC_TITLES`; new `CHUNK_MIN_CHARS` (300).
