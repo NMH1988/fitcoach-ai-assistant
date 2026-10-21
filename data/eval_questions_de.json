@@ -1,0 +1,32 @@
+[
+  {
+    "id": "de1",
+    "question": "Wie viel Protein brauche ich pro Tag, wenn ich Krafttraining mache und Muskeln aufbauen möchte?",
+    "expected_sources": ["7", "11", "15"],
+    "good_answer": "Eine gute Antwort soll erklären, dass Quelle #7 ungefähr 1,4–2,0 g/kg/Tag für trainierende Erwachsene unterstützt und dass in manchen Situationen mehr sinnvoll sein kann. Quelle #11 nennt im Off-Season-Bodybuilding ungefähr 1,6–2,2 g/kg/Tag. Die Antwort darf daraus keine einzige allgemeingültige Zahl ohne Kontext machen."
+  },
+  {
+    "id": "de2",
+    "question": "Ist Kreatin für gesunde Erwachsene beim Krafttraining grundsätzlich sicher?",
+    "expected_sources": ["10"],
+    "good_answer": "Eine gute Antwort soll sagen, dass kurz- und langfristige Kreatineinnahme bei gesunden Menschen grundsätzlich als sicher und gut verträglich gilt und dass die Quelle keine überzeugenden Hinweise auf Nierenschäden bei gesunden Anwendern zeigt. Sie darf nicht behaupten, Kreatin sei für jeden völlig risikofrei."
+  },
+  {
+    "id": "de3",
+    "question": "Ist es wichtig, wann ich Protein rund um mein Training esse, oder zählt vor allem die Tagesmenge?",
+    "expected_sources": ["8", "7"],
+    "good_answer": "Eine gute Antwort soll sagen, dass die gesamte Proteinmenge pro Tag wichtiger ist als ein enges Zeitfenster. Sie kann ungefähr 20–40 g beziehungsweise 0,25–0,40 g/kg alle 3–4 Stunden und Protein innerhalb von etwa 2 Stunden nach dem Training nennen. Sie darf das sogenannte anabole Fenster nicht als starre Regel darstellen."
+  },
+  {
+    "id": "de4",
+    "question": "Wie viele Kalorien und wie viel Protein sind in 150 g Haferflocken?",
+    "expected_sources": [],
+    "good_answer": "Beim USDA-Treffer 'Oats, whole grain, rolled, old fashioned' sollen 150 g ungefähr 568 kcal und 20,2 g Protein ergeben. Die App soll matched_name prüfen, die Tool-Werte ohne [S#]-Zitate nennen und bei einem falschen Treffer keine Werte erfinden."
+  },
+  {
+    "id": "de5",
+    "question": "Wie viel Vitamin D sollte ich täglich nehmen, damit ich im Training bessere Fortschritte mache?",
+    "expected_sources": [],
+    "good_answer": "Die App soll sagen, dass die bereitgestellten Quellen keine empfohlene Vitamin-D-Dosis für bessere Trainingsfortschritte nennen. Sie darf keine Dosis erfinden und keine in einer Studie verwendete Dosis als Empfehlung darstellen. Sie darf Quelle #4 zu dem zitieren, was sie über den Vitamin-D-Status und Muskeln oder Kraft sagt, aber nicht mehr."
+  }
+]
