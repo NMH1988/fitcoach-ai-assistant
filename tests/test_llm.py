@@ -188,6 +188,119 @@ def test_embeddings_request_on_the_wire():
     assert body["input"] == ["protein after training"]
 
 
+# --- Token use (T5.1) ---
+
+
+def _sse(*events: dict) -> str:
+    """Return a server-sent event stream of these JSON chunks, then [DONE]."""
+    return "".join(f"data: {json.dumps(event)}\n\n" for event in events) + "data: [DONE]\n\n"
+
+
+def _stream_chunk(choices: list, **extra) -> dict:
+    """Return one chat completion chunk with these choices."""
+    return {
+        "id": "gen-test",
+        "object": "chat.completion.chunk",
+        "created": 0,
+        "model": config.DEFAULT_ANSWER_MODEL,
+        "choices": choices,
+        **extra,
+    }
+
+
+STREAM_USAGE = {
+    "prompt_tokens": 2400,
+    "completion_tokens": 350,
+    "total_tokens": 2750,
+    "prompt_tokens_details": {"cached_tokens": 0},
+    "completion_tokens_details": {"reasoning_tokens": 128},
+}
+
+
+class StreamServer(Recorder):
+    """A fake OpenRouter server that streams one short answer, then a chunk with the usage."""
+
+    def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        """Record the request and stream the answer and its token use."""
+        self.requests.append(request)
+        text = _sse(
+            _stream_chunk([{"index": 0, "delta": {"role": "assistant", "content": "Hi."}}]),
+            _stream_chunk([{"index": 0, "delta": {}, "finish_reason": "stop"}]),
+            # OpenAI's last chunk with stream_options.include_usage: no choices, only usage.
+            _stream_chunk([], usage=STREAM_USAGE),
+        )
+        return httpx2.Response(200, text=text, headers={"content-type": "text/event-stream"})
+
+
+def test_chat_model_streams_its_token_use():
+    """The client asks OpenRouter for the token use of a streamed reply and reports it."""
+    # langchain asks for it only on OpenAI's own URL unless stream_usage is set (T5.1).
+    server = StreamServer()
+    model = _chat(server)
+    assert model.stream_usage is True
+    reply = None
+    # Bound to a tool as in the answer step: binding keeps the setting.
+    for chunk in model.bind_tools([_Answer]).stream("Hi"):
+        reply = chunk if reply is None else reply + chunk
+    assert server.last_json()["stream_options"] == {"include_usage": True}
+    assert reply.text == "Hi."
+    assert reply.response_metadata["finish_reason"] == "stop"
+    assert reply.usage_metadata["input_tokens"] == 2400
+    assert reply.usage_metadata["output_tokens"] == 350
+    assert reply.usage_metadata["output_token_details"]["reasoning"] == 128
+
+
+def _embeddings_body(count: int, usage: dict | None) -> dict:
+    """Return an embeddings reply with count vectors and this usage (left out when None)."""
+    body = {
+        "object": "list",
+        "data": [
+            {"object": "embedding", "index": i, "embedding": [0.1, 0.2]} for i in range(count)
+        ],
+        "model": config.EMBEDDING_MODEL,
+    }
+    if usage is not None:
+        body["usage"] = usage
+    return body
+
+
+def test_embeddings_report_the_tokens_the_api_counted():
+    """embed_with_usage returns the vectors and the reply's prompt_tokens (T5.1)."""
+    server = Recorder(body=_embeddings_body(2, {"prompt_tokens": 17, "total_tokens": 17}))
+    vectors, tokens = _embeddings(server).embed_with_usage(["protein", "creatine timing"])
+    assert vectors == [[0.1, 0.2], [0.1, 0.2]]
+    assert tokens == 17
+    assert server.last_json()["input"] == ["protein", "creatine timing"]
+
+
+def test_embedding_tokens_add_up_over_batches():
+    """Texts sent in several requests add up their counts."""
+    server = Recorder(body=_embeddings_body(1, {"prompt_tokens": 5, "total_tokens": 5}))
+    embeddings = _embeddings(server)
+    embeddings.chunk_size = 1
+    vectors, tokens = embeddings.embed_with_usage(["a", "b", "c"])
+    assert len(vectors) == 3 and len(server.requests) == 3
+    assert tokens == 15
+
+
+@pytest.mark.parametrize(
+    "usage", [None, {}, {"prompt_tokens": "17"}, {"prompt_tokens": True}], ids=str
+)
+def test_embedding_tokens_not_reported_are_unknown(usage):
+    """A reply without a usable count gives None, never a made-up 0."""
+    server = Recorder(body=_embeddings_body(1, usage))
+    vectors, tokens = _embeddings(server).embed_with_usage(["protein"])
+    assert vectors == [[0.1, 0.2]]
+    assert tokens is None
+
+
+def test_embedding_usage_errors_are_mapped(no_sleep):
+    """A failed counted embedding call maps to the same errors as any other call."""
+    server = Recorder(status=402, body=_error_body(402))
+    with pytest.raises(llm.OutOfCreditError), llm.mapped_errors():
+        _embeddings(server).embed_with_usage(["protein"])
+
+
 def test_clients_read_the_key_from_config(monkeypatch, no_env_key):
     """Without an explicit key, both clients take it from get_api_key()."""
     monkeypatch.setattr(config.st, "secrets", {config.API_KEY_NAME: FAKE_KEY})

@@ -6,7 +6,7 @@ from typing import get_args
 
 import streamlit as st
 
-from src import chat, config, export_pdf, guard, llm, profile, units
+from src import chat, config, export_pdf, guard, llm, profile, units, usage
 from src.rag import hybrid, store
 from src.rag.sources import ARTICLE_CHANGES_NOTE
 from src.tools import meal_plan, registry
@@ -17,9 +17,10 @@ from src.tools.meal_plan import MealPlanResult
 st.set_page_config(page_title=config.APP_TITLE, page_icon=":material/nutrition:", layout="wide")
 
 # Session state: "profile" holds the UserProfile (kg and cm), "units" the unit system the user
-# chose and "messages" the chat history (questions and TurnResults); "food_result" the Food lookup
-# tab's last result (USDA data only), with its inputs under "food_query" and "food_grams". All live
-# for the session only and are never logged (docs/SECURITY.md).
+# chose and "messages" the chat history (questions, and TurnResults with their priced TurnUsage
+# under "usage", T5.1); "food_result" the Food lookup tab's last result (USDA data only), with its
+# inputs under "food_query" and "food_grams". All live for the session only and are never logged
+# (docs/SECURITY.md).
 st.session_state.setdefault("units", config.DEFAULT_UNIT_SYSTEM)
 st.session_state.setdefault("messages", [])
 
@@ -57,6 +58,17 @@ TIER_COLORS = {1: "green", 2: "violet"}
 _LINE_START = re.compile(r"^(\d*)([#+=.)-])")
 # How an evidence tier filter is named in "How this answer was found".
 TIER_FILTER_LABELS = {1: "ISSN position stands only", 2: "Peer-reviewed reviews only"}
+USAGE_ICON = ":material/data_usage:"
+# The columns of the Details tab's table of a turn's calls (T5.1).
+USAGE_COLUMNS = (
+    "Step",
+    "Model",
+    "Input tokens",
+    "Cached input",
+    "Output tokens",
+    "Reasoning",
+    "Cost",
+)
 
 
 def _form_key(field: str) -> str:
@@ -290,6 +302,8 @@ def _run_turn(question: str, turn: int) -> None:
     status = st.status(f":shimmer[{chat.Step.CHECK.value}]", type="compact")
     # Below the status: the answer while it streams, replaced by the full result at the end.
     answer_slot = st.empty()
+    # Under the answer: the turn's tokens and cost, once it is priced (T5.1).
+    usage_slot = st.empty()
     boxes = []
 
     def on_step(step: chat.Step) -> None:
@@ -331,7 +345,31 @@ def _run_turn(question: str, turn: int) -> None:
     status.update(label=_status_label(result), state=state)
     with answer_slot.container():
         _show_result(result, turn)
-    st.session_state["messages"].append({"role": "assistant", "result": result})
+    # In the history before the price read: a click during that network call reruns the script,
+    # which would otherwise drop the answer from the chat.
+    message = {"role": "assistant", "result": result, "usage": None}
+    st.session_state["messages"].append(message)
+    # Priced once, after the answer is shown, when the turn ends: a rerun shows the stored cost
+    # and makes no network call. Its own slot, as a slot drawn twice in one run keeps stale parts.
+    message["usage"] = _price(result)
+    with usage_slot.container():
+        _usage_caption(message["usage"])
+
+
+def _price(result: chat.TurnResult) -> usage.TurnUsage:
+    """Price a turn's calls with OpenRouter's prices; a turn with no call needs no prices."""
+    return usage.price_turn(result.usage, usage.PRICES.get() if result.usage else None)
+
+
+def _usage_caption(turn_usage: usage.TurnUsage | None) -> None:
+    """Show a turn's tokens and cost under its answer, if it made any model call (AC-10)."""
+    if turn_usage is not None and turn_usage.calls:
+        st.caption(f"{USAGE_ICON} {_dollars(usage.format_turn(turn_usage))}")
+
+
+def _dollars(text: str) -> str:
+    """Escape the dollar signs of a cost line, so Markdown never reads two as LaTeX."""
+    return text.replace("$", r"\$")
 
 
 def _source_card(card: chat.SourceCard) -> None:
@@ -857,14 +895,53 @@ def _show_message(message: dict, turn: int) -> None:
     with st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
         _show_steps(message["result"])
         _show_result(message["result"], turn)
+        _usage_caption(message.get("usage"))
 
 
-def _last_search() -> chat.SearchDetails | None:
-    """Return how the latest turn that reached the search searched, or None before any."""
+def _last_searched() -> dict | None:
+    """Return the message of the latest turn that reached the search, or None before any."""
     for message in reversed(st.session_state["messages"]):
         if message["role"] == "assistant" and message["result"].search is not None:
-            return message["result"].search
+            return message
     return None
+
+
+def _session_usage() -> usage.SessionUsage:
+    """Add up the tokens and the known cost of every turn of the session (AC-10)."""
+    turns = [m["usage"] for m in st.session_state["messages"] if m.get("usage") is not None]
+    return usage.session_usage(turns)
+
+
+def _usage_rows(turn_usage: usage.TurnUsage) -> dict[str, list]:
+    """Return a turn's calls as table columns: step, model, the token counts and the cost."""
+    rows = [
+        [
+            call.step,
+            call.model,
+            call.input_tokens,
+            call.cached_tokens,
+            call.output_tokens,
+            call.reasoning_tokens,
+            usage.format_cost(cost),
+        ]
+        for call, cost in zip(turn_usage.calls, turn_usage.costs, strict=True)
+    ]
+    return {name: [row[i] for row in rows] for i, name in enumerate(USAGE_COLUMNS)}
+
+
+def _usage_section(turn_usage: usage.TurnUsage | None) -> None:
+    """Show the tokens and cost of each call of the last answer, and the session totals."""
+    st.subheader(f"{USAGE_ICON} Tokens and cost")
+    if turn_usage is not None and turn_usage.calls:
+        st.dataframe(_usage_rows(turn_usage), hide_index=True)
+        st.markdown(f"**This answer:** {_dollars(usage.format_turn(turn_usage))}")
+    else:
+        st.caption("This answer made no model call that reported its tokens.")
+    st.markdown(f"**This session:** {_dollars(usage.format_session(_session_usage()))}")
+    st.caption(
+        "Output tokens include the model's reasoning. Costs use OpenRouter's prices per token, "
+        'read once a day; "price unknown" means they could not be read when the answer ended.'
+    )
 
 
 def _one_line(text: str) -> str:
@@ -907,14 +984,15 @@ def _search_notes(details: chat.SearchDetails) -> None:
 
 def _details_tab() -> None:
     """Show how the last answer was found: what was searched and the filters used (AC-3)."""
-    details = _last_search()
+    message = _last_searched()
     st.subheader(":material/manage_search: How this answer was found")
-    if details is None:
+    if message is None:
         st.caption(
             "Ask a question in the Ask tab to see how its answer was found: the searches run "
             "and the filters used."
         )
         return
+    details = message["result"].search
     st.markdown("**Searched for**")
     # The question is the user's text and the rewrites the model's: both shown escaped.
     lines = [f"1. {_one_line(details.question)} *(your question)*"]
@@ -925,13 +1003,19 @@ def _details_tab() -> None:
     st.markdown("**Filters**")
     _filter_badges(details)
     _search_notes(details)
+    _usage_section(message.get("usage"))
 
 
 def _last_answer_card() -> None:
-    """Show a short summary of how the last answer was found in the sidebar."""
-    details = _last_search()
-    if details is None:
+    """Show a short summary of how the last answer was found, and its cost, in the sidebar."""
+    message = _last_searched()
+    if message is None:
+        # No turn has searched yet, but one may have spent tokens before failing (AC-10).
+        session = _session_usage()
+        if session.tokens:
+            st.caption(f"{USAGE_ICON} Session: {_dollars(usage.format_session(session))}")
         return
+    details = message["result"].search
     with st.container(border=True):
         st.markdown("**:material/manage_search: Last answer**")
         # Names the question, as a rejected or failed turn leaves an earlier search here.
@@ -950,6 +1034,11 @@ def _last_answer_card() -> None:
         _filter_badges(details)
         if details.filter_dropped:
             st.caption("No match with these filters, so they were dropped.")
+        turn_usage = message.get("usage")
+        if turn_usage is not None and turn_usage.calls:
+            st.caption(f"{USAGE_ICON} This answer: {_dollars(usage.format_turn(turn_usage))}")
+        session = _dollars(usage.format_session(_session_usage()))
+        st.caption(f"{USAGE_ICON} Session: {session}")
         st.caption("More in the Details tab.")
 
 

@@ -16,13 +16,14 @@ from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
+from langchain_core.messages.ai import UsageMetadata
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langchain_core.runnables import RunnableLambda
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import Field
 from pypdf import PdfReader
 
-from src import llm
+from src import config, llm
 from src.profile import UserProfile
 from src.rag import store
 from src.tools.food import TABLE_COLUMNS, Food
@@ -62,6 +63,7 @@ class ScriptedChatModel(BaseChatModel):
     calls: list[list[BaseMessage]] = Field(default_factory=list)
     # The keyword arguments of each call: the bound tools (as OpenAI schemas) and tool_choice.
     call_kwargs: list[dict[str, Any]] = Field(default_factory=list)
+    model_name: str = config.DEFAULT_ANSWER_MODEL
 
     @property
     def _llm_type(self) -> str:
@@ -106,6 +108,11 @@ class ScriptedChatModel(BaseChatModel):
             if number == len(chunks) - 1 or not chunks:
                 message.response_metadata = dict(reply.response_metadata)
             yield ChatGenerationChunk(message=message)
+        if reply.usage_metadata is not None:
+            # With stream_usage, OpenAI sends the token use in one more chunk with no text.
+            yield ChatGenerationChunk(
+                message=AIMessageChunk("", usage_metadata=reply.usage_metadata)
+            )
 
 
 def plan_json(
@@ -140,6 +147,9 @@ class ScriptedTranslator(BaseChatModel):
     plans: list[str | Exception] = Field(default_factory=list)
     calls: list[list[BaseMessage]] = Field(default_factory=list)
     structured_kwargs: list[dict[str, Any]] = Field(default_factory=list)
+    model_name: str = config.QUERY_TRANSLATION_MODEL
+    # The token use each reply reports (T5.1); None reports none.
+    usage: UsageMetadata | None = None
 
     @property
     def _llm_type(self) -> str:
@@ -153,23 +163,29 @@ class ScriptedTranslator(BaseChatModel):
     def with_structured_output(self, schema: Any, **kwargs: Any) -> RunnableLambda:
         """Return a runnable that parses the next plan with the schema, as the real client does."""
         self.structured_kwargs.append(kwargs)
+        include_raw = kwargs.get("include_raw", False)
 
         def reply(messages: list[BaseMessage]) -> Any:
             """Record the request, then parse the next plan; a reply off the schema is invalid."""
             self.calls.append(list(messages))
-            if not self.plans:
+            if self.plans:
+                plan = self.plans.pop(0)
+            else:
                 question = question_in(messages)
-                return schema.model_validate_json(
-                    plan_json([f"{question} rewrite {n}" for n in (1, 2, 3)])
-                )
-            plan = self.plans.pop(0)
+                plan = plan_json([f"{question} rewrite {n}" for n in (1, 2, 3)])
             if isinstance(plan, Exception):
                 raise plan
+            raw = AIMessage(plan, usage_metadata=self.usage)
             try:
-                return schema.model_validate_json(plan)
+                parsed = schema.model_validate_json(plan)
             except pydantic.ValidationError:
-                # What llm.mapped_errors() makes of the real client's schema error.
+                # The real client's SDK rejects a reply off the schema inside the call, before
+                # include_raw's fallback, so it raises either way; this is what
+                # llm.mapped_errors() makes of it.
                 raise llm.InvalidReplyError(diagnostic="ValidationError in the fake") from None
+            if include_raw:
+                return {"raw": raw, "parsed": parsed, "parsing_error": None}
+            return parsed
 
         return RunnableLambda(reply)
 

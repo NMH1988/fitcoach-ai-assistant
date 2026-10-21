@@ -13,7 +13,9 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
 from src import config
+from src.llm import CountingEmbeddings
 from src.rag.store import UNREADABLE, IndexNotReadyError, chunk_id
+from src.usage import UsageRecorder
 
 
 @dataclass(frozen=True)
@@ -31,12 +33,21 @@ def chunk_key(chunk: RetrievedChunk) -> str:
     return chunk_id(Document(chunk.text, metadata=chunk.metadata))
 
 
-def embed_queries(index: Chroma, queries: Sequence[str]) -> list[list[float]]:
+def embed_queries(
+    index: Chroma, queries: Sequence[str], recorder: UsageRecorder | None = None
+) -> list[list[float]]:
     """Embed all the queries in one call, with the embeddings client the index was opened with."""
-    if index.embeddings is None:
+    embeddings = index.embeddings
+    if embeddings is None:
         raise IndexNotReadyError(UNREADABLE)
     # Our client embeds a query and a document the same way (no query instruction; T3.1).
-    return index.embeddings.embed_documents(list(queries))
+    if not isinstance(embeddings, CountingEmbeddings):
+        # A test's fake embeddings, which report no tokens.
+        return embeddings.embed_documents(list(queries))
+    vectors, tokens = embeddings.embed_with_usage(list(queries))
+    if recorder is not None:
+        recorder.add_embedding(config.USAGE_STEP_SEARCH, embeddings.model, tokens)
+    return vectors
 
 
 def vector_lists(
