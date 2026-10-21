@@ -15,7 +15,7 @@ import re
 import time
 import urllib.parse
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from functools import partial
 from pathlib import Path
@@ -139,6 +139,11 @@ class TurnResult:
     # True when the answer model was called with a <profile> block (T3.5): False when the plan
     # did not ask for it and when no answer call was made. Tool results are not counted here.
     profile_sent: bool = False
+    # A fixed message's key in src/i18n.py and its numbers, so the UI shows it in the language
+    # chosen now (T7.1); set for every kind but "answer" (tests/conftest.py checks it), None for
+    # the model's answer. `text` stays English, for the summary PDF.
+    code: str | None = None
+    params: Mapping[str, int] = field(default_factory=dict)
 
 
 # A citation is one bracket holding labels or ranges: [S1], [S1, S3], [S2; S4], [S1 and S2],
@@ -162,10 +167,16 @@ _MARKDOWN_SPECIAL = re.compile(r"([\\`*_\[\]<>$~:])")
 class PromptMissingError(RuntimeError):
     """A prompt file is missing, unreadable or empty; `str()` is the fixed message to show."""
 
+    def __init__(self, message: str, code: str) -> None:
+        """Keep the fixed message and its key in src/i18n.py."""
+        super().__init__(message)
+        self.code = code
+
 
 class ToolLoopError(llm.LLMError):
     """The model still called tools in the last call, where it was told not to."""
 
+    code = "llm.tool_loop"
     user_message = "The answer could not be finished. Please try again."
 
 
@@ -198,12 +209,12 @@ def load_system_prompt(path: Path | None = None) -> str:
     return text
 
 
-def _load_prompt(path: Path, message: str) -> str:
+def _load_prompt(path: Path, message: str, code: str) -> str:
     """Return a prompt file's text; raise PromptMissingError with message if it is unusable."""
     try:
         return load_system_prompt(path)
     except OSError, ValueError:
-        raise PromptMissingError(message) from None
+        raise PromptMissingError(message, code) from None
 
 
 def search_queries(question: str, plan: QueryPlan | None) -> tuple[str, ...]:
@@ -232,8 +243,8 @@ def find_chunks(
     # One embedding call for all the queries; the vectors serve the retry too.
     vectors = embed_queries(index, queries, recorder=recorder)
     chunks = hybrid.hybrid_search(index, queries, vectors, where, keyword_index)
-    # Empty only when no chunk is within the distance limit; a filter that keeps fewer but
-    # relevant chunks stays.
+    # Empty only when the question itself has no chunk within the distance limit (T3.8), even if a
+    # rewrite has one; a filter that keeps fewer but relevant chunks stays.
     filter_dropped = not chunks and where is not None
     if filter_dropped:
         chunks = hybrid.hybrid_search(index, queries, vectors, None, keyword_index)
@@ -587,7 +598,9 @@ def answer_question(
     # a research passage; owner's choice in T4.4), but only when the plan says a tool could: an
     # off-topic question, or one with no usable plan, costs no answer call (AC-2; T3.5).
     if not chunks and not (plan is not None and plan.needs_tool):
-        return TurnResult("no_sources", config.NO_SOURCES_MESSAGE, search=details)
+        return TurnResult(
+            "no_sources", config.NO_SOURCES_MESSAGE, search=details, code="answer.no_sources"
+        )
     on_step(Step.ANSWER)
     # The user's own question, never the rewrites, goes to the answer model. The profile goes
     # only when the plan says the answer needs the user's numbers (security-privacy.md; T3.5).
@@ -615,6 +628,7 @@ def answer_question(
             config.NO_SOURCES_MESSAGE,
             search=details,
             profile_sent=include_profile,
+            code="answer.no_sources",
         )
     cards = source_cards(chunks, cited_labels(answer, len(chunks)), manifest)
     return TurnResult(
@@ -659,9 +673,13 @@ def run_turn(
     def answer(question: str) -> TurnResult:
         """Open the index and the models only for an accepted question, then answer it."""
         # Read before any API call, so a missing or empty prompt file costs nothing.
-        system_prompt = _load_prompt(config.ANSWER_PROMPT_PATH, config.PROMPT_MISSING_MESSAGE)
+        system_prompt = _load_prompt(
+            config.ANSWER_PROMPT_PATH, config.PROMPT_MISSING_MESSAGE, "prompt.answer_missing"
+        )
         translation_prompt = _load_prompt(
-            config.QUERY_TRANSLATION_PROMPT_PATH, config.QUERY_PROMPT_MISSING_MESSAGE
+            config.QUERY_TRANSLATION_PROMPT_PATH,
+            config.QUERY_PROMPT_MISSING_MESSAGE,
+            "prompt.query_missing",
         )
         # The index is opened first: a missing index is reported even when the key is missing.
         index = open_index()
@@ -679,7 +697,7 @@ def run_turn(
             on_chunks=on_chunks,
         )
 
-    def failed(message: str, *, index_not_ready: bool = False) -> TurnResult:
+    def failed(message: str, code: str, *, index_not_ready: bool = False) -> TurnResult:
         """Return an error result with the steps run and the tokens spent before the error."""
         return TurnResult(
             "error",
@@ -687,6 +705,7 @@ def run_turn(
             steps=tuple(steps),
             index_not_ready=index_not_ready,
             usage=tuple(recorder.calls),
+            code=code,
         )
 
     step(Step.CHECK)
@@ -694,16 +713,22 @@ def run_turn(
         decision, result = guard.run_guarded(text, limiter, answer)
     except llm.LLMError as exc:
         # A fixed text, safe to show (never the server's reply or the key).
-        return failed(str(exc))
+        return failed(str(exc), exc.code)
     except IndexNotReadyError as exc:
-        return failed(str(exc), index_not_ready=True)
+        return failed(str(exc), exc.code, index_not_ready=True)
     except PromptMissingError as exc:
-        return failed(str(exc))
+        return failed(str(exc), exc.code)
     except config.SecretsFileError:
-        return failed(config.SECRETS_FILE_MESSAGE)
+        return failed(config.SECRETS_FILE_MESSAGE, "key.secrets_file")
     except config.MissingAPIKeyError:
-        return failed(config.MISSING_KEY_MESSAGE)
+        return failed(config.MISSING_KEY_MESSAGE, "key.missing")
     if result is None:
         kind = "guardrail" if decision.reason is guard.Rejection.GUARDRAIL else "rejected"
-        return TurnResult(kind, decision.message or "", steps=tuple(steps))
+        return TurnResult(
+            kind,
+            decision.message or "",
+            steps=tuple(steps),
+            code=decision.code,
+            params=decision.params,
+        )
     return replace(result, steps=tuple(steps), usage=tuple(recorder.calls))

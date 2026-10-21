@@ -16,6 +16,8 @@ class LLMError(RuntimeError):
     """A model or embedding call failed; `str()` is a fixed message safe to show the user."""
 
     user_message = "Something went wrong while calling the model service. Please try again."
+    # The key of the message in src/i18n.py, so the UI shows it in the chosen language (T7.1).
+    code = "llm.error"
 
     def __init__(self, status_code: int | None = None, diagnostic: str | None = None) -> None:
         """Store the HTTP status and a safe-to-log diagnostic; the message is the fixed text."""
@@ -28,6 +30,7 @@ class LLMError(RuntimeError):
 class InvalidAPIKeyError(LLMError):
     """OpenRouter rejected the API key (HTTP 401)."""
 
+    code = "llm.invalid_key"
     user_message = (
         "The OpenRouter API key was rejected. Check the key in .streamlit/secrets.toml "
         f"or the {config.API_KEY_NAME} environment variable."
@@ -37,42 +40,49 @@ class InvalidAPIKeyError(LLMError):
 class OutOfCreditError(LLMError):
     """The OpenRouter account has no credit left (HTTP 402)."""
 
+    code = "llm.out_of_credit"
     user_message = "The OpenRouter account is out of credit. Add credit, then try again."
 
 
 class RateLimitedError(LLMError):
     """OpenRouter or the model provider is rate limiting us (HTTP 429), even after retries."""
 
+    code = "llm.rate_limited"
     user_message = "The model service is getting too many requests. Wait a minute and try again."
 
 
 class LLMTimeoutError(LLMError):
     """The request timed out on our side or the server's (HTTP 408), even after retries."""
 
+    code = "llm.timeout"
     user_message = "The model service took too long to answer. Please try again."
 
 
 class ServiceUnavailableError(LLMError):
     """OpenRouter or the provider failed (HTTP 5xx, or an error inside a 200 reply)."""
 
+    code = "llm.unavailable"
     user_message = "The model service is temporarily unavailable. Try again in a few minutes."
 
 
 class LLMConnectionError(LLMError):
     """The model service could not be reached at all."""
 
+    code = "llm.connection"
     user_message = "Could not reach the model service. Check the internet connection and try again."
 
 
 class ReplyCutOffError(LLMError):
     """The reply hit the token limit before it was finished (an answer or structured output)."""
 
+    code = "llm.cut_off"
     user_message = "The answer was cut off before it was finished. Please try again."
 
 
 class InvalidReplyError(LLMError):
     """A structured reply was unusable (schema mismatch, refusal, empty); callers may fall back."""
 
+    code = "llm.invalid_reply"
     user_message = "The model's answer was not in the expected format. Please try again."
 
 

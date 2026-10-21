@@ -6,7 +6,7 @@ import pytest
 from streamlit import config as st_config
 from streamlit.runtime.secrets import Secrets
 
-from src import config, usage
+from src import chat, config, i18n, usage
 
 
 @pytest.fixture
@@ -48,3 +48,21 @@ def no_price_fetch(monkeypatch):
     cache = usage.PriceCache(_no_price_network)
     monkeypatch.setattr(usage, "PRICES", cache)
     return cache
+
+
+@pytest.fixture(autouse=True)
+def turn_codes_are_keys(monkeypatch):
+    """Check that every turn ending in a fixed message has a text in both languages (T7.1)."""
+    run_turn = chat.run_turn
+
+    def checked(*args, **kwargs):
+        """Run the turn; unless the model answered, its message must fill in both languages."""
+        result = run_turn(*args, **kwargs)
+        if result.kind != "answer":
+            # A missing key or a {placeholder} the params do not fill would break every later
+            # run of the session, as the chat history is drawn again each time.
+            for lang in i18n.LANGUAGES:
+                assert i18n.t(result.code, lang, **result.params), (result.kind, result.code)
+        return result
+
+    monkeypatch.setattr(chat, "run_turn", checked)

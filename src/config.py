@@ -74,15 +74,6 @@ TOPICS: tuple[str, ...] = (
     "nutrient_timing",
     "supplements",
 )
-# How the topics are named in the app's "How this answer was found" view.
-TOPIC_LABELS: dict[str, str] = {
-    "protein": "Protein",
-    "carbohydrate": "Carbohydrate",
-    "fat": "Fat",
-    "energy_balance": "Energy balance",
-    "nutrient_timing": "Nutrient timing",
-    "supplements": "Supplements",
-}
 # 1 = ISSN position stand, 2 = other peer-reviewed review or meta-analysis (docs/SOURCES.md).
 EVIDENCE_TIERS: tuple[int, ...] = (1, 2)
 
@@ -195,6 +186,8 @@ RETRIEVAL_TOP_K = 6
 # and above; near-domain ones (a dog's diet, running shoes, insulin) at 0.56-0.70. 0.62 sits midway
 # and favours answering: a near-domain question that passes costs one model call, which the
 # prompt declines or redirects, while a covered question that is blocked gets no answer at all.
+# Measured on questions as asked, so only the question's own nearest chunk decides whether the
+# sources cover it; once they do, its rewrites add the chunks within the same limit (T3.8).
 RETRIEVAL_MAX_DISTANCE = 0.62
 # Reciprocal Rank Fusion (T3.3, Hard 1): a chunk scores the sum of 1 / (RRF_K + rank) over the
 # ranked lists it is in (rank 1 is the top). 60 is the constant of the original RRF paper; it

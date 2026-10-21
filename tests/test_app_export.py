@@ -100,7 +100,7 @@ def test_the_button_sits_after_the_theme_hint_and_before_the_last_answer_card():
     """In the sidebar, the button comes after the theme hint and before "Last answer"."""
     source = APP.read_text(encoding="utf-8")
     sidebar = source.split("with st.sidebar:", 1)[1]
-    assert sidebar.index("THEME_HINT") < sidebar.index("download_slot = st.empty()")
+    assert sidebar.index('_t("theme.hint")') < sidebar.index("download_slot = st.empty()")
     assert sidebar.index("download_slot = st.empty()") < sidebar.index("last_answer_slot")
 
 
