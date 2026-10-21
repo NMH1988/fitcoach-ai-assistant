@@ -9,11 +9,12 @@ never sent to the answer model.
 from typing import Any, Literal
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src import config, llm
 from src.prompt_data import escape_prompt_data
+from src.usage import UsageRecorder, model_name
 
 Topic = Literal[config.TOPICS]
 EvidenceTier = Literal[config.EVIDENCE_TIERS]
@@ -59,17 +60,32 @@ def build_messages(question: str, system_prompt: str) -> list[SystemMessage | Hu
     return [SystemMessage(system_prompt), HumanMessage(user)]
 
 
-def translate(question: str, model: BaseChatModel, system_prompt: str) -> QueryPlan | None:
+def translate(
+    question: str,
+    model: BaseChatModel,
+    system_prompt: str,
+    recorder: UsageRecorder | None = None,
+) -> QueryPlan | None:
     """Return the model's search plan for the question, or None if its reply was unusable."""
-    structured = model.with_structured_output(QueryPlan, method="json_schema")
+    # include_raw keeps the reply, whose token use the plan alone would lose (T5.1). langchain's
+    # parser errors (a refused or empty reply) then come back as parsing_error, tokens known. A
+    # reply off the schema or cut off is rejected by the SDK inside the call: its tokens are lost.
+    structured = model.with_structured_output(QueryPlan, method="json_schema", include_raw=True)
     try:
         with llm.mapped_errors():
-            plan = structured.invoke(build_messages(question, system_prompt))
+            reply = structured.invoke(build_messages(question, system_prompt))
     except llm.InvalidReplyError, llm.ReplyCutOffError:
-        # A reply off the schema, refused, empty or cut off: search the question alone, unfiltered.
+        # A reply off the schema or cut off (its tokens unknown, ARCHITECTURE section 9): search the
+        # question alone, unfiltered. A refused or empty reply falls back below, its tokens counted.
         # Other errors (key, credit, rate limit, outage) end the turn; the answer would meet them.
         return None
-    return plan if isinstance(plan, QueryPlan) else None
+    raw = reply.get("raw")
+    if recorder is not None and isinstance(raw, AIMessage):
+        recorder.add_chat(config.USAGE_STEP_REWRITE, model_name(model), raw.usage_metadata)
+    plan = reply.get("parsed")
+    if reply.get("parsing_error") is not None or not isinstance(plan, QueryPlan):
+        return None
+    return plan
 
 
 def build_filter(plan: QueryPlan | None) -> dict[str, Any] | None:

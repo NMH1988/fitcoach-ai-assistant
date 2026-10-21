@@ -196,13 +196,46 @@ def build_chat_model(
         max_retries=config.LLM_MAX_RETRIES,
         # OpenRouter's chat completions endpoint; never let the model name switch the API.
         use_responses_api=False,
+        # Token use of streamed replies (T5.1): langchain turns it on only for OpenAI's own URL.
+        stream_usage=True,
         http_client=http_client,
     )
 
 
-def build_embeddings(*, api_key: str | None = None, http_client: Any = None) -> OpenAIEmbeddings:
-    """Build the OpenAIEmbeddings client for the configured embedding model on OpenRouter."""
-    return OpenAIEmbeddings(
+class CountingEmbeddings(OpenAIEmbeddings):
+    """OpenAIEmbeddings that can also return the input tokens the API reports (T5.1)."""
+
+    # The client is shared by all sessions (app.py caches it), so the count is returned with the
+    # vectors, never kept on the client.
+
+    def embed_with_usage(self, texts: list[str]) -> tuple[list[list[float]], int | None]:
+        """Embed the texts as embed_documents does; also return the tokens, None if unreported."""
+        # The parent's raw-text path (check_embedding_ctx_length=False, set by build_embeddings),
+        # which drops the response's "usage".
+        if self.check_embedding_ctx_length:
+            return self.embed_documents(texts), None
+        self._ensure_sync_client_available()
+        vectors: list[list[float]] = []
+        tokens: int | None = 0
+        for start in range(0, len(texts), self.chunk_size):
+            response = self.client.create(
+                input=texts[start : start + self.chunk_size], **self._invocation_params
+            )
+            if not isinstance(response, dict):
+                response = response.model_dump()
+            vectors.extend(item["embedding"] for item in response["data"])
+            reported = (response.get("usage") or {}).get("prompt_tokens")
+            # One batch without a count makes the whole count unknown, never too low.
+            if tokens is None or isinstance(reported, bool) or not isinstance(reported, int):
+                tokens = None
+            else:
+                tokens += reported
+        return vectors, tokens
+
+
+def build_embeddings(*, api_key: str | None = None, http_client: Any = None) -> CountingEmbeddings:
+    """Build the embeddings client for the configured embedding model on OpenRouter."""
+    return CountingEmbeddings(
         model=config.EMBEDDING_MODEL,
         base_url=config.OPENROUTER_BASE_URL,
         api_key=api_key or config.get_api_key(),
