@@ -274,6 +274,9 @@ def test_with_only_a_rewrite_close_and_no_tool_no_answer_call_is_made(index):
 
 def test_with_only_a_rewrite_close_and_needs_tool_the_tools_only_call_runs(index):
     """No relevant chunk for the question but needs_tool: T3.5's one unseen call with the tools."""
+    casein = "Protein before sleep: casein"
+    found = retriever.search(index, retriever.embed_queries(index, VAGUE_REWRITES))
+    assert any(c.text.startswith(casein) for c in found)
     model = _model("Casein is a slow protein.")
     plan = plan_json(VAGUE_REWRITES, needs_tool=True)
     result = _turn(VAGUE, index, model, translator=ScriptedTranslator(plans=[plan]))
@@ -283,7 +286,7 @@ def test_with_only_a_rewrite_close_and_needs_tool_the_tools_only_call_runs(index
     assert kwargs["tools"]
     # The rewrites' chunks are not sent: the model sees that no excerpt is close enough.
     assert f"<sources>\n{config.NO_SOURCES_BLOCK}\n</sources>" in user.content
-    assert "Protein before sleep: casein" not in user.content
+    assert casein not in user.content
 
 
 def test_the_filter_keeps_only_matching_chunks(index):
@@ -1099,7 +1102,9 @@ def test_a_chunk_found_only_by_a_rewrite_does_not_reach_the_model(index):
     # question decides whether the sources cover it. The fakes' plan says needs_tool, so the model
     # gets one unseen call with the tools and no excerpt.
     assert retriever.retrieve(index, OFF_TOPIC) == []
-    plan = plan_json(["protein for football players", "offside rule", "football laws"])
+    rewrites = ["protein for football players", "offside rule", "football laws"]
+    assert retriever.retrieve(index, rewrites[0])
+    plan = plan_json(rewrites)
     model = _model("The sources do not cover football rules.")
     result = _turn(OFF_TOPIC, index, model, translator=ScriptedTranslator(plans=[plan]))
     assert result.kind == "no_sources"
