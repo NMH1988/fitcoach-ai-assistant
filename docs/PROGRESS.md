@@ -38,7 +38,9 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
   - Code review on PR #53 (needs changes, all taken): the double rounding above; nits: the grams step in config (`FOOD_LOOKUP_STEP_GRAMS`), a comment on the protein range's type-only fallback.
   - Code review on PR #53, round 2 (ready to merge): the imperial tab test also pins carbohydrate and fat (2.37 and 0.48 g/lb), which a g/kg rounded first gets wrong; nits: a test docstring and these "What" bullets.
   - Code review on PR #53, round 3 (after the T1.6 and T5.2 merges): the merge resolution kept both sides; the only blocker was T3.3 (#52) reaching `main`, merged in cleanly; nits taken: test counts, these review notes, `docs/ARCHITECTURE.md` naming both helpers. Kept: T5.2's and T4.7's overlapping unit tests (harmless).
+  - Code review on PR #53, round 4: ready to merge (the T3.3 merge kept both sides line for line); nits taken: T3.3 marked done (#52 merged), a blank line before its PROGRESS entry. T4.7 is marked done in the same commit, as the PR merges next (owner's go-ahead).
 - **Follow-ups:** T7.1 translates the new strings; the delta and the per-weight captions are worth a look on a phone in the UI polish ticket.
+
 ## 2026-10-20 · T3.3 Hybrid search (BM25 + RRF) · #52 (closes #9)
 - **Brief:** Hard 1 (hybrid search); AC-4. Part of the advanced RAG requirement.
 - **What:**

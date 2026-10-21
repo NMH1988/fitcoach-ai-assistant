@@ -57,10 +57,10 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T1.5 | #42 | Docs: run commands use the project's venv | S | T1.1 | 10-20 | done |
 | T1.6 | #55 | CI: accept the pillow 12.3.0 advisories until Streamlit allows pillow 13 | S | T1.1 | 10-20 | done |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1, O7 | 10-26 | done |
-| T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2 | 10-27 | in review |
+| T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2 | 10-27 | done |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | done |
 | T4.4 | #14 | Tool-calling loop and tool results UI | M | T3.1, T4.2, T4.3 | 10-28 | done |
-| T4.7 | #44 | My targets: sidebar target, targets tab and Food lookup tab (split from T4.4, owner's decision) | M | T4.4 | 10-29 | in review |
+| T4.7 | #44 | My targets: sidebar target, targets tab and Food lookup tab (split from T4.4, owner's decision) | M | T4.4 | 10-29 | done |
 | T3.5 | #50 | Skip the answer call for off-topic questions with no source (owner's request after T4.4) | S | T4.4, T3.2, O7 | 10-29 | todo |
 | T5.3 | #18 | Domain guardrails | S | T3.1, T4.2 | 10-29 | done |
 | T3.6 | #51 | Retrieval comparison on the owner's evaluation questions (split from T3.3, owner's decision) | S | T3.3, O2, O5 | 10-30 | todo |
@@ -201,7 +201,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] The query-translation call gets the question only inside `<user_input>` in the user message, escaped with `escape_prompt_data()`, never in its system prompt, so a delimiter look-alike or a `**System:**` line stays data; its messages are built with `SystemMessage` / `HumanMessage` like the answer step's, with no LangChain prompt template at all (no `PromptTemplate`, `ChatPromptTemplate`, `from_template`, `from_messages` or `MessagesPlaceholder` in `app.py` or `src/`) - parametrised unit test on the built messages, as in T3.4's `tests/test_prompt_injection.py`, and `test_no_prompt_template_is_used_in_the_app` still passing (follow-up from T3.4; owner's choices, 2026-10-20: the template ban stays, stricter than "never as template text", so both steps build messages one way). Done in T3.2: `query_translation.build_messages()` escapes the question with `escape_prompt_data()` (`tests/test_prompt_injection.py`: `test_a_look_alike_stays_inside_user_input_in_the_rewrite_request` over the seven look-alikes, `test_the_rewrite_request_passes_braces_as_text`, `test_the_translator_receives_the_escaped_question`; `test_no_prompt_template_is_used_in_the_app` still passes).
 **Notes:** owner's choices (2026-10-20): code first with a placeholder prompt, the owner writes it before the merge (O7); each turn stands alone (no history for the rewrites); the question is searched together with its 3 rewrites; the view follows `docs/UI_DESIGN.md` (Details tab for the last answer, a summary card in the sidebar, "About the answers" folded into an expander). Until T3.3, the lists are merged by keeping each chunk once at its smallest distance, nearest first. A filter that leaves nothing within `RETRIEVAL_MAX_DISTANCE` is dropped; a filter that leaves fewer but relevant chunks is kept, so the prompt (O7) should set filters only when the question asks for them. The rewrites go only to the search and the view, never to the answer model.
 
-### T3.3 Hybrid search (BM25 + RRF) (M) · status: in review · issue #9
+### T3.3 Hybrid search (BM25 + RRF) (M) · status: done · issue #9
 **Serves:** Hard 1; AC-4.
 **Depends on:** T3.2 (O2 moved to T3.6 with the comparison)
 **Acceptance criteria**
@@ -304,7 +304,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] Existing profile tests pass; `ruff check .`, `ruff format --check .` and `python -m pytest -q` pass (1,035 tests).
 **Notes:** Streamlit 1.66 has no option to hide the text outside `st.form(enter_to_submit=False)`, and T4.1 chose not to use a form (the Metric/Imperial switch converts typed values), so the owner approved one scoped CSS rule as an exception to the "native first" principle.
 
-### T4.7 My targets: sidebar target, targets tab and Food lookup tab (M) · status: in review · issue #44
+### T4.7 My targets: sidebar target, targets tab and Food lookup tab (M) · status: done · issue #44
 **Serves:** core 5 (an intuitive UI that shows tool results), Medium 6, PRD features 5 and 6. Split from T4.4 by the owner (2026-10-20), as laid out in `docs/UI_DESIGN.md`.
 **Depends on:** T4.4
 **Acceptance criteria** (approved by the owner, 2026-10-20)
