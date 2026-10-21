@@ -1,4 +1,8 @@
-"""Integration tests for the answer step's tool loop with a scripted model (T4.4, AC 1, 2, 5)."""
+"""Integration tests for the answer step's tool loop with a scripted model (T4.4, AC 1, 2, 5).
+
+The T3.5 section checks when the plan's needs_tool and needs_profile skip the answer call or the
+<profile> block.
+"""
 
 import html
 import json
@@ -18,6 +22,7 @@ from tests.fakes import (
     ScriptedTranslator,
     build_fixture_index,
     open_fixture_index,
+    plan_json,
     tool_reply,
     write_food_table,
 )
@@ -25,8 +30,17 @@ from tests.fakes import (
 QUESTION = "How much protein per meal?"
 ANSWER = "About 0.4 g/kg per meal [S1]."
 OATS = {"food": "rolled oats", "grams": 80}
+NO_SOURCES = config.NO_SOURCES_MESSAGE
 # Matches no fixture chunk (no keyword of tests.fakes.KEYWORDS), like a food question in the app.
 FOOD_QUESTION = "How many kcal are in 80 g of rolled oats?"
+OFF_TOPIC_QUESTION = "What is the offside rule in football?"
+# The flags are set by each test; the rewrites match no fixture chunk, like the questions above.
+FOOD_REWRITES = ["kcal in rolled oats", "rolled oats energy", "oats calories per 80 g"]
+OFF_TOPIC_REWRITES = ["offside rule football", "football offside law", "offside position"]
+PROFILE_BLOCK = (
+    "<profile>\nWeight: 80 kg\nHeight: 180 cm\nAge: 30 years\nSex: Male\n"
+    "Activity: Moderate · exercise 4-5 times a week\nGoal: Build muscle\n</profile>"
+)
 
 
 @pytest.fixture(autouse=True)
@@ -53,16 +67,26 @@ def index(index_path):
     return open_fixture_index(index_path)
 
 
-def _turn(index, *replies: AIMessage, user=PROFILE, on_step=None, on_text=None, question=QUESTION):
+def _turn(
+    index,
+    *replies: AIMessage,
+    user=PROFILE,
+    on_step=None,
+    on_text=None,
+    question=QUESTION,
+    plan: str | None = None,
+):
     """Run one turn on the fixture index with a model scripted with these replies."""
     model = ScriptedChatModel(replies=list(replies))
+    # With no plan given, the translator's default plan sets both flags (as before T3.5).
+    translator = ScriptedTranslator if plan is None else lambda: ScriptedTranslator(plans=[plan])
     result = chat.run_turn(
         question,
         guard.RateLimiter(),
         open_index=lambda: index,
         chat_model=lambda: model,
         # Rewrites repeat the question (tests/fakes.py), so the search finds what it alone finds.
-        translation_model=ScriptedTranslator,
+        translation_model=translator,
         on_step=on_step,
         on_text=on_text,
         user=user,
@@ -383,11 +407,7 @@ def test_the_profile_is_in_its_own_block_of_the_user_message(index):
     """The profile goes in <profile> between the sources and the question, never in the prompt."""
     _, model = _turn(index, AIMessage(ANSWER))
     [[system, user]] = model.calls
-    block = (
-        "<profile>\nWeight: 80 kg\nHeight: 180 cm\nAge: 30 years\nSex: Male\n"
-        "Activity: Moderate · exercise 4-5 times a week\nGoal: Build muscle\n</profile>"
-    )
-    assert block in user.content
+    assert PROFILE_BLOCK in user.content
     assert user.content.index("</sources>") < user.content.index("<profile>")
     assert user.content.index("</profile>") < user.content.index("<user_input>")
     assert "80 kg" not in system.content and "<profile>" not in system.content
@@ -413,6 +433,177 @@ def test_the_energy_tools_use_the_profile_of_the_turn(index):
     lighter = PROFILE.model_copy(update={"weight_kg": 60.0})
     _, model = _turn(index, tool_reply((TDEE_TOOL, {})), AIMessage(ANSWER), user=lighter)
     assert _content(_tool_messages(model)[0])["bmr_kcal"] == 1580
+
+
+# --- T3.5: the plan decides the answer call and the <profile> block ------------------------------
+
+
+def _all_text(model: ScriptedChatModel) -> str:
+    """Return the text of every message of every call the answer model received."""
+    return "\n".join(message.text for call in model.calls for message in call)
+
+
+def test_an_off_topic_question_with_no_source_makes_no_answer_call(index):
+    """No chunk and a plan without needs_tool: the fixed message, and the answer model is unused."""
+    steps = []
+    plan = plan_json(OFF_TOPIC_REWRITES, needs_tool=False, needs_profile=False)
+    result, model = _turn(index, question=OFF_TOPIC_QUESTION, plan=plan, on_step=steps.append)
+    assert (result.kind, result.text, result.sources) == ("no_sources", NO_SOURCES, ())
+    assert model.calls == [] and model.call_kwargs == []
+    assert result.tool_runs == ()
+    # The status never says "Writing the answer" when no answer is written.
+    assert result.steps == (Step.CHECK, Step.REWRITE, Step.SEARCH)
+    assert steps == list(result.steps)
+    assert result.search is not None and not result.search.fell_back
+
+
+def test_a_food_question_with_needs_tool_runs_the_tool_loop(index):
+    """No chunk but needs_tool: the model is called with the tools and answers from the lookup."""
+    answer = "The app's food lookup gives 304 kcal for 80 g of rolled oats."
+    plan = plan_json(FOOD_REWRITES, needs_tool=True, needs_profile=False)
+    result, model = _turn(
+        index, tool_reply((FOOD_TOOL, OATS)), AIMessage(answer), question=FOOD_QUESTION, plan=plan
+    )
+    assert (result.kind, result.text, result.sources) == ("answer", answer, ())
+    assert [(run.name, run.status) for run in result.tool_runs] == [(FOOD_TOOL, "found")]
+    assert len(model.calls) == 2
+    _, user = model.calls[0][:2]
+    assert f"<sources>\n{config.NO_SOURCES_BLOCK}\n</sources>" in user.content
+
+
+@pytest.mark.parametrize(
+    "reply", ["not JSON at all", plan_json(FOOD_REWRITES[:2])], ids=["not JSON", "two rewrites"]
+)
+def test_with_no_usable_plan_and_no_source_no_answer_call_is_made(index, reply):
+    """An invalid plan says nothing about tools, so no chunk means no answer call either."""
+    result, model = _turn(index, question=FOOD_QUESTION, plan=reply)
+    assert (result.kind, result.text) == ("no_sources", NO_SOURCES)
+    assert model.calls == []
+    assert result.search is not None and result.search.fell_back
+    assert Step.ANSWER not in result.steps
+
+
+@pytest.mark.parametrize("needs_tool", [True, False])
+def test_with_sources_the_answer_step_runs_whatever_needs_tool_says(index, needs_tool):
+    """Relevant chunks: the answer model is called with the sources and the four tools."""
+    plan = plan_json([QUESTION] * 3, needs_tool=needs_tool)
+    result, model = _turn(index, tool_reply((TDEE_TOOL, {})), AIMessage(ANSWER), plan=plan)
+    assert (result.kind, result.text) == ("answer", ANSWER)
+    assert [card.labels for card in result.sources] == [("S1",)]
+    assert [run.name for run in result.tool_runs] == [TDEE_TOOL]
+    assert len(model.calls) == 2
+    _, user = model.calls[0][:2]
+    assert "[S1]" in user.content and config.NO_SOURCES_BLOCK not in user.content
+    for kwargs in model.call_kwargs:
+        names = sorted(tool["function"]["name"] for tool in kwargs["tools"])
+        assert names == sorted([TDEE_TOOL, MACRO_TOOL, FOOD_TOOL, MEAL_PLAN_TOOL])
+    assert Step.ANSWER in result.steps
+
+
+@pytest.mark.parametrize(
+    ("question", "rewrites", "replies"),
+    [
+        (QUESTION, [QUESTION] * 3, [AIMessage(ANSWER)]),
+        (FOOD_QUESTION, FOOD_REWRITES, [tool_reply((FOOD_TOOL, OATS)), AIMessage(ANSWER)]),
+    ],
+    ids=["with sources", "no source"],
+)
+def test_the_profile_is_sent_only_when_the_plan_says_needs_profile(
+    index, question, rewrites, replies
+):
+    """needs_profile adds <profile>; without it, and no energy tool, no profile value is sent."""
+    plan = plan_json(rewrites, needs_tool=True, needs_profile=True)
+    _, model = _turn(index, *replies, question=question, plan=plan)
+    assert PROFILE_BLOCK in model.calls[0][1].content
+
+    plan = plan_json(rewrites, needs_tool=True, needs_profile=False)
+    _, model = _turn(index, *replies, question=question, plan=plan)
+    _, user = model.calls[0][:2]
+    sent = _all_text(model)
+    assert "<profile>" not in sent and "</profile>" not in sent
+    for value in ("80 kg", "180 cm", "30 years", "Male", "Build muscle"):
+        assert value not in sent
+    # The two other blocks stay, in order, with nothing between them.
+    assert f"</sources>\n\n<user_input>\n{question}\n</user_input>" in user.content
+
+
+def test_with_no_usable_plan_the_profile_is_not_sent(index):
+    """Relevant chunks but no plan: the answer is written without the <profile> block."""
+    result, model = _turn(index, AIMessage(ANSWER), plan="not JSON at all")
+    assert result.kind == "answer"
+    assert "<profile>" not in _all_text(model) and "80 kg" not in _all_text(model)
+
+
+def test_without_the_profile_block_the_energy_tools_still_use_the_profile(index):
+    """needs_profile false: an energy tool the model calls still reads the session's profile."""
+    plan = plan_json([QUESTION] * 3, needs_tool=True, needs_profile=False)
+    _, model = _turn(index, tool_reply((TDEE_TOOL, {})), AIMessage(ANSWER), plan=plan)
+    assert "<profile>" not in model.calls[0][1].content
+    assert _content(_tool_messages(model)[0])["tdee_kcal"] == 2759
+
+
+def test_without_the_profile_block_an_energy_result_still_names_some_profile_values(index):
+    """No needs_profile: no <profile>, but tool results name the weight, goal and activity."""
+    # Pins the known limit in docs/SECURITY.md: these result fields reach the model when it calls
+    # an energy or meal plan tool, with or without the block.
+    plan = plan_json([QUESTION] * 3, needs_tool=True, needs_profile=False)
+    day = {"items": [OATS, {"food": "chicken breast", "grams": 200}]}
+    calls = ((MACRO_TOOL, {}), (TDEE_TOOL, {}), (MEAL_PLAN_TOOL, day))
+    _, model = _turn(index, tool_reply(*calls), AIMessage(ANSWER), plan=plan)
+    assert "<profile>" not in model.calls[0][1].content
+    macro, tdee, meal_plan = (_content(message) for message in _tool_messages(model))
+    targets = macro["targets"]
+    assert (targets["weight_kg"], targets["goal"]) == (80.0, "build_muscle")
+    assert macro["energy_needs"]["activity_factor"] == tdee["activity_factor"] == 1.55
+    assert "'Build muscle'" in meal_plan["message"]
+    # No tool message has a height, age or sex field, nor the stored height or sex.
+    sent = _all_text(model)
+    for key in ('"height_cm"', '"age"', '"sex"'):
+        assert key not in sent
+    assert "180" not in sent and "male" not in sent.casefold()
+
+
+@pytest.mark.parametrize(
+    ("plan", "expected"),
+    [
+        (plan_json([QUESTION] * 3, needs_tool=True, needs_profile=False), (True, False)),
+        (plan_json([QUESTION] * 3, needs_tool=False, needs_profile=True), (False, True)),
+        ("not JSON at all", (None, None)),
+    ],
+    ids=["tool only", "profile only", "no plan"],
+)
+def test_the_search_details_carry_the_plans_flags(index, plan, expected):
+    """The turn's SearchDetails keep needs_tool and needs_profile, or None with no plan."""
+    result, _ = _turn(index, AIMessage(ANSWER), plan=plan)
+    assert (result.search.needs_tool, result.search.needs_profile) == expected
+
+
+@pytest.mark.parametrize(
+    ("question", "rewrites", "needs_tool", "needs_profile", "sent"),
+    [
+        (QUESTION, [QUESTION] * 3, True, True, True),
+        (QUESTION, [QUESTION] * 3, True, False, False),
+        (OFF_TOPIC_QUESTION, OFF_TOPIC_REWRITES, False, True, False),
+    ],
+    ids=["asked and sent", "not asked", "asked but no answer call"],
+)
+def test_the_turn_says_whether_the_profile_block_was_sent(
+    index, question, rewrites, needs_tool, needs_profile, sent
+):
+    """TurnResult.profile_sent is True only when an answer call got the <profile> block."""
+    plan = plan_json(rewrites, needs_tool=needs_tool, needs_profile=needs_profile)
+    result, model = _turn(index, AIMessage(ANSWER), question=question, plan=plan)
+    assert result.profile_sent is sent
+    assert sent == any("<profile>" in m.text for call in model.calls for m in call)
+
+
+def test_build_messages_leaves_the_profile_block_out_on_request():
+    """include_profile=False gives <sources> and <user_input> only, even with a profile."""
+    _, user = chat.build_messages(QUESTION, [], "Prompt.", PROFILE, include_profile=False)
+    assert user.content == (
+        f"<sources>\n{config.NO_SOURCES_BLOCK}\n</sources>\n\n"
+        f"<user_input>\n{QUESTION}\n</user_input>"
+    )
 
 
 # --- The real client on the wire (AC 1) -----------------------------------------------------------
@@ -475,7 +666,9 @@ def _wire_loop(server: StreamServer) -> tuple[str, tuple]:
         api_key="sk-test-not-a-real-key",
         http_client=httpx2.Client(transport=httpx2.MockTransport(server)),
     )
-    messages = chat.build_messages(QUESTION, [], "Test system prompt.", PROFILE)
+    messages = chat.build_messages(
+        QUESTION, [], "Test system prompt.", PROFILE, include_profile=True
+    )
     tools = registry.build_tools(PROFILE)
     return chat.answer_with_tools(model, messages, tools, on_step=lambda step: None)
 

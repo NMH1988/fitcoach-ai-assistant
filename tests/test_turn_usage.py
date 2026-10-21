@@ -17,6 +17,7 @@ from tests.fakes import (
     ScriptedChatModel,
     ScriptedTranslator,
     build_fixture_index,
+    plan_json,
     tool_reply,
 )
 
@@ -86,14 +87,17 @@ def index(index_path):
     return store.open_index(embeddings, index_path)
 
 
-def _turn(index, model: ScriptedChatModel, question: str = QUESTION) -> chat.TurnResult:
+def _turn(
+    index, model: ScriptedChatModel, question: str = QUESTION, plans: tuple[str, ...] = ()
+) -> chat.TurnResult:
     """Run one turn with this answer model and a translator that reports REWRITE_USAGE."""
+    # With no plans given the translator's default plan sets needs_tool and needs_profile.
     return chat.run_turn(
         question,
         guard.RateLimiter(),
         open_index=lambda: index,
         chat_model=lambda: model,
-        translation_model=lambda: ScriptedTranslator(usage=REWRITE_USAGE),
+        translation_model=lambda: ScriptedTranslator(usage=REWRITE_USAGE, plans=list(plans)),
         user=PROFILE,
     )
 
@@ -142,10 +146,21 @@ def test_a_cut_off_answer_is_counted(index):
 
 def test_a_hidden_reply_with_no_source_is_counted(index):
     """With no relevant source the fixed message is shown, but the model call is counted."""
+    # The default plan says needs_tool, so the model is still called (T4.4's path).
     model = ScriptedChatModel(replies=[_with_usage(AIMessage("Offside is..."), 800, 50)])
     result = _turn(index, model, OFF_TOPIC)
     assert result.kind == "no_sources"
     assert result.usage == (REWRITE_ROW, SEARCH_ROW, _answer_round(1, 800, 50))
+
+
+def test_an_off_topic_question_skipped_by_the_plan_keeps_its_usage(index):
+    """No source and no needs_tool: no answer call, but the rewrite and the search are counted."""
+    plan = plan_json(["offside rule", "football offside law", "offside position"], needs_tool=False)
+    model = ScriptedChatModel(replies=[_with_usage(AIMessage("Offside is..."), 800, 50)])
+    result = _turn(index, model, OFF_TOPIC, plans=(plan,))
+    assert (result.kind, result.text) == ("no_sources", config.NO_SOURCES_MESSAGE)
+    assert model.calls == []
+    assert result.usage == (REWRITE_ROW, SEARCH_ROW)
 
 
 @pytest.mark.parametrize(

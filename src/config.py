@@ -219,8 +219,9 @@ QUERY_REWRITE_MAX_CHARS = 300
 # source after it finds nothing, so the search runs again without filters.
 QUERY_MIN_YEAR_RANGE = (2000, 2100)
 # Shown instead of an answer when no chunk is relevant and the model used no tool (AC-2). Since T4.4
-# the model is still called once with the tools, as a food lookup or an energy question may match no
-# research passage; its own text is never shown on this path (owner's choice, 2026-10-20).
+# the model is still called with the tools when the query plan says a tool could answer
+# (`needs_tool`, T3.5), as a food lookup or an energy question may match no research passage; its
+# own text is never shown on this path (owner's choice, 2026-10-20). Otherwise no model is called.
 NO_SOURCES_MESSAGE = (
     "Our sources do not cover this question, so there is no answer from the research. Try a "
     "question about protein, carbohydrate, fat, energy balance, nutrient timing or supplements "
