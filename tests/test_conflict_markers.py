@@ -22,8 +22,9 @@ def marker_lines(text: str) -> list[int]:
 def _tracked_text_files() -> list[Path]:
     """Return the repository's tracked files that are not binary."""
     try:
+        # git writes the names as UTF-8 (unquoted with -z), whatever the locale's encoding.
         listed = subprocess.run(
-            ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True, text=True
+            ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True, encoding="utf-8"
         ).stdout
     except OSError, subprocess.CalledProcessError:
         pytest.skip("git is not available here")
