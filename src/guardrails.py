@@ -408,9 +408,13 @@ _DE_BAD = (
     r"(?:schlecht|erhöht|zu hoch|hoch|zu niedrig|auffällig|abnormal|abnorm|kritisch"
     r"|nicht (?:gut|in ordnung|ok|okay|normal))"
 )
+# "Erhöhte Nierenwerte" counts only as the user's or a group's ("ich habe", "trotz", "meine"), so
+# "Kann Kreatin erhöhte Nierenwerte verursachen?" is a research question.
 _DE_BAD_LAB_VALUES = [
-    rf"\b(?:schlechte[nm]?|erhöhte[nm]?|hohe[nm]?|zu hohe[nm]?|auffällige[nm]?|abnormale[nm]?"
-    rf"|abnorme[nm]?|kritische[nm]?) {_DE_LAB_VALUES}\b",
+    r"\b(?:ich habe|ich hab|ich hatte|habe ich|hab ich|hatte ich|wenn ich|wenn man|mit|trotz"
+    r"|wegen|bei|meine[nr]?)(?: (?:leicht|stark|deutlich|etwas|sehr|zu))? (?:schlechte[nmr]?"
+    rf"|erhöhte[nmr]?|hohe[nmr]?|auffällige[nmr]?|abnormale[nmr]?|abnorme[nmr]?|kritische[nmr]?)"
+    rf" {_DE_LAB_VALUES}\b",
     rf"\b{_DE_LAB_VALUES} (?:sind|waren|wären|seien|bleiben) (?:\S+ ){{0,2}}?{_DE_BAD}\b",
 ]
 _DE_CONDITION_FRAME = (

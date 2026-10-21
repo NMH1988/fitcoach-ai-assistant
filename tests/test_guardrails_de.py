@@ -95,6 +95,11 @@ FLAGGED = [
     ("Meine Leberwerte sind seit Monaten zu hoch.", Concern.MEDICAL),
     ("Mein Arzt sagt, meine Nierenwerte sind auffällig.", Concern.MEDICAL),
     ("Ich habe schlechte Leberwerte, ist Whey ok?", Concern.MEDICAL),
+    # Found in the review of PR #65, round 7: the genitive, and other frames.
+    ("Kreatin trotz erhöhter Nierenwerte?", Concern.MEDICAL),
+    ("Ich habe leicht erhöhte Nierenwerte, ist Kreatin ok?", Concern.MEDICAL),
+    ("Wegen meiner schlechten Nierenwerte: wie viel Protein?", Concern.MEDICAL),
+    ("Was esse ich, wenn ich schlechte Nierenwerte habe?", Concern.MEDICAL),
     ("Ich nehme Blutverdünner, darf ich Fischöl nehmen?", Concern.MEDICAL),
     ("Ich nehme Medikamente gegen Depressionen, ist Koffein okay?", Concern.MEDICAL),
     ("Ich nehme die Pille, beeinflusst das meinen Muskelaufbau?", Concern.MEDICAL),
@@ -245,6 +250,10 @@ BENIGN = [
     "Kreatin erhöht die Nierenwerte, ist das schlimm?",
     "Steigen meine Nierenwerte durch viel Protein?",
     "Verändert Kreatin meine Leberwerte?",
+    # Found in the review of PR #65, round 7: high values as a research question.
+    "Führt Kreatin zu erhöhten Nierenwerten?",
+    "Kann Kreatin erhöhte Nierenwerte verursachen?",
+    "Verursacht viel Protein erhöhte Leberwerte?",
     # Found in the review of PR #65: a difference, a second amount or a food's energy.
     "Ich nehme täglich 500 kcal weniger zu mir, ist das ein gutes Defizit?",
     "Ich nehme 300 kcal pro Tag mehr zu mir als ich verbrauche.",
