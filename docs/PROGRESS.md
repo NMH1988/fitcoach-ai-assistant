@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-21 · T5.1a Live-check tests ignore a local secrets.toml · #TBD (closes #68)
+## 2026-10-21 · T5.1a Live-check tests ignore a local secrets.toml · #70 (closes #68)
 - **Brief:** none directly; keeps the T5.1 tests (Medium 5) safe to run in a checkout with the real key. Test-only fix.
 - **What:**
   - `tests/test_live_check_llm.py`: `_use_fake_key()` replaces `st.secrets` with a dict holding the fake key, used by the three tests that set the key (`main()` and the streamed-request test) instead of only setting `OPENROUTER_API_KEY`. `_record_generation_keys()` records whether each generation request got the fake key (a bool), not the key. New regression test: a temporary secrets.toml with another key is in place, and `main()` still sends only the fake key.
