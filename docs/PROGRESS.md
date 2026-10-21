@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-21 · T7.4 German input guard and guardrails · #<PR> (closes #63)
+## 2026-10-21 · T7.4 German input guard and guardrails · #65 (closes #63)
 - **Brief:** Hard 4 (multi-language support) as an extra after the core, with core 3 (security measures relevant to the domain) and Medium 3 (prompt injection protection) for German input; AC-16. Beyond the PRD's original English-only scope (owner's request, 2026-10-20).
 - **What:**
   - `src/german.py` (new): `german(pattern)` lets each umlaut in a pattern also match the plain vowel and the typed ae/oe/ue.
