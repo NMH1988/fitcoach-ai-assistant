@@ -563,6 +563,21 @@ def test_without_the_profile_block_an_energy_result_still_names_some_profile_val
     assert "180" not in sent and "male" not in sent.casefold()
 
 
+@pytest.mark.parametrize(
+    ("plan", "expected"),
+    [
+        (plan_json([QUESTION] * 3, needs_tool=True, needs_profile=False), (True, False)),
+        (plan_json([QUESTION] * 3, needs_tool=False, needs_profile=True), (False, True)),
+        ("not JSON at all", (None, None)),
+    ],
+    ids=["tool only", "profile only", "no plan"],
+)
+def test_the_search_details_carry_the_plans_flags(index, plan, expected):
+    """The turn's SearchDetails keep needs_tool and needs_profile, or None with no plan."""
+    result, _ = _turn(index, AIMessage(ANSWER), plan=plan)
+    assert (result.search.needs_tool, result.search.needs_profile) == expected
+
+
 def test_build_messages_leaves_the_profile_block_out_on_request():
     """include_profile=False gives <sources> and <user_input> only, even with a profile."""
     _, user = chat.build_messages(QUESTION, [], "Prompt.", PROFILE, include_profile=False)

@@ -396,6 +396,13 @@ def test_a_rejected_question_shows_the_guard_message(monkeypatch):
 REWRITES = ["protein per meal for muscle", "protein dose in one sitting", "meal protein amount"]
 
 
+# The routing badges of the fakes' default plan, which sets needs_tool and needs_profile (T3.5).
+ROUTED = [
+    ":blue-badge[:material/build: A tool may help]",
+    ":blue-badge[:material/person: Your details sent]",
+]
+
+
 def _details_tab(at: AppTest):
     """Return the Details tab."""
     [tab] = [t for t in at.tabs if "Details" in t.label]
@@ -434,6 +441,7 @@ def test_details_shows_the_rewrites_and_the_filters(monkeypatch):
         ":blue-badge[:material/sell: Nutrient timing]",
         ":blue-badge[:material/calendar_month: From 2021]",
         ":blue-badge[:material/verified: ISSN position stands only]",
+        *ROUTED,
     ]
     assert not tab.caption
 
@@ -442,7 +450,7 @@ def test_details_says_no_filters_when_none_were_chosen(monkeypatch):
     """A plan without filters shows a "No filters" badge."""
     _use_model(monkeypatch, _answers("Four meals [S1]."))
     tab = _details_tab(_ask(_start(), QUESTION))
-    assert _badges(tab) == [":gray-badge[:material/filter_alt_off: No filters]"]
+    assert _badges(tab) == [":gray-badge[:material/filter_alt_off: No filters]", *ROUTED]
 
 
 def test_details_says_when_the_filters_were_dropped(monkeypatch):
@@ -451,7 +459,7 @@ def test_details_says_when_the_filters_were_dropped(monkeypatch):
     _use_model(monkeypatch, _answers("Four meals [S1]."), ScriptedTranslator(plans=[plan]))
     at = _ask(_start(), QUESTION)
     tab = _details_tab(at)
-    assert _badges(tab) == [":blue-badge[:material/sell: Fat]"]
+    assert _badges(tab) == [":blue-badge[:material/sell: Fat]", *ROUTED]
     assert [c.value for c in tab.caption] == [
         ":material/filter_alt_off: No passage close enough matched these filters, so the "
         "search ran again without them."
@@ -466,14 +474,40 @@ def test_details_says_when_only_the_question_was_searched(monkeypatch):
     tab = _details_tab(_ask(_start(), QUESTION))
     assert "1. How much protein per meal? *(your question)*" in [m.value for m in tab.markdown]
     assert any("only your question was searched" in c.value for c in tab.caption)
+    # With no plan there is no tool or profile decision to show; the note says what happened.
+    assert "**Tools and your details**" not in [m.value for m in tab.markdown]
+    assert any("your details were not sent" in c.value for c in tab.caption)
 
 
 def test_details_shows_the_search_even_when_nothing_was_found(monkeypatch):
-    """A question the sources do not cover still shows what was searched."""
-    # The answer model is still asked once, with the tools; it calls none (T4.4).
-    _use_model(monkeypatch, _answers("Offside is a football rule."))
+    """An off-topic question still shows what was searched, and no tool or details were used."""
+    _use_model(monkeypatch, _answers("Offside is a football rule."), _off_topic_plan())
     tab = _details_tab(_ask(_start(), OFF_TOPIC))
     assert any(m.value.startswith("1. What is the offside rule") for m in tab.markdown)
+    assert "**Tools and your details**" in [m.value for m in tab.markdown]
+    assert _badges(tab)[-2:] == [
+        ":gray-badge[:material/build: No tool expected]",
+        ":gray-badge[:material/person_off: Your details not sent]",
+    ]
+
+
+@pytest.mark.parametrize(("needs_tool", "needs_profile"), [(True, False), (False, True)])
+def test_details_shows_each_flag_of_the_plan(monkeypatch, needs_tool, needs_profile):
+    """Each badge follows its own flag of the plan (T3.5)."""
+    plan = plan_json(REWRITES, needs_tool=needs_tool, needs_profile=needs_profile)
+    _use_model(monkeypatch, _answers("Four meals [S1]."), ScriptedTranslator(plans=[plan]))
+    tab = _details_tab(_ask(_start(), QUESTION))
+    tool = (
+        "blue-badge[:material/build: A tool may help]"
+        if needs_tool
+        else ("gray-badge[:material/build: No tool expected]")
+    )
+    details = (
+        "blue-badge[:material/person: Your details sent]"
+        if needs_profile
+        else ("gray-badge[:material/person_off: Your details not sent]")
+    )
+    assert _badges(tab)[-2:] == [f":{tool}", f":{details}"]
 
 
 def test_details_follows_the_last_question(monkeypatch):

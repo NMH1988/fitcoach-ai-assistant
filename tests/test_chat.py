@@ -212,8 +212,13 @@ def test_the_question_and_each_rewrite_are_searched_with_the_filter(index, monke
     result = _turn(QUESTION, index, _model("Four meals [S1]."), translator=translator)
     assert spy.embedded == [[QUESTION, *REWRITES]]
     assert spy.filters == [{"topics": {"$contains": "protein"}}] * 4
+    # The fakes' default plan sets both T3.5 flags.
     assert result.search == chat.SearchDetails(
-        question=QUESTION, rewrites=tuple(REWRITES), topics=("protein",)
+        question=QUESTION,
+        rewrites=tuple(REWRITES),
+        topics=("protein",),
+        needs_tool=True,
+        needs_profile=True,
     )
     assert result.search.queries == (QUESTION, *REWRITES)
     assert len(translator.calls) == 1

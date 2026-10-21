@@ -142,7 +142,7 @@ Built in T4.7. Screenshot: `docs/ui/t4.7-food-lookup.jpg`.
 
 #### Details (for the last answer)
 
-- **How this answer was found:** for the last turn that searched, "Searched for" as a numbered list (the question, marked "your question", then the rewrites; both escaped, on one line each) and "Filters" as blue `st.badge`s ("Protein", "From 2021", "ISSN position stands only"), or a grey "No filters" badge; a caption when only the question was searched (the rewrite step gave nothing usable) or when the filters were dropped (nothing close enough passed them). Before any question, an invitation (AC-3, T3.2).
+- **How this answer was found:** for the last turn that searched, "Searched for" as a numbered list (the question, marked "your question", then the rewrites; both escaped, on one line each) and "Filters" as blue `st.badge`s ("Protein", "From 2021", "ISSN position stands only"), or a grey "No filters" badge; then "Tools and your details" with two badges from the rewrite step's plan (T3.5, owner's request after the live check): "A tool may help" (blue) or "No tool expected" (grey), and "Your details sent" (blue) or "Your details not sent" (grey); a caption when only the question was searched (the rewrite step gave nothing usable; it also says the details were not sent, and the two badges are left out) or when the filters were dropped (nothing close enough passed them). Before any question, an invitation (AC-3, T3.2).
 - **Usage:** this answer's tokens and cost, and the session totals, in one compact line or small metrics (AC-10, Medium 5).
 
 ## Text

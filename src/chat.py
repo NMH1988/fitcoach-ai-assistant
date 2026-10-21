@@ -100,6 +100,10 @@ class SearchDetails:
     fell_back: bool = False
     # True when nothing passed the filters, so the search ran again without them.
     filter_dropped: bool = False
+    # The plan's needs_tool and needs_profile (T3.5); None when there was no usable plan, which
+    # means no answer call without a relevant chunk and no <profile> block.
+    needs_tool: bool | None = None
+    needs_profile: bool | None = None
 
     @property
     def queries(self) -> tuple[str, ...]:
@@ -231,6 +235,8 @@ def find_chunks(
         evidence_tier=plan.evidence_tier if plan is not None else None,
         fell_back=plan is None,
         filter_dropped=filter_dropped,
+        needs_tool=plan.needs_tool if plan is not None else None,
+        needs_profile=plan.needs_profile if plan is not None else None,
     )
     return chunks, details
 
