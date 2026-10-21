@@ -9,6 +9,7 @@ from datetime import date
 
 import pytest
 from pypdf import PdfReader
+from reportlab.pdfbase import pdfmetrics
 
 from src import chat, config, export_pdf
 from src.rag.sources import ARTICLE_CHANGES_NOTE, Source
@@ -652,3 +653,46 @@ def test_a_meal_plan_credits_the_targets_and_formula_sources():
     for source in MANIFEST.values():
         if any(source.url in line for line in MACRO_SOURCES):
             assert source.url in credits, source.id
+
+
+def test_a_meal_plan_shows_the_alternatives_and_suggestions():
+    """The app's "Other close USDA names" reach the PDF: suggestions and close alternatives."""
+    plan = {
+        "items": [{"food": "chicken thigh", "grams": 100}, {"food": "rolled oats", "grams": 80}]
+    }
+    run = _run(MEAL_PLAN_TOOL, plan)
+    compact = "".join(pdf_text(_pdf([("Day?", _answer("Ok.", runs=(run,)))])).split())
+    did_you_mean = "Did you mean: chicken thigh: Chicken, breast, boneless, skinless, raw"
+    assert "".join(did_you_mean.split()) in compact
+    close = f"Close alternatives: rolled oats: {HOSTILE_FOOD_NAME}"
+    assert "".join(close.split()) in compact
+
+
+def test_the_meal_plan_foods_table_breaks_no_header_or_value():
+    """The foods table's headers and values fit their columns, so none is split mid-word."""
+    run = _run(MEAL_PLAN_TOOL, DAY)
+    text = pdf_text(_pdf([("Day?", _answer("Ok.", runs=(run,)))]))
+    assert "Amount Energy Protein Carbohydrate Fat Fiber" in text
+    assert "80 g 304 kcal 10.6 g 54.4 g 5.1 g 8 g" in text
+
+
+def test_fitted_widths_fit_each_value_and_fill_the_page():
+    """Value columns get their longest text plus padding; the name columns share the rest."""
+    rows = [["Name", "Other", "Carbohydrate"], ["a", "b", "54.4 g"]]
+    widths = export_pdf._fitted_widths(rows, wide=(0, 1), size=export_pdf.SMALL_SIZE)
+    text = pdfmetrics_width("Carbohydrate", export_pdf.SMALL_SIZE)
+    assert widths[2] == pytest.approx(text + export_pdf.CELL_PADDING)
+    assert widths[0] == widths[1]
+    assert sum(widths) == pytest.approx(export_pdf.CONTENT_WIDTH)
+
+
+def test_fitted_widths_fall_back_to_equal_columns():
+    """When the values leave the name columns too little room, every column is equal."""
+    rows = [["Name", "x" * 400]]
+    widths = export_pdf._fitted_widths(rows, wide=(0,), size=export_pdf.SMALL_SIZE)
+    assert widths == [export_pdf.CONTENT_WIDTH / 2] * 2
+
+
+def pdfmetrics_width(text: str, size: float) -> float:
+    """Return the width of the text in the PDF's font at this size."""
+    return pdfmetrics.stringWidth(text, export_pdf.FONT, size)

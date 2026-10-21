@@ -3,11 +3,11 @@
 The PDF is built in memory with ReportLab and handed to the download button; nothing is written to
 disk and nothing is logged (.claude/rules/security-privacy.md). ReportLab's `Paragraph` reads its
 text as markup (`<b>`, `<font>`, `<link href=...>`), so every text that is not ours (the question,
-the model's answer, source titles, USDA names) goes through `_text()`, which escapes it: no model
-text can add formatting or a link, and a "<" cannot break the PDF. Answers are first unescaped
-(`html.unescape`), as the model may copy an entity from the escaped prompt (T3.4), and their
-Markdown is turned into plain text by `clean_answer()`. The PDF holds no link annotations at all:
-URLs are printed as text.
+the model's answer, source titles, USDA names, the food names the model sent to the meal plan
+check) goes through `_text()`, which escapes it: no model text can add formatting or a link, and a
+"<" cannot break the PDF. Answers are first unescaped (`html.unescape`), as the model may copy an
+entity from the escaped prompt (T3.4), and their Markdown is turned into plain text by
+`clean_answer()`. The PDF holds no link annotations at all: URLs are printed as text.
 """
 
 import html
@@ -54,6 +54,10 @@ BOLD_FONT = "DejaVuSans-Bold"
 MARGIN = 18 * mm
 CONTENT_WIDTH = A4[0] - 2 * MARGIN
 LABEL_WIDTH = 55 * mm
+# ReportLab's default left and right padding of a table cell (6 points each).
+CELL_PADDING = 12
+# The narrowest a name column of a fitted table may get before its columns are made equal.
+MIN_WIDE_COLUMN = 25 * mm
 BODY_SIZE = 10
 SMALL_SIZE = 8.5
 LEADING = 1.35
@@ -167,6 +171,7 @@ STYLES = {
         "correction", fontSize=SMALL_SIZE, textColor=MUTED, leftIndent=INDENT, spaceAfter=1 * mm
     ),
     "cell": _style("cell"),
+    "small_cell": _style("small_cell", fontSize=SMALL_SIZE),
 }
 
 
@@ -310,13 +315,36 @@ def _answer_flowables(answer: str) -> list[Flowable]:
     return flowables
 
 
-def _table(rows: Mapping[str, str] | Sequence[Sequence[str]], header: bool = False) -> Table:
+def _fitted_widths(rows: Sequence[Sequence[str]], wide: Sequence[int], size: float) -> list[float]:
+    """Return column widths: each column fits its longest text, the wide ones share the rest."""
+    # Measuring needs the font; registering it is cached, so this costs nothing in a build.
+    _register_fonts()
+    columns = len(rows[0])
+    widths = [
+        max(pdfmetrics.stringWidth(str(row[i]), FONT, size) for row in rows) + CELL_PADDING
+        for i in range(columns)
+    ]
+    rest = CONTENT_WIDTH - sum(w for i, w in enumerate(widths) if i not in wide)
+    if rest < MIN_WIDE_COLUMN * len(wide):
+        # Values too long to fit side by side: equal columns, which wrap.
+        return [CONTENT_WIDTH / columns] * columns
+    return [rest / len(wide) if i in wide else w for i, w in enumerate(widths)]
+
+
+def _table(
+    rows: Mapping[str, str] | Sequence[Sequence[str]],
+    header: bool = False,
+    widths: Sequence[float] | None = None,
+    style: str = "cell",
+) -> Table:
     """Return label and value rows (or rows of cells) as a table of escaped paragraphs."""
     data = list(rows.items()) if isinstance(rows, Mapping) else [list(row) for row in rows]
-    cells = [[Paragraph(_text(str(cell)), STYLES["cell"]) for cell in row] for row in data]
-    # Paragraph cells need set widths: a label column and the rest, or equal columns.
+    cells = [[Paragraph(_text(str(cell)), STYLES[style]) for cell in row] for row in data]
+    # Paragraph cells need set widths: given, a label column and the rest, or equal columns.
     columns = len(data[0])
-    if header:
+    if widths is not None:
+        widths = list(widths)
+    elif header:
         widths = [CONTENT_WIDTH / columns] * columns
     else:
         widths = [LABEL_WIDTH, CONTENT_WIDTH - LABEL_WIDTH]
@@ -422,7 +450,16 @@ def _meal_plan_flowables(result: MealPlanResult) -> list[Flowable]:
     # The same cells as the app's tables (src/tools/meal_plan.py); _table() escapes each one, so
     # a USDA name or the name the model asked for cannot add markup (T4.5).
     foods = [list(meal_plan.FOOD_COLUMNS), *(meal_plan.food_row(i) for i in result.items)]
-    flowables: list[Flowable] = [_table(foods, header=True)]
+    # Eight columns: small cells, the values as wide as their longest text and the two name
+    # columns sharing the rest, so no header or value breaks mid-word (code review, round 2).
+    widths = _fitted_widths(foods, wide=(0, 1), size=SMALL_SIZE)
+    flowables: list[Flowable] = [_table(foods, header=True, widths=widths, style="small_cell")]
+    # The app's "Other close USDA names" column, as lines under the table.
+    for item in result.items:
+        if item.alternatives:
+            label = "Did you mean:" if item.status == "not_found" else "Close alternatives:"
+            names = "; ".join(item.alternatives)
+            flowables.append(_labelled(label, f"{item.requested}: {names}", "small"))
     comparison = meal_plan.comparison_rows(result)
     if comparison:
         rows = [list(meal_plan.COMPARISON_COLUMNS), *comparison]
@@ -577,7 +614,9 @@ def _credits(
     if targets is not None:
         energy_results.append(targets)
     used_lines = {line for result in energy_results for line in result.targets.sources}
-    # A meal plan check compares with the macro targets, so it uses their sources too (T4.5).
+    # A meal plan check compares with the macro targets, so it uses their sources too (T4.5). Its
+    # result does not carry the targets, so this reads MACRO_SOURCES, the default of
+    # MacroTargetsResult.sources; if a target ever lists other sources, credit those here too.
     meal_plans = [
         run.result for run in runs if isinstance(run.result, MealPlanResult) and run.status == "ok"
     ]
