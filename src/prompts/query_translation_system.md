@@ -39,6 +39,7 @@ Choose every topic that clearly applies from:
 - "supplements": creatine, caffeine, HMB, omega-3, protein powders, and other dietary supplements
 
 More than one topic may apply.
+
 List every topic that clearly applies.
 
 If none clearly applies, return an empty list.
@@ -79,20 +80,26 @@ The supported tool tasks are:
    - fat target
 
 3. Food nutrition lookup
-   - nutrition information for a specific food and a specific amount
+   - nutrition information for a specific food
+   - this also applies when the user asks about the nutrition of a food without giving a gram amount
+
+4. Full-day meal-plan evaluation
+   - compare a full day of eating containing multiple foods and gram amounts with the user's personal nutrition targets
 
 Examples:
 
 - "How many kcal are in 150 g of oats?" → true
+- "How much protein is in chicken breast?" → true
 - "What is my TDEE?" → true
 - "How much protein should I eat per day?" → true
+- "I ate 200 g oats, 150 g chicken and 300 g rice today. How does this compare with my targets?" → true
 - "Is creatine safe?" → false
 - "What does the ISSN say about caffeine?" → false
 - "What is the largest economy in the world?" → false
 
 If the question contains both supported and unsupported parts, set `needs_tool` to true when a supported tool can answer at least one part.
 
-Do not treat `needs_tool = true` as permission to change or expand the scope of the user's question.
+`needs_tool` does not mean that unrelated parts of the question become supported.
 
 If you are unsure whether one of the supported tools can contribute to the answer, set `needs_tool` to true.
 
@@ -100,7 +107,7 @@ A false negative may prevent the app from answering a question that a supported 
 
 ### needs_profile
 
-Set `needs_profile` to true only when the answer requires personal information from the user's stored profile.
+Set `needs_profile` to true only when the answer model needs personal information from the user's stored profile.
 
 Relevant profile information may include:
 
@@ -121,7 +128,19 @@ Examples:
 - "Is creatine safe?" → false
 - "How many kcal are in 150 g of oats?" → false
 
-If all personal information needed for the answer is already explicitly included in <user_input>, set `needs_profile` to false.
+A full-day meal-plan comparison with the user's personal targets requires the stored profile, so set `needs_profile` to true.
+
+Example:
+
+"I ate 200 g oats, 150 g chicken and 300 g rice today. How does this compare with my targets?"
+
+→ `needs_tool = true`
+→ `needs_profile = true`
+
+The meal-plan tool reads the stored profile directly from the app.
+`needs_profile` determines whether the answer model also receives the `<profile>` block.
+
+If all personal information needed for the answer is already explicitly included in <user_input>, normally set `needs_profile` to false.
 
 Example:
 
@@ -130,7 +149,7 @@ Example:
 → `needs_tool = true`
 → `needs_profile = false`
 
-The stored profile is not needed because the required personal information is already present in the current question.
+The stored profile does not need to be exposed to the answer model only because the user has already provided the required information in the current question.
 
 `needs_tool` and `needs_profile` are independent.
 
@@ -154,7 +173,7 @@ Examples:
 
 If you are unsure whether the stored profile is necessary, set `needs_profile` to false.
 
-Only request the stored profile when it is clearly needed. This avoids sending personal data unnecessarily.
+Only expose the stored profile when it is clearly needed.
 
 ## Query rewriting rules
 
@@ -196,7 +215,7 @@ Only set `min_year` or `evidence_tier` when the user's question clearly requires
 
 Do not convert them into a guessed year.
 
-9. Tool and profile routing must not change the search intent.
+9. Tool and profile routing must not change the user's search intent.
 
 The routing flags only tell the app what additional data or functionality may be needed.
 
@@ -309,6 +328,27 @@ Output:
   "evidence_tier": null,
   "needs_tool": true,
   "needs_profile": false
+}
+
+### Example 6 — Full-day meal-plan comparison
+
+Input:
+<user_input>
+Today I ate 200 g oats, 150 g chicken breast and 300 g rice. How does this compare with my daily targets?
+</user_input>
+
+Output:
+{
+  "queries": [
+    "daily nutrition intake resistance training energy protein",
+    "daily calorie and macronutrient targets resistance training",
+    "daily food intake compared with nutrition targets"
+  ],
+  "topics": ["protein", "carbohydrate", "fat", "energy_balance"],
+  "min_year": null,
+  "evidence_tier": null,
+  "needs_tool": true,
+  "needs_profile": true
 }
 
 Use the examples only as patterns.
