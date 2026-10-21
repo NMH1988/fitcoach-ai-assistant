@@ -19,6 +19,9 @@ wheels/
 data/raw/
 data/usda/
 
+# Evaluation run reports: model answers and article text (scripts/run_evaluation.py, T6.1)
+data/eval_runs/
+
 # Vector store (rebuilt from the sources)
 chroma/
 .chroma/

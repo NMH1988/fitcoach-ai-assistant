@@ -578,9 +578,11 @@ def answer_question(
     *,
     keyword_index: Callable[[Chroma], KeywordIndex] = hybrid.build_keyword_index,
     recorder: UsageRecorder | None = None,
+    on_chunks: Callable[[Sequence[RetrievedChunk]], None] | None = None,
 ) -> TurnResult:
     """Rewrite an accepted question, retrieve its chunks and answer from them, citing [S#]."""
     # recorder collects the tokens of every call; the caller keeps it, so an error keeps them too.
+    # on_chunks(chunks) gets the chunks found, in [S#] order, for the evaluation run (T6.1).
     on_step(Step.REWRITE)
     plan = query_translation.translate(
         question, models.translation_model, models.translation_prompt, recorder
@@ -590,6 +592,8 @@ def answer_question(
         chunks, details = find_chunks(
             question, plan, index, keyword_index=keyword_index, recorder=recorder
         )
+    if on_chunks is not None:
+        on_chunks(tuple(chunks))
     # With no relevant chunk the model may still answer from a tool (a food lookup rarely matches
     # a research passage; owner's choice in T4.4), but only when the plan says a tool could: an
     # off-topic question, or one with no usable plan, costs no answer call (AC-2; T3.5).
@@ -649,12 +653,14 @@ def run_turn(
     on_text: Callable[[str], None] | None = None,
     user: profile.UserProfile | None = None,
     keyword_index: Callable[[Chroma], KeywordIndex] = hybrid.build_keyword_index,
+    on_chunks: Callable[[Sequence[RetrievedChunk]], None] | None = None,
 ) -> TurnResult:
     """Run one chat turn: the guard first, then retrieval and the answer; never raise for errors."""
     # on_step(step) is called as each step starts; on_text(text) as the answer streams in. `user`
     # is the session's profile, for the energy and meal plan tools and, when the query plan says
     # needs_profile, the model's <profile> block.
     # keyword_index(index) gives the BM25 index of the opened index; the app passes a cached one.
+    # on_chunks(chunks) gets the chunks found, in [S#] order; only the evaluation run uses it, T6.1.
     steps: list[Step] = []
     recorder = UsageRecorder()
 
@@ -688,6 +694,7 @@ def run_turn(
             user,
             keyword_index=keyword_index,
             recorder=recorder,
+            on_chunks=on_chunks,
         )
 
     def failed(message: str, code: str, *, index_not_ready: bool = False) -> TurnResult:

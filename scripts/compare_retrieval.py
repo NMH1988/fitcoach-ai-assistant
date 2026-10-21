@@ -17,49 +17,16 @@ shown but not scored. It costs a fraction of a cent and never prints the key. Re
 the output in docs/TESTING.md.
 """
 
-import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, ValidationError
-
 from src import config, guard, llm
+from src.eval_questions import EvalQuestion, QuestionsFileError, load_questions
 from src.rag import hybrid, store
 from src.rag.retriever import RetrievedChunk, embed_queries, search
 
 METHODS = ("vector", "keyword", "hybrid")
-
-
-class EvalQuestion(BaseModel):
-    """One of the owner's evaluation questions and the sources it should find."""
-
-    # Other fields (e.g. the good answer, for T6.1) are allowed and ignored.
-    model_config = ConfigDict(extra="ignore")
-
-    id: str
-    question: str
-    expected_sources: list[str]
-
-
-class QuestionsFileError(ValueError):
-    """The questions file is missing or not in the expected format; `str()` says which."""
-
-
-def load_questions(path: Path) -> list[EvalQuestion]:
-    """Read and check the questions file."""
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        raise QuestionsFileError(f"No questions file at {path}.") from None
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise QuestionsFileError(f"Could not read {path}: {exc}") from None
-    if not isinstance(data, list) or not data:
-        raise QuestionsFileError(f"{path} must hold a non-empty JSON list of questions.")
-    try:
-        return [EvalQuestion.model_validate(item) for item in data]
-    except ValidationError as exc:
-        raise QuestionsFileError(f"{path} has a question in the wrong format: {exc}") from None
 
 
 def first_hit(found: Sequence[RetrievedChunk], expected: Sequence[str]) -> int | None:

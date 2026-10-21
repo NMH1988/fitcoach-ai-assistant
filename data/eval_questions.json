@@ -75,6 +75,14 @@
     "id": "q13",
     "question": "What are my daily calorie, protein, carbohydrate, and fat targets?",
     "expected_sources": [],
+    "profile": {
+      "weight_kg": 80,
+      "height_cm": 180,
+      "age": 30,
+      "sex": "male",
+      "activity": "moderate",
+      "goal": "build_muscle"
+    },
     "good_answer": "Run this question with a fixed session profile: 80 kg, 180 cm, age 30, male, training 4–5 times per week, goal muscle gain. The app should call the daily-target tool and report exactly the kcal, protein, carbohydrate, and fat values returned by the tool without [S#] citations. Expected tool values: daily energy needs about 2759 kcal, target about 3035 kcal, protein 152 g, carbohydrate 418 g, fat 84 g. The answer should say these are estimates and point to Tool results for the full calculation. Run the same question once more without a session profile; then the app should use the profile_needed flow and show the Add your details path instead of guessing."
   },
   {

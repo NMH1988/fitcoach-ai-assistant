@@ -45,6 +45,7 @@ Python 3.14 (`.python-version`), in a local `.venv`. Every command below assumes
 - USDA foods table: download the Foundation Foods CSV zip from https://fdc.nal.usda.gov/download-datasets/ into gitignored `data/usda/`, then `python scripts/prepare_usda.py`, `python scripts/generate_attribution.py`, and commit `data/usda_foods.csv` and `ATTRIBUTION.md`
 - Retrieval live check (owner, needs the key and the index): `python scripts/live_check_retrieval.py "<question>" ...` prints the nearest chunks' distances, to set `RETRIEVAL_MAX_DISTANCE`
 - Retrieval comparison (owner, needs the key, the index and the evaluation questions in `data/eval_questions.json`): `python scripts/compare_retrieval.py` prints vector-only, keyword-only and hybrid hit rates (T3.6; format in `docs/TESTING.md`)
+- Evaluation run (owner, needs the key, the index and `data/eval_questions.json`): `python scripts/run_evaluation.py [--repeat N]` asks every evaluation question through the app's chat turn, prints the sources found and cited, tools, tokens and cost, and writes a full report to gitignored `data/eval_runs/` (T6.1; how to record it in `docs/TESTING.md`)
 - Lint/format: `ruff check .` / `ruff format .`
 - Test: `python -m pytest -q` (LLM, embedding and network calls must be mocked)
 - Audit: `pip-audit .` with the `--ignore-vuln` flags listed in `.github/workflows/ci.yml` (reasons in `docs/SECURITY.md`)
