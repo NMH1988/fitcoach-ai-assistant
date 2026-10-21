@@ -87,8 +87,8 @@ TOPIC_LABELS: dict[str, str] = {
 EVIDENCE_TIERS: tuple[int, ...] = (1, 2)
 
 # Chunking of the article text (docs/ARCHITECTURE.md section 4). A chunk is at most CHUNK_SIZE
-# characters, its section title included (a chunk joined with a short piece may be longer:
-# CHUNK_MIN_CHARS); neighbouring chunks of a section share CHUNK_OVERLAP.
+# characters, its section title included (a chunk joined with a short piece may be up to
+# CHUNK_SIZE + CHUNK_MIN_CHARS); neighbouring chunks of a section share CHUNK_OVERLAP.
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 150
 # Room always left for the text after a very long section title, so the splitter still works;

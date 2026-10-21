@@ -296,6 +296,17 @@ def test_a_short_last_paragraph_that_repeats_a_sentence_is_not_lost():
     assert [c.page_content for c in chunks] == [f"{title}\n\n{text}"]
 
 
+def test_a_short_last_piece_of_repeated_lines_is_joined():
+    """A short last piece whose lines also appear just before it is placed at the end and joined."""
+    title = "Protein"
+    text = f"{long_text(28)} Not reported.\nNot reported.\nNot reported."
+    assert (
+        config.CHUNK_SIZE < len(f"{title}\n\n{text}") <= config.CHUNK_SIZE + config.CHUNK_MIN_CHARS
+    )
+    chunks = chunk_article(ParsedArticle("T", [Section(title, text)]), make_source())
+    assert [c.page_content for c in chunks] == [f"{title}\n\n{text}"]
+
+
 def test_pieces_that_cannot_be_placed_in_the_text_stay_as_split(monkeypatch):
     """If the splitter's pieces are not found in the section in order, none is joined (T3.7)."""
     pieces = ["A piece the section does not hold.", "short"]

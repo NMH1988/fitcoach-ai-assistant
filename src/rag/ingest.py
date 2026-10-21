@@ -292,15 +292,24 @@ def _piece_spans(text: str, pieces: list[str]) -> list[tuple[int, int]] | None:
     """Return each piece's (start, end) in the text, or None if they do not cover it in order."""
     spans: list[tuple[int, int]] = []
     previous_start, previous_end = -1, 0
-    for piece in pieces:
-        # Each piece adds text after the one before it, so an earlier copy of its words (e.g. a
-        # repeated sentence inside the overlap) is skipped. LangChain's own start_index is not
-        # used: it takes the first copy after the overlap starts, which can be that earlier one.
-        start = text.find(piece, previous_start + 1)
-        while start >= 0 and start + len(piece) <= previous_end:
-            start = text.find(piece, start + 1)
-        if start < 0 or text[previous_end:start].strip():
-            return None  # not found, or text between two pieces would be lost
+    for number, piece in enumerate(pieces):
+        if number == len(pieces) - 1:
+            # The splitter strips whitespace, so the last piece ends where the text ends; searching
+            # from the end skips an earlier copy of its words (e.g. a line repeated at the end).
+            start = text.rfind(piece)
+        else:
+            # Each piece adds text after the one before it, so an earlier copy of its words (e.g.
+            # a repeated sentence inside the overlap) is skipped. LangChain's own start_index is
+            # not used: it takes the first copy after the overlap starts, which can be that one.
+            start = text.find(piece, previous_start + 1)
+            while start >= 0 and start + len(piece) <= previous_end:
+                start = text.find(piece, start + 1)
+        if (
+            start <= previous_start
+            or start + len(piece) <= previous_end
+            or text[previous_end:start].strip()
+        ):
+            return None  # not found, out of order, or text between two pieces would be lost
         previous_start, previous_end = start, start + len(piece)
         spans.append((start, previous_end))
     return None if text[previous_end:].strip() else spans
