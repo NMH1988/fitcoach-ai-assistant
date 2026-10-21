@@ -939,8 +939,10 @@ def _usage_section(turn_usage: usage.TurnUsage | None) -> None:
         st.caption("This answer made no model call that reported its tokens.")
     st.markdown(f"**This session:** {_dollars(usage.format_session(_session_usage()))}")
     st.caption(
-        "Output tokens include the model's reasoning. Costs use OpenRouter's prices per token, "
-        'read once a day; "price unknown" means they could not be read when the answer ended.'
+        "Costs are priced on the input and output tokens, with OpenRouter's prices per token, "
+        "read once a day. Reasoning is shown as OpenRouter reports it and is not priced again; "
+        'it can be higher than the output count. "price unknown" means the prices could not be '
+        "read when the answer ended."
     )
 
 

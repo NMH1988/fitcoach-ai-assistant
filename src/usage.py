@@ -2,8 +2,10 @@
 
 A turn records the tokens of every model and embedding call it makes (query translation, the query
 embedding, each answer round) in a UsageRecorder. The app then prices them with OpenRouter's
-per-token prices, read from its public model lists (no key sent) and kept for a day. Output tokens
-follow OpenAI's convention: they include the reasoning tokens, which are not added again. Prices
+per-token prices, read from its public model lists (no key sent) and kept for a day. A call costs
+its input and output tokens; the reasoning count is shown as reported and never priced or added
+(OpenRouter bills input x prompt + output x completion, even when the reported reasoning count is
+higher than the output count: the owner's O5 check, docs/TESTING.md). Prices
 are untrusted data from the network: only finite, non-negative numbers are used, and a model
 without a usable price makes its calls "price unknown".
 """
@@ -34,7 +36,7 @@ class CallUsage:
     output_tokens: int = 0
     # Input tokens read from the provider's prompt cache (part of input_tokens, priced lower).
     cached_tokens: int = 0
-    # Part of output_tokens (OpenAI's convention); shown, never priced twice.
+    # As the provider reports it; shown, never priced or added (it can exceed output_tokens).
     reasoning_tokens: int = 0
 
     @property

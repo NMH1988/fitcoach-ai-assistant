@@ -202,7 +202,9 @@ def test_details_lists_each_call_with_its_tokens_and_cost(monkeypatch, prices, i
     markdown = [m.value for m in tab.markdown]
     assert r"**This answer:** 3,724 tokens · \$0.0074" in markdown
     assert r"**This session:** 3,724 tokens · \$0.0074" in markdown
-    assert any("Output tokens include the model's reasoning" in c.value for c in tab.caption)
+    [note] = [c.value for c in tab.caption if c.value.startswith("Costs are priced")]
+    assert "Reasoning is shown as OpenRouter reports it and is not priced again" in note
+    assert "include the model's reasoning" not in note
 
 
 def test_the_answer_stays_in_the_history_whatever_the_price_read_does(monkeypatch):

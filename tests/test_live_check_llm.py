@@ -180,7 +180,7 @@ def test_main_prints_both_costs_for_the_plain_and_the_streamed_call(
     _use_clients(monkeypatch, FakeChat(), FakeEmbeddings())
     assert live_check_llm.main() == 0
     out = capsys.readouterr().out
-    # 12 x 0.00000025 + 30 x 0.000002 = 0.000063 (the 20 reasoning tokens are part of the 30).
+    # 12 x 0.00000025 + 30 x 0.000002 = 0.000063 (the 20 reasoning tokens are not priced).
     assert "cost (app): $0.00006300" in out
     assert (
         "cost (OpenRouter): $0.00010000, native tokens: prompt 12, completion 30, reasoning 20"

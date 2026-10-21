@@ -346,7 +346,7 @@ def test_cost_of_a_call_prices_input_cached_input_and_output():
 
 
 def test_reasoning_tokens_are_not_priced_twice():
-    """Reasoning is part of the output tokens (OpenAI's convention), so it adds no cost."""
+    """Reasoning is shown but adds no cost: OpenRouter bills input and output only (O5)."""
     plain = CallUsage("Answer", ANSWER, 100, 50)
     thinking = CallUsage("Answer", ANSWER, 100, 50, reasoning_tokens=40)
     assert usage.call_cost(plain, PRICES) == usage.call_cost(thinking, PRICES)
