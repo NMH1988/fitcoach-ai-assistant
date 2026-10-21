@@ -18,6 +18,7 @@ from tests.fakes import (
     ScriptedTranslator,
     build_fixture_index,
     open_fixture_index,
+    plan_json,
     tool_reply,
     write_food_table,
 )
@@ -54,10 +55,13 @@ def fakes(tmp_path, monkeypatch, index_path):
     st.cache_resource.clear()
 
 
-def _use_model(monkeypatch, *replies: AIMessage) -> ScriptedChatModel:
+def _use_model(
+    monkeypatch, *replies: AIMessage, translator: ScriptedTranslator | None = None
+) -> ScriptedChatModel:
     """Make the app build a model scripted with these replies (rewrites repeat the question)."""
     model = ScriptedChatModel(replies=list(replies))
-    translator = ScriptedTranslator()
+    # The default plan sets needs_tool and needs_profile (tests/fakes.py).
+    translator = translator or ScriptedTranslator()
 
     def build(name: str = config.DEFAULT_ANSWER_MODEL, *args, **kwargs):
         """Return the fake translator for the query translation model, else the answer fake."""
@@ -227,12 +231,25 @@ def test_the_energy_tools_read_the_profile_from_the_session(monkeypatch):
     assert _rows(tdee)["Resting energy (BMR)"] == "1,580 kcal/day"
 
 
+def _plan(needs_profile: bool) -> ScriptedTranslator:
+    """Return a translator whose plan repeats QUESTION and sets needs_profile as given."""
+    return ScriptedTranslator(plans=[plan_json([QUESTION] * 3, needs_profile=needs_profile)])
+
+
 def test_the_model_gets_the_session_profile(monkeypatch):
-    """The session's profile reaches the model in the <profile> block."""
-    model = _use_model(monkeypatch, AIMessage(ANSWER))
+    """When the plan says needs_profile, the session's profile reaches the model in <profile>."""
+    model = _use_model(monkeypatch, AIMessage(ANSWER), translator=_plan(needs_profile=True))
     _ask()
     [[_, user]] = model.calls
     assert "Weight: 80 kg" in user.content and "Goal: Build muscle" in user.content
+
+
+def test_without_needs_profile_the_model_gets_no_profile_block(monkeypatch):
+    """When the plan does not say needs_profile, the app sends no <profile> block (T3.5)."""
+    model = _use_model(monkeypatch, AIMessage(ANSWER), translator=_plan(needs_profile=False))
+    _ask()
+    [[_, user]] = model.calls
+    assert "<profile>" not in user.content and "80 kg" not in user.content
 
 
 def test_without_a_profile_the_result_points_to_the_form(monkeypatch):

@@ -511,7 +511,7 @@ def test_with_sources_the_answer_step_runs_whatever_needs_tool_says(index, needs
 def test_the_profile_is_sent_only_when_the_plan_says_needs_profile(
     index, question, rewrites, replies
 ):
-    """needs_profile adds the <profile> block; without it no profile value reaches the model."""
+    """needs_profile adds <profile>; without it, and no energy tool, no profile value is sent."""
     plan = plan_json(rewrites, needs_tool=True, needs_profile=True)
     _, model = _turn(index, *replies, question=question, plan=plan)
     assert PROFILE_BLOCK in model.calls[0][1].content
@@ -540,6 +540,23 @@ def test_without_the_profile_block_the_energy_tools_still_use_the_profile(index)
     _, model = _turn(index, tool_reply((TDEE_TOOL, {})), AIMessage(ANSWER), plan=plan)
     assert "<profile>" not in model.calls[0][1].content
     assert _content(_tool_messages(model)[0])["tdee_kcal"] == 2759
+
+
+def test_without_the_profile_block_an_energy_result_still_names_some_profile_values(index):
+    """No needs_profile: no <profile>, but energy results name the weight, goal and activity."""
+    # Pins the known limit in docs/SECURITY.md: T4.7's result fields reach the model when it calls
+    # an energy tool, with or without the block.
+    plan = plan_json([QUESTION] * 3, needs_tool=True, needs_profile=False)
+    replies = (tool_reply((MACRO_TOOL, {}), (TDEE_TOOL, {})), AIMessage(ANSWER))
+    _, model = _turn(index, *replies, plan=plan)
+    assert "<profile>" not in model.calls[0][1].content
+    macro, tdee = (_content(message) for message in _tool_messages(model))
+    targets = macro["targets"]
+    assert (targets["weight_kg"], targets["goal"]) == (80.0, "build_muscle")
+    assert macro["energy_needs"]["activity_factor"] == tdee["activity_factor"] == 1.55
+    # Height, age and sex are not in any tool message.
+    sent = _all_text(model)
+    assert "180" not in sent and "Male" not in sent and '"age"' not in sent
 
 
 def test_build_messages_leaves_the_profile_block_out_on_request():

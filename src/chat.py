@@ -593,7 +593,8 @@ def run_turn(
 ) -> TurnResult:
     """Run one chat turn: the guard first, then retrieval and the answer; never raise for errors."""
     # on_step(step) is called as each step starts; on_text(text) as the answer streams in. `user`
-    # is the session's profile, for the energy tools and the model's <profile> block.
+    # is the session's profile, for the energy and meal plan tools and, when the query plan says
+    # needs_profile, the model's <profile> block.
     # keyword_index(index) gives the BM25 index of the opened index; the app passes a cached one.
     steps: list[Step] = []
 
