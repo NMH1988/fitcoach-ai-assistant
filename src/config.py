@@ -439,11 +439,21 @@ PROFILE_NEEDED_HINT = "This calculation needs your details. Add them, then ask a
 # Height of the macro chart in "Tool results", its axis and legend included: at 140 px the bar was a
 # hairline in the browser, at 220 px it is drawn clearly (checked with a fake model, T4.4).
 MACRO_CHART_HEIGHT_PX = 220
-# Macro colours in charts (docs/UI_DESIGN.md), in the order the macros are listed.
+# The donut of the energy split in the sidebar's My targets card (T4.7): its height with the legend,
+# the hole for the daily kcal, and the gap between the parts (radians).
+MACRO_DONUT_HEIGHT_PX = 150
+MACRO_DONUT_INNER_RADIUS_PX = 46
+MACRO_DONUT_PAD_ANGLE = 0.03
+# The amount the Food lookup tab starts with, and its +/- step, in grams (T4.7).
+FOOD_LOOKUP_DEFAULT_GRAMS = 100.0
+FOOD_LOOKUP_STEP_GRAMS = 10.0
+# Macro colours in charts (docs/UI_DESIGN.md), in the order the macros are listed. One palette for
+# both modes: each has at least 3:1 contrast on the main and sidebar backgrounds of the light and
+# the dark theme (WCAG 1.4.11; tests/test_theme.py), so they differ by hue, not lightness (T4.7).
 MACRO_COLORS: dict[str, str] = {
-    "Protein": "#0F6E56",
-    "Carbohydrate": "#5DCAA5",
-    "Fat": "#EF9F27",
+    "Protein": "#168A6C",
+    "Carbohydrate": "#7A6FD0",
+    "Fat": "#B87318",
 }
 
 # The session summary PDF (T5.2; docs/ARCHITECTURE.md section 7). DejaVu Sans 2.37, committed with

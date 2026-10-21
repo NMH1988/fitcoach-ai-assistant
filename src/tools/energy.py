@@ -202,12 +202,17 @@ class MacroTargetsResult(BaseModel):
     status: Literal["ok", "invalid"]
     message: str
     goal: Goal | None = None
+    # The body weight the targets are for, so the app can show grams per body weight rounded
+    # once from the grams, in g/kg or g/lb (T4.7).
+    weight_kg: float | None = None
     kcal_target: int | None = None
     # The kcal the sources' range for the goal gives (lowest, highest), floor applied.
     kcal_range: tuple[int, int] | None = None
     calorie_floor_kcal: int = config.CALORIE_FLOOR_KCAL
     # True when the goal's estimate was below the floor and the target was raised to it.
     floor_applied: bool = False
+    # True when protein by body weight and fat did not fit the target, so protein was lowered.
+    protein_lowered: bool = False
     protein: Macro | None = None
     carbohydrate: Macro | None = None
     fat: Macro | None = None
@@ -348,6 +353,15 @@ def _goal_message(goal: Goal, kcal_target: int, floor_applied: bool) -> str:
     )
 
 
+def protein_lowered_note(goal: Goal) -> str:
+    """Return the note added when protein by body weight and fat do not fit the kcal target."""
+    return (
+        f"Protein at {config.PROTEIN_G_PER_KG[goal]:g} g/kg and fat at "
+        f"{config.FAT_PCT_OF_KCAL:g}% would exceed the kcal target, so protein was lowered to fit "
+        "and carbohydrate set to 0. Ask a registered dietitian for targets at this body weight."
+    )
+
+
 def calculate_macro_targets(weight_kg: float, goal: Goal, tdee_kcal: float) -> MacroTargetsResult:
     """Return the daily kcal, protein, carbohydrate and fat targets for a goal, or why not."""
     # The kcal target is never below config.CALORIE_FLOOR_KCAL (AC-7), and the macros' kcal add up
@@ -390,12 +404,7 @@ def calculate_macro_targets(weight_kg: float, goal: Goal, tdee_kcal: float) -> M
         # exceed the target, so protein gets what fat leaves and carbohydrate none.
         protein_g = math.ceil((kcal_target - fat_kcal) / config.KCAL_PER_G_PROTEIN)
         carb_g = 0
-        notes.append(
-            f"Protein at {config.PROTEIN_G_PER_KG[args.goal]:g} g/kg and fat at "
-            f"{config.FAT_PCT_OF_KCAL:g}% would exceed the kcal target, so protein was lowered to "
-            "fit and carbohydrate set to 0. Ask a registered dietitian for targets at this body "
-            "weight."
-        )
+        notes.append(protein_lowered_note(args.goal))
     else:
         carb_g = math.ceil(carb_kcal / config.KCAL_PER_G_CARBOHYDRATE)
 
@@ -404,9 +413,11 @@ def calculate_macro_targets(weight_kg: float, goal: Goal, tdee_kcal: float) -> M
         status="ok",
         message=_goal_message(args.goal, kcal_target, floor_applied),
         goal=args.goal,
+        weight_kg=weight,
         kcal_target=kcal_target,
         kcal_range=(ends[0], ends[1]),
         floor_applied=floor_applied,
+        protein_lowered=carb_kcal < 0,
         protein=_macro(protein_g, config.KCAL_PER_G_PROTEIN, kcal_target, weight),
         carbohydrate=_macro(carb_g, config.KCAL_PER_G_CARBOHYDRATE, kcal_target, weight),
         fat=_macro(fat_g, config.KCAL_PER_G_FAT, kcal_target, weight),
