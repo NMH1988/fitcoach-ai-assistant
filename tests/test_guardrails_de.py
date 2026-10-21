@@ -59,6 +59,7 @@ FLAGGED = [
     ("Beim Stillen habe ich Hunger, was essen?", Concern.PREGNANCY),
     ("Ich stille und habe Durst, wie viel trinken?", Concern.PREGNANCY),
     ("Während des Stillens Heißhunger: was hilft?", Concern.PREGNANCY),
+    ("Ich stille, Hunger habe ich ständig. Was essen?", Concern.PREGNANCY),
     # Medical conditions (any mention; a side effect about the user or a group) and medication.
     ("Ich habe Diabetes Typ 2, wie viele Kohlenhydrate?", Concern.MEDICAL),
     ("Ich bin Diabetiker und will Muskeln aufbauen.", Concern.MEDICAL),
@@ -87,6 +88,20 @@ FLAGGED = [
     ("Ich habe einen Tumor, was soll ich essen?", Concern.MEDICAL),
     ("Ich habe Krebs und will Muskeln erhalten.", Concern.MEDICAL),
     ("Fördert Zucker Krebs?", Concern.MEDICAL),
+    # Found in the review of PR #65, round 2: another cycle later, cancer compounds, a
+    # diagnosis named as a noun.
+    ("Ich habe Krebs und mein Zyklus ist unregelmäßig, was soll ich essen?", Concern.MEDICAL),
+    ("Ich habe Krebs, mein Zyklus ist durcheinander. Was essen?", Concern.MEDICAL),
+    (
+        "Ich habe Krebs und bin in einem neuen Trainingszyklus, wie viel Protein?",
+        Concern.MEDICAL,
+    ),
+    ("Ich habe Brustkrebs, was soll ich essen?", Concern.MEDICAL),
+    ("Ich habe Darmkrebs und will Muskeln aufbauen.", Concern.MEDICAL),
+    ("Ich habe Prostatakrebs, ist Kreatin ok?", Concern.MEDICAL),
+    ("Ich bin Krebspatientin, wie viel Protein?", Concern.MEDICAL),
+    ("Diagnose Reflux: was essen?", Concern.MEDICAL),
+    ("Nach meiner Diagnose Reflux, was essen?", Concern.MEDICAL),
     # Signs of disordered eating and intakes below the calorie floor (redirected).
     ("Ich habe Magersucht, wie viel soll ich essen?", Concern.DISORDERED_EATING),
     ("Ich glaube, ich habe eine Essstörung.", Concern.DISORDERED_EATING),
@@ -113,6 +128,11 @@ FLAGGED = [
     ("Ich nehme täglich nur 800 kcal zu mir.", Concern.DISORDERED_EATING),
     ("Ich kotze nach dem Essen absichtlich.", Concern.DISORDERED_EATING),
     ("Ich erbreche nach dem Essen.", Concern.DISORDERED_EATING),
+    # Found in the review of PR #65, round 2: a time with a number before the amount.
+    ("Ich esse seit 3 Wochen nur 800 kcal am Tag.", Concern.DISORDERED_EATING),
+    ("Ich esse seit 2 Monaten nur 700 kcal pro Tag, ist das ok?", Concern.DISORDERED_EATING),
+    ("Ich esse in Woche 2 nur 900 kcal am Tag.", Concern.DISORDERED_EATING),
+    ("Ich nehme seit 2 Wochen 800 kcal am Tag zu mir.", Concern.DISORDERED_EATING),
 ]
 
 # German questions that must pass: the research's supplements and near misses of every pattern.
@@ -196,6 +216,18 @@ BENIGN = [
     "Meine 15-jährige Laufbahn im Gym: brauche ich mehr Protein?",
     "Nach einer 12-jährigen Trainingshistorie, wie viel Eiweiß?",
     "Ich bin 16 h am Fasten, wann soll ich Protein essen?",
+    # Found in the review of PR #65, round 2.
+    "Ich esse 3 Mahlzeiten à 600 kcal am Tag.",
+    "Ich esse 2 Riegel zu 250 kcal am Tag.",
+    "Ich esse seit 3 Wochen 2500 kcal am Tag.",
+    "Ich esse 2500 kcal verbrenne aber 500 kcal am Tag.",
+    "Womit stille ich Heißhunger auf Süßes am besten?",
+    "Wie stille ich Hunger am Abend ohne viele Kalorien?",
+    "Was ist gut zum Stillen meines Hungers nach dem Training?",
+    "Was hilft zum Stillen des ständigen Hungers im Cut?",
+    "Wie stille ich meinen großen Hunger nach dem Training?",
+    "Wie viel Protein haben Flusskrebse?",
+    "Krebs Zyklus einfach erklärt: was passiert im Muskel?",
 ]
 
 # English questions that pass on main and use a word the German lists share: they must still
@@ -213,6 +245,10 @@ ENGLISH_UNCHANGED = [
     "What happens in the citric acid (Krebs) cycle during cardio?",
     "Is the Krebs or citric acid cycle affected by creatine?",
     "Can a doctor diagnose reflux from diet?",
+    # Found in the review of PR #65, round 2.
+    "Hans Krebs discovered the citric acid cycle, what does it mean for cardio?",
+    "What is the Krebs/TCA cycle?",
+    "What did Hans Krebs discover about energy metabolism?",
 ]
 
 

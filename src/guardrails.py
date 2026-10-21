@@ -330,20 +330,26 @@ _DE_MINOR_PATTERNS = [
     r"\bich bin (?:noch )?(?:schüler|schülerin)\b",
 ]
 
-# "Stillen" is also "to still": "stille ich meinen Heißhunger" or "zum Stillen des Hungers" is
-# a nutrition question, so a form of "stillen" whose object is hunger, thirst or appetite (after
-# one or two articles, possessives or adverbs) does not count. The user's own hunger next to it
-# still does ("Ich stille und habe Hunger", "Während des Stillens Heißhunger").
-_DE_NOT_HUNGER = (
-    r"(?! (?:(?:den|des|meinen|deinen|seinen|ihren|unseren|euren|von|abends|nachts|schnell"
-    r"|damit|so|kurz|gut|am besten) ){1,2}\w*(?:hunger|durst|appetit)\w*\b)"
+# "Stillen" is also "to still": "stille ich (meinen) Heißhunger" or "zum Stillen des Hungers" is
+# a nutrition question, so a form of "stillen" whose object is hunger, thirst or appetite does
+# not count: right after the verb or after up to two articles, possessives, adverbs or
+# adjectives, and after at least one of them for a noun form. The user's own hunger next to it
+# still counts ("Ich stille und habe Hunger", "Während des Stillens Heißhunger").
+_DE_HUNGER_LEAD = (
+    r"(?:den|des|meinen|meines|deinen|deines|seinen|seines|ihren|ihres|unseren|unseres|euren"
+    r"|von|abends|nachts|schnell|damit|so|kurz|gut|am besten|grossen|ständigen|starken|kleinen"
+    r"|akuten|abendlichen)"
 )
+_DE_HUNGER = r"\w*(?:hunger|durst|appetit)\w*\b"
+_DE_VERB_NOT_HUNGER = rf"(?! (?:{_DE_HUNGER_LEAD} ){{0,2}}{_DE_HUNGER})"
+_DE_NOUN_NOT_HUNGER = rf"(?! (?:{_DE_HUNGER_LEAD} ){{1,2}}{_DE_HUNGER})"
 _DE_PREGNANCY_PATTERNS = [
     r"\b(?:schwanger|schwangere[nrs]?|schwangerschaft(?:en)?|schwangerschafts\w*|trimenon"
     r"|pränatal\w*|postpartal\w*|postnatal\w*|wochenbett|stillzeit|stillende[nr]?|kinderwunsch"
     r"|nach der geburt|nach der entbindung|entbindung|frisch entbunden|rückbildungs\w*)\b",
-    r"\b(?:ich stille|stille ich|beim stillen|während des stillens|während dem stillen"
-    rf"|vom stillen|zum stillen|das stillen)\b{_DE_NOT_HUNGER}",
+    rf"\b(?:ich stille|stille ich)\b{_DE_VERB_NOT_HUNGER}",
+    r"\b(?:beim stillen|während des stillens|während dem stillen|vom stillen|zum stillen"
+    rf"|das stillen)\b{_DE_NOUN_NOT_HUNGER}",
     r"\b(?:ich erwarte|wir erwarten|sie erwartet|meine frau erwartet) (?:ein |unser |mein "
     r"|unser erstes |unser zweites |mein erstes |mein zweites )?(?:baby|kind|zwillinge)\b",
 ]
@@ -354,11 +360,15 @@ _DE_DISEASES = (
     r"|fettleber|leberzirrhose|zirrhose|leberentzündung|herzinsuffizienz|herzschwäche"
     r"|herzinfarkts?|herz-kreislauf-erkrankung(?:en)?|koronare herzkrankheit|khk|bluthochdruck"
     r"|(?:hohe[mnr]?|niedrige[mnr]?|erhöhte[mnr]?) blutdruck|hypertonie|hypotonie"
-    # Not the Krebs cycle: "cycle" or "Zyklus" later in the same sentence ("the Krebs' cycle",
-    # "the citric acid (Krebs) cycle", "Krebs or citric acid cycle", "Krebs-Zyklus"). "Tumor" and
-    # "Hashimoto" only in German frames, so the English words keep the English rules above.
+    # Not the Krebs cycle: "Zyklus" right after "Krebs" ("Krebs-Zyklus"), or "cycle" within a few
+    # words and no comma ("the Krebs' cycle", "the citric acid (Krebs) cycle", "Krebs or citric
+    # acid cycle"), so "Ich habe Krebs und mein Zyklus ..." still counts; not the chemist Hans
+    # Krebs. The cancer compounds count ("Brustkrebs", "Krebspatientin"). "Tumor" and "Hashimoto"
+    # only in German frames, so the English words keep the English rules above.
     r"|(?:hohe[mnrs]?|erhöhte[mnrs]?) cholesterin\w*|hypercholesterinämie"
-    r"|krebs(?![^.?!;]{0,40}?(?:cycle|zyklus|zyklen))|krebserkrankung"
+    r"|(?<!hans )krebs(?!(?:'|\))?[- ]?(?:zyklus|zyklen)\b|[^.?!;,]{0,30}?\bcycle)|krebserkrankung"
+    r"|(?:brust|darm|dickdarm|prostata|lungen|haut|blut|magen|leber|nieren|pankreas|hoden"
+    r"|eierstock|gebärmutterhals|schilddrüsen|knochen|blasen)krebs|krebspatient(?:in|innen|en)?"
     r"|(?:einen|ein|meinen|mein|der|den|dem|gutartige[nmr]?|bösartige[nmr]?) tumor|tumore|tumoren"
     r"|tumorerkrankung(?:en)?|leukämie|polyzystische[sn]? ovarsyndrom|schilddrüsenunterfunktion"
     r"|schilddrüsenüberfunktion|hypothyreose|hyperthyreose"
@@ -383,7 +393,10 @@ _DE_SIDE_EFFECTS = (
 )
 _DE_CONDITION_FRAME = (
     r"\b(?:ich habe|ich hab|ich hatte|hatte ich|ich leide an|ich leide unter|leide an|leide unter"
-    r"|leidet an|leidet unter|diagnostiziert mit|(?:die|meine|eine) diagnose|mit meinen|mit meiner"
+    r"|leidet an|leidet unter|diagnostiziert mit"
+    # The German noun, not the English verb ("can a doctor diagnose reflux").
+    r"|(?<!to )(?<!can )(?<!could )(?<!will )(?<!doctor )(?<!doctors )(?<!help )diagnose:?"
+    r"|mit meinen|mit meiner"
     r"|mit meinem|meine|meinen|meiner|mein|menschen mit|leute mit|personen mit|patienten mit"
     r"|jemand mit|jemanden mit|sportler mit|männer mit|frauen mit|bei|trotz"
     r"|(?:sicher|unbedenklich|ok|okay|gut|schlecht|gefährlich|riskant|gesund) (?:bei|für|mit))"
@@ -460,10 +473,14 @@ _DE_NOT_A_PART = (
     r"(?! (?:weniger|mehr|zusätzlich|extra|über|unter|defizit|überschuss|von|aus|durch|im|als"
     r"|an)\b)"
 )
-# A word between the verb and the amount: no number, no comma and no joining word, so a second
-# verb and amount ("ich esse 2500 kcal und verbrenne 500 kcal am Tag") or a food's own energy
-# ("Proteinriegel mit 200 kcal am Tag") is not read as the day's intake.
-_DE_INTAKE_GAP = r"(?: (?!(?:und|oder|aber|mit|je|sowie|plus)\b)[^\s\d,;]+)"
+# A word between the verb and the amount: no amount of energy, no comma and no joining word, so
+# a second verb and amount ("ich esse 2500 kcal und verbrenne 500 kcal am Tag"), a food's own
+# energy ("Proteinriegel mit 200 kcal", "3 Mahlzeiten à 600 kcal") is not read as the day's
+# intake, while a time is ("seit 3 Wochen nur 800 kcal am Tag").
+_DE_INTAKE_GAP = (
+    r"(?: (?!(?:und|oder|aber|mit|je|sowie|plus|à|a|zu)\b)"
+    r"(?![^\s,;]*?\d ?(?:k?cals?|kilokalorien|kalorien)\b)[^\s,;]+)"
+)
 _DE_LOW_INTAKE_PATTERNS = [
     # The verb first: "ich esse (am Tag) nur 800 kcal (am Tag)".
     r"\b(?:esse|isst|essen|esst|ass|gegessen|lebe von|leben von|komme mit|überlebe mit"

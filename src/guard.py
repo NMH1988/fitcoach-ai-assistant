@@ -233,21 +233,27 @@ _DE_THIS_CHAT = rf" (?:(?:diese[nmrs]?|unsere[nmrs]?|den|die|das|dem|der|des) )?
 # Someone else's instructions: a genitive, a source or a relative clause right after the noun
 # ("... meines Trainers", "... aus dem Kurs", "..., die mein Coach gab"), unless it names the chat.
 # As in English, a preposition counts only with an article or possessive after it, so "... für
-# immer" or "... über Sicherheit" still counts as an attack.
+# immer" or "... über Sicherheit" still counts as an attack; "mit" never names one ("... mit
+# einem Lächeln").
 _DE_DETERMINERS = (
     r"(?:der|die|das|dem|den|des|ein|eine[nmrs]?|mein|meine[nmrs]?|sein|seine[nmrs]?|ihr"
     r"|ihre[nmrs]?|unser|unsere[nmrs]?|diese[nmrs]?)"
 )
 _DE_NOT_THIRD_PARTY = (
-    rf"(?! (?:(?:von|aus|auf|in|für|über|bei) {_DE_DETERMINERS}|vom|im|zum|zur|beim|ins"
+    rf"(?! (?:(?:von|aus|auf|in|für|zu|über|bei) {_DE_DETERMINERS}|vom|im|zum|zur|beim|ins"
     r"|des|der|meines|meiner|meinem|meinen|seines|seiner|ihres|ihrer|unseres|unserer|eines"
     rf"|einer)\b(?!{_DE_THIS_CHAT}))"
     r"(?!,? (?:die|welche) (?:mein|meine|meinen|ich|wir|er|sie|man mir)\b)"
 )
 # A how-to request ("deine Regeln für einen Cut"), unless it points at the chat.
+# The verbs a request for the hidden prompt ends with ("deine Anweisungen zeigen").
+_DE_REVEAL_FINAL_VERBS = (
+    r"(?:zeigen|nennen|verraten|wiederholen|ausgeben|aufschreiben|auflisten|offenlegen"
+    r"|preisgeben|sagen|schicken|kopieren|posten)"
+)
 _DE_NOT_HOW_TO = (
-    r"(?! (?:für|zum|zur|zu|beim|bei|über|gegen|im|in|vor|nach|von|vom|des|der)\b"
-    rf"(?!{_DE_THIS_CHAT}))"
+    rf"(?! (?:für|zum|zur|zu(?! {_DE_REVEAL_FINAL_VERBS}\b)|beim|bei|über|gegen|im|in|vor|nach"
+    rf"|von|vom|des|der)\b(?!{_DE_THIS_CHAT}))"
 )
 # What a request for the hidden prompt names, with an optional adjective.
 _DE_SECRET_NOUN = (
@@ -307,9 +313,12 @@ _DE_FOLDED_PATTERNS = [
     rf"\b{_DE_REVEAL_VERBS} (?:komplette[n]? "
     r"|gesamte[n]? |ganze[n]? |genaue[n]? )?(?:anweisungen|instruktionen|prompt|systemprompt"
     rf"|konfiguration|regeln|richtlinien|vorgaben)\b{_DE_NOT_HOW_TO}",
-    rf"\b(?:deine[n]?|(?<=sie mir )ihre[n]?|(?<=sie )ihre[n]?) {_DE_SECRET_NOUN}\b{_DE_NOT_HOW_TO}"
-    r"(?: \S+){0,2}? (?:zeigen|nennen|verraten|wiederholen|ausgeben|aufschreiben|auflisten"
-    r"|offenlegen|preisgeben|sagen|schicken|kopieren|posten)\b",
+    # The formal "Ihre" only after a plural modal, as "sie" is also "she" or "they" ("ob sie mir
+    # ihre Regeln zeigen kann"); "dazu sagen" is an opinion ("Was würden deine Regeln dazu sagen?").
+    r"\b(?:deine[n]?|(?:können|könnten|würden|wollen|möchten) sie (?:mir |uns )?(?:\S+ )?"
+    rf"ihre[n]?) {_DE_SECRET_NOUN}\b{_DE_NOT_HOW_TO}"
+    r"(?: (?!(?:dazu|darüber|davon|dagegen|dafür)\b)\S+){0,3}? (?:zu )?"
+    rf"{_DE_REVEAL_FINAL_VERBS}\b",
     r"\bwas (?:sind|waren) (?:deine|ihre) (?:genauen |ursprünglichen )?(?:anweisungen"
     rf"|instruktionen|vorgaben)\b(?! an mich){_DE_NOT_HOW_TO}",
     r"\b(?:wiederhole|wiederhol|drucke|druck|gib|schreibe|schreib|kopiere|kopier) (?:\S+ )?"
