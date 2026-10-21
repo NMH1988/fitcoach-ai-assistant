@@ -87,18 +87,26 @@ TOPIC_LABELS: dict[str, str] = {
 EVIDENCE_TIERS: tuple[int, ...] = (1, 2)
 
 # Chunking of the article text (docs/ARCHITECTURE.md section 4). A chunk is at most CHUNK_SIZE
-# characters, its section title included; neighbouring chunks of a section share CHUNK_OVERLAP.
+# characters, its section title included (a chunk joined with a short piece may be longer:
+# CHUNK_MIN_CHARS); neighbouring chunks of a section share CHUNK_OVERLAP.
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 150
 # Room always left for the text after a very long section title, so the splitter still works;
 # such a chunk may then be longer than CHUNK_SIZE (no approved article comes close). Must stay above
 # CHUNK_OVERLAP, or the splitter raises ValueError.
 CHUNK_MIN_BODY_CHARS = 400
+# A piece of a section shorter than this (title included) is joined to the piece before it, or else
+# to the one after it, as long as the result is at most CHUNK_SIZE + CHUNK_MIN_CHARS. The splitter's
+# short pieces are often little more than the overlap they repeat, and such chunks were near short,
+# generic queries (T3.7). A section that is short as a whole stays one short chunk.
+CHUNK_MIN_CHARS = 300
 # Section title for paragraphs that sit directly in the body, outside any section (e.g. #18a).
 MAIN_TEXT_TITLE = "Main text"
 # Back matter that many articles put inside <body>: dropped, as it is not nutrition content (owner's
-# choice in T2.2). Matched on the section's sec-type, or on its title in lower case with numbering
-# and punctuation removed; a title starting with "appendix" is dropped too.
+# choice in T2.2), and so are the registration notes of an abstract, a bare PROSPERO ID that short
+# queries matched (T3.7; a Methods "Protocol and registration" section is content and stays).
+# Matched on the section's sec-type, or on its title in lower case with numbering and punctuation
+# removed; a title starting with "appendix" is dropped too.
 INGEST_DROPPED_SEC_TYPES: frozenset[str] = frozenset(
     {
         "ack",
@@ -130,6 +138,7 @@ INGEST_DROPPED_SEC_TITLES: frozenset[str] = frozenset(
         "author contributions",
         "authors contributions",
         "availability of data and materials",
+        "clinical trial registration",
         "competing interests",
         "conflict of interest",
         "conflicts of interest",
@@ -160,6 +169,8 @@ INGEST_DROPPED_SEC_TITLES: frozenset[str] = frozenset(
         "supplementary material",
         "supplementary materials",
         "supporting information",
+        "systematic review registration",
+        "trial registration",
     }
 )
 

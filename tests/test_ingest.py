@@ -6,12 +6,14 @@ from pathlib import Path
 import pytest
 
 from src import config
+from src.rag import ingest
 from src.rag.ingest import (
     IngestError,
     ParsedArticle,
     Section,
     chunk_article,
     load_chunks,
+    merge_short_spans,
     parse_article,
 )
 from src.rag.sources import Source
@@ -210,6 +212,34 @@ def test_back_matter_titles_are_dropped(title):
     assert [s.title for s in article.sections] == ["Protein"]
 
 
+@pytest.mark.parametrize(
+    "title",
+    ["Clinical Trial Registration", "Systematic review registration", "Trial registration"],
+)
+def test_registration_notes_in_the_abstract_are_dropped(title):
+    """An abstract's registration note (a bare registry ID) is dropped, the rest is kept (T3.7)."""
+    xml = (
+        "<article><front><article-meta><abstract>"
+        "<sec><title>Objective</title><p>Kept text.</p></sec>"
+        f"<sec><title>{title}</title><p>PROSPERO CRD00000000000.</p></sec>"
+        "</abstract></article-meta></front></article>"
+    ).encode()
+    article = parse_article(xml)
+    assert [s.title for s in article.sections] == ["Abstract > Objective"]
+
+
+def test_a_methods_protocol_and_registration_section_is_kept():
+    """A Methods section on the protocol and its registration is content, so it stays (T3.7)."""
+    xml = (
+        b"<article><body><sec><title>Methods</title><sec><title>Protocol and registration</title>"
+        b"<p>The review followed a made-up protocol.</p></sec></sec></body></article>"
+    )
+    article = parse_article(xml)
+    assert article.sections == [
+        Section("Methods > Protocol and registration", "The review followed a made-up protocol.")
+    ]
+
+
 def test_body_paragraphs_outside_sections_get_the_main_text_title():
     """Paragraphs directly in the body (like correction #18a) get a section title of their own."""
     xml = b"<article><body><p>The table had a typo.</p><fig><p>FIG</p></fig></body></article>"
@@ -233,13 +263,126 @@ def test_every_chunk_starts_with_its_section_title(parsed):
 
 
 def test_long_sections_split_into_chunks_of_about_1000_characters():
-    """Chunks are at most 1,000 characters, title included, and only the last one is short."""
+    """Chunks are at most 1,000 characters, title included; only the last may be shorter or more."""
     article = ParsedArticle("T", [Section("Protein timing", long_text(120))])
     chunks = chunk_article(article, make_source())
     sizes = [len(c.page_content) for c in chunks]
     assert len(chunks) > 3
-    assert max(sizes) <= config.CHUNK_SIZE
+    assert max(sizes[:-1]) <= config.CHUNK_SIZE
     assert min(sizes[:-1]) >= config.CHUNK_SIZE - 100
+    assert config.CHUNK_MIN_CHARS <= sizes[-1] <= config.CHUNK_SIZE + config.CHUNK_MIN_CHARS
+
+
+# A short paragraph that does not fit in one chunk with a long_text(28) paragraph ("Protein").
+SHORT_PARAGRAPH = "Oats and rice are both grains, eaten by made-up lifters."
+
+
+def test_a_short_last_paragraph_joins_the_chunk_before_it():
+    """A short paragraph left over at the end of a section is not a chunk of its own (T3.7)."""
+    title = "Protein"
+    first = long_text(28)
+    text = f"{first}\n\n{SHORT_PARAGRAPH}"
+    assert len(f"{title}\n\n{first}") < config.CHUNK_SIZE < len(f"{title}\n\n{text}")
+    chunks = chunk_article(ParsedArticle("T", [Section(title, text)]), make_source())
+    assert [c.page_content for c in chunks] == [f"{title}\n\n{text}"]
+
+
+def test_a_short_last_paragraph_that_repeats_a_sentence_is_not_lost():
+    """A last paragraph whose words also end the paragraph before it is joined, not dropped."""
+    title = "Protein"
+    text = f"{long_text(28)} Not reported.\n\nNot reported."
+    assert len(f"{title}\n\n{text}") > config.CHUNK_SIZE
+    chunks = chunk_article(ParsedArticle("T", [Section(title, text)]), make_source())
+    assert [c.page_content for c in chunks] == [f"{title}\n\n{text}"]
+
+
+def test_pieces_that_cannot_be_placed_in_the_text_stay_as_split(monkeypatch):
+    """If the splitter's pieces are not found in the section in order, none is joined (T3.7)."""
+    pieces = ["A piece the section does not hold.", "short"]
+    monkeypatch.setattr(
+        ingest.RecursiveCharacterTextSplitter, "split_text", lambda self, text: pieces
+    )
+    chunks = chunk_article(ParsedArticle("T", [Section("Fat", "Text.")]), make_source())
+    assert [c.page_content for c in chunks] == [f"Fat\n\n{piece}" for piece in pieces]
+
+
+def test_a_short_middle_paragraph_joins_the_chunk_before_it():
+    """A short paragraph between two long ones joins the chunk before it (T3.7)."""
+    title = "Protein"
+    first, last = long_text(28), long_text(28, "rice")
+    text = f"{first}\n\n{SHORT_PARAGRAPH}\n\n{last}"
+    chunks = chunk_article(ParsedArticle("T", [Section(title, text)]), make_source())
+    assert [c.page_content for c in chunks] == [
+        f"{title}\n\n{first}\n\n{SHORT_PARAGRAPH}",
+        f"{title}\n\n{last}",
+    ]
+
+
+def test_a_short_first_paragraph_joins_the_chunk_after_it():
+    """A short paragraph at the start of a section joins the chunk after it (T3.7)."""
+    title = "Protein"
+    text = f"{SHORT_PARAGRAPH}\n\n{long_text(28)}"
+    assert len(f"{title}\n\n{text}") > config.CHUNK_SIZE
+    chunks = chunk_article(ParsedArticle("T", [Section(title, text)]), make_source())
+    assert [c.page_content for c in chunks] == [f"{title}\n\n{text}"]
+
+
+@pytest.mark.parametrize(
+    ("spans", "expected"),
+    [
+        # A short last span joins the one before it.
+        ([(0, 990), (992, 1100)], [(0, 1100)]),
+        # Overlapping spans, as the splitter makes them, join with the overlap counted once.
+        ([(0, 990), (850, 1000)], [(0, 1000)]),
+        # A short first span joins the one after it.
+        ([(0, 100), (102, 1000)], [(0, 1000)]),
+        # The second span joins the first; the third would then pass the cap backwards, so it
+        # joins the fourth.
+        ([(0, 990), (992, 1250), (1252, 1450), (1452, 2400)], [(0, 1250), (1252, 2400)]),
+        # Neither join fits under the cap, so the short span stays.
+        ([(0, 1200), (1202, 1400), (1402, 2500)], [(0, 1200), (1202, 1400), (1402, 2500)]),
+        # Short spans keep joining until the result is long enough or nothing is left to join.
+        ([(0, 100), (102, 200), (202, 300)], [(0, 300)]),
+        # A section with one span keeps it, however short.
+        ([(0, 50)], [(0, 50)]),
+    ],
+)
+def test_merge_short_spans_joins_within_the_cap(spans, expected):
+    """Short spans join the span before, else after, never past CHUNK_SIZE + CHUNK_MIN_CHARS."""
+    assert (config.CHUNK_SIZE, config.CHUNK_MIN_CHARS) == (1000, 300)
+    assert merge_short_spans(spans, header_chars=9) == expected
+
+
+def test_short_pieces_are_merged_as_one_passage_of_the_section():
+    """Across section lengths, each chunk is one passage of the section and none is short (T3.7)."""
+    title = "Protein timing"
+    merged = 0
+    for sentences in range(20, 120):
+        text = long_text(sentences)
+        chunks = chunk_article(ParsedArticle("T", [Section(title, text)]), make_source())
+        bodies = [body_of(c.page_content, title) for c in chunks]
+        # Each body is one passage of the section, so no overlap is repeated inside it.
+        assert all(body in text for body in bodies)
+        assert text.endswith(bodies[-1])
+        # No sentence is lost.
+        for n in range(sentences):
+            assert any(f"Sentence {n} says" in body for body in bodies)
+        sizes = [len(c.page_content) for c in chunks]
+        assert len(chunks) == 1 or min(sizes) >= config.CHUNK_MIN_CHARS
+        assert max(sizes) <= config.CHUNK_SIZE + config.CHUNK_MIN_CHARS
+        merged += sizes[-1] > config.CHUNK_SIZE
+    # Some of these lengths left a short last piece, so the merge really ran.
+    assert merged > 0
+
+
+def test_a_section_with_one_short_chunk_stays_as_it_is():
+    """A whole section shorter than CHUNK_MIN_CHARS is kept, not dropped or joined (T3.7)."""
+    sections = [Section("Abstract > Objective", "We asked whether oats help."), Section("B", "x")]
+    chunks = chunk_article(ParsedArticle("T", sections), make_source())
+    assert [c.page_content for c in chunks] == [
+        "Abstract > Objective\n\nWe asked whether oats help.",
+        "B\n\nx",
+    ]
 
 
 def test_neighbouring_chunks_overlap_by_at_most_150_characters():
