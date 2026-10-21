@@ -307,13 +307,25 @@ def test_a_short_last_piece_of_repeated_lines_is_joined():
     assert [c.page_content for c in chunks] == [f"{title}\n\n{text}"]
 
 
-def test_pieces_that_cannot_be_placed_in_the_text_stay_as_split(monkeypatch):
+@pytest.mark.parametrize(
+    ("text", "pieces"),
+    [
+        # The first piece is not in the section.
+        ("Text.", ["A piece the section does not hold.", "short"]),
+        # The last piece is not in the section (it is placed from the end).
+        ("Oats are a grain.", ["Oats are a grain.", "Not in the text."]),
+        # The only piece is not in the section.
+        ("Text.", ["Not in the text."]),
+        # The pieces are out of order, so text before the first one would be lost.
+        ("Oats. Rice.", ["Rice.", "Oats."]),
+    ],
+)
+def test_pieces_that_cannot_be_placed_in_the_text_stay_as_split(monkeypatch, text, pieces):
     """If the splitter's pieces are not found in the section in order, none is joined (T3.7)."""
-    pieces = ["A piece the section does not hold.", "short"]
     monkeypatch.setattr(
         ingest.RecursiveCharacterTextSplitter, "split_text", lambda self, text: pieces
     )
-    chunks = chunk_article(ParsedArticle("T", [Section("Fat", "Text.")]), make_source())
+    chunks = chunk_article(ParsedArticle("T", [Section("Fat", text)]), make_source())
     assert [c.page_content for c in chunks] == [f"Fat\n\n{piece}" for piece in pieces]
 
 
