@@ -16,7 +16,7 @@ from scripts import live_check_llm
 from src import config, llm
 from src.usage import CallUsage, ModelPrice
 from tests.fakes import ScriptedChatModel
-from tests.test_llm import STREAM_USAGE, StreamServer
+from tests.test_llm import STREAM_USAGE, Recorder, StreamServer
 
 FAKE_KEY = "sk-test-not-a-real-key"
 # The real function, kept before the autouse fixture below replaces it.
@@ -253,6 +253,67 @@ def test_the_streaming_model_is_built_through_the_apps_builder(monkeypatch):
     assert isinstance(transport, live_check_llm.GenerationIdTransport)
     [kwargs] = built
     assert list(kwargs) == ["http_client"]
+
+
+def test_the_streamed_reply_is_asked_for_uncompressed(monkeypatch):
+    """The streamed request says Accept-Encoding: identity, so the ID is readable in the body."""
+    server = StreamServer()
+    monkeypatch.setattr(httpx2, "HTTPTransport", lambda: httpx2.MockTransport(server))
+    monkeypatch.setenv(config.API_KEY_NAME, FAKE_KEY)
+    model, transport = REAL_BUILD_STREAMING_MODEL()
+    live_check_llm.stream_check(model)
+    assert server.requests[-1].headers["accept-encoding"] == "identity"
+    assert transport.ids == ["gen-test"]
+
+
+class _ChunkedStream(httpx2.SyncByteStream):
+    """A response body sent in small pieces, as a network stream may arrive."""
+
+    def __init__(self, body: bytes, size: int) -> None:
+        """Keep the body and the piece size."""
+        self._body = body
+        self._size = size
+
+    def __iter__(self):
+        """Yield the body in pieces of `size` bytes."""
+        for start in range(0, len(self._body), self._size):
+            yield self._body[start : start + self._size]
+
+
+class _ChunkedServer(StreamServer):
+    """The streaming fake server, but its body arrives in 5-byte pieces."""
+
+    def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        """Answer as StreamServer does, with the body split into small pieces."""
+        whole = super().__call__(request)
+        body = whole.read()
+        return httpx2.Response(
+            200, headers={"content-type": "text/event-stream"}, stream=_ChunkedStream(body, 5)
+        )
+
+
+def test_an_id_split_across_chunks_is_still_found():
+    """The ID is found even when the stream cuts it into pieces, and the reply is unchanged."""
+    transport = live_check_llm.GenerationIdTransport(httpx2.MockTransport(_ChunkedServer()))
+    lines, call = live_check_llm.stream_check(_stream_model(transport))
+    assert transport.ids == ["gen-test"]
+    assert call is not None and call.output_tokens == STREAM_USAGE["completion_tokens"]
+    assert "3 characters" in lines[0]
+
+
+@pytest.fixture
+def no_sleep(monkeypatch):
+    """Skip the SDK's back-off sleeps between retries so the test runs instantly."""
+    monkeypatch.setattr(openai._base_client.time, "sleep", lambda seconds: None)
+
+
+def test_an_error_status_through_the_transport_is_still_mapped(no_sleep):
+    """A 429 passes through the wrapper and becomes the app's fixed rate-limit error."""
+    server = Recorder(status=429, body={"error": {"code": 429, "message": "slow down"}})
+    transport = live_check_llm.GenerationIdTransport(httpx2.MockTransport(server))
+    with pytest.raises(llm.RateLimitedError):
+        live_check_llm.stream_check(_stream_model(transport))
+    assert transport.ids == []
 
 
 class _Body(io.BytesIO):

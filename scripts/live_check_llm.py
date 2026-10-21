@@ -11,6 +11,10 @@ app's answer rounds are, so the check shows whether OpenRouter's stream reports 
 x the tokens) next to the cost and native tokens OpenRouter itself records for that call
 (GET /api/v1/generation), to check how reasoning tokens are billed. Record the output in
 docs/TESTING.md.
+
+The streamed call goes through its own transport (to read the call's ID from the stream), and
+httpx2 ignores proxy settings such as HTTPS_PROXY for a client given a transport: behind a proxy
+only the streamed call fails, and the run stops with a connection error. Run it without a proxy.
 """
 
 import http.client
@@ -46,6 +50,9 @@ _OPENER = urllib.request.build_opener(usage.NoRedirect())
 _GENERATION_ID = re.compile(rb'"id"\s*:\s*"(gen-[A-Za-z0-9_-]{1,100})"')
 # How much of a streamed reply is searched for the ID: it is in the first chunk.
 _ID_SEARCH_BYTES = 8192
+# The transport reads the body before httpx2 decodes it, so the streamed reply is asked for
+# uncompressed; a gzip stream would hide the ID.
+_STREAM_HEADERS = {"Accept-Encoding": "identity"}
 STREAM_STEP = "live check (streamed)"
 
 
@@ -234,7 +241,8 @@ def build_streaming_model() -> tuple[ChatOpenAI, GenerationIdTransport]:
     """Build the answer model's client with a transport that notes each reply's generation ID."""
     # Through build_chat_model, so the allowlist and the token cap apply as in the app.
     transport = GenerationIdTransport()
-    return llm.build_chat_model(http_client=httpx2.Client(transport=transport)), transport
+    client = httpx2.Client(transport=transport, headers=_STREAM_HEADERS)
+    return llm.build_chat_model(http_client=client), transport
 
 
 def main() -> int:
