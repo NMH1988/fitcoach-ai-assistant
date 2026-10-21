@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-21 · T5.1 Token usage and cost · #TBD (closes #16)
+## 2026-10-21 · T5.1 Token usage and cost · #64 (closes #16)
 - **Brief:** Medium 5 (token usage and cost display); AC-10. An extra, after the core (paused for T3.3 on 2026-10-20, restarted 2026-10-21).
 - **What:**
   - `src/usage.py` (new): `CallUsage` and `UsageRecorder` (the calls of one turn, in order), `parse_prices()` / `fetch_prices()` (OpenRouter's two public model lists, no key, no redirects, 5 s, 20 MB cap; exact `Decimal` prices, unusable ones dropped), `PriceCache` and the process-wide `PRICES` (a day; a failed read not kept), `call_cost()` / `price_turn()` / `session_usage()` and the display (`format_turn()`: "3,700 tokens · $0.0074", "<$0.0001", "price unknown").
@@ -37,7 +37,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
   - `/security-review` (before the PR, on the uncommitted changes): no finding. Checked the new Markdown captions (only formatted numbers and fixed labels, "$" escaped), the price data as untrusted input, the key in the live check's generation request (no-redirect opener, no error text printed), the client-settings rule (`stream_usage` set at build time) and that no new path skips the guard.
   - Mutation checks: pricing cached input at the input price, caching an empty or failed price read, recording a round after its cut-off check, dropping the usage from error results, removing `stream_usage`, not storing the turn's usage, hiding the session line before a search and not escaping "$" each made the tests fail.
   - Browser check (fake models, live prices; no API call): the preview tool reads the main checkout's `.claude/launch.json`, so a temporary entry pointed at a launcher in Claude's scratchpad; restored afterwards.
-- **Follow-ups:** O5 cost check by the owner (`python scripts/live_check_llm.py`, both cost lines into `docs/TESTING.md`); if reasoning turns out to be billed on top of the output tokens, `usage.call_cost()` adds it. Update this entry's PR number when the PR is opened.
+- **Follow-ups:** O5 cost check by the owner (`python scripts/live_check_llm.py`, both cost lines into `docs/TESTING.md`); if reasoning turns out to be billed on top of the output tokens, `usage.call_cost()` adds it.
 
 ## 2026-10-20 · T4.5 `evaluate_meal_plan` tool · #56 (closes #15)
 - **Brief:** core 2 (tool calling; a 4th tool beyond the 3 required), shown as core 5 asks (tool results in the UI). An extra ("only if ahead of schedule"), done before the remaining core tickets by the owner's choice.
