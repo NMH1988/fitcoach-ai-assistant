@@ -15,7 +15,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-22 · T1.6a Upgrade streamlit to 1.66.1 so pillow 13 replaces the pillow ignores · #<PR> (closes #77)
+## 2026-10-22 · T1.6a Upgrade streamlit to 1.66.1 so pillow 13 replaces the pillow ignores · #78 (closes #77)
 - **Brief:** core 3 and 4 (security measures, error-free CI with a dependency audit). Owner's request (2026-10-22).
 - **What:** `pyproject.toml`: `streamlit==1.66.1` and `pillow==13.0.0`; `.github/workflows/ci.yml`: the eight pillow `--ignore-vuln` lines and their comment removed (the chromadb ones unchanged); `docs/SECURITY.md`: the eight pillow rows removed, a short note on the upgrade; `docs/ARCHITECTURE.md`: streamlit 1.66.1 and a pillow row; `tests/test_app_export.py`: the image scan's comments no longer point to the removed rows.
 - **Why:** on 2026-10-21 `pip-audit` began reporting more pillow 12.3.0 advisories (16 in all), all fixed in pillow 13.0.0, so CI's security job failed on every branch, first seen on PR #76 (T7.2). streamlit 1.66.1, released the same day, allows `pillow<14` and reportlab 5.0.1 any `pillow>=9.0.0`, so the fix T1.6 waited for exists; the repo's rule is to upgrade when a fix exists, not to ignore more.
