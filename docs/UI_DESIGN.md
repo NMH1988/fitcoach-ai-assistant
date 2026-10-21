@@ -86,7 +86,7 @@ App name with icon on the left; `st.badge("Not medical advice", icon=":material/
 - **Food lookup in German:** a caption under the food input says to enter the food name in English (USDA names are English). In the chat the food tool's description tells the model to pass English names (checked in T7.2).
 - **Messages from `src/`** (guard, LLM errors, missing index, profile validation) come back as keys or codes and the UI translates them. Tool notes stay English, so what the UI shows matches what the model received.
 - **Answers in German:** the language is passed to the answer step as a fixed value (`en`/`de`), never read from user text. The question is rewritten into English for retrieval (T3.2), so both vector and keyword search match the English chunks. Source passages are summarised, never shown as translated quotes.
-- **Safety:** the input guard and the domain guardrails get German patterns and German test strings in T7.1, together with the German UI, so a German injection or a German high-risk request is caught like an English one even if T7.2 is cut.
+- **Safety:** the input guard and the domain guardrails got German patterns and German test strings in T7.4 (split from T7.1, owner's decision, 2026-10-21), merged before the German UI, so a German injection or a German high-risk request is caught like an English one even if T7.2 is cut. Their messages stay English until T7.1.
 
 ### Light and dark mode (T7.3, extra)
 
@@ -176,7 +176,8 @@ Built in T4.7. Screenshot: `docs/ui/t4.7-food-lookup.jpg`.
 | Details tab: usage | T5.1 (extra) |
 | Sidebar "Download summary (PDF)" button and the PDF's layout | T5.2 (extra) |
 | Light and dark mode hint, both themes checked | T7.3 (extra) |
-| Language control, German UI text, German guard and guardrail patterns | T7.1 (extra) |
+| German guard and guardrail patterns | T7.4 (extra) |
+| Language control, German UI text | T7.1 (extra) |
 | German answers, English rewrites for retrieval | T7.2 (extra) |
 | Empty-state suggestions, colour tuning, final polish | UI polish ticket (extra, beyond the brief, owner's request) |
 

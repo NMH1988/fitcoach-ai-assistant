@@ -2,7 +2,7 @@
 
 Epics, tickets, acceptance criteria, dependencies, order and status. This file is the record of the work that travels with the repo to the course repository (GitHub issues and PRs do not), so keep each ticket's status current: every PR updates the status of its ticket.
 
-**Status of this plan:** approved by the owner on 2026-10-19; GitHub issues #1-#20 created the same day (one per ticket). Epic 7 (T7.1-T7.3, issues #33-#35) added by the owner on 2026-10-20. It follows `docs/PRD.md` (acceptance criteria AC-1 to AC-17) and `docs/ARCHITECTURE.md` (decisions D1-D8).
+**Status of this plan:** approved by the owner on 2026-10-19; GitHub issues #1-#20 created the same day (one per ticket). Epic 7 (T7.1-T7.3, issues #33-#35) added by the owner on 2026-10-20; T7.4 (issue #63) split from T7.1 by the owner on 2026-10-21. It follows `docs/PRD.md` (acceptance criteria AC-1 to AC-17) and `docs/ARCHITECTURE.md` (decisions D1-D8).
 
 ## Status legend
 
@@ -64,15 +64,16 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T3.5 | #50 | Skip the answer call for off-topic questions with no source (owner's request after T4.4) | S | T4.4, T3.2, O7, O1 | 10-29 | in review |
 | T5.3 | #18 | Domain guardrails | S | T3.1, T4.2 | 10-29 | done |
 | T3.6 | #51 | Retrieval comparison on the owner's evaluation questions (split from T3.3, owner's decision) | S | T3.3, O2, O5 | 10-30 | todo |
-| T3.7 | #66 | Drop registration boilerplate and merge short chunk pieces at ingest (found in T3.5's live check) | S | T2.2, T2.3, O5 | 10-29 | in review |
+| T3.7 | #66 | Drop registration boilerplate and merge short chunk pieces at ingest (found in T3.5's live check) | S | T2.2, T2.3, O5 | 10-29 | done |
 | T6.1 | #19 | Evaluation run and reflection | S | T3.3, T3.6, T4.4, O2, O5 | 10-30 | todo |
 | **Extras** | | | | | | |
 | T1.4 | #32 | Security reviewer agent (beyond the brief; owner's request, done early as it is dev tooling with no product change) | S | T1.1 | 10-20 | done |
 | T5.1 | #16 | Token usage and cost | S | T3.2 | 10-30 | done |
-| T5.1a | #68 | Live-check tests ignore a local secrets.toml (follow-up to T5.1; owner's request) | S | T5.1 | 10-21 | in review |
+| T5.1a | #68 | Live-check tests ignore a local secrets.toml (follow-up to T5.1; owner's request) | S | T5.1 | 10-21 | done |
 | T5.2 | #17 | Session summary PDF | M | T4.4 | 10-31 | done |
 | T7.3 | #35 | Light and dark mode | S | T3.1 | 10-31 | done |
-| T7.1 | #33 | Language switch: English and German UI | M | T4.4, T4.7, T5.3, T1.3 | 10-31 | todo |
+| T7.4 | #63 | German input guard and guardrails (split from T7.1, owner's decision) | M | T1.3, T5.3 | 10-31 | done |
+| T7.1 | #33 | Language switch: English and German UI | M | T4.4, T4.7, T5.3, T1.3, T7.4 | 10-31 | todo |
 | T7.2 | #34 | German answers end to end | M | T7.1, T3.2, O1, O2, O5 | 11-01 | todo |
 | T4.5 | #15 | `evaluate_meal_plan` tool (stretch; done early by the owner's choice) | S | T4.4 | only if ahead | in review |
 | T4.6 | #40 | Profile form: a hint instead of "Press Enter to apply" (beyond the brief; owner's request, done early as a small fix) | S | T4.1, T3.1 | 10-20 | done |
@@ -81,7 +82,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 **Critical path:** T1.1 -> T1.2 -> T2.1 -> T2.2 -> T2.3 -> T3.1 -> T3.2 -> T3.3 -> T3.6 -> T6.1 -> T6.2. T1.3, T4.1 and T4.3 can run alongside it; the extras run after T6.1, or alongside it once their dependencies are done.
 
-**If time runs short, cut in this order:** T4.5, then T7.2 (keep the English answers), then T7.1, then T7.3 (both themes stay from T3.1; only its test, toolbar check and hint go), then T5.2 (or keep it with a plain text layout), then T5.1, then chart polish. T7.3 is beyond the brief, so it goes before T5.2 and T5.1, which the brief asks for (Medium 7, Medium 5). The core requirements and the optional tasks for maximum points (Medium 3, 6; Hard 1) stay.
+**If time runs short, cut in this order:** T4.5, then T7.2 (keep the English answers), then T7.1, then T7.4 (German input still reaches an English UI), then T7.3 (both themes stay from T3.1; only its test, toolbar check and hint go), then T5.2 (or keep it with a plain text layout), then T5.1, then chart polish. T7.3 is beyond the brief, so it goes before T5.2 and T5.1, which the brief asks for (Medium 7, Medium 5). The core requirements and the optional tasks for maximum points (Medium 3, 6; Hard 1) stay.
 
 ---
 
@@ -223,7 +224,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] Any surprising result (e.g. hybrid below vector-only on a question) is noted in `docs/TESTING.md` with a suggested follow-up, for T6.1's reflection.
 **Notes:** from the review of PR #52 (T3.3): once a vector hit passes `RETRIEVAL_MAX_DISTANCE`, chunks found by keyword only join the fused list with no distance limit, so a general word ("help", "take", "day") could bring in a weak passage. The script marks such chunks with `*` in the hybrid row and counts them over all questions; include some near-domain questions in O2 and record how many keyword-only chunks reach the top 6, so T6.1 can judge whether they need a limit.
 
-### T3.7 Drop registration boilerplate and merge short chunk pieces at ingest (S) · status: in review · issue #66
+### T3.7 Drop registration boilerplate and merge short chunk pieces at ingest (S) · status: done · issue #66
 **Serves:** core 1 (chunking and similarity search); AC-2. Refines T2.2.
 **Depends on:** T2.2, T2.3, O5 (the owner rebuilds the index and re-runs the live check); before T3.6 and T6.1, which measure retrieval on the rebuilt index.
 **Acceptance criteria** (approved by the owner on 2026-10-21)
@@ -252,7 +253,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] When no chunk passes the distance limit, the answer model is called (with the tools, its first reply hidden, as in T4.4) only if the plan says `needs_tool`; when it does not, or when there is no usable plan, `NO_SOURCES_MESSAGE` is shown and no answer model call is made - integration tests (`tests/test_tool_loop.py`): `test_an_off_topic_question_with_no_source_makes_no_answer_call` (no call, and the status stops before "Writing the answer"), `test_a_food_question_with_needs_tool_runs_the_tool_loop`, `test_with_no_usable_plan_and_no_source_no_answer_call_is_made`; `tests/test_chat.py::test_with_no_relevant_chunk_the_app_says_the_sources_do_not_cover_it`; AppTest `tests/test_app_chat.py::test_no_relevant_source_shows_the_fixed_message_and_no_sources` (no call, the status box ends at "Searching the research"); the T4.4 tests of the hidden first reply still pass (with a `needs_tool` plan: `test_with_no_relevant_chunk_a_tool_answerable_question_gets_one_unseen_call`, `test_with_no_source_a_tool_answerable_question_calls_the_model_unseen`).
 - [x] With relevant chunks the answer step is unchanged, whatever `needs_tool` says (apart from the `<profile>` block, criterion 6; owner's reading, 2026-10-20) - integration test `test_with_sources_the_answer_step_runs_whatever_needs_tool_says` (the call, the sources, the four tools bound since T4.5, the citations).
 - [x] The owner adds the `needs_tool` and `needs_profile` rules to `src/prompts/query_translation_system.md` (O7, the owner writes first); a test checks that the prompt names both (`test_the_query_translation_prompt_names_the_fields_and_topics`, which names every `QueryPlan` field: passes since O7, 2026-10-20). Since 2026-10-21 the prompt also names the full-day meal plan check that criterion 1 counts since T4.5.
-- [x] `docs/ARCHITECTURE.md`, `docs/SECURITY.md` and `docs/PROGRESS.md` say that an off-topic question makes no answer call again (done); owner live check (O5, two runs on 2026-10-21, `docs/TESTING.md`): "How many kcal are in 150 g of rolled oats?" is still answered from the food lookup (both runs), and "What is the offside rule in football?" made no answer model call in the first run ("No matching research found"); in the second run a short rewrite matched boilerplate chunks within the distance limit, so the question took the "has sources" path and the model was called. The owner counts the criterion as met with that finding recorded (2026-10-21): T3.5's skip works when nothing is relevant, and the boilerplate chunks go to a separate ticket.
+- [x] `docs/ARCHITECTURE.md`, `docs/SECURITY.md` and `docs/PROGRESS.md` say that an off-topic question makes no answer call again (done); owner live check (O5, two runs on 2026-10-21, `docs/TESTING.md`): "How many kcal are in 150 g of rolled oats?" is still answered from the food lookup (both runs), and "What is the offside rule in football?" made no answer model call in the first run ("No matching research found"); in the second run a short rewrite matched boilerplate chunks within the distance limit, so the question took the "has sources" path and the model was called. The owner counts the criterion as met with that finding recorded (2026-10-21): T3.5's skip works when nothing is relevant, and the boilerplate chunks go to a separate ticket (T3.7, done). After T3.7 (same day, `docs/TESTING.md`) the offside question still reached the answer call in 2 of 3 app runs, through one rewrite alone ("VAR and offside rule in football", 6 of 6 chunks within the limit while the question had none), as the limit is checked for each rewrite on its own: a cost gap, not a safety gap; the owner accepted it, and a follow-up retrieval ticket (T3.8) deals with it.
 - [x] The `<profile>` block goes to the answer model only when the plan says `needs_profile` (the question needs the user's numbers), with or without sources; otherwise, and with no usable plan, the user message has no `<profile>` block, so the profile is sent only to the call that needs it (`.claude/rules/security-privacy.md`); the owner's answer prompt is updated to match (O1, done 2026-10-21: the third state, no block, and the tools reading only the stored profile) - integration tests on the built messages (done: `test_the_profile_is_sent_only_when_the_plan_says_needs_profile` with and without sources, `test_with_no_usable_plan_the_profile_is_not_sent`, `test_without_the_profile_block_the_energy_tools_still_use_the_profile`, `test_without_the_profile_block_an_energy_result_still_names_some_profile_values` (the known limit: the stored goal and activity factor in energy results since T4.2, the weight since T4.7, the goal in the meal plan check since T4.5; never the height, age or sex), `test_build_messages_leaves_the_profile_block_out_on_request`, `test_the_search_details_carry_the_plans_flags`; `test_the_turn_says_whether_the_profile_block_was_sent` (`TurnResult.profile_sent`); AppTest `tests/test_app_chat.py`: the Details tab shows the plan's tool flag and whether the profile block was really sent, or a note with no plan (`test_details_shows_each_flag_of_the_plan`, `test_details_shows_the_search_even_when_nothing_was_found`, `test_details_says_no_block_was_sent_when_no_answer_call_was_made`, `test_details_says_when_only_the_question_was_searched`; PR #67 review: the badge follows what was sent, not only the plan; owner's request after the live check of 2026-10-21, so the next check can see what the plan decided); AppTest `tests/test_app_tools.py`: `test_the_model_gets_the_session_profile` with a `needs_profile` plan, `test_without_needs_profile_the_model_gets_no_profile_block`) (added by the owner, 2026-10-20, after PR #49's compliance check).
 **Notes:** the query translation call (`gpt-5-nano`) and the query embedding still run for every accepted question, off-topic ones included; telling a question is off-topic needs a step that reads it, and this one is already paid for. `answer_with_tools()`'s keyword `needs_tool` (T4.4) is renamed `tools_only`, so it is not confused with the plan's field. The test fakes' plans set both flags to true by default (the behaviour before T3.5); the T3.5 tests set them.
 
@@ -352,7 +353,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 **Notes:** owner's choices (2026-10-20): usage in all three places (under the answer, the sidebar card, the Details tab); embedding tokens counted exactly; reasoning tokens coded to OpenAI's convention (included in the output tokens), to be confirmed by the O5 cost check. Defaults stated and not objected to: tokens spent before an error count; a failed price read is not cached (5 s timeout, "price unknown"); cached input priced at `input_cache_read`; USD, "<$0.0001" below a hundredth of a cent. T5.1 was paused for T3.3 (core first) and restarted on 2026-10-21. Built from `main` while T3.5 (#50, no PR yet) also changes `src/chat.py`: whichever merges second resolves the conflict.
 
-### T5.1a Live-check tests ignore a local secrets.toml (S) · status: in review · issue #68
+### T5.1a Live-check tests ignore a local secrets.toml (S) · status: done · issue #68
 **Serves:** none directly; keeps the T5.1 tests (Medium 5) safe to run in a checkout that holds the real key. Test-only fix (owner's request, 2026-10-21).
 **Depends on:** T5.1
 **Acceptance criteria**
@@ -402,21 +403,34 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 Added by the owner on 2026-10-20. All three tickets are extras: they come after the core and never delay a core ticket. Concept and layout in `docs/UI_DESIGN.md` ("Language" and "Light and dark mode").
 
+### T7.4 German input guard and guardrails (M) · status: done · issue #63
+**Serves:** Hard 4 (multi-language support), as an extra after the core; core 3 (security measures relevant to the domain) and Medium 3 (prompt injection protection) for German input; AC-16. Beyond the PRD's original English-only scope (owner's request, 2026-10-20).
+**Depends on:** T1.3, T5.3
+**Decision (owner, 2026-10-21):** T7.1 turned out closer to L than M at its start, so its German safety checks were split into this ticket and come first, in their own PR; the German UI (T7.1) ships only once they are merged. The two criteria below moved here from T7.1; the other three were added with the split and approved by the owner.
+**Acceptance criteria**
+- [x] The input guard rejects German prompt-injection strings (with ß, ss, ü and ue spellings) and passes German benign nutrition questions - parametrised tests with our own strings (`tests/test_guard_de.py`: `test_german_injection_attempts_are_rejected`, 69 attack strings; `test_german_benign_questions_pass`, 49 questions; `test_german_spells_each_umlaut_three_ways`).
+- [x] The domain guardrails' code-level checks catch German requests (performance-enhancing drug dosing, under 18, pregnancy, medical conditions, disordered eating, an intake below the calorie floor) - parametrised tests with German attack and benign strings (`tests/test_guardrails_de.py`: `test_german_flagged_questions_get_their_guardrail_message`, 135 strings over the five concerns; `test_german_benign_questions_are_not_refused_or_redirected`, 110 questions plus the guard's 49; `test_every_concern_has_a_german_example`; `test_the_german_low_intake_check_follows_the_configured_floor`).
+- [x] The English checks behave as before - the existing guard and guardrail tests pass unchanged (`tests/test_guard.py`, `tests/test_guardrails.py`, `tests/test_prompt_injection.py`), and English questions with a word the German lists share still pass (`ENGLISH_UNCHANGED` in `tests/test_guardrails_de.py`, 14 questions: the Krebs cycle in five spellings, the chemist Hans Krebs, "tumor", "Hashimoto", "depressive", "diclofenac", "steroid hormone", "diagnose").
+- [x] The German patterns stay fast on long input - timing tests like the English one (`test_the_german_patterns_stay_fast_on_long_input`, `test_the_german_guardrails_stay_fast_on_long_input`).
+- [x] `docs/SECURITY.md` and `docs/ARCHITECTURE.md` say the patterns cover English and German, with the German known limits - review.
+**Notes:**
+- The patterns run on casefolded NFKC text, once with accents and once without (`detection_views()`), so ß is always ss and ü is seen as both ü and u. `german()` in `src/german.py` lets each umlaut in a pattern also match the plain vowel and the typed ue/oe/ae; the patterns are written with ss. No umlaut goes inside a lookbehind (`german()` would make it variable-width).
+- The messages stay English until T7.1 translates the UI. The German test strings are our own writing.
+
 ### T7.1 Language switch: English and German UI (M) · status: todo · issue #33
 **Serves:** Hard 4 (multi-language support), as an extra after the core; AC-16. Changes the PRD's English-only decision: beyond the PRD (owner's request, 2026-10-20).
-**Depends on:** T4.4, T4.7, T5.3 (so most UI text and the guardrails exist before they are translated), T1.3
+**Depends on:** T4.4, T4.7, T5.3 (so most UI text and the guardrails exist before they are translated), T1.3, T7.4 (the German guard and guardrails, split from this ticket on 2026-10-21)
 **Acceptance criteria**
 - [ ] `src/i18n.py` holds every user-facing UI string in English and German behind one lookup function; a test fails if a key exists in one language but not the other - unit test.
 - [ ] The header has a language control (a `:material/translate:` icon next to an EN | DE segmented control labelled "Language", label collapsed, `required=True` so it can never be deselected to `None`); switching it changes all UI text (sidebar, tabs, buttons, errors, guard and guardrail messages, disclaimer) - AppTest in both languages.
 - [ ] The default language follows the browser locale (`st.context.locale`: German for `de*`, English otherwise, including `None`) and the user's choice is kept for the session - unit test on the locale mapping and AppTest.
-- [ ] The input guard rejects German prompt-injection strings and passes German benign nutrition questions - parametrised tests with our own strings.
-- [ ] The domain guardrails' code-level checks catch German requests (performance-enhancing drug dosing, under 18, pregnancy, medical conditions, disordered eating) - parametrised tests with German attack and benign strings.
 - [ ] Source titles, licence names and USDA food names stay in English; the Food lookup tab tells German users to enter English food names - AppTest.
 - [ ] The German texts, the medical disclaimer in particular, are reviewed by the owner or a German speaker before merge - manual check recorded in `docs/PROGRESS.md`.
+The German guard and guardrail criteria moved to T7.4 (owner's decision, 2026-10-21).
 **Notes:**
-- The German safety checks are in this ticket, not T7.2, because a German UI invites German input even if T7.2 is cut.
-- Many messages come from `src/` (guard rejections and rate limit in `src/guard.py`, LLM errors in `src/llm.py`, `IndexNotReadyError` in `src/rag/store.py`, profile validation in `src/profile.py`). `src/` returns message keys or codes and the UI translates them. Tool notes stay English, so the tool result the UI shows matches what the model received. Recheck the M size at the start.
-- The guard's folded patterns (`_FOLDED_PATTERNS` in `src/guard.py`) run on casefolded NFKC text, once with accents and once without (`detection_views()`), so ü is seen as both ü and u, and ß always becomes ss. Write the German folded patterns with ss and u/o/a, also accept the typed spellings ue/oe/ae, and include ß, ss and ue spellings among the German attack strings. Update `docs/SECURITY.md` and `docs/ARCHITECTURE.md`, which say the patterns are English only.
+- The German safety checks are in T7.4 (split from this ticket), not T7.2, because a German UI invites German input even if T7.2 is cut; T7.4 merges first.
+- Owner's choices at the start (2026-10-21): the summary PDF stays English here and becomes German in T7.2 (its criterion); tool-produced text (the targets' message and notes, the TDEE method, food and meal plan messages) stays English everywhere, the My targets and Food lookup tabs included; the owner reviews the German texts. Past turns' fixed messages (guard, errors, "not covered") follow the language chosen now; the model's answers stay in the language they were written in (default stated in the Q phase).
+- Many messages come from `src/` (guard rejections and rate limit in `src/guard.py`, LLM errors in `src/llm.py`, `IndexNotReadyError` in `src/rag/store.py`, profile validation in `src/profile.py`). `src/` returns message keys or codes and the UI translates them. Tool notes stay English, so the tool result the UI shows matches what the model received. The size was rechecked at the start (closer to L), hence the T7.4 split. `chat.format_profile()` reads the profile labels for the model's `<profile>` block, so translated labels must stay out of it.
 - The German UI texts are our own writing. Every UI string added after T7.1 needs both languages.
 
 ### T7.2 German answers end to end (M) · status: todo · issue #34
