@@ -2,7 +2,7 @@
 
 Epics, tickets, acceptance criteria, dependencies, order and status. This file is the record of the work that travels with the repo to the course repository (GitHub issues and PRs do not), so keep each ticket's status current: every PR updates the status of its ticket.
 
-**Status of this plan:** approved by the owner on 2026-10-19; GitHub issues #1-#20 created the same day (one per ticket). Epic 7 (T7.1-T7.3, issues #33-#35) added by the owner on 2026-10-20. It follows `docs/PRD.md` (acceptance criteria AC-1 to AC-17) and `docs/ARCHITECTURE.md` (decisions D1-D8).
+**Status of this plan:** approved by the owner on 2026-10-19; GitHub issues #1-#20 created the same day (one per ticket). Epic 7 (T7.1-T7.3, issues #33-#35) added by the owner on 2026-10-20; T7.4 (issue #63) split from T7.1 by the owner on 2026-10-21. It follows `docs/PRD.md` (acceptance criteria AC-1 to AC-17) and `docs/ARCHITECTURE.md` (decisions D1-D8).
 
 ## Status legend
 
@@ -70,7 +70,8 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T5.1 | #16 | Token usage and cost | S | T3.2 | 10-30 | todo |
 | T5.2 | #17 | Session summary PDF | M | T4.4 | 10-31 | done |
 | T7.3 | #35 | Light and dark mode | S | T3.1 | 10-31 | done |
-| T7.1 | #33 | Language switch: English and German UI | M | T4.4, T4.7, T5.3, T1.3 | 10-31 | todo |
+| T7.4 | #63 | German input guard and guardrails (split from T7.1, owner's decision) | M | T1.3, T5.3 | 10-31 | in review |
+| T7.1 | #33 | Language switch: English and German UI | M | T4.4, T4.7, T5.3, T1.3, T7.4 | 10-31 | todo |
 | T7.2 | #34 | German answers end to end | M | T7.1, T3.2, O1, O2, O5 | 11-01 | todo |
 | T4.5 | #15 | `evaluate_meal_plan` tool (stretch; done early by the owner's choice) | S | T4.4 | only if ahead | in review |
 | T4.6 | #40 | Profile form: a hint instead of "Press Enter to apply" (beyond the brief; owner's request, done early as a small fix) | S | T4.1, T3.1 | 10-20 | done |
@@ -79,7 +80,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 **Critical path:** T1.1 -> T1.2 -> T2.1 -> T2.2 -> T2.3 -> T3.1 -> T3.2 -> T3.3 -> T3.6 -> T6.1 -> T6.2. T1.3, T4.1 and T4.3 can run alongside it; the extras run after T6.1, or alongside it once their dependencies are done.
 
-**If time runs short, cut in this order:** T4.5, then T7.2 (keep the English answers), then T7.1, then T7.3 (both themes stay from T3.1; only its test, toolbar check and hint go), then T5.2 (or keep it with a plain text layout), then T5.1, then chart polish. T7.3 is beyond the brief, so it goes before T5.2 and T5.1, which the brief asks for (Medium 7, Medium 5). The core requirements and the optional tasks for maximum points (Medium 3, 6; Hard 1) stay.
+**If time runs short, cut in this order:** T4.5, then T7.2 (keep the English answers), then T7.1, then T7.4 (German input still reaches an English UI), then T7.3 (both themes stay from T3.1; only its test, toolbar check and hint go), then T5.2 (or keep it with a plain text layout), then T5.1, then chart polish. T7.3 is beyond the brief, so it goes before T5.2 and T5.1, which the brief asks for (Medium 7, Medium 5). The core requirements and the optional tasks for maximum points (Medium 3, 6; Hard 1) stay.
 
 ---
 
@@ -374,21 +375,34 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 Added by the owner on 2026-10-20. All three tickets are extras: they come after the core and never delay a core ticket. Concept and layout in `docs/UI_DESIGN.md` ("Language" and "Light and dark mode").
 
+### T7.4 German input guard and guardrails (M) · status: in review · issue #63
+**Serves:** Hard 4 (multi-language support), as an extra after the core; core 3 (security measures relevant to the domain) and Medium 3 (prompt injection protection) for German input; AC-16. Beyond the PRD's original English-only scope (owner's request, 2026-10-20).
+**Depends on:** T1.3, T5.3
+**Decision (owner, 2026-10-21):** T7.1 turned out closer to L than M at its start, so its German safety checks were split into this ticket and come first, in their own PR; the German UI (T7.1) ships only once they are merged. The two criteria below moved here from T7.1; the other three were added with the split and approved by the owner.
+**Acceptance criteria**
+- [ ] The input guard rejects German prompt-injection strings (with ß, ss, ü and ue spellings) and passes German benign nutrition questions - parametrised tests with our own strings (`tests/test_guard_de.py`: `test_german_injection_attempts_are_rejected`, 59 attack strings; `test_german_benign_questions_pass`, 42 questions; `test_german_spells_each_umlaut_three_ways`).
+- [ ] The domain guardrails' code-level checks catch German requests (performance-enhancing drug dosing, under 18, pregnancy, medical conditions, disordered eating, an intake below the calorie floor) - parametrised tests with German attack and benign strings (`tests/test_guardrails_de.py`: `test_german_flagged_questions_get_their_guardrail_message`, 91 strings over the five concerns; `test_german_benign_questions_are_not_refused_or_redirected`, 69 questions plus the guard's 42; `test_every_concern_has_a_german_example`; `test_the_german_low_intake_check_follows_the_configured_floor`).
+- [ ] The English checks behave as before - the existing guard and guardrail tests pass unchanged (`tests/test_guard.py`, `tests/test_guardrails.py`, `tests/test_prompt_injection.py`), and English questions with a word the German lists share still pass (`ENGLISH_UNCHANGED` in `tests/test_guardrails_de.py`: the Krebs cycle, "tumor", "Hashimoto", "depressive", "diclofenac", "steroid hormone").
+- [ ] The German patterns stay fast on long input - timing tests like the English one (`test_the_german_patterns_stay_fast_on_long_input`, `test_the_german_guardrails_stay_fast_on_long_input`).
+- [ ] `docs/SECURITY.md` and `docs/ARCHITECTURE.md` say the patterns cover English and German, with the German known limits - review.
+**Notes:**
+- The patterns run on casefolded NFKC text, once with accents and once without (`detection_views()`), so ß is always ss and ü is seen as both ü and u. `german()` in `src/german.py` lets each umlaut in a pattern also match the plain vowel and the typed ue/oe/ae; the patterns are written with ss. No umlaut goes inside a lookbehind (`german()` would make it variable-width).
+- The messages stay English until T7.1 translates the UI. The German test strings are our own writing.
+
 ### T7.1 Language switch: English and German UI (M) · status: todo · issue #33
 **Serves:** Hard 4 (multi-language support), as an extra after the core; AC-16. Changes the PRD's English-only decision: beyond the PRD (owner's request, 2026-10-20).
-**Depends on:** T4.4, T4.7, T5.3 (so most UI text and the guardrails exist before they are translated), T1.3
+**Depends on:** T4.4, T4.7, T5.3 (so most UI text and the guardrails exist before they are translated), T1.3, T7.4 (the German guard and guardrails, split from this ticket on 2026-10-21)
 **Acceptance criteria**
 - [ ] `src/i18n.py` holds every user-facing UI string in English and German behind one lookup function; a test fails if a key exists in one language but not the other - unit test.
 - [ ] The header has a language control (a `:material/translate:` icon next to an EN | DE segmented control labelled "Language", label collapsed, `required=True` so it can never be deselected to `None`); switching it changes all UI text (sidebar, tabs, buttons, errors, guard and guardrail messages, disclaimer) - AppTest in both languages.
 - [ ] The default language follows the browser locale (`st.context.locale`: German for `de*`, English otherwise, including `None`) and the user's choice is kept for the session - unit test on the locale mapping and AppTest.
-- [ ] The input guard rejects German prompt-injection strings and passes German benign nutrition questions - parametrised tests with our own strings.
-- [ ] The domain guardrails' code-level checks catch German requests (performance-enhancing drug dosing, under 18, pregnancy, medical conditions, disordered eating) - parametrised tests with German attack and benign strings.
 - [ ] Source titles, licence names and USDA food names stay in English; the Food lookup tab tells German users to enter English food names - AppTest.
 - [ ] The German texts, the medical disclaimer in particular, are reviewed by the owner or a German speaker before merge - manual check recorded in `docs/PROGRESS.md`.
+The German guard and guardrail criteria moved to T7.4 (owner's decision, 2026-10-21).
 **Notes:**
-- The German safety checks are in this ticket, not T7.2, because a German UI invites German input even if T7.2 is cut.
-- Many messages come from `src/` (guard rejections and rate limit in `src/guard.py`, LLM errors in `src/llm.py`, `IndexNotReadyError` in `src/rag/store.py`, profile validation in `src/profile.py`). `src/` returns message keys or codes and the UI translates them. Tool notes stay English, so the tool result the UI shows matches what the model received. Recheck the M size at the start.
-- The guard's folded patterns (`_FOLDED_PATTERNS` in `src/guard.py`) run on casefolded NFKC text, once with accents and once without (`detection_views()`), so ü is seen as both ü and u, and ß always becomes ss. Write the German folded patterns with ss and u/o/a, also accept the typed spellings ue/oe/ae, and include ß, ss and ue spellings among the German attack strings. Update `docs/SECURITY.md` and `docs/ARCHITECTURE.md`, which say the patterns are English only.
+- The German safety checks are in T7.4 (split from this ticket), not T7.2, because a German UI invites German input even if T7.2 is cut; T7.4 merges first.
+- Owner's choices at the start (2026-10-21): the summary PDF stays English here and becomes German in T7.2 (its criterion); tool-produced text (the targets' message and notes, the TDEE method, food and meal plan messages) stays English everywhere, the My targets and Food lookup tabs included; the owner reviews the German texts. Past turns' fixed messages (guard, errors, "not covered") follow the language chosen now; the model's answers stay in the language they were written in (default stated in the Q phase).
+- Many messages come from `src/` (guard rejections and rate limit in `src/guard.py`, LLM errors in `src/llm.py`, `IndexNotReadyError` in `src/rag/store.py`, profile validation in `src/profile.py`). `src/` returns message keys or codes and the UI translates them. Tool notes stay English, so the tool result the UI shows matches what the model received. The size was rechecked at the start (closer to L), hence the T7.4 split. `chat.format_profile()` reads the profile labels for the model's `<profile>` block, so translated labels must stay out of it.
 - The German UI texts are our own writing. Every UI string added after T7.1 needs both languages.
 
 ### T7.2 German answers end to end (M) · status: todo · issue #34

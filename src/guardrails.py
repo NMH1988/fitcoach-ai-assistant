@@ -4,13 +4,15 @@ The input guard runs `find_concern()` on each message after its injection checks
 docs/PRD.md "Domain guardrails"). Performance-enhancing drug dosing is refused; minors,
 pregnancy, medical conditions and medication, and signs of disordered eating are redirected to a
 professional. The owner's system prompt holds the same rules as the second line of defence. The
-patterns are English only and catch common phrasings, not all of them (docs/SECURITY.md).
+patterns cover English and German (T7.4) and catch common phrasings, not all of them
+(docs/SECURITY.md).
 """
 
 import re
 from enum import StrEnum
 
 from src import config
+from src.german import german
 
 
 class Concern(StrEnum):
@@ -253,24 +255,254 @@ _LOW_INTAKE = re.compile(
     r"|in)\b)"
 )
 
-_PED_TERMS_RE = re.compile(_PED_TERMS)
-_PED_USE_RE = re.compile(_PED_USE)
-_REDIRECTS = [
-    (Concern.MINOR, [re.compile(p) for p in _MINOR_PATTERNS]),
-    (Concern.PREGNANCY, [re.compile(p) for p in _PREGNANCY_PATTERNS]),
-    (Concern.MEDICAL, [re.compile(p) for p in _MEDICAL_PATTERNS]),
-    (Concern.DISORDERED_EATING, [re.compile(p) for p in _DISORDERED_PATTERNS]),
+# --- German (T7.4) ------------------------------------------------------------------------------
+# The same rules for German questions, on the same casefolded text. Written with "ss" for "ß" and
+# passed through german(), so "ü" also matches "u" and the typed "ue". Drug names that German
+# spells like English (SARMs, Anavar, HGH, Ozempic, Diabetes, PCOS, ...) are already caught above.
+# No umlaut inside a lookbehind: german() would make it variable-width.
+
+# "Testosteron" and "Wachstumshormon" alone are physiology, as in English; "Doping" alone is left
+# out ("ist Kreatin Doping?").
+_DE_PED_TERMS = (
+    # Not "steroid hormones" in an English sentence ("vitamin D is a steroid hormone").
+    r"\b(?:anabolika|anabolikum|anabole[nr]? steroide?n?|steroide?n?(?! ?hormon)|steroidkur(?:en)?"
+    r"|dopingmittel[n]?|leistungssteigernde[nr]? (?:mittel[n]?|substanzen|drogen|präparate)"
+    r"|prohormone|trenbolon|nandrolon|oxandrolon|oxymetholon|methandrostenolon|boldenon"
+    r"|testosteron[- ]?(?:spritzen|spritze|injektion(?:en)?|kur(?:en)?|enantat|cypionat"
+    r"|propionat|undecanoat|ester)|testo[- ]?kur(?:en)?"
+    r"|(?:spritze|spritzen|spritzt|injiziere|injizieren) (?:ich |man |du )?(?:\w+ )?testosteron"
+    r"|wachstumshormon(?:spritzen|spritze|injektion(?:en)?)|wachstumshormone? (?:spritzen|spritze"
+    r"|injektion(?:en)?|peptide))\b"
+)
+_DE_PED_USE = (
+    r"\b(?:dosis|dosen|dosierung(?:en)?|dosieren|dosiere|dosiert|dosierst|milligramm|kur|kuren"
+    r"|zyklus|zyklen|absetzen"
+    r"|absetzphase|spritzen|spritze|spritzt|injizieren|injiziere|injektion(?:en)?|stacken"
+    r"|wie (?:viel|viele|oft|lange)|wann (?:soll|sollte|muss|kann) ich"
+    r"|(?:soll|sollte|kann|könnte|darf|würde) ich (?:\w+ ){0,3}?(?:nehmen|einnehmen|probieren"
+    r"|anfangen|starten|spritzen|beginnen|kaufen|bestellen)"
+    r"|wie (?:nehme|nimmt|nehmen|spritze|beginne|starte) (?:ich|man)"
+    r"|wo (?:kaufen|kaufe ich|kauft man|bekomme ich|bekommt man|kriege ich|bestellen"
+    r"|bestelle ich)|kaufen|bestellen|anfänger|erste[nrs]? (?:kur|mal|zyklus)"
+    r"|sicherste[nr]? (?:dosis|menge|weg)|sichere[nr]? (?:dosis|menge)"
+    r"|ich (?:nehme|spritze|benutze|nutze|verwende|starte|beginne|plane)"
+    r"|ich bin (?:gerade )?auf|ich (?:will|möchte) (?:\w+ ){0,2}?(?:nehmen|probieren|spritzen"
+    r"|starten|anfangen|beginnen))\b"
+)
+
+# "Ich bin 16" is an age unless a unit follows ("ich bin 16 kg leichter", "ich bin 16 Wochen in
+# der Diät", "ich bin 16:8 am Fasten").
+_DE_NOT_A_UNIT = (
+    r"(?![\w'\"%]|[.,:/]\d| %| ?(?:kg|kilo|kilos|kilogramm|g|gramm|cm|zentimeter|m|meter|km"
+    r"|prozent|wochen?|tage?n?|monate?n?|stunden?|std|minuten?|min|mal|sätze?n?|wiederholungen"
+    r"|wdh|kcal|kalorien|portionen?|messlöffel|eier|x|einheiten|trainings?|schritte|pfund|stück"
+    r"|scheiben|kilometer|uhr)\b)"
+)
+_DE_MINOR_AGE = r"(?:1[0-7]|[1-9]|zehn|elf|zwölf|dreizehn|vierzehn|fünfzehn|sechzehn|siebzehn)"
+_DE_MINOR_PATTERNS = [
+    r"\b(?:ich bin|ich werde|ich wurde) (?:erst |gerade |fast |bald |noch |jetzt |knapp )?"
+    # "Ich bin 16 Jahre alt" is an age, "ich bin 10 Jahre im Training" is not.
+    rf"(?:1[0-7](?! jahre?n?\b(?! alt\b)){_DE_NOT_A_UNIT}|{_DE_MINOR_AGE} jahre alt\b)",
+    # A teenager named ("ein 16-Jähriger"), not the past ("als 16-Jähriger", "mit 16 Jahren") or
+    # an adjective of a thing ("nach 10-jähriger Trainingspause", "die 12-jährige Studie").
+    r"(?<!als )(?<!mit )(?<!seit )(?<!nach )\b(?:1[0-7][- ]?|dreizehn|vierzehn|fünfzehn|sechzehn"
+    r"|siebzehn)jährige?[nmrs]?\b(?! \w*(?:pause|erfahrung|studie|praxis|karriere|geschichte"
+    r"|tradition|forschung|laufzeit|beobachtung|daten|zeit|phase|dauer|ehe|beziehung"
+    r"|mitgliedschaft|training)\b)",
+    # A younger child only as the subject ("für meinen 8-Jährigen"), as in English.
+    rf"\b(?:für|kann|soll|sollte|darf|muss) (?:mein|meine|meinen|meinem|ein|eine|einen|unser"
+    rf"|unsere|unseren) {_DE_MINOR_AGE}[- ]?jährige[nmrs]?\b",
+    # Not a BMI ("mein BMI ist unter 18").
+    rf"(?<!bmi )(?<!bmi von )(?<!bmi ist )(?<!bmi liegt )\bunter 18{_DE_NOT_A_UNIT}",
+    # "Als Jugendlicher" is the past; "Jugend" alone is not counted ("seit meiner Jugend").
+    r"(?<!als )\b(?:teenager|teenagerin|teenies?|jugendliche[nr]?|minderjährige?[nr]?"
+    r"|heranwachsende[nr]?|pubertierende[nr]?)\b",
+    r"\b(?:für|können|kann|sollen|sollten|dürfen|darf|müssen) (?:ein |kleine |junge |unsere "
+    r"|meine )?(?:kinder|kind|kids)\b",
+    rf"\b(?:für|kann|soll|sollte|darf|muss) (?:mein|meine|meinen|meinem|unser|unsere|unseren) "
+    rf"(?:{_DE_MINOR_AGE}[- ]?jährige[nmrs]?|kleine[nmrs]?|jugendliche[nmrs]?) (?:sohn|tochter"
+    r"|kind|junge|jungen|mädchen)\b",
+    # Only the present: "ich gehe noch zur Schule", "ich bin in der 10. Klasse".
+    r"\bich (?:bin|gehe|geh) (?:noch |gerade |aktuell )?(?:in die|zur|auf die|aufs|auf das"
+    r"|in der|auf der|auf dem) (?:schule|gymnasium|realschule|hauptschule|gesamtschule"
+    r"|mittelschule|oberstufe|(?:\d{1,2}\. ?)klasse)\b",
+    r"\bich bin (?:noch )?(?:schüler|schülerin)\b",
 ]
+
+# "Stillen" is also "to still": "den Hunger stillen" or "stille ich meinen Heißhunger" is a
+# nutrition question, so a form of "stillen" with hunger, thirst or appetite in the next three
+# words does not count. Hunger named before it ("den Hunger beim Stillen") still does.
+_DE_NOT_HUNGER = r"(?! (?:\S+ ){0,2}?\w*(?:hunger|durst|appetit)\w*\b)"
+_DE_PREGNANCY_PATTERNS = [
+    r"\b(?:schwanger|schwangere[nrs]?|schwangerschaft(?:en)?|schwangerschafts\w*|trimenon"
+    r"|pränatal\w*|postpartal\w*|postnatal\w*|wochenbett|stillzeit|stillende[nr]?|kinderwunsch"
+    r"|nach der geburt|nach der entbindung|entbindung|frisch entbunden|rückbildungs\w*)\b",
+    r"\b(?:ich stille|stille ich|beim stillen|während des stillens|während dem stillen"
+    rf"|vom stillen|zum stillen|das stillen)\b{_DE_NOT_HUNGER}",
+    r"\b(?:ich erwarte|wir erwarten|sie erwartet|meine frau erwartet) (?:ein |unser |mein "
+    r"|unser erstes |unser zweites |mein erstes |mein zweites )?(?:baby|kind|zwillinge)\b",
+]
+
+_DE_DISEASES = (
+    r"(?:diabetiker(?:in|innen)?|prädiabet\w*|diabetisch\w*|zuckerkrank\w*|nierenerkrankung(?:en)?"
+    r"|nierenkrankheit|niereninsuffizienz|nierenversagen|nierensteine?n?|nierenschwäche"
+    r"|fettleber|leberzirrhose|zirrhose|leberentzündung|herzinsuffizienz|herzschwäche"
+    r"|herzinfarkts?|herz-kreislauf-erkrankung(?:en)?|koronare herzkrankheit|khk|bluthochdruck"
+    r"|(?:hohe[mnr]?|niedrige[mnr]?|erhöhte[mnr]?) blutdruck|hypertonie|hypotonie"
+    # Not the Krebs cycle (in English sentences too); "Tumor" and "Hashimoto" only in German
+    # frames, so the English words keep the English rules above.
+    r"|(?:hohe[mnrs]?|erhöhte[mnrs]?) cholesterin\w*|hypercholesterinämie"
+    r"|krebs(?![- ]?(?:zyklus|zyklen|cycle)\b)|krebserkrankung"
+    r"|(?:einen|ein|meinen|mein|der|den|dem|gutartige[nmr]?|bösartige[nmr]?) tumor|tumore|tumoren"
+    r"|tumorerkrankung(?:en)?|leukämie|polyzystische[sn]? ovarsyndrom|schilddrüsenunterfunktion"
+    r"|schilddrüsenüberfunktion|hypothyreose|hyperthyreose"
+    r"|(?:morbus|mit|bei|habe|hab|hat|wegen) hashimoto|hashimoto-thyreoiditis|morbus basedow|gicht"
+    r"|morbus crohn|colitis ulcerosa|chronisch entzündliche darmerkrankung(?:en)?|reizdarm\w*"
+    r"|zöliakie|epilepsie|epileptiker\w*|krampfanfälle?n?|anämie|blutarmut|osteoporose|arthrose"
+    r"|rheuma\w*|multiple sklerose|autoimmunerkrankung(?:en)?|herzrhythmusstörung(?:en)?"
+    r"|vorhofflimmern|gallensteine?n?|bauchspeicheldrüsenentzündung|schlafapnoe"
+    # German forms only: "a depressive effect" in English is not counted.
+    r"|bipolare?[nr]? störung|adhs|depressionen|depressiv(?:en|er|es|em)?\b|depressive (?:phase"
+    r"|episode|verstimmung|störung)"
+    r"|(?:chronische[nr]?|ernsthafte[nr]?|schwere[nr]?) (?:krankheit|erkrankung)(?:en)?"
+    r"|vorerkrankung(?:en)?|herzerkrankung(?:en)?|herzkrankheit|lebererkrankung(?:en)?"
+    r"|schilddrüsenerkrankung(?:en)?|stoffwechselerkrankung(?:en)?)"
+)
+# As in English, a side effect counts only when said about the user or a group. "Bei" counts too
+# ("Kreatin bei Nierenproblemen?" asks about people who have them), so "was hilft bei
+# Sodbrennen?" is redirected (docs/SECURITY.md).
+_DE_SIDE_EFFECTS = (
+    r"(?:(?:nieren|leber|herz|schilddrüsen)(?:schäden|schaden|problemen?|beschwerden|werten?)"
+    r"|sodbrennen|reflux|saures aufstossen)"
+)
+_DE_CONDITION_FRAME = (
+    r"\b(?:ich habe|ich hab|ich hatte|hatte ich|ich leide an|ich leide unter|leide an|leide unter"
+    r"|leidet an|leidet unter|diagnostiziert mit|diagnose|mit meinen|mit meiner|mit meinem|meine"
+    r"|meinen|meiner|mein|menschen mit|leute mit|personen mit|patienten mit|jemand mit"
+    r"|jemanden mit|sportler mit|männer mit|frauen mit|bei|trotz"
+    r"|(?:sicher|unbedenklich|ok|okay|gut|schlecht|gefährlich|riskant|gesund) (?:bei|für|mit))"
+    r"(?: (?:leichte[nmr]?|schwere[nmr]?|chronische[nmr]?|starke[nmr]?|starkem|erhöhte[nmr]?"
+    rf"|schlechte[nmr]?))? {_DE_SIDE_EFFECTS}\b"
+)
+_DE_MEDICAL_PATTERNS = [
+    rf"\b{_DE_DISEASES}\b",
+    _DE_CONDITION_FRAME,
+    rf"\bwenn (?:ich|man|du|er|sie) (?:\w+ ){{0,2}}?{_DE_SIDE_EFFECTS} (?:habe|hab|hat|hast|hatte"
+    r"|haben)\b",
+    # "Ist Kreatin ein Medikament?" is not about the user's medication, as in English.
+    r"(?<!\bein )(?<!\bkein )(?<!\bals )\bmedikament\b",
+    r"\b(?:nehme|nehmen|brauche|bekomme) (?:ein |mein |das |dieses )?medikament\b",
+    r"\b(?:medikamente[n]?|medikaments|arzneimittel[n]?|arznei|verschreibungspflichtige[nr]? \w+"
+    r"|verschriebene[nr]? (?:medikamente?|tabletten|pillen|mittel)"
+    r"|wechselwirkung(?:en)? mit (?:meinen )?(?:medikamenten|arzneimitteln|tabletten)"
+    r"|insulin(?:spritzen|spritze|pumpe|therapie|pen)|insulin (?:spritzen|pumpe|therapie)"
+    r"|(?:spritze|nehme|brauche) (?:ich )?insulin|statine|blutverdünner[n]?|gerinnungshemmer[n]?"
+    r"|antidepressiva|antidepressivum|l-thyroxin|thyroxin|levothyroxin|euthyrox|betablocker[n]?"
+    r"|ace-hemmer[n]?|antibabypille|die pille|verhütungsmittel[n]?|hormonelle verhütung"
+    r"|roaccutan|methylphenidat|medikinet|elvanse|kortison|cortison|prednisolon"
+    r"|kortikosteroide?|immunsuppressiva|chemotherapie|antibiotika|antibiotikum|schmerzmittel[n]?"
+    r"|schmerztabletten|novaminsulfon|metamizol|abnehmspritzen?|fettwegspritzen?"
+    r"|testosteronersatztherapie|hormonersatztherapie|hormontherapie)\b",
+]
+
+# Throwing up counts after eating, not after training ("nach dem Training muss ich kotzen").
+_DE_DISORDERED_PATTERNS = [
+    r"\b(?:magersucht|magersüchtig\w*|anorexie|anorektisch\w*|bulimie|bulimisch\w*"
+    r"|ess-brech-sucht|essbrechsucht|binge-eating-störung|essstörung(?:en)?"
+    r"|gestörte[ns]? essverhalten|orthorexie)\b",
+    r"\b(?:erbreche|übergebe) (?:ich )?mich (?:\w+ ){0,2}?nach (?:dem|jedem) essen\b",
+    r"\bmich (?:\w+ ){0,3}?nach (?:dem|jedem) essen (?:übergeben|erbrechen)\b",
+    r"\b(?:erbreche|erbrechen|übergeben|kotze|kotzen)(?: (?:ich|mich))? (?:\w+ )?nach (?:dem"
+    r"|jedem) essen\b",
+    r"\bmich (?:absichtlich |selbst )?zum (?:erbrechen|kotzen|übergeben) (?:bringen|bringe"
+    r"|gebracht)\b",
+    r"\bfinger in den hals\b",
+    r"\b(?:nehme|nehmen|benutze|nutze|genommen|einnehmen|missbrauche|missbrauch von) (?:\w+ )?"
+    r"(?:abführmittel|abführtabletten)\b",
+    r"\b(?:abführmittel|abführtabletten|entwässerungstabletten|diuretika)\w*\b(?:\W+\w+){0,6}?"
+    r"\W+(?:abnehmen|abzunehmen|gewicht|gewichtsverlust)\b",
+    r"\b(?:abnehmen|abzunehmen|gewichtsverlust)\b(?:\W+\w+){0,4}?\W+(?:abführmittel"
+    r"|abführtabletten|entwässerungstabletten|diuretika)\b",
+    r"\b(?:hungere (?:ich )?mich|mich (?:aus)?hungern|mich aushungere)\b",
+    r"\b(?:tagelang|eine woche|\d+ tage(?: lang)?) (?:gar |überhaupt )?nichts (?:mehr )?(?:essen"
+    r"|zu essen)\b",
+    # As in English, stopping counts only completely or for a time.
+    r"\b(?:höre|hör) (?:komplett|ganz|vollständig) auf zu essen\b",
+    r"\bauf zu essen,? (?:für (?:tage|eine woche|\d+ tage)|tagelang)\b",
+    r"\b(?:ich hasse|hasse) meinen körper\b",
+    r"\b(?:ekle mich vor|schäme mich für) meinem körper\b|\bschäme mich für meinen körper\b",
+    r"\bfühle mich (?:so |total |sehr |extrem )?(?:schuldig|eklig|ekelhaft) nach (?:dem|jedem)"
+    r" essen\b",
+    r"\bfühle mich (?:\w+ ){0,2}?nach (?:dem|jedem) essen (?:so |total |sehr )?(?:schuldig|eklig"
+    r"|ekelhaft)\b",
+    r"\bmich (?:selbst )?(?:bestrafen|bestrafe)\b",
+]
+# An intake per day below the calorie floor: "ich esse nur 800 kcal am Tag", "täglich 800 kcal
+# essen", "mit 600 kcal pro Tag leben". The day must be named before or after the amount; a part of
+# the intake or a difference ("500 kcal am Tag weniger essen", "300 kcal am Tag aus Snacks") does
+# not count. German writes thousands with a dot ("1.100").
+# A whole number, not the end of one ("1,5 kcal").
+_DE_NUMBER = (
+    r"~?(?<![\w.,])(?P<kcal>\d{1,2}(?:[.,]\d{3}){1,2}|\d{1,7}) ?(?:k?cals?|kilokalorien|kalorien)"
+)
+_DE_DAY = r"(?:(?:am|pro|jeden|je) tag|/ ?tag|täglich|pro 24 ?h)"
+_DE_QUALIFIERS = (
+    r"(?:nur|noch|etwa|ungefähr|circa|ca\.|knapp|maximal|höchstens|weniger als|unter|so|gerade"
+    r"|um die|rund|bloss|max\.)"
+)
+_DE_NOT_A_PART = (
+    r"(?! (?:weniger|mehr|zusätzlich|extra|über|unter|defizit|überschuss|von|aus|durch|im|als"
+    r"|an)\b)"
+)
+_DE_LOW_INTAKE_PATTERNS = [
+    # The verb first: "ich esse (am Tag) nur 800 kcal (am Tag)".
+    r"\b(?:esse|isst|essen|esst|ass|gegessen|lebe von|leben von|komme mit|überlebe mit"
+    r"|bleibe unter|bleiben unter|beschränke mich auf|reduziere auf|runter auf"
+    r"|ernähre mich von)"
+    rf"(?P<pre> {_DE_DAY})?(?: {_DE_QUALIFIERS}){{0,3}} {_DE_NUMBER}(?P<post> {_DE_DAY})?\b"
+    rf"{_DE_NOT_A_PART}",
+    # The verb first with other words before the amount and the day right after it: "ich esse
+    # seit zwei Wochen nur 800 kcal am Tag".
+    r"\b(?:esse|isst|essen|esst|ass|lebe von|leben von|komme mit|bleibe unter|bleiben unter)"
+    rf"(?: \S+){{1,4}}? (?:{_DE_QUALIFIERS} ){{0,3}}{_DE_NUMBER}(?P<post> {_DE_DAY})\b"
+    rf"{_DE_NOT_A_PART}",
+    # "Ich nehme (täglich) nur 800 kcal (am Tag) zu mir".
+    rf"\b(?:nehme|nimmst|nimmt|nehmen)(?P<pre> {_DE_DAY})?(?: \S+){{0,3}}? {_DE_NUMBER}"
+    rf"(?P<post> {_DE_DAY})?(?: \S+)? zu mir\b",
+    # The verb last: "(täglich) nur 800 kcal (am Tag) essen".
+    rf"(?P<pre>\b{_DE_DAY} )?(?:{_DE_QUALIFIERS} ){{0,3}}{_DE_NUMBER}(?P<post> {_DE_DAY})? "
+    r"(?:zu )?(?:essen|esse|isst|zu mir nehmen|aufnehmen|leben|auskommen|überleben)\b",
+]
+
+_PED_TERMS_RE = re.compile(rf"{_PED_TERMS}|{german(_DE_PED_TERMS)}")
+_PED_USE_RE = re.compile(rf"{_PED_USE}|{german(_DE_PED_USE)}")
+
+
+def _compiled(english: list[str], german_patterns: list[str]) -> list[re.Pattern[str]]:
+    """Compile the English patterns and the German ones with their umlaut spellings."""
+    return [re.compile(p) for p in [*english, *map(german, german_patterns)]]
+
+
+_REDIRECTS = [
+    (Concern.MINOR, _compiled(_MINOR_PATTERNS, _DE_MINOR_PATTERNS)),
+    (Concern.PREGNANCY, _compiled(_PREGNANCY_PATTERNS, _DE_PREGNANCY_PATTERNS)),
+    (Concern.MEDICAL, _compiled(_MEDICAL_PATTERNS, _DE_MEDICAL_PATTERNS)),
+    (Concern.DISORDERED_EATING, _compiled(_DISORDERED_PATTERNS, _DE_DISORDERED_PATTERNS)),
+]
+_DE_LOW_INTAKE = [re.compile(german(p)) for p in _DE_LOW_INTAKE_PATTERNS]
 
 
 def _below_floor(folded: str) -> bool:
     """Return True if the text names a daily intake below the calorie floor."""
-    for match in _LOW_INTAKE.finditer(folded):
-        kcal = int(match.group(1).replace(",", ""))
-        # 0 counts too: "eat 0 calories a day for a week" is a fast, below the floor.
-        if kcal < config.CALORIE_FLOOR_KCAL:
-            return True
-    return False
+    amounts = [match.group(1) for match in _LOW_INTAKE.finditer(folded)]
+    # German: the day named before or after the amount.
+    for pattern in _DE_LOW_INTAKE:
+        for match in pattern.finditer(folded):
+            day = match.groupdict()
+            if day.get("pre") or day.get("post"):
+                amounts.append(match["kcal"])
+    # 0 counts too: "eat 0 calories a day for a week" is a fast, below the floor.
+    return any(int(re.sub(r"[.,]", "", kcal)) < config.CALORIE_FLOOR_KCAL for kcal in amounts)
 
 
 def find_concern(text: str) -> Concern | None:

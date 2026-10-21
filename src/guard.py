@@ -3,7 +3,8 @@
 Checks run in this order: too long (raw), empty, too long (cleaned), prompt-injection
 patterns, the domain guardrails (`src/guardrails.py`, T5.3), then the per-session rate limit.
 Only a message that passes every check counts against the rate limit (owner's choice in T1.3),
-and a rejected message never reaches a model: callers go through `run_guarded()`.
+and a rejected message never reaches a model: callers go through `run_guarded()`. The patterns
+cover English and German (T7.4).
 """
 
 import math
@@ -17,6 +18,7 @@ from enum import StrEnum
 from typing import Any
 
 from src import config, guardrails
+from src.german import german
 
 # Fixed messages: they never quote the user's text back.
 EMPTY_MESSAGE = "Please type a question first."
@@ -190,6 +192,143 @@ _FOLDED_PATTERNS = [
     r"(?:rules|instructions|guidelines|restrictions|policies)\b",
 ]
 
+# --- German (T7.4) ------------------------------------------------------------------------------
+# The same families for German input, on the same folded text. Written with "ss" for "ß" and
+# passed through german(), so "ü" also matches "u" and the typed "ue". German puts the infinitive
+# last, so the override patterns come in two orders: "ignoriere deine Anweisungen" and "deine
+# Anweisungen ignorieren". As in English, "previous" or "all" instructions only count when no one
+# else is named right after the noun ("die Anweisungen meines Trainers", "... von meiner Ärztin").
+_DE_VERBS = (
+    r"(?:ignorier(?:e|en|t|st)?|vergiss|vergesst|vergessen|missachte(?:n|t)?|übergeh(?:e|en|t)?"
+    r"|überspring(?:e|en|t)?|umgeh(?:e|en|t)?|verwirf|verwerfen|lösch(?:e|en|t)?)"
+)
+_DE_FINAL_VERBS = (
+    r"(?:ignorieren|vergessen|missachten|übergehen|überspringen|umgehen|verwerfen|löschen)"
+)
+_DE_STRONG_NOUNS = (
+    r"(?:anweisungen|anweisung|instruktionen|instruktion|prompts?|befehle|programmierung"
+    r"|systemnachricht(?:en)?|systemanweisung(?:en)?|direktiven)"
+)
+_DE_WEAK_NOUNS = r"(?:regeln|richtlinien|vorgaben|einschränkungen|beschränkungen|grenzen|verbote)"
+# "Dein" is always the assistant; the formal "Ihre" is also "her" or "their", so it only counts
+# after the formal imperative ("ignorieren Sie Ihre Anweisungen").
+_DE_OWN = r"(?:dein(?:e|en|er|es|em)?|obige(?:n|s)?|system|entwickler)"
+_DE_OTHER = (
+    r"(?:vorherige(?:n|s)?|bisherige(?:n|s)?|vorige(?:n|s)?|frühere(?:n|s)?"
+    r"|vorangegangene(?:n|s)?|alle|diese(?:n|s)?|jene(?:n|s)?|ursprüngliche(?:n|s)?"
+    r"|anfängliche(?:n|s)?)"
+)
+_DE_FILLER = (
+    r"(?:alle|allen|aller|alles|die|der|den|das|dein(?:e|en|er)?|vorherige(?:n)?|bisherige(?:n)?"
+    r"|obige(?:n)?|und|oder|einfach|bitte|mal|jetzt|sofort|komplett|vollständig|ganz"
+    r"|sämtliche(?:n)?|diese(?:n)?|sie|von|vom|gesamte(?:n)?|sicherheits)"
+)
+_DE_GAP = rf"(?: {_DE_FILLER}){{0,3}}"
+# Words that mean the chat itself: "... in diesem Chat", "... dieser Unterhaltung".
+_DE_CHAT = (
+    r"(?:chats?|unterhaltung|gespräch|konversation|sitzung|bot|chatbot|ki|assistent(?:en)?"
+    r"|systems?|entwicklers?|prompts?)"
+)
+_DE_THIS_CHAT = rf" (?:(?:diese[nmrs]?|unsere[nmrs]?|den|die|das|dem|der|des) )?{_DE_CHAT}\b"
+# Someone else's instructions: a genitive, a source or a relative clause right after the noun
+# ("... meines Trainers", "... aus dem Kurs", "..., die mein Coach gab"), unless it names the chat.
+# As in English, a preposition counts only with an article or possessive after it, so "... für
+# immer" or "... über Sicherheit" still counts as an attack.
+_DE_DETERMINERS = (
+    r"(?:der|die|das|dem|den|des|ein|eine[nmrs]?|mein|meine[nmrs]?|sein|seine[nmrs]?|ihr"
+    r"|ihre[nmrs]?|unser|unsere[nmrs]?|diese[nmrs]?)"
+)
+_DE_NOT_THIRD_PARTY = (
+    rf"(?! (?:(?:von|aus|auf|in|für|zu|über|bei|mit) {_DE_DETERMINERS}|vom|im|zum|zur|beim|ins"
+    r"|des|der|meines|meiner|meinem|meinen|seines|seiner|ihres|ihrer|unseres|unserer|eines"
+    rf"|einer)\b(?!{_DE_THIS_CHAT}))"
+    r"(?!,? (?:die|welche) (?:mein|meine|meinen|ich|wir|er|sie|man mir)\b)"
+)
+# A how-to request ("deine Regeln für einen Cut"), unless it points at the chat.
+_DE_NOT_HOW_TO = (
+    r"(?! (?:für|zum|zur|zu|beim|bei|über|gegen|im|in|vor|nach|von|vom|des|der)\b"
+    rf"(?!{_DE_THIS_CHAT}))"
+)
+# The informal verbs take "dein"; "Ihre" counts only after a formal "zeigen Sie" (above).
+_DE_REVEAL_VERBS = (
+    r"(?:(?:zeig|zeige|zeigt|verrat|verrate|nenn|nenne|wiederhol|wiederhole|gib|druck|drucke"
+    r"|schreib|schreibe|sag|sage|liste|offenbare|enthülle|kopier|kopiere|poste|teile)"
+    r" (?:mir |uns )?(?:\S+ ){0,2}?deine[n]?"
+    r"|(?:zeigen|nennen|verraten|wiederholen|geben|drucken|schreiben) sie (?:mir |uns )?"
+    r"(?:\S+ ){0,2}?(?:ihre[n]?|deine[n]?))"
+)
+_DE_UNBOUND = (
+    r"(?:uneingeschränkt|ungefiltert|unzensiert|böse|dan\b|jailbroken"
+    r"|ohne (?:regeln|filter|einschränkungen|grenzen))"
+)
+
+# No umlaut inside a lookbehind: german() would make it variable-width.
+_DE_FOLDED_PATTERNS = [
+    # Overriding the instructions, verb first and verb last.
+    rf"\b{_DE_VERBS}{_DE_GAP} {_DE_OWN}{_DE_GAP} (?:{_DE_STRONG_NOUNS}|{_DE_WEAK_NOUNS})\b",
+    rf"\b{_DE_VERBS}{_DE_GAP} {_DE_OTHER}{_DE_GAP} {_DE_STRONG_NOUNS}\b{_DE_NOT_THIRD_PARTY}",
+    rf"\b{_DE_VERBS} sie{_DE_GAP} ihre{_DE_GAP} (?:{_DE_STRONG_NOUNS}|{_DE_WEAK_NOUNS})\b",
+    rf"\b{_DE_OWN}{_DE_GAP} (?:{_DE_STRONG_NOUNS}|{_DE_WEAK_NOUNS}) (?:\S+ ){{0,3}}?"
+    rf"(?:{_DE_FINAL_VERBS}\b|ausser kraft\b)",
+    rf"\b{_DE_OTHER}{_DE_GAP} {_DE_STRONG_NOUNS}\b{_DE_NOT_THIRD_PARTY} (?:\S+ ){{0,3}}?"
+    rf"(?:{_DE_FINAL_VERBS}\b|ausser kraft\b)",
+    rf"\b{_DE_VERBS} (?:die |alle )?{_DE_STRONG_NOUNS} (?:oben|von oben|davor|darüber)\b",
+    # Like "ignore the above", also a self-correction ("vergiss das Obige, ich meinte 80 kg").
+    rf"\b{_DE_VERBS} (?:das |alles |alle )?(?:obige|obiges|oben|vorherige|vorheriges|bisherige"
+    r"|bisheriges|davor)\b",
+    rf"\b{_DE_VERBS},? (?:alles|das),? was (?:man )?(?:dir|ihnen) (?:\S+ ){{0,2}}?(?:gesagt"
+    r"|aufgetragen|befohlen|vorgegeben|beigebracht|mitgegeben) (?:wurde|hat|worden ist)\b",
+    r"\b(?:regeln|anweisungen|richtlinien|vorgaben|instruktionen),? die (?:man )?(?:dir|ihnen) "
+    r"(?:\S+ ){0,2}?(?:gegeben|gesagt|vorgegeben|aufgetragen|mitgegeben) (?:wurden|hat|hast)\b",
+    r"\b(?:hör|höre|hört|hören sie) (?:\S+ ){0,2}?auf,? (?:deine[n]?|ihre[n]?) (?:regeln"
+    r"|anweisungen|richtlinien|vorgaben|programmierung) zu (?:befolgen|folgen)\b",
+    r"\b(?:befolge|befolg|folge) (?:\S+ ){0,2}?deine[n]? (?:regeln|anweisungen|richtlinien"
+    r"|vorgaben|programmierung) (?:\S+ ){0,2}?nicht\b",
+    r"\b(?:deaktivier(?:e|en)?|umgeh(?:e|en)?|ignorier(?:e|en)?|schalte|schalt|überspring(?:e|en)?"
+    r"|entfern(?:e|en)?) (?:\S+ ){0,2}?(?:sicherheits|inhalts)(?:filter|regeln|richtlinien"
+    r"|einschränkungen|vorgaben|mechanismen|sperren?)\b",
+    r"\bdeine neuen? (?:anweisungen|instruktionen)\b",
+    # Asking for the hidden prompt. "Systemprompt" is one word in German; "System-Prompt" too.
+    rf"\b(?=system-?prompts?\b){_NOT_BODY_SYSTEM}system-?prompts?\b",
+    r"\b(?:systemnachricht|systemanweisung|systemvorgabe|entwickleranweisung|entwicklernachricht"
+    r"|entwicklerprompt)(?:en)?\b",
+    rf"\b(?:versteckte|geheime|verborgene|interne)[nrs]? (?:anweisungen|instruktionen|prompts?"
+    rf"|vorgaben|befehle)\b{_DE_NOT_HOW_TO}",
+    r"\b(?:deine|ihre) (?:ursprünglichen|anfänglichen|versteckten|geheimen|internen|originalen) "
+    r"(?:anweisungen|instruktionen|prompts?)\b",
+    rf"\b{_DE_REVEAL_VERBS} (?:komplette[n]? "
+    r"|gesamte[n]? |ganze[n]? |genaue[n]? )?(?:anweisungen|instruktionen|prompt|systemprompt"
+    rf"|konfiguration|regeln|richtlinien|vorgaben)\b{_DE_NOT_HOW_TO}",
+    r"\bwas (?:sind|waren) (?:deine|ihre) (?:genauen |ursprünglichen )?(?:anweisungen"
+    rf"|instruktionen|vorgaben)\b(?! an mich){_DE_NOT_HOW_TO}",
+    r"\b(?:wiederhole|wiederhol|drucke|druck|gib|schreibe|schreib|kopiere|kopier) (?:\S+ )?"
+    r"(?:alles|den text|die wörter|den gesamten text|den ganzen text) (?:\S+ )?(?:oben|darüber"
+    r"|davor|über dieser nachricht)\b",
+    # Changing the assistant's role or switching off its rules. A compound counts ("Ernährungs-
+    # assistent"), so "du bist jetzt mein Ernährungsassistent" is rejected, as in English.
+    r"\bdu bist (?:jetzt|nun|ab (?:jetzt|sofort|heute)) (?:ein|eine|einer|der|die|das|mein|meine"
+    r"|in einem|im) (?:\S+ ){0,2}?(?:\w*assistent(?:in)?|\w*bot|\w*modell|ki|charakter|persona"
+    r"|rolle)\b",
+    r"\bdu bist (?:jetzt|nun|ab (?:jetzt|sofort|heute)) (?:dan|uneingeschränkt|ungefiltert"
+    r"|unzensiert|frei|befreit|jailbroken)\b",
+    r"\bab (?:jetzt|sofort|nun|heute),? (?:\S+ )?du (?:\S+ ){0,4}?(?:ignorier\w*|vergiss\w*"
+    r"|vergessen|missacht\w*|keine (?:regeln|einschränkungen|filter|grenzen)|ohne (?:regeln"
+    r"|einschränkungen|filter|grenzen)|uneingeschränkt\w*|ungefiltert\w*|unzensiert\w*|dan)\b",
+    r"\bab (?:jetzt|sofort|nun|heute),? (?:(?:ignorierst|vergisst|missachtest) du\b"
+    r"|antwortest du (?:\S+ )?als\b)",
+    r"\b(?:entwickler|gott|god|debug|admin|jailbreak|dan|uneingeschränkte[nr]?"
+    r"|ungefilterte[nr]?)[- ]?modus\b",
+    # As in English ("pretend you are"), only with the assistant as the subject: "Stell dir vor,
+    # Zucker wäre böse" is a question.
+    rf"\b(?:tu|tue|tun sie) so,? als (?:\S+ ){{0,2}}?(?:du|sie)\b(?: \S+){{0,3}}? {_DE_UNBOUND}",
+    rf"\b(?:stell dir vor|stellen sie sich vor),? (?:\S+ ){{0,2}}?(?:du|sie)\b(?: \S+){{0,3}}? "
+    rf"{_DE_UNBOUND}",
+    rf"\b(?:handle|agiere|verhalte dich|antworte|reagiere) (?:\S+ ){{0,2}}?als (?:ein |eine "
+    rf"|einer )?{_DE_UNBOUND}",
+    r"\b(?:nicht mehr|nicht länger|nicht) an (?:deine|irgendwelche|ihre|irgendeine) (?:regeln"
+    r"|anweisungen|richtlinien|vorgaben|einschränkungen|programmierung) gebunden\b",
+]
+
 # Matched against the cleaned text with its line breaks: fake role markers and look-alikes of the
 # delimiters the answer step wraps around user text and sources (docs/ARCHITECTURE.md, step 5).
 # Written so no two unbounded repeats sit next to each other (linear time on any input).
@@ -206,11 +345,12 @@ _RAW_PATTERNS = [
     r"<\|[a-z_]+\|>",
     r"\[/?(?:inst|sys)\]",
     r"<<\s*(?:/\s*)?sys\s*>>",
-    r"(?m)^[ \t]*(?:[#>*_][ \t]*){0,10}(?:system|assistant|developer|new instructions)"
-    r"[ \t]*(?:[*_]{1,3}[ \t]*)?:",
+    # The German role names too (T7.4): "Assistent:", "Entwickler:", "Neue Anweisungen:".
+    r"(?m)^[ \t]*(?:[#>*_][ \t]*){0,10}(?:system|assistant|developer|new instructions|assistent"
+    r"|entwickler|neue anweisungen|systemnachricht)[ \t]*(?:[*_]{1,3}[ \t]*)?:",
 ]
 
-_FOLDED_RE = [re.compile(p) for p in _FOLDED_PATTERNS]
+_FOLDED_RE = [re.compile(p) for p in [*_FOLDED_PATTERNS, *map(german, _DE_FOLDED_PATTERNS)]]
 _RAW_RE = [re.compile(p, re.IGNORECASE) for p in _RAW_PATTERNS]
 
 # Line breaks and tabs are the only control characters a question keeps; other line and
