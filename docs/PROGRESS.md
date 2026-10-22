@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-22 · T3.9 "About the answers" opens as a modal · #<PR> (closes #88)
+## 2026-10-22 · T3.9 "About the answers" opens as a modal · #89 (closes #88)
 - **Brief:** beyond the brief (owner's request): refines T3.1's sidebar block; the credits keep copyright policy rule 6.
 - **What:**
   - `app.py`: `_about_content()` holds the block's content (unchanged); `_about_sidebar()` now draws a full-width button that opens it in `st.dialog(..., width="large")`.
