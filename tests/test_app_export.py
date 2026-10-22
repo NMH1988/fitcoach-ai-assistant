@@ -172,9 +172,9 @@ def test_the_pdf_keeps_the_language_of_the_run_that_drew_the_button(monkeypatch)
     assert "Your profile" in pdf_text(built[-1]())
 
 
-# What would let the app open an image (docs/SECURITY.md, Accepted risks: the pillow 12.3.0
-# advisories need an untrusted image). Any call or attribute with these names, on st or on any
-# container ("st.sidebar.image", "col.image"), counts.
+# What would let the app open an image (docs/SECURITY.md: Pillow's advisories need an untrusted
+# image, so an image path needs a review). Any call or attribute with these names, on st or on
+# any container ("st.sidebar.image", "col.image"), counts.
 IMAGE_ATTRIBUTES = frozenset(
     {"image", "logo", "pyplot", "file_uploader", "camera_input", "drawImage", "drawInlineImage"}
 )
@@ -241,7 +241,7 @@ def test_the_image_scan_ignores_other_code(code):
 
 
 def test_the_app_opens_no_image_file():
-    """No image input in app.py or src/, so the ignored pillow advisories stay out of reach."""
+    """No image input in app.py or src/, so no untrusted image reaches Pillow unreviewed."""
     root = APP.parent
     files = [APP, *sorted((root / "src").rglob("*.py"))]
     found = {

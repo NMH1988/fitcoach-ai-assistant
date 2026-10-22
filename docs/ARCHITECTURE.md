@@ -191,7 +191,7 @@ Checked on PyPI on 2026-10-19. Licences are permissive, as the copyright policy 
 
 | Package | Version | Licence | Use |
 |---|---|---|---|
-| streamlit | 1.66.0 | Apache-2.0 | UI |
+| streamlit | 1.66.1 | Apache-2.0 | UI (1.66.1 since T1.6a, which allows pillow 13; checked 2026-10-22) |
 | langchain | 1.4.6 | MIT | framework |
 | langchain-openai | 1.7.2 | MIT | chat and embeddings through OpenRouter's OpenAI-compatible API |
 | langchain-chroma | 1.1.0 | MIT | vector store integration |
@@ -199,6 +199,7 @@ Checked on PyPI on 2026-10-19. Licences are permissive, as the copyright policy 
 | langchain-text-splitters | 1.1.3 | MIT | chunking |
 | openai | 3.35.1 | Apache-2.0 | the SDK under langchain-openai; pinned in T1.2 because `src/llm.py` maps its error classes and relies on its retries |
 | rank-bm25 | 0.2.2 | Apache-2.0 | BM25 (small and stable; last release 2022) |
+| pillow | 13.0.0 | MIT-CMU | not used by our code (it comes with streamlit, which allows `<14`, and reportlab); pinned so the pillow 12.3.0 advisories stay out, also in an existing venv (T1.6a; checked 2026-10-22) |
 | rapidfuzz | 3.14.6 | MIT | fuzzy food-name match |
 | reportlab | 5.0.1 | BSD | PDF |
 | DejaVu Sans fonts | 2.37 | Bitstream Vera and Arev font licences (free to use, copy and redistribute with software, notice kept, not sold alone); DejaVu changes public domain | the PDF's text (`assets/fonts/`, committed with `LICENSE` and a README with the source and SHA-256; checked 2026-10-20, T5.2) |
