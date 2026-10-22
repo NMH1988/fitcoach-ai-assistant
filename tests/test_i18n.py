@@ -72,6 +72,12 @@ def test_numbers_get_the_language_s_thousands_and_decimal_marks(value, english, 
     assert i18n.number(value, "de") == german
 
 
+@pytest.mark.parametrize(("lang", "expected"), [("en", "20%"), ("de", "20 %")])
+def test_a_percentage_is_written_as_the_language_writes_it(lang, expected):
+    """English writes "20%", German "20 %"; the app and the PDF share this (T7.2)."""
+    assert i18n.percent(20, lang) == expected
+
+
 def test_plain_numbers_have_no_thousands_marks():
     """Limits and ages are written without marks; German uses the decimal comma."""
     assert i18n.plain(2000, "en") == i18n.plain(2000, "de") == "2000"

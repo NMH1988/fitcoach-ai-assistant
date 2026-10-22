@@ -36,7 +36,7 @@ The owner writes in Vietnamese: reply in Vietnamese. Everything in the repo is i
 
 ## Commands
 
-Python 3.14 (`.python-version`), in a local `.venv`. Every command below assumes the venv is active; otherwise call its programs directly (`.venv\Scripts\python.exe` in PowerShell, `.venv/Scripts/python.exe` in Git Bash, `.venv/bin/python` on macOS and Linux). The system Python lacks the project's packages: the app then fails with `ModuleNotFoundError: No module named 'langchain_chroma'`, a script with a `ModuleNotFoundError` for its first import (e.g. `'chromadb'` or `'src'`).
+Python 3.14 (`.python-version`), in a local `.venv`. Every command below assumes the venv is active; otherwise call its programs directly (`.venv\Scripts\python.exe` in PowerShell, `.venv/Scripts/python.exe` in Git Bash, `.venv/bin/python` on macOS and Linux). The system Python lacks the project's packages: the app then fails with `ModuleNotFoundError: No module named 'langchain_chroma'`, a script with a `ModuleNotFoundError` for its first import (e.g. `'chromadb'` or `'src'`). If another project is installed in the system Python with its own `src` package, `src` points there instead and a script fails later, e.g. `ModuleNotFoundError: No module named 'src.rag'`; run it with the venv's Python.
 
 - Install: `pip install -e ".[dev]"`
 - Run: `streamlit run app.py` with `.venv` active, or `.venv\Scripts\streamlit.exe run app.py` (PowerShell), `.venv/Scripts/streamlit.exe run app.py` (Git Bash), `.venv/bin/streamlit run app.py` (macOS and Linux)
@@ -45,7 +45,7 @@ Python 3.14 (`.python-version`), in a local `.venv`. Every command below assumes
 - USDA foods table: download the Foundation Foods CSV zip from https://fdc.nal.usda.gov/download-datasets/ into gitignored `data/usda/`, then `python scripts/prepare_usda.py`, `python scripts/generate_attribution.py`, and commit `data/usda_foods.csv` and `ATTRIBUTION.md`
 - Retrieval live check (owner, needs the key and the index): `python scripts/live_check_retrieval.py "<question>" ...` prints the nearest chunks' distances, to set `RETRIEVAL_MAX_DISTANCE`
 - Retrieval comparison (owner, needs the key, the index and the evaluation questions in `data/eval_questions.json`): `python scripts/compare_retrieval.py` prints vector-only, keyword-only and hybrid hit rates (T3.6; format in `docs/TESTING.md`)
-- Evaluation run (owner, needs the key, the index and `data/eval_questions.json`): `python scripts/run_evaluation.py [--repeat N]` asks every evaluation question through the app's chat turn, prints the sources found and cited, tools, tokens and cost, and writes a full report to gitignored `data/eval_runs/` (T6.1; how to record it in `docs/TESTING.md`)
+- Evaluation run (owner, needs the key, the index and `data/eval_questions.json`): `python scripts/run_evaluation.py [--repeat N] [--language en|de] [questions file]` asks every evaluation question through the app's chat turn, prints the sources found and cited, tools, tokens and cost, and writes a full report to gitignored `data/eval_runs/` (T6.1; how to record it in `docs/TESTING.md`). German run (T7.2): `python scripts/run_evaluation.py --language de data/eval_questions_de.json`
 - Lint/format: `ruff check .` / `ruff format .`
 - Test: `python -m pytest -q` (LLM, embedding and network calls must be mocked)
 - Audit: `pip-audit .` with the `--ignore-vuln` flags listed in `.github/workflows/ci.yml` (reasons in `docs/SECURITY.md`)

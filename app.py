@@ -83,7 +83,7 @@ def _plain(value: float) -> str:
 
 def _percent(value: int) -> str:
     """Show a percentage as the language writes it: "20%" or "20 %"."""
-    return f"{value} %" if _lang() == "de" else f"{value}%"
+    return i18n.percent(value, _lang())
 
 
 def _label_of(prefix: str) -> Callable[[str], str]:
@@ -369,6 +369,9 @@ def _run_turn(question: str, turn: int) -> None:
         # The energy tools read the session's profile; the model cannot change it.
         user=st.session_state.get("profile"),
         keyword_index=_keyword_index,
+        # The answer is written in the language chosen in the header when the question is asked
+        # (T7.2); the question's own language does not change it.
+        language=_lang(),
     )
     if result.index_not_ready:
         # Open the index again on the next turn, e.g. once the owner has rebuilt it.
@@ -973,11 +976,8 @@ def _show_tool_runs(runs: tuple[registry.ToolRun, ...], turn: int) -> None:
 
 def _fixed_text(result: chat.TurnResult) -> str:
     """Return a turn's fixed message in the language chosen now, or the model's own answer."""
-    # Past turns follow the language too; the answer stays in the language it was written in. An
-    # unknown key falls back to the English text rather than breaking every later run.
-    if result.code in i18n.TEXT[_lang()]:
-        return _t(result.code, **result.params)
-    return result.text
+    # Past turns follow the language too; the answer stays in the language it was written in.
+    return chat.fixed_text(result, _lang())
 
 
 def _show_result(result: chat.TurnResult, turn: int) -> None:
@@ -1261,17 +1261,18 @@ def _summary_download() -> None:
     """Offer the session summary as a PDF, built in memory only when clicked (AC-9)."""
     # Drawn after the main area, so the turn that just ran is in it. The PDF is built from this
     # run's snapshot when the user clicks; Streamlit keeps the bytes in memory, never on disk. It
-    # is in English whatever the language (German comes with T7.2); the German label says so.
+    # is in the language chosen now (T7.2), bound here: the click may build it outside the run.
     turns = export_pdf.session_turns(st.session_state["messages"])
     user = st.session_state.get("profile")
     system = st.session_state["units"]
     manifest = _manifest()
+    lang = _lang()
     # One date for the file name and the PDF, even if the click comes after midnight.
     today = date.today()
 
     def build() -> bytes:
-        """Build the PDF from this run's session."""
-        return export_pdf.build_summary_pdf(turns, user, system, manifest, today)
+        """Build the PDF from this run's session, in this run's language."""
+        return export_pdf.build_summary_pdf(turns, user, system, manifest, today, lang)
 
     empty = user is None and not turns
     st.download_button(

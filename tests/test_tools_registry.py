@@ -87,6 +87,22 @@ def test_the_meal_plans_items_hold_only_food_and_grams():
     assert items["items"]["additionalProperties"] is False
 
 
+def test_the_food_tool_tells_the_model_to_pass_english_names():
+    """The food lookup's description says the names are English and to translate others (T7.2)."""
+    function = convert_to_openai_tool(registry.build_tools(PROFILE)[FOOD_TOOL])["function"]
+    assert "English" in function["description"]
+    assert "translating a name the user wrote in another language" in function["description"]
+    food = function["parameters"]["properties"]["food"]["description"]
+    assert "Translate a food named in another language into English" in food
+
+
+def test_the_meal_plan_s_foods_follow_the_same_english_rule():
+    """Each meal plan item's food field carries the food lookup's rule on English names (T7.2)."""
+    function = convert_to_openai_tool(registry.build_tools(PROFILE)[MEAL_PLAN_TOOL])["function"]
+    food = function["parameters"]["properties"]["items"]["items"]["properties"]["food"]
+    assert "Translate a food named in another language into English" in food["description"]
+
+
 @pytest.mark.parametrize(
     ("name", "args", "message"),
     [

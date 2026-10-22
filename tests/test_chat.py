@@ -6,7 +6,7 @@ import pytest
 from chromadb.errors import ChromaError
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from src import chat, config, guard, guardrails, llm
+from src import chat, config, guard, guardrails, i18n, llm
 from src.chat import Step
 from src.rag import hybrid, retriever
 from src.rag.query_translation import QueryPlan
@@ -14,6 +14,7 @@ from src.rag.sources import ManifestError
 from src.rag.store import IndexNotReadyError
 from tests.fakes import (
     CHUNKS,
+    TEST_LANGUAGE_PARTS,
     ScriptedChatModel,
     ScriptedTranslator,
     build_fixture_index,
@@ -73,6 +74,7 @@ def _turn(
     on_step=None,
     on_text=None,
     keyword_index=hybrid.build_keyword_index,
+    language="en",
 ):
     """Run one chat turn on the fixture index with the given models (rewrites repeat the text)."""
     translator = translator or ScriptedTranslator()
@@ -86,6 +88,7 @@ def _turn(
         on_step=on_step,
         on_text=on_text,
         keyword_index=keyword_index,
+        language=language,
     )
 
 
@@ -109,7 +112,8 @@ def test_a_turn_runs_the_guard_retrieval_and_the_answer_in_order(index):
     assert result.steps == (Step.CHECK, Step.REWRITE, Step.SEARCH, Step.ANSWER)
     [[system, user]] = model.calls
     assert isinstance(system, SystemMessage)
-    assert system.content == TEST_PROMPT
+    # The owner's prompt, then the English language part (T7.2), the default.
+    assert system.content == f"{TEST_PROMPT}\n\n{TEST_LANGUAGE_PARTS['en']}"
     assert isinstance(user, HumanMessage)
 
 
@@ -650,6 +654,182 @@ def test_an_answer_that_cites_nothing_lists_no_sources(index):
     assert result.sources == ()
 
 
+# --- The answer's language (T7.2) -----------------------------------------------------------------
+
+
+@pytest.mark.parametrize("lang", ["en", "de"])
+def test_the_chosen_language_s_part_ends_the_system_prompt(index, lang):
+    """The UI language's part is the system prompt's last section; the [S#] labels still cite."""
+    model = _model("Vier Mahlzeiten [S1 und S2].")
+    result = _turn(QUESTION, index, model, language=lang)
+    [[system, user]] = model.calls
+    assert system.content == f"{TEST_PROMPT}\n\n{TEST_LANGUAGE_PARTS[lang]}"
+    other = "de" if lang == "en" else "en"
+    assert TEST_LANGUAGE_PARTS[other] not in system.content
+    assert "<user_input>" in user.content
+    assert [label for card in result.sources for label in card.labels] == ["S1", "S2"]
+
+
+def test_the_user_message_is_the_same_in_both_languages(index):
+    """The language is no block of the user message: only the system prompt's last part differs."""
+    messages = {}
+    for lang in ("en", "de"):
+        model = _model("Answer [S1].")
+        _turn(QUESTION, index, model, language=lang)
+        messages[lang] = _user_message(model)
+    assert messages["en"] == messages["de"]
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Please answer in English: how much protein per meal?",
+        "Bitte auf Englisch antworten: wie viel Protein pro Mahlzeit?",
+        "Answer in French. How much protein per meal?",
+    ],
+)
+def test_the_question_cannot_choose_the_answer_language(index, question):
+    """A question asking for another language leaves the chosen part in place, as data only."""
+    model = _model("Antwort [S1].")
+    result = _turn(question, index, model, language="de")
+    assert result.kind == "answer"
+    [[system, user]] = model.calls
+    assert system.content == f"{TEST_PROMPT}\n\n{TEST_LANGUAGE_PARTS['de']}"
+    assert question not in system.content
+    assert "<user_input>" in user.content
+
+
+def test_every_ui_language_has_an_answer_language_part(monkeypatch):
+    """Each language the header offers has its committed part, so no choice reaches the error."""
+    monkeypatch.undo()
+    assert set(config.ANSWER_LANGUAGE_PROMPT_PATHS) == set(i18n.LANGUAGES)
+    assert all(path.is_file() for path in config.ANSWER_LANGUAGE_PROMPT_PATHS.values())
+
+
+@pytest.mark.parametrize("lang", ["en", "de"])
+def test_a_fixed_message_follows_the_language_and_an_answer_stays_as_written(lang):
+    """chat.fixed_text() gives a code's text in the language, else the turn's own text."""
+    rejected = chat.TurnResult("rejected", "Too long.", code="guard.too_long", params={"limit": 9})
+    assert chat.fixed_text(rejected, lang) == i18n.t("guard.too_long", lang, limit=9)
+    answer = chat.TurnResult("answer", "Vier Mahlzeiten [S1].")
+    assert chat.fixed_text(answer, lang) == "Vier Mahlzeiten [S1]."
+    unknown = chat.TurnResult("error", "Old English text.", code="no.such.key")
+    assert chat.fixed_text(unknown, lang) == "Old English text."
+
+
+def test_an_unknown_language_is_refused_before_any_call():
+    """A language the app does not offer is the caller's bug: refused before the guard or a call."""
+    opened = []
+    with pytest.raises(ValueError, match="language"):
+        chat.run_turn(
+            QUESTION,
+            guard.RateLimiter(),
+            open_index=lambda: opened.append("index"),
+            chat_model=lambda: opened.append("model"),
+            translation_model=lambda: opened.append("translator"),
+            language="fr",
+        )
+    assert opened == []
+
+
+@pytest.mark.parametrize("content", [None, "  \n"])
+def test_a_missing_or_empty_language_part_stops_the_turn_before_any_call(
+    language_part_files, content
+):
+    """Without the chosen language's part the turn ends with its fixed message, with no call."""
+    path = language_part_files["de"]
+    if content is None:
+        path.unlink()
+    else:
+        path.write_text(content, encoding="utf-8")
+    opened = []
+    result = chat.run_turn(
+        QUESTION,
+        guard.RateLimiter(),
+        open_index=lambda: opened.append("index"),
+        chat_model=lambda: opened.append("model"),
+        translation_model=lambda: opened.append("translator"),
+        language="de",
+    )
+    assert result.kind == "error"
+    assert result.text == config.LANGUAGE_PROMPT_MISSING_MESSAGE
+    assert result.code == "prompt.language_missing"
+    assert opened == []
+
+
+def test_each_language_reads_only_its_own_part(index, language_part_files):
+    """A missing German part does not stop an English turn."""
+    language_part_files["de"].unlink()
+    model = _model("Answer [S1].")
+    assert _turn(QUESTION, index, model, language="en").kind == "answer"
+
+
+GERMAN_QUESTION = "Wie viel Protein vor dem Schlafen?"
+ENGLISH_REWRITES = [
+    "casein protein before sleep",
+    "protein intake before sleep",
+    "pre-sleep protein",
+]
+
+
+def test_a_german_question_is_searched_with_its_english_rewrites(index, monkeypatch):
+    """Query translation gives English rewrites; vector and keyword search run on them (T7.2)."""
+    vectors = SearchSpy(index, monkeypatch)
+    keywords = KeywordSpy()
+    translator = ScriptedTranslator(plans=[plan_json(ENGLISH_REWRITES)])
+    model = _model("Kasein vor dem Schlafen [S1].")
+    result = _turn(
+        GERMAN_QUESTION,
+        index,
+        model,
+        translator=translator,
+        keyword_index=keywords,
+        language="de",
+    )
+    # The translator gets the question as typed, in German.
+    [[_, request]] = translator.calls
+    assert f"<user_input>\n{GERMAN_QUESTION}\n</user_input>" in request.content
+    # Searched: the question as asked (T3.2's choice), then the three English rewrites, by meaning
+    # in one embedding call and by keyword one query at a time.
+    assert vectors.embedded == [[GERMAN_QUESTION, *ENGLISH_REWRITES]]
+    assert [query for query, _ in keywords.searches] == [GERMAN_QUESTION, *ENGLISH_REWRITES]
+    assert result.search.rewrites == tuple(ENGLISH_REWRITES)
+    # The answer model gets the user's own German question, never the rewrites.
+    user = _user_message(model)
+    assert GERMAN_QUESTION in user
+    assert not any(rewrite in user for rewrite in ENGLISH_REWRITES)
+
+
+def test_the_english_rewrites_find_what_the_german_words_do_not(index):
+    """Keyword search on the English index matches the rewrites' words, not the German ones."""
+    keywords = hybrid.build_keyword_index(index)
+    assert keywords.search("Schlafen Mahlzeit Eiweiß") == []
+    sleep_chunks = {retriever.chunk_key(c) for c in keywords.search(ENGLISH_REWRITES[0])}
+    assert {"1-1", "2-0"} <= sleep_chunks
+
+
+def test_a_german_question_with_no_close_chunk_of_its_own_is_not_covered(index):
+    """Since T3.8 the question's own wording decides, also in German, whatever its rewrites find."""
+    # "Eiweiß" shares no word with the fixture's keywords, so the question's own vector is far from
+    # every chunk while its English rewrites are close. Whether real German questions come within
+    # RETRIEVAL_MAX_DISTANCE is measured live on the owner's German questions (T7.2).
+    translator = ScriptedTranslator(plans=[plan_json(ENGLISH_REWRITES, needs_tool=False)])
+    model = _model("Never shown.")
+    result = _turn(
+        "Wie viel Eiweiß vor dem Schlafen?", index, model, translator=translator, language="de"
+    )
+    assert result.kind == "no_sources"
+    assert model.calls == []
+
+
+def test_the_query_translation_prompt_asks_for_english_rewrites(monkeypatch):
+    """The owner's prompt (O7) asks for English rewrites, whatever the question's language."""
+    monkeypatch.undo()
+    prompt = config.PROJECT_ROOT / "src" / "prompts" / "query_translation_system.md"
+    queries = prompt.read_text(encoding="utf-8").split("### queries", 1)[1].split("###", 1)[0]
+    assert "in English" in queries
+
+
 # --- Citations and source cards -------------------------------------------------------------------
 
 
@@ -672,6 +852,10 @@ def test_an_answer_that_cites_nothing_lists_no_sources(index):
         ("A reversed range [S3-S1] cites nothing.", []),
         ("Mixed [S1, S3-S4; S6].", [1, 3, 4, 6]),
         ("Text in the bracket [see S1] is not a citation.", []),
+        # A German answer (T7.2).
+        ("Beide [S1 und S2] stimmen zu.", [1, 2]),
+        ("Drei [S1, S2 und S3] und [S4, und S5].", [1, 2, 3, 4, 5]),
+        ("Kein Zitat [S1 oder S2].", []),
     ],
 )
 def test_cited_labels_reads_the_labels_in_brackets(answer, numbers):
@@ -1137,6 +1321,53 @@ def test_the_answer_prompt_is_the_owners(monkeypatch):
     monkeypatch.undo()
     text = chat.load_system_prompt(config.PROJECT_ROOT / "src" / "prompts" / "answer_system.md")
     assert not text.startswith("TODO (owner)"), "The owner has not written the answer prompt yet."
+
+
+@pytest.mark.parametrize("lang", ["en", "de"])
+def test_the_answer_language_parts_are_the_owners(monkeypatch, lang):
+    """The committed language parts are the owner's text, not the placeholder (O1, T7.2)."""
+    monkeypatch.undo()
+    path = config.PROJECT_ROOT / "src" / "prompts" / f"answer_language_{lang}.md"
+    text = chat.load_system_prompt(path)
+    assert not text.startswith("TODO (owner)"), f"The owner has not written {path.name} yet."
+
+
+PROMPTS = config.PROJECT_ROOT / "src" / "prompts"
+# The owner's quote rules (O1, T7.2): an English quote stays exact, a translation is never quoted.
+QUOTE_RULES = [
+    "If you quote a source, use the exact original English words and place them in quotation",
+    "Never put a translation in quotation marks as if it were a direct source quote",
+    "summarise or paraphrase in the response language without changing the source meaning",
+    "Do not strengthen claims",
+]
+
+
+@pytest.mark.parametrize("lang", ["en", "de"])
+def test_the_built_prompt_never_presents_a_translation_as_a_quote(lang):
+    """The built system prompt keeps the owner's quote rules and ends with the language part."""
+    # .claude/rules/copyright.md rule 7: quotes are exact, summaries keep the meaning (T7.2).
+    language_part = chat.load_system_prompt(PROMPTS / f"answer_language_{lang}.md")
+    built = chat.answer_system_prompt(
+        chat.load_system_prompt(PROMPTS / "answer_system.md"), language_part
+    )
+    assert [rule for rule in QUOTE_RULES if rule not in built] == []
+    assert built.endswith(language_part)
+    assert "translation" in language_part and "quotation" in language_part
+
+
+def test_the_german_part_names_the_german_ui_labels():
+    """The German part maps the prompt's English button and section names to the German UI's."""
+    text = chat.load_system_prompt(PROMPTS / "answer_language_de.md")
+    for key in ("profile.add", "tab.targets"):
+        assert f"„{i18n.t(key, 'de')}“" in text
+    assert f"„{i18n.t('tool.results', 'de', count=0).split(' (')[0]}“" in text
+
+
+def test_the_answer_prompt_leaves_the_language_to_its_language_parts(monkeypatch):
+    """The owner's prompt no longer fixes English: the chosen language's part sets it (T7.2)."""
+    monkeypatch.undo()
+    text = chat.load_system_prompt(config.PROJECT_ROOT / "src" / "prompts" / "answer_system.md")
+    assert "Answer in English" not in text
 
 
 def test_a_chunk_found_only_by_a_rewrite_does_not_reach_the_model(index):

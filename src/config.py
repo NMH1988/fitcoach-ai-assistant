@@ -204,6 +204,13 @@ EVAL_QUESTIONS_DE_PATH = PROJECT_ROOT / "data" / "eval_questions_de.json"
 EVAL_RUNS_DIR = PROJECT_ROOT / "data" / "eval_runs"
 # The answer system prompt, written by the owner (O1; .claude/rules/workflow.md).
 ANSWER_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "answer_system.md"
+# The language part of the answer prompt, one file per UI language, written by the owner (O1, T7.2).
+# The code joins the chosen language's file to the end of the answer prompt: the language comes from
+# the app's EN | DE control, never from the user's text.
+ANSWER_LANGUAGE_PROMPT_PATHS = {
+    "en": PROJECT_ROOT / "src" / "prompts" / "answer_language_en.md",
+    "de": PROJECT_ROOT / "src" / "prompts" / "answer_language_de.md",
+}
 
 # Query translation (T3.2; docs/ARCHITECTURE.md section 5): one QUERY_TRANSLATION_MODEL call
 # rewrites the question and picks optional filters. Its system prompt is written by the owner (O7).
@@ -247,6 +254,10 @@ PROMPT_MISSING_MESSAGE = (
 QUERY_PROMPT_MISSING_MESSAGE = (
     "The query translation prompt `src/prompts/query_translation_system.md` is missing or empty, "
     "so the question cannot be searched. Restore the file and ask again."
+)
+LANGUAGE_PROMPT_MISSING_MESSAGE = (
+    "The answer language prompt (`src/prompts/answer_language_en.md` or `answer_language_de.md`) "
+    "is missing or empty, so no answer can be written. Restore the file and ask again."
 )
 # How the evidence tiers are named in the answer's sources (docs/UI_DESIGN.md).
 EVIDENCE_TIER_LABELS: dict[int, str] = {1: "ISSN position stand", 2: "Peer-reviewed review"}

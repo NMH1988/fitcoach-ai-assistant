@@ -7,7 +7,10 @@ numbers, T3.5), all in the user message; none is ever put into the system prompt
 can close or open a block (T3.4). The rewrites from query translation are used only for the search
 and shown in the app; the answer model gets the user's own question. Tool results reach the model
 only as tool messages (T4.4). Every error a user can cause or meet ends as a TurnResult with a fixed
-message, so the app shows it in the answer and keeps the chat history (AC-13).
+message, so the app shows it in the answer and keeps the chat history (AC-13). The answer's
+language is the app's EN | DE choice, passed in as a fixed value: the code joins that language's
+part of the owner's prompt to the end of the system prompt, and nothing the user types picks it
+(T7.2).
 """
 
 import os
@@ -35,7 +38,7 @@ from langchain_core.messages.ai import UsageMetadata
 from langchain_core.runnables import Runnable
 from langchain_core.tools import StructuredTool
 
-from src import config, guard, llm, profile, units, usage
+from src import config, guard, i18n, llm, profile, units, usage
 from src.prompt_data import escape_prompt_data
 from src.rag import hybrid, query_translation
 from src.rag.hybrid import KeywordIndex
@@ -147,10 +150,10 @@ class TurnResult:
 
 
 # A citation is one bracket holding labels or ranges: [S1], [S1, S3], [S2; S4], [S1 and S2],
-# [S1, S2, and S3], [S1 & S2], [S1-S3], [S1–S3].
+# [S1, S2, and S3], [S1 & S2], [S1-S3], [S1–S3], and in a German answer [S1 und S2] (T7.2).
 _BRACKET = re.compile(r"\[([^\[\]]{1,80})\]")
 _CITED_ITEM = r"S\d+(?:\s*[-–]\s*S?\d+)?"
-_CITATION_SEPARATOR = r"\s*(?:[,;]\s*(?:and\s+|&\s*)?|and\s+|&\s*)"
+_CITATION_SEPARATOR = r"\s*(?:[,;]\s*(?:(?:and|und)\s+|&\s*)?|(?:and|und)\s+|&\s*)"
 _CITATION_BODY = re.compile(rf"\s*{_CITED_ITEM}(?:{_CITATION_SEPARATOR}{_CITED_ITEM})*\s*")
 _LABEL_OR_RANGE = re.compile(r"S(\d+)(?:\s*[-–]\s*S?(\d+))?")
 # A Markdown image, inline (![alt](url)) or by reference (![alt][ref]): the browser would load
@@ -215,6 +218,12 @@ def _load_prompt(path: Path, message: str, code: str) -> str:
         return load_system_prompt(path)
     except OSError, ValueError:
         raise PromptMissingError(message, code) from None
+
+
+def answer_system_prompt(prompt: str, language_part: str) -> str:
+    """Return the owner's answer prompt with the chosen language's part as its last section."""
+    # Both are the owner's fixed text (O1); the app's language control picks the part (T7.2).
+    return f"{prompt}\n\n{language_part}"
 
 
 def search_queries(question: str, plan: QueryPlan | None) -> tuple[str, ...]:
@@ -641,6 +650,15 @@ def answer_question(
     )
 
 
+def fixed_text(result: TurnResult, lang: i18n.Language) -> str:
+    """Return a turn's fixed message in the language, or the model's own answer as written."""
+    # Shared by the chat and the summary PDF (T7.2), so the two cannot word a message differently.
+    # An unknown key falls back to the English text rather than breaking every later run.
+    if result.code is not None and result.code in i18n.TEXT[lang]:
+        return i18n.t(result.code, lang, **result.params)
+    return result.text
+
+
 def run_turn(
     text: str,
     limiter: guard.RateLimiter,
@@ -654,13 +672,18 @@ def run_turn(
     user: profile.UserProfile | None = None,
     keyword_index: Callable[[Chroma], KeywordIndex] = hybrid.build_keyword_index,
     on_chunks: Callable[[Sequence[RetrievedChunk]], None] | None = None,
+    language: i18n.Language = "en",
 ) -> TurnResult:
-    """Run one chat turn: the guard first, then retrieval and the answer; never raise for errors."""
+    """Run one chat turn: guard, retrieval, answer; never raise for an error a user can cause."""
     # on_step(step) is called as each step starts; on_text(text) as the answer streams in. `user`
     # is the session's profile, for the energy and meal plan tools and, when the query plan says
     # needs_profile, the model's <profile> block.
     # keyword_index(index) gives the BM25 index of the opened index; the app passes a cached one.
     # on_chunks(chunks) gets the chunks found, in [S#] order; only the evaluation run uses it, T6.1.
+    # language is the app's EN | DE choice (T7.2), never taken from the text; an unknown one is a
+    # bug in the caller, refused before any call.
+    if language not in config.ANSWER_LANGUAGE_PROMPT_PATHS:
+        raise ValueError(f"Unknown answer language: {language!r}")
     steps: list[Step] = []
     recorder = UsageRecorder()
 
@@ -681,6 +704,12 @@ def run_turn(
             config.QUERY_PROMPT_MISSING_MESSAGE,
             "prompt.query_missing",
         )
+        language_part = _load_prompt(
+            config.ANSWER_LANGUAGE_PROMPT_PATHS[language],
+            config.LANGUAGE_PROMPT_MISSING_MESSAGE,
+            "prompt.language_missing",
+        )
+        system_prompt = answer_system_prompt(system_prompt, language_part)
         # The index is opened first: a missing index is reported even when the key is missing.
         index = open_index()
         models = TurnModels(translation_model(), translation_prompt, chat_model(), system_prompt)

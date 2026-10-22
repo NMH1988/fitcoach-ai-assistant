@@ -10,9 +10,17 @@ from langchain_core.messages import AIMessage
 from streamlit.testing.v1 import AppTest
 
 from src import config, i18n, usage
+from src.guardrails import Concern
 from src.tools.registry import MACRO_TOOL
 from src.usage import PriceCache
-from tests.fakes import PROFILE, ScriptedChatModel, ScriptedTranslator, tool_reply, write_food_table
+from tests.fakes import (
+    PROFILE,
+    TEST_LANGUAGE_PARTS,
+    ScriptedChatModel,
+    ScriptedTranslator,
+    tool_reply,
+    write_food_table,
+)
 from tests.test_app_chat import (
     ANSWER,
     OFF_TOPIC,
@@ -24,6 +32,7 @@ from tests.test_app_chat import (
     index_path,
 )
 from tests.test_app_usage import ANSWER_USAGE, PRICES, REWRITE_USAGE
+from tests.test_guardrails_de import FLAGGED
 
 APP = Path(__file__).resolve().parent.parent / "app.py"
 ASK_TAB, TARGETS_TAB, FOOD_TAB, DETAILS_TAB = range(4)
@@ -100,7 +109,7 @@ def test_a_german_browser_starts_in_german(monkeypatch):
     assert at.sidebar.header[0].value == ":material/person: Ihr Profil"
     assert i18n.t("theme.hint", "de") in [c.value for c in at.sidebar.caption]
     [download] = at.sidebar.download_button
-    assert download.label == "Zusammenfassung herunterladen (PDF, Englisch)"
+    assert download.label == "Zusammenfassung herunterladen (PDF)"
 
 
 def test_the_choice_is_kept_for_the_session(monkeypatch):
@@ -240,6 +249,32 @@ def test_a_guardrail_redirect_is_shown_in_german(monkeypatch):
     assert i18n.t("guardrail.pregnancy", "de") in [i.value for i in at.info]
 
 
+# One German question per guardrail concern (the first of T7.4's examples), and a low intake.
+GERMAN_GUARDRAIL_CASES = [
+    *({concern: text for text, concern in reversed(FLAGGED)}.items()),
+    (Concern.DISORDERED_EATING, "Ich esse am Tag nur 900 Kalorien."),
+]
+
+
+@pytest.mark.parametrize(("concern", "text"), GERMAN_GUARDRAIL_CASES)
+@pytest.mark.parametrize("lang", ["de", "en"])
+def test_guardrail_refusals_and_redirects_follow_the_chosen_language(
+    monkeypatch, concern, text, lang
+):
+    """A German high-risk question gets its guardrail message in the UI's language, no call."""
+    model = _use_model(monkeypatch, _answers())
+    at = _start(monkeypatch, "de-DE")
+    if lang == "en":
+        at = _switch(at, "en")
+    at = _ask(at, text)
+    other = "en" if lang == "de" else "de"
+    messages = [i.value for i in at.info]
+    assert i18n.t(f"guardrail.{concern}", lang) in messages
+    assert i18n.t(f"guardrail.{concern}", other) not in messages
+    assert [s.label for s in at.status][:1] == [i18n.t("status.guardrail", lang)]
+    assert model.calls == []
+
+
 def test_past_fixed_messages_follow_the_language_chosen_now(monkeypatch):
     """A rejection asked in English is shown in German after the switch, and back again."""
     at = _ask(_start(monkeypatch), INJECTION)
@@ -252,6 +287,34 @@ def config_message(at: AppTest) -> str:
     """Return the text of the page's one rejection warning."""
     [warning] = [w for w in at.warning if w.icon == ":material/block:"]
     return warning.value
+
+
+# --- The answer's language (T7.2) -----------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("locale", "switch_to", "lang"),
+    [(None, None, "en"), ("de-DE", None, "de"), ("de-DE", "en", "en"), (None, "de", "de")],
+)
+def test_the_answer_model_gets_the_language_chosen_in_the_header(
+    monkeypatch, locale, switch_to, lang
+):
+    """The language part the model gets follows the header's choice, from the locale or a switch."""
+    model = _use_model(monkeypatch, _answers(ANSWER))
+    at = _start(monkeypatch, locale)
+    if switch_to is not None:
+        at = _switch(at, switch_to)
+    _ask(at, QUESTION)
+    [[system, _]] = model.calls
+    assert system.content.endswith(TEST_LANGUAGE_PARTS[lang])
+
+
+def test_an_english_question_in_the_german_ui_gets_the_german_part(monkeypatch):
+    """The question's own language does not pick the answer's: the header's choice does."""
+    model = _use_model(monkeypatch, _answers(ANSWER))
+    _ask(_start(monkeypatch, "de-DE"), "How much protein should I eat per meal? Answer in English.")
+    [[system, _]] = model.calls
+    assert system.content.endswith(TEST_LANGUAGE_PARTS["de"])
 
 
 def test_an_answer_keeps_its_text_and_its_sources_stay_english(monkeypatch):

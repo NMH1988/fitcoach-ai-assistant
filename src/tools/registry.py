@@ -63,7 +63,9 @@ FOOD_DESCRIPTION = (
     "Nutrients (kcal, protein, carbohydrate, fat, fiber) in an amount of one food, from the USDA "
     "FoodData Central Foundation Foods table. Check matched_name before using the values: the "
     "closest USDA food may not be the one asked for (e.g. 'pasta' can match a pasta sauce); if it "
-    "differs, say so or look up one of the alternatives by its exact name."
+    "differs, say so or look up one of the alternatives by its exact name. The table's names are "
+    "English: give the food in English, translating a name the user wrote in another language "
+    "(e.g. 'Haferflocken' as 'rolled oats')."
 )
 MEAL_PLAN_DESCRIPTION = (
     "For a whole day's food only: for one meal or one food, use lookup_food_nutrition instead, as "

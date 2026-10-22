@@ -8,6 +8,12 @@ check) goes through `_text()`, which escapes it: no model text can add formattin
 "<" cannot break the PDF. Answers are first unescaped (`html.unescape`), as the model may copy an
 entity from the escaped prompt (T3.4), and their Markdown is turned into plain text by
 `clean_answer()`. The PDF holds no link annotations at all: URLs are printed as text.
+
+The PDF is written in the UI's language (T7.2): its headings, labels, table cells, numbers and
+fixed messages come from src/i18n.py, as the app shows them. What the app keeps English stays
+English here too: the tools' messages, notes and method lines, source titles, licence names, USDA
+names, the credit lines (as in ATTRIBUTION.md) and the font's licence. Each answer stays in the
+language it was written in.
 """
 
 import html
@@ -15,7 +21,7 @@ import io
 import re
 from collections.abc import Mapping, Sequence
 from datetime import date
-from functools import cache
+from functools import cache, partial
 from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
@@ -33,8 +39,9 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from src import config, profile, units
-from src.chat import SourceCard, TurnResult
+from src import config, i18n, units
+from src.chat import SourceCard, TurnResult, fixed_text
+from src.i18n import Language
 from src.profile import UserProfile
 from src.rag.sources import (
     ARTICLE_CHANGES_NOTE,
@@ -68,41 +75,35 @@ RULE = colors.HexColor("#D8DEDB")
 MISSING = "�"
 BMP_LAST = 0xFFFF
 
-# Every heading and fixed label of the PDF, in one place for the German version (T7.2).
-TEXT = {
-    "title": f"{config.APP_TITLE}: session summary",
-    "created": "Created on {date}",
-    "disclaimer": "Not medical advice.",
-    "profile": "Your profile",
-    "no_profile": "No details were added in this session.",
-    "targets": "Your daily targets",
-    "targets_note": "Calculated by the app from the profile above, with no AI model.",
-    "no_targets": "Add your details in the app to get personal targets.",
-    "turns": "Questions and answers",
-    "no_turns": "No questions were asked in this session.",
-    "question": "Question {number}",
-    "answer": "Answer",
-    "sources": "Sources",
-    "tool_results": "Tool results",
-    "credits": "Credits",
-    "credits_intro": (
-        "The answers and targets draw on the open access articles below; each is used under its "
-        "own licence. The full list of the app's sources, with every article's copyright notice, "
-        "is in ATTRIBUTION.md in the repository."
-    ),
-    "formula_sources": "Formula sources (the energy calculations use their equation or factors)",
-    "food_data": "Food data",
-    "font": "Font",
-    # Every PDF embeds subsets of the font, and its licence asks for its notices with every copy,
-    # so the licence follows this line word for word (owner's choices in T5.2's review, 2026-10-20).
-    "font_credit": (
-        "Set in DejaVu Sans 2.37 "
-        "(https://github.com/dejavu-fonts/dejavu-fonts/releases/tag/version_2_37). Its licence, "
-        "as published with the fonts:"
-    ),
-    "footer": f"{config.APP_TITLE} · Not medical advice · Page {{page}}",
-}
-PROFILE_LABELS = ("Weight", "Height", "Age", "Sex", "Activity", "Goal")
+# The PDF's own headings and fixed labels live in src/i18n.py under "pdf.*", in English and German
+# (T7.2); TEXT is their English version, unfilled, as the tests read it.
+TEXT_KEYS = (
+    "title",
+    "created",
+    "disclaimer",
+    "profile",
+    "no_profile",
+    "age",
+    "targets",
+    "targets_note",
+    "no_targets",
+    "turns",
+    "no_turns",
+    "question",
+    "answer",
+    "sources",
+    "tool_results",
+    "credits",
+    "credits_intro",
+    "formula_sources",
+    "food_data",
+    "font",
+    "font_credit",
+    "footer",
+)
+TEXT = {key: i18n.TEXT["en"][f"pdf.{key}"] for key in TEXT_KEYS}
+# The profile's rows: the sidebar's labels (src/i18n.py) and the profile field each shows.
+PROFILE_ROWS = ("weight", "height", "age", "sex", "activity", "goal")
 
 # Characters no PDF text should hold: C0 controls (but tab and newline) and DEL.
 _CONTROL = re.compile(r"[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]")
@@ -361,41 +362,52 @@ def _table(
     return table
 
 
-def profile_rows(user: UserProfile, system: UnitSystem) -> dict[str, str]:
-    """Return the profile in the chosen units, as the sidebar shows it."""
+def profile_rows(user: UserProfile, system: UnitSystem, lang: Language = "en") -> dict[str, str]:
+    """Return the profile in the chosen units and language, as the sidebar shows it."""
     values = (
-        units.format_weight(user.weight_kg, system),
+        units.format_weight(user.weight_kg, system, lang),
         units.format_height(user.height_cm, system),
-        f"{user.age} years",
-        profile.SEX_LABELS[user.sex],
-        profile.ACTIVITY_LABELS[user.activity],
-        profile.GOAL_LABELS[user.goal],
+        i18n.t("pdf.age", lang, age=user.age),
+        i18n.t(f"sex.{user.sex}", lang),
+        i18n.t(f"activity.{user.activity}", lang),
+        i18n.t(f"goal.{user.goal}", lang),
     )
-    return dict(zip(PROFILE_LABELS, values, strict=True))
+    labels = (i18n.t(f"profile.{row}", lang) for row in PROFILE_ROWS)
+    return dict(zip(labels, values, strict=True))
 
 
-def _tdee_flowables(result: TdeeResult) -> list[Flowable]:
-    """Return calculate_tdee's result as a table and its method."""
+def _kcal(value: int, lang: Language, unit: str = "kcal") -> str:
+    """Return a kcal number with the language's thousands mark and a unit, e.g. "2.759 kcal"."""
+    return f"{i18n.number(value, lang)} {unit}"
+
+
+def _tdee_flowables(result: TdeeResult, lang: Language = "en") -> list[Flowable]:
+    """Return calculate_tdee's result as a table and its method (the method stays English)."""
+    per_day = i18n.t("unit.kcal_per_day", lang)
     rows = {
-        "Resting energy (BMR)": f"{result.bmr_kcal:,} kcal/day",
-        "Activity factor": f"{result.activity_factor:g}",
-        "Daily energy needs (TDEE)": f"{result.tdee_kcal:,} kcal/day",
+        i18n.t("tdee.bmr", lang): _kcal(result.bmr_kcal, lang, per_day),
+        i18n.t("tdee.factor", lang): i18n.plain(result.activity_factor, lang),
+        i18n.t("tdee.tdee", lang): _kcal(result.tdee_kcal, lang, per_day),
     }
     return [_table(rows), _para(result.method, "small")]
 
 
-def _macro_cells(macro: Macro, weight_kg: float, system: UnitSystem) -> list[str]:
+def _macro_cells(
+    macro: Macro, weight_kg: float, system: UnitSystem, lang: Language = "en"
+) -> list[str]:
     """Return one macro's grams, share of the kcal and grams per body weight."""
     # From the grams and the weight, rounded once, as the app shows them (T4.7): Macro.g_per_kg
     # is already rounded to 0.1, and converting it again can be off by 0.01-0.03 g/lb.
     return [
-        f"{macro.grams:,} g",
-        f"{macro.percent}%",
-        units.format_grams_per_body_weight(macro.grams, weight_kg, system),
+        f"{i18n.number(macro.grams, lang)} g",
+        i18n.percent(macro.percent, lang),
+        units.format_grams_per_body_weight(macro.grams, weight_kg, system, lang),
     ]
 
 
-def _macro_flowables(result: registry.MacroToolResult, system: UnitSystem) -> list[Flowable]:
+def _macro_flowables(
+    result: registry.MacroToolResult, system: UnitSystem, lang: Language = "en"
+) -> list[Flowable]:
     """Return the daily targets as two tables, the message, the notes and the method."""
     targets = result.targets
     # Grams per body weight need the weight the targets are for (T4.7); without it, as without
@@ -410,53 +422,68 @@ def _macro_flowables(result: registry.MacroToolResult, system: UnitSystem) -> li
     low, high = targets.kcal_range or (targets.kcal_target, targets.kcal_target)
     protein_low, protein_high = targets.protein_g_range or (0, 0)
     summary = {
-        "Daily target": f"{targets.kcal_target:,} kcal",
-        "Range for the goal": f"{low:,}-{high:,} kcal",
-        "Daily energy needs": f"{result.energy_needs.tdee_kcal:,} kcal",
-        "Protein range": f"{protein_low:,}-{protein_high:,} g",
+        i18n.t("targets.daily_target", lang): _kcal(targets.kcal_target, lang),
+        i18n.t("macros.range", lang): f"{i18n.number(low, lang)}-{_kcal(high, lang)}",
+        i18n.t("macros.needs", lang): _kcal(result.energy_needs.tdee_kcal, lang),
+        i18n.t("macros.protein_range", lang): (
+            f"{i18n.number(protein_low, lang)}-{i18n.number(protein_high, lang)} g"
+        ),
     }
-    per_body_weight = f"Per {units.weight_unit(system)} of body weight"
-    macros = [
-        ["Macro", "Per day", "Share of kcal", per_body_weight],
-        ["Protein", *_macro_cells(targets.protein, weight, system)],
-        ["Carbohydrate", *_macro_cells(targets.carbohydrate, weight, system)],
-        ["Fat", *_macro_cells(targets.fat, weight, system)],
-    ]
+    per_body_weight = i18n.t("macros.per_weight", lang, unit=units.weight_unit(system))
+    header = [i18n.t(f"macros.{key}", lang) for key in ("macro", "per_day", "share")]
+    macros = [[*header, per_body_weight]]
+    for name in ("protein", "carbohydrate", "fat"):
+        macro = getattr(targets, name)
+        macros.append([i18n.t(f"macro.{name}", lang), *_macro_cells(macro, weight, system, lang)])
     flowables: list[Flowable] = [_table(summary), Spacer(1, 2 * mm), _table(macros, header=True)]
+    # The tool's message, notes and method stay English, as in the app (owner's choice in T7.1).
     flowables.append(_para(result.message, "small"))
     flowables += [_para(note, "small") for note in targets.notes]
     flowables.append(_para(result.energy_needs.method, "small"))
     return flowables
 
 
-def _food_flowables(result: FoodLookupResult) -> list[Flowable]:
+def _grams(value: float, lang: Language) -> str:
+    """Return grams with the language's decimal mark, e.g. "20.2 g" or "20,2 g"."""
+    return f"{i18n.plain(value, lang)} g"
+
+
+def _food_flowables(result: FoodLookupResult, lang: Language = "en") -> list[Flowable]:
     """Return a food lookup: the matched USDA food and its nutrients, or the suggestions."""
+    did_you_mean = f"{i18n.t('food.did_you_mean', lang)}:"
     if result.status != "found" or result.nutrients is None:
         flowables: list[Flowable] = [_para(result.message, "small")]
         if result.alternatives:
-            flowables.append(_labelled("Did you mean:", "; ".join(result.alternatives), "small"))
+            flowables.append(_labelled(did_you_mean, "; ".join(result.alternatives), "small"))
         return flowables
     nutrients = result.nutrients
-    fiber = "not reported" if nutrients.fiber_g is None else f"{nutrients.fiber_g:g} g"
+    fiber = (
+        i18n.t("food.not_reported", lang)
+        if nutrients.fiber_g is None
+        else _grams(nutrients.fiber_g, lang)
+    )
     rows = {
-        "USDA food": result.matched_name or "",
-        "Amount": f"{result.grams:g} g",
-        "Energy": f"{nutrients.kcal:,} kcal",
-        "Protein": f"{nutrients.protein_g:g} g",
-        "Carbohydrate": f"{nutrients.carbohydrate_g:g} g",
-        "Fat": f"{nutrients.fat_g:g} g",
-        "Fiber": fiber,
+        i18n.t("food.usda_food", lang): result.matched_name or "",
+        i18n.t("food.amount", lang): _grams(result.grams or 0, lang),
+        i18n.t("nutrient.energy", lang): _kcal(nutrients.kcal, lang),
+        i18n.t("nutrient.protein", lang): _grams(nutrients.protein_g, lang),
+        i18n.t("nutrient.carbohydrate", lang): _grams(nutrients.carbohydrate_g, lang),
+        i18n.t("nutrient.fat", lang): _grams(nutrients.fat_g, lang),
+        i18n.t("nutrient.fiber", lang): fiber,
     }
     if result.alternatives:
-        rows["Close alternatives"] = "; ".join(result.alternatives)
-    return [_table(rows), _para(config.USDA_SOURCE_LINE, "small")]
+        rows[i18n.t("food.close_alternatives", lang)] = "; ".join(result.alternatives)
+    return [_table(rows), _para(i18n.t("usda.source_line", lang), "small")]
 
 
-def _meal_plan_flowables(result: MealPlanResult) -> list[Flowable]:
+def _meal_plan_flowables(result: MealPlanResult, lang: Language = "en") -> list[Flowable]:
     """Return a meal plan check: the foods, the plan against the targets, message and notes."""
     # The same cells as the app's tables (src/tools/meal_plan.py); _table() escapes each one, so
     # a USDA name or the name the model asked for cannot add markup (T4.5).
-    foods = [list(meal_plan.FOOD_COLUMNS), *(meal_plan.food_row(i) for i in result.items)]
+    foods = [
+        list(meal_plan.food_columns(lang)),
+        *(meal_plan.food_row(item, lang) for item in result.items),
+    ]
     # Eight columns: small cells, the values as wide as their longest text and the two name
     # columns sharing the rest, so no header or value breaks mid-word (code review, round 2).
     widths = _fitted_widths(foods, wide=(0, 1), size=SMALL_SIZE)
@@ -464,34 +491,41 @@ def _meal_plan_flowables(result: MealPlanResult) -> list[Flowable]:
     # The app's "Other close USDA names" column, as lines under the table.
     for item in result.items:
         if item.alternatives:
-            label = "Did you mean:" if item.status == "not_found" else "Close alternatives:"
-            names = "; ".join(item.alternatives)
-            flowables.append(_labelled(label, f"{item.requested}: {names}", "small"))
-    comparison = meal_plan.comparison_rows(result)
+            key = "food.did_you_mean" if item.status == "not_found" else "food.close_alternatives"
+            names = f"{item.requested}: {'; '.join(item.alternatives)}"
+            flowables.append(_labelled(f"{i18n.t(key, lang)}:", names, "small"))
+    comparison = meal_plan.comparison_rows(result, lang)
     if comparison:
-        rows = [list(meal_plan.COMPARISON_COLUMNS), *comparison]
+        rows = [list(meal_plan.comparison_columns(lang)), *comparison]
         flowables += [Spacer(1, 2 * mm), _table(rows, header=True)]
     flowables.append(_para(result.message, "small"))
     flowables += [_para(note, "small") for note in result.notes]
-    flowables.append(_para(config.MEAL_PLAN_SOURCE_LINE, "small"))
+    flowables.append(_para(i18n.t("meal.source_line", lang), "small"))
     return flowables
 
 
-def _tool_run_flowables(run: registry.ToolRun, system: UnitSystem) -> list[Flowable]:
+def _tool_title(name: str | None, lang: Language) -> str:
+    """Return a tool's heading as the app's "Tool results" names it; an unknown tool its own."""
+    key = f"tool.title.{name}"
+    return i18n.t(key if key in i18n.TEXT[lang] else "tool.title.none", lang)
+
+
+def _tool_run_flowables(
+    run: registry.ToolRun, system: UnitSystem, lang: Language = "en"
+) -> list[Flowable]:
     """Return one tool result under its heading, as the app's "Tool results" shows it."""
-    title = registry.TOOL_TITLES.get(run.name, registry.TOOL_TITLES[None])
-    heading = Paragraph(escape(title), STYLES["h3"])
+    heading = Paragraph(escape(_tool_title(run.name, lang)), STYLES["h3"])
     result = run.result
     if run.status == "profile_needed":
-        body = [_para(config.PROFILE_NEEDED_HINT, "small")]
+        body = [_para(i18n.t("tool.profile_needed", lang), "small")]
     elif isinstance(result, TdeeResult) and result.status == "ok":
-        body = _tdee_flowables(result)
+        body = _tdee_flowables(result, lang)
     elif isinstance(result, registry.MacroToolResult) and result.status == "ok":
-        body = _macro_flowables(result, system)
+        body = _macro_flowables(result, system, lang)
     elif isinstance(result, FoodLookupResult) and result.status != "invalid":
-        body = _food_flowables(result)
+        body = _food_flowables(result, lang)
     elif isinstance(result, MealPlanResult) and result.status != "invalid":
-        body = _meal_plan_flowables(result)
+        body = _meal_plan_flowables(result, lang)
     else:
         # A refused or failed call: the fixed message, never what the model sent.
         body = [_para(result.message, "small")]
@@ -499,9 +533,10 @@ def _tool_run_flowables(run: registry.ToolRun, system: UnitSystem) -> list[Flowa
     return [heading, *body]
 
 
-def _source_line(card: SourceCard) -> str:
+def _source_line(card: SourceCard, lang: Language = "en") -> str:
     """Return a cited article as one line: labels, title, year, tier, licence and URL."""
-    tier = config.EVIDENCE_TIER_LABELS.get(card.evidence_tier, config.UNKNOWN_TIER_LABEL)
+    tier_key = f"tier.{card.evidence_tier}"
+    tier = i18n.t(tier_key if tier_key in i18n.TEXT[lang] else "tier.unknown", lang)
     return (
         f"[{', '.join(card.labels)}] {card.title} ({card.year}). {tier}. {card.license}. {card.url}"
     )
@@ -521,32 +556,34 @@ def session_turns(messages: Sequence[Mapping]) -> tuple[tuple[str, TurnResult], 
 
 
 def _turn_flowables(
-    number: int, question: str, result: TurnResult, system: UnitSystem
+    number: int, question: str, result: TurnResult, system: UnitSystem, lang: Language = "en"
 ) -> list[Flowable]:
     """Return one turn: its question, then the answer with sources and tools, or its message."""
     flowables: list[Flowable] = [
-        Paragraph(escape(TEXT["question"].format(number=number)), STYLES["h2"]),
+        Paragraph(escape(i18n.t("pdf.question", lang, number=number)), STYLES["h2"]),
         _para(question),
     ]
     if result.kind != "answer":
         # The label the app's status box ends with for this kind of turn.
-        flowables.append(_labelled(f"{config.STATUS_LABELS[result.kind]}:", result.text))
+        label = f"{i18n.t(f'status.{result.kind}', lang)}:"
+        flowables.append(_labelled(label, fixed_text(result, lang)))
         return flowables
-    flowables.append(Paragraph(escape(TEXT["answer"]), STYLES["h3"]))
+    flowables.append(Paragraph(escape(i18n.t("pdf.answer", lang)), STYLES["h3"]))
+    # The model's answer, in the language it was written in.
     flowables += _answer_flowables(result.text)
     if result.sources:
-        flowables.append(Paragraph(escape(TEXT["sources"]), STYLES["h3"]))
+        flowables.append(Paragraph(escape(i18n.t("pdf.sources", lang)), STYLES["h3"]))
         for card in result.sources:
-            flowables.append(_para(_source_line(card), "small"))
+            flowables.append(_para(_source_line(card, lang), "small"))
             # A correction notice must be read with its article, as the app's card says.
             for correction in card.corrections:
-                label = config.CORRECTION_LABELS[correction.relation]
+                label = i18n.t(f"correction.{correction.relation}", lang)
                 line = f"{label}: {correction.title}. {correction.url}"
                 flowables.append(_para(line, "correction"))
     if result.tool_runs:
-        flowables.append(Paragraph(escape(TEXT["tool_results"]), STYLES["h3"]))
+        flowables.append(Paragraph(escape(i18n.t("pdf.tool_results", lang)), STYLES["h3"]))
         for run in result.tool_runs:
-            flowables += _tool_run_flowables(run, system)
+            flowables += _tool_run_flowables(run, system, lang)
     return flowables
 
 
@@ -605,8 +642,11 @@ def _credits(
     turns: Sequence[tuple[str, TurnResult]],
     targets: registry.MacroToolResult | None,
     manifest: Mapping[str, Source],
+    lang: Language = "en",
 ) -> list[Flowable]:
     """Return the credits for every source the PDF uses: articles, formulas and USDA data."""
+    # The headings and the intro follow the language; each credit line stays English, word for
+    # word as in ATTRIBUTION.md, and so does the font's licence.
     runs = [run for _, result in turns for run in result.tool_runs]
     # The articles cited in the answers, then those behind the targets' ranges, each once.
     cited: dict[str, SourceCard | Source] = {}
@@ -653,22 +693,22 @@ def _credits(
     )
 
     flowables: list[Flowable] = [
-        Paragraph(escape(TEXT["credits"]), STYLES["h1"]),
-        _para(TEXT["credits_intro"], "small"),
+        Paragraph(escape(i18n.t("pdf.credits", lang)), STYLES["h1"]),
+        _para(i18n.t("pdf.credits_intro", lang), "small"),
         _para(ARTICLE_CHANGES_NOTE, "small"),
     ]
     for item in cited.values():
         line = _article_credit(item) if isinstance(item, Source) else _card_credit(item)
         flowables.append(_para(line, "small"))
     if uses_formulas:
-        flowables.append(Paragraph(escape(TEXT["formula_sources"]), STYLES["h3"]))
+        flowables.append(Paragraph(escape(i18n.t("pdf.formula_sources", lang)), STYLES["h3"]))
         flowables += [_para(_formula_credit(source), "small") for source in FORMULA_SOURCES]
     if uses_usda:
-        flowables.append(Paragraph(escape(TEXT["food_data"]), STYLES["h3"]))
+        flowables.append(Paragraph(escape(i18n.t("pdf.food_data", lang)), STYLES["h3"]))
         flowables.append(_para(_usda_credit(), "small"))
     # Every PDF embeds the font, so its credit is always there.
-    flowables.append(Paragraph(escape(TEXT["font"]), STYLES["h3"]))
-    flowables.append(_para(TEXT["font_credit"], "small"))
+    flowables.append(Paragraph(escape(i18n.t("pdf.font", lang)), STYLES["h3"]))
+    flowables.append(_para(i18n.t("pdf.font_credit", lang), "small"))
     flowables += [_para(paragraph, "small") for paragraph in font_licence_paragraphs()]
     return flowables
 
@@ -688,13 +728,23 @@ def font_licence_paragraphs() -> tuple[str, ...]:
     return tuple(paragraphs)
 
 
-def _footer(canvas, doc) -> None:
+def _footer(canvas, doc, lang: Language = "en") -> None:
     """Draw the footer on every page: the app, the disclaimer and the page number."""
     canvas.saveState()
     canvas.setFont(FONT, SMALL_SIZE)
     canvas.setFillColor(MUTED)
-    canvas.drawString(MARGIN, MARGIN / 2, TEXT["footer"].format(page=doc.page))
+    canvas.drawString(MARGIN, MARGIN / 2, i18n.t("pdf.footer", lang, page=doc.page))
     canvas.restoreState()
+
+
+def format_date(day: date, lang: Language = "en") -> str:
+    """Return a date as the language writes it: 2026-10-21 or 21.10.2026."""
+    return day.strftime("%d.%m.%Y") if lang == "de" else day.isoformat()
+
+
+def _heading(key: str, lang: Language, style: str = "h1") -> Paragraph:
+    """Return one of the PDF's own headings in the language."""
+    return Paragraph(escape(i18n.t(f"pdf.{key}", lang)), STYLES[style])
 
 
 def _story(
@@ -703,34 +753,35 @@ def _story(
     system: UnitSystem,
     manifest: Mapping[str, Source],
     today: date,
+    lang: Language = "en",
 ) -> list[Flowable]:
     """Return the PDF's content in order: header, profile, targets, turns, credits."""
     story: list[Flowable] = [
-        Paragraph(escape(TEXT["title"]), STYLES["title"]),
-        _para(TEXT["created"].format(date=today.isoformat()), "small"),
-        _labelled(TEXT["disclaimer"], config.DISCLAIMER),
-        Paragraph(escape(TEXT["profile"]), STYLES["h1"]),
+        _heading("title", lang, "title"),
+        _para(i18n.t("pdf.created", lang, date=format_date(today, lang)), "small"),
+        _labelled(i18n.t("pdf.disclaimer", lang), i18n.t("app.disclaimer", lang)),
+        _heading("profile", lang),
     ]
     targets = None
     if user is None:
-        story += [_para(TEXT["no_profile"]), Paragraph(escape(TEXT["targets"]), STYLES["h1"])]
-        story.append(_para(TEXT["no_targets"]))
+        story += [_para(i18n.t("pdf.no_profile", lang)), _heading("targets", lang)]
+        story.append(_para(i18n.t("pdf.no_targets", lang)))
     else:
-        story.append(_table(profile_rows(user, system)))
-        story.append(Paragraph(escape(TEXT["targets"]), STYLES["h1"]))
-        story.append(_para(TEXT["targets_note"], "small"))
+        story.append(_table(profile_rows(user, system, lang)))
+        story.append(_heading("targets", lang))
+        story.append(_para(i18n.t("pdf.targets_note", lang), "small"))
         result = registry.macro_targets(user)
         if isinstance(result, registry.MacroToolResult) and result.status == "ok":
             targets = result
-            story += _macro_flowables(result, system)
+            story += _macro_flowables(result, system, lang)
         else:
             story.append(_para(result.message, "small"))
-    story.append(Paragraph(escape(TEXT["turns"]), STYLES["h1"]))
+    story.append(_heading("turns", lang))
     if not turns:
-        story.append(_para(TEXT["no_turns"]))
+        story.append(_para(i18n.t("pdf.no_turns", lang)))
     for number, (question, result) in enumerate(turns, start=1):
-        story += _turn_flowables(number, question, result, system)
-    story += _credits(turns, targets, manifest)
+        story += _turn_flowables(number, question, result, system, lang)
+    story += _credits(turns, targets, manifest, lang)
     return story
 
 
@@ -740,8 +791,9 @@ def build_summary_pdf(
     system: UnitSystem,
     manifest: Mapping[str, Source] | None = None,
     today: date | None = None,
+    lang: Language = "en",
 ) -> bytes:
-    """Build the session summary PDF in memory and return its bytes; never writes a file."""
+    """Build the session summary PDF in memory, in the UI's language; never writes a file."""
     try:
         _register_fonts()
         buffer = io.BytesIO()
@@ -752,7 +804,7 @@ def build_summary_pdf(
             rightMargin=MARGIN,
             topMargin=MARGIN,
             bottomMargin=MARGIN,
-            title=TEXT["title"],
+            title=i18n.t("pdf.title", lang),
             # No author or subject: the PDF's metadata says nothing about the user. Not
             # `invariant`: with a fixed date and ID the bytes, and so Streamlit's media URL (a hash
             # of them), would follow from the profile alone. reportlab also fixes them when the
@@ -760,8 +812,9 @@ def build_summary_pdf(
             author="",
             subject="",
         )
-        story = _story(turns, user, system, manifest or {}, today or date.today())
-        doc.build(story, onFirstPage=_footer, onLaterPages=_footer)
+        story = _story(turns, user, system, manifest or {}, today or date.today(), lang)
+        footer = partial(_footer, lang=lang)
+        doc.build(story, onFirstPage=footer, onLaterPages=footer)
     except Exception:
         # `from None`: ReportLab's errors can quote the text being laid out (the user's question,
         # the answer), which must not reach a log or a traceback.
