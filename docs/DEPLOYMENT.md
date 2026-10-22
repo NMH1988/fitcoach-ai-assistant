@@ -30,6 +30,7 @@ Either way:
 7. **Personal data.** The profile and chat stay in the session only; logs contain no profile values or chat text.
 8. **Costs.** Default model `openai/gpt-5-mini`, `max_tokens` capped, rate limit on; the token and cost display works.
 9. **Legal text on the page.** The "not medical advice" disclaimer and a link to the sources and attribution are visible.
+10. **Server address.** `.streamlit/config.toml` sets `server.address = "localhost"` (T1.7), so a local run is reachable from this machine only. A host may need another address (e.g. `0.0.0.0` in a container); change it only together with option 1 or 2 above, never on its own. Keep `browser.gatherUsageStats = false` and `client.showErrorDetails = "none"`.
 
 ## Deploy steps (Streamlit Community Cloud, first time)
 
