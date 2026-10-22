@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-22 · T4.8 Mark T4.8 done · #PR (closes #85)
+## 2026-10-22 · T4.8 Mark T4.8 done · #87 (closes #85)
 - **Brief:** records only; no code change.
 - **What:** `docs/IMPLEMENTATION_PLAN.md`: T4.8's status is "done" in the ticket table and in its heading.
 - **Why:** PR #86 merged with the status still "in review"; the status follows the merge.
