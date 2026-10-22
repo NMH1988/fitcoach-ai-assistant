@@ -47,13 +47,13 @@ Before copying:
 1. `docs/IMPLEMENTATION_PLAN.md` shows every ticket's final status, and `docs/PROGRESS.md` has an entry for every merged PR.
 2. The README explains how to install, download the sources, build the index and run the app, and links the docs.
 3. CI is green on `main`; no secrets in the history (GitHub secret scanning shows no alerts).
-4. Docs refer to tickets by ID (`T1.2`); any remaining `#<n>` issue links are full URLs to the personal repo, or removed.
+4. Docs refer to tickets by ID (`T1.2`). The `#<n>` issue and PR numbers stay as they are: the README, `docs/IMPLEMENTATION_PLAN.md` and `docs/PROGRESS.md` say they refer to the personal repo, and that a source number is a row in `docs/SOURCES.md` (owner's choice in T6.2, 2026-10-22, instead of rewriting about 400 numbers as full URLs).
 
 Copying (keeps the full history):
 1. Clone the course repository and check that it is empty, or note what the course put there (e.g. its own README) so nothing of theirs is overwritten without asking.
 2. From the personal repo: `git remote add course <course repo URL>` and `git push course main` (add `--force` only if the course repo is empty apart from a placeholder and the course allows it).
-3. In the course repo: check that the README renders and CI runs. If the reviewers work through pull requests, disable or delete `.github/workflows/pr-checks.yml` there: it fails any PR that does not close an issue, and the course repo has no issues.
-4. Update the repo links in `docs/BRIEF.md` and this file if the reviewers should only see the course repo.
+3. In the course repo: check that the README renders and CI runs. If the reviewers work through pull requests, disable or delete `.github/workflows/pr-checks.yml` there: it fails any PR that does not close an issue, and the course repo may have no issues.
+4. Update the repo links in `docs/BRIEF.md` and this file if the reviewers should only see the course repo. The links to the personal repo in the `#<n>` notes of `README.md`, `docs/IMPLEMENTATION_PLAN.md` and `docs/PROGRESS.md` stay: the numbers only make sense there.
 
 ## After each deploy
 
