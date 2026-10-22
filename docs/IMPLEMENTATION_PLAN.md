@@ -66,7 +66,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | done |
 | T4.4 | #14 | Tool-calling loop and tool results UI | M | T3.1, T4.2, T4.3 | 10-28 | done |
 | T4.7 | #44 | My targets: sidebar target, targets tab and Food lookup tab (split from T4.4, owner's decision) | M | T4.4 | 10-29 | done |
-| T4.8 | #85 | Food lookup tab: a searchable dropdown of the USDA foods (owner's request after T4.7) | S | T4.7 | 10-22 | in review |
+| T4.8 | #85 | Food lookup tab: a searchable dropdown of the USDA foods (owner's request after T4.7) | S | T4.7 | 10-22 | done |
 | T3.5 | #50 | Skip the answer call for off-topic questions with no source (owner's request after T4.4) | S | T4.4, T3.2, O7, O1 | 10-29 | done |
 | T5.3 | #18 | Domain guardrails | S | T3.1, T4.2 | 10-29 | done |
 | T3.6 | #51 | Retrieval comparison on the owner's evaluation questions (split from T3.3, owner's decision) | S | T3.3, O2, O5 | 10-30 | done |
@@ -396,7 +396,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] Values per body weight follow the unit system the user chose: g/kg in metric, g/lb in imperial (computed in kg internally, converted for display), in the My targets tab, the sidebar card and T4.4's "Tool results" tables (PRD feature 7, AC-8) - AppTest in both unit systems (added by the owner, 2026-10-20, after PR #49's compliance check) (`test_imperial_users_see_grams_per_lb_in_the_card_and_the_tab`, `test_imperial_users_see_the_protein_range_in_grams_per_lb`, `tests/test_app_tools.py::test_macro_values_per_body_weight_follow_the_unit_system` (both systems); `tests/test_units.py`: `test_grams_per_body_weight_follow_the_unit_system`, `test_grams_per_lb_convert_back_to_grams_per_kg_within_rounding`, `test_grams_per_body_weight_are_rounded_once_from_the_grams`, `test_grams_per_body_weight_match_a_single_rounding_across_profiles`: shown from the grams and `MacroTargetsResult.weight_kg`, rounded once, after the PR #53 review).
 **Notes:** reuse T4.4's table and chart helpers in `app.py` and `src/tools/registry.py`'s results. USDA names must stay out of `st.table`, `st.markdown` and labels (`st.table` reads Markdown in cells in Streamlit 1.66). Owner's choices (2026-10-20, with the plan): one macro palette for both modes (protein `#168A6C`, carbohydrate `#7A6FD0`, fat `#B87318`); "not found" suggestions in a plain-text table, not `st.pills` (their labels read Markdown); g/lb to 2 decimals, g/kg to 1; a `protein_lowered` flag on the macro result (the model sees it too; the prompt needs no change); the kcal delta in grey with its sign; the Food lookup tab runs no model and no API call, so it skips the input guard and the rate limit (its input is checked by `FoodLookupArgs` as a tool call is).
 
-### T4.8 Food lookup tab: a searchable dropdown of the USDA foods (S) · status: in review · issue #85
+### T4.8 Food lookup tab: a searchable dropdown of the USDA foods (S) · status: done · issue #85
 **Serves:** core 5 (an intuitive UI that shows tool results); beyond the brief (owner's request) as a change to T4.7's tab.
 **Depends on:** T4.7
 **Acceptance criteria** (approved by the owner, 2026-10-22; choice: only foods in the list, no free typing)

@@ -17,6 +17,13 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-22 · T4.8 Mark T4.8 done · #PR (closes #85)
+- **Brief:** records only; no code change.
+- **What:** `docs/IMPLEMENTATION_PLAN.md`: T4.8's status is "done" in the ticket table and in its heading.
+- **Why:** PR #86 merged with the status still "in review"; the status follows the merge.
+- **Decisions & gotchas:** "Closes #85" points at T4.8's issue, already closed by PR #86, so that `pr-checks.yml` finds a linked ticket.
+- **Follow-ups:** none.
+
 ## 2026-10-22 · T4.8 Food lookup tab: a searchable dropdown of the USDA foods · #86 (closes #85)
 - **Brief:** beyond the brief (owner's request, after seeing the tab): refines T4.7's Food lookup tab (core 5, an intuitive UI that shows tool results).
 - **What:**
