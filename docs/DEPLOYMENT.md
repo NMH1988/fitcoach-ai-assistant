@@ -52,9 +52,27 @@ Before copying:
 
 Copying (keeps the full history):
 1. Clone the course repository and check that it is empty, or note what the course put there (e.g. its own README) so nothing of theirs is overwritten without asking.
-2. From the personal repo: `git remote add course <course repo URL>` and `git push course main` (add `--force` only if the course repo is empty apart from a placeholder and the course allows it).
+2. From the personal repo: `git remote add course <course repo URL>` and `git push course main` (add `--force` only if the course repo is empty apart from a placeholder and the course allows it). If the course repo already has commits of its own, merge instead, as in "Updating the course repository later" below.
 3. In the course repo: check that the README renders and CI runs. If the reviewers work through pull requests, disable or delete `.github/workflows/pr-checks.yml` there: it fails any PR that does not close an issue, and the course repo may have no issues.
 4. Update the repo links in `docs/BRIEF.md` and this file if the reviewers should only see the course repo. The links to the personal repo in the `#<n>` notes of `README.md`, `docs/IMPLEMENTATION_PLAN.md` and `docs/PROGRESS.md` stay: the numbers only make sense there.
+
+Done on 2026-10-22 (T6.2): the course repository is https://github.com/TuringCollegeSubmissions/mnguye-AE.AFA.updated0209.2.5. It held the course's first commit with its task description (`125.md`), which is kept, so the copy is a merge of that commit (fc25447) and this repo's `main` at 8bcdc74, not a force push; the course repo's `main` is then 8a27496. The reviewers read the files only (O6), so `pr-checks.yml` stays.
+
+Updating the course repository later (allowed before the deadline):
+1. Merge the change into this repo's `main` first, through its PR as usual.
+2. Merge this repo's `main` into the course repo's `main` (it has its own merge commit, so a fast-forward is not possible and a plain `git push course main` is rejected), never with `--force`, and push it there:
+   ```bash
+   git fetch origin
+   git fetch course
+   git switch --detach course/main
+   git merge origin/main -m "T<x.y> Update from NMH1988/nutrition-ai-assistant"
+   git log --oneline -1 HEAD^2    # must be the merged PR's commit on main
+   git push course HEAD:main
+   git switch main
+   ```
+   It merges `origin/main`, not the local `main`, which may not have the PR merged on GitHub yet.
+   Never merge `course/main` into this repo's `main`: the course's own commit (`125.md`) would land in the personal repo.
+3. Check that CI passes on the course repo's new `main`.
 
 ## After each deploy
 
