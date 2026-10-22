@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-22 · T1.7 Streamlit runs on localhost only, without telemetry or error details · #PR (closes #81)
+## 2026-10-22 · T1.7 Streamlit runs on localhost only, without telemetry or error details · #83 (closes #81)
 - **Brief:** core 3 and 4 (security measures relevant to the domain, proper error handling); AC-11 and AC-13.
 - **What:**
   - `.streamlit/config.toml`: `[server] address = "localhost"`, `[browser] gatherUsageStats = false`, `[client] showErrorDetails = "none"`, each with a comment.
