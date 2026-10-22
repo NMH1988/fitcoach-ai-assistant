@@ -15,6 +15,18 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-22 · T1.6a Upgrade streamlit to 1.66.1 so pillow 13 replaces the pillow ignores · #78 (closes #77)
+- **Brief:** core 3 and 4 (security measures, error-free CI with a dependency audit). Owner's request (2026-10-22).
+- **What:** `pyproject.toml`: `streamlit==1.66.1` and `pillow==13.0.0`; `.github/workflows/ci.yml`: the eight pillow `--ignore-vuln` lines and their comment removed (the chromadb ones unchanged); `docs/SECURITY.md`: the eight pillow rows removed, a short note on the upgrade; `docs/ARCHITECTURE.md`: streamlit 1.66.1 and a pillow row; `tests/test_app_export.py`: the image scan's comments no longer point to the removed rows.
+- **Why:** on 2026-10-21 `pip-audit` began reporting more pillow 12.3.0 advisories (16 in all), all fixed in pillow 13.0.0, so CI's security job failed on every branch, first seen on PR #76 (T7.2). streamlit 1.66.1, released the same day, allows `pillow<14` and reportlab 5.0.1 any `pillow>=9.0.0`, so the fix T1.6 waited for exists; the repo's rule is to upgrade when a fix exists, not to ignore more.
+- **Decisions & gotchas:**
+  - Pillow is listed although our code never imports it: `pip install -e ".[dev]"` keeps an installed pillow that still satisfies streamlit's range, so without it an existing venv would stay on 12.3.0 (CI installs fresh and would get 13.0.0 either way). First a floor (`>=13.0.0`); pinned `==13.0.0` after the code review, like every other dependency, so a new pillow arrives through a Dependabot PR.
+  - Code review (before the PR; ready to merge, should-fixes and nits taken): the pin above; the plan marks CI's part of criteria 2 and 4 as pending until CI runs; `docs/SECURITY.md` says "Resolved", "16 pillow advisories in all" and that Pillow is listed only to set its version; the dependency table's new rows carry their check date; T1.6's note points to T1.6a. Not checked in a browser (the reviewer's question): the owner can run a short check after reinstalling the main venv.
+  - Owner's choice (2026-10-22): a ticket of its own, not a change inside T7.2's PR; T7.2 merges `main` after this one.
+  - Installing into the main checkout's `.venv` failed half-way because the owner's app was running (`streamlit.exe` locked, WinError 32): pip had moved streamlit 1.66.0 aside and not restored it, so Claude renamed it back (`~treamlit` → `streamlit`); that venv then had streamlit 1.66.0 with pillow 13.0.0 (`pip check` noted the mismatch). The checks ran in a fresh scratch venv instead. The owner's own `pip install -e ".[dev]"` failed the same way (the app was still running) and was restored the same way. On the owner's request (2026-10-22) Claude stopped the app (`streamlit run app.py`, started 2026-10-21) and reinstalled the venv: streamlit 1.66.1, pillow 13.0.0, `pip check` clean. A leftover `~il` folder from the first failed install (pillow 12.3.0's `PIL`) is left in `site-packages`; Python ignores it.
+- **Code review on PR #78** (on 265d93b; ready to merge, should-fix and nits taken): CI green there (lint, test, security, linked-issue) and the main venv's checks are now recorded in the plan; the PR description and issue #77's first criterion (which still asked for a floor) updated to the pin.
+- **Follow-ups:** PR #76 (T7.2) merges `main` once this PR is merged; a short browser check of the app on streamlit 1.66.1, if wanted (the hidden "Press Enter to apply" and the theme hint, which AppTest cannot see).
+
 ## 2026-10-21 · T6.1 Evaluation run and reflection · #75 (closes #19)
 - **Brief:** the evaluation's reflection item (understand the app's problems and suggest improvements); supports Hard 1.
 - **What:**
