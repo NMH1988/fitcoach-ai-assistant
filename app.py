@@ -1245,14 +1245,11 @@ def _about_content(manifest) -> None:
     st.caption(f"{_t('about.changes')} {_t('about.full_credits')}")
 
 
-def _about_sidebar() -> None:
-    """Put a button in the sidebar that opens the About dialog."""
-    manifest = _manifest()
-    if not manifest:
-        return
-    st.divider()
-    # A dialog, not an expander: the 20 credits are long and the sidebar is narrow (T3.9). The
-    # content is static, so it needs no session state to stay open; a click draws it in this run.
+@st.fragment
+def _about_button(manifest) -> None:
+    """Draw the button that opens the About dialog; a press reruns only this fragment."""
+    # A fragment, so a press while an answer streams does not rerun the script and stop that
+    # turn: Streamlit runs the fragment once the turn ends, and the dialog opens then (T3.9).
     opened = st.button(
         _t("about.title"), icon=":material/menu_book:", width="stretch", key="about_open"
     )
@@ -1260,6 +1257,17 @@ def _about_sidebar() -> None:
     if opened and not st.session_state.get("profile_form_open"):
         # Built in the run of the press, so the dialog's title is in the language chosen now.
         st.dialog(_t("about.title"), width="large")(_about_content)(manifest)
+
+
+def _about_sidebar() -> None:
+    """Put a button in the sidebar that opens the About dialog."""
+    manifest = _manifest()
+    if not manifest:
+        return
+    st.divider()
+    # A dialog, not an expander: the 20 credits are long and the sidebar is narrow (T3.9). The
+    # content is static, so it needs no session state to stay open; a click draws it in that run.
+    _about_button(manifest)
 
 
 def _summary_download() -> None:

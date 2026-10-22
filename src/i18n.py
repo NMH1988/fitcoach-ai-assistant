@@ -344,7 +344,7 @@ _EN: dict[str, str] = {
         "Ask a question about nutrition for strength training. Answers cite the research they use."
     ),
     "ask.placeholder": "Ask about nutrition for your training",
-    # What the answers are based on, and the credits (sidebar).
+    # What the answers are based on, and the credits (the sidebar button's dialog).
     "about.title": "About the answers",
     "about.articles": (
         "**{articles} open-access research articles**: {stands} ISSN position stands and "
