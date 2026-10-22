@@ -1,9 +1,11 @@
 """Tests for the server, telemetry and error settings in .streamlit/config.toml (T1.7)."""
 
+import json
+import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
-import pytest
 from streamlit import config as streamlit_config
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -46,20 +48,25 @@ def test_every_setting_is_an_option_streamlit_knows():
     assert not unknown
 
 
-@pytest.mark.parametrize(
-    ("option", "expected"),
-    [
-        ("server.address", "localhost"),
-        ("browser.gatherUsageStats", False),
-        ("client.showErrorDetails", "none"),
-    ],
-)
-def test_streamlit_reads_the_settings_from_the_file(monkeypatch, option, expected):
+def test_streamlit_reads_the_settings_from_the_file():
     """Streamlit itself loads the file from the repo root and gets each value, as the app does."""
-    monkeypatch.chdir(ROOT)
-    streamlit_config.get_config_options(force_reparse=True)
-    try:
-        assert streamlit_config.get_option(option) == expected
-    finally:
-        # Leave Streamlit's options as the other tests found them.
-        streamlit_config.get_config_options(force_reparse=True)
+    # A fresh Python process, so parsing the file there leaves this process's options untouched.
+    expected = {
+        "server.address": "localhost",
+        "browser.gatherUsageStats": False,
+        "client.showErrorDetails": "none",
+    }
+    script = (
+        "import json, sys\n"
+        "from streamlit import config\n"
+        "print(json.dumps({name: config.get_option(name) for name in sys.argv[1:]}))\n"
+    )
+    done = subprocess.run(
+        [sys.executable, "-I", "-c", script, *expected],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=True,
+    )
+    assert json.loads(done.stdout.splitlines()[-1]) == expected
