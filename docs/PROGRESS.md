@@ -4,7 +4,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 **Adding an entry:** every PR (Dependabot exempt) adds one entry at the top of the log below, in the same PR, so the log reaches `main` together with the work. Keep it short and record what the code does not say. Parallel PRs all add at the top, so they conflict here: keep both entries. `.gitattributes` sets `merge=union` for this file, which handles local merges; GitHub's web conflict editor ignores it.
 
-**Numbers with `#`:** `#<PR>` and `closes #<issue>` refer to the personal repository where the work was done, https://github.com/NMH1988/nutrition-ai-assistant (PR `#76` is https://github.com/NMH1988/nutrition-ai-assistant/pull/76); the course repository has no issues or pull requests of its own. A source number (e.g. "#18a") is a row in `docs/SOURCES.md`.
+**Numbers with `#`:** `#<PR>` and `closes #<issue>` refer to the personal repository where the work was done, https://github.com/NMH1988/nutrition-ai-assistant (PR `#76` is https://github.com/NMH1988/nutrition-ai-assistant/pull/76); issue and PR numbers in the course repository, if it has any, are unrelated. A source number (e.g. "#18a") is a row in `docs/SOURCES.md`.
 
 ```
 ## YYYY-MM-DD · T<x.y> <title> · #<PR> (closes #<issue>)
@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-22 · T6.2 README, final checks and transfer to the course repo · #<PR> (refs #20; the transfer PR closes it)
+## 2026-10-22 · T6.2 README, final checks and transfer to the course repo · #<PR> (ISSUE_CHOICE)
 - **Brief:** submission; the evaluation's "the app works (you can chat and get answers)" when run as documented.
 - **What:**
   - `README.md` rewritten: what the app does, how one turn works (guard, query translation, hybrid retrieval, answer with tools), the knowledge base and models, a brief coverage table, the run steps (the lint and format checks now on two lines, as Windows PowerShell 5.1 has no `&&`, T1.5's follow-up), the data and evaluation scripts (attribution and USDA, T2.1's follow-up), every doc and `ATTRIBUTION.md` linked, and a note on `#<n>` numbers.
@@ -29,6 +29,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 - **Clean-clone check (criterion 1):**
   - Claude, 2026-10-22, on 8871d6d (this branch's first commit), following the README word for word: `git clone --branch feature/t6.2-readme-final-checks` of the local repo into a scratch folder, so nothing gitignored came along (no `.venv`, `data/raw/`, `chroma/` or `.streamlit/secrets.toml`); `py -3.14 -m venv .venv` (Python 3.14.8); `pip install -e ".[dev]"` and `pip check`: no broken requirements; `scripts/download_sources.py`: 21 articles saved (1-20 and 18a) from the Europe PMC API; `ruff check .`: all checks passed; `ruff format --check .`: 108 files already formatted; `python -m pytest -q`: 2957 passed (235 s), no key in the environment; `scripts/generate_attribution.py` gave the same `ATTRIBUTION.md` apart from line endings (Git's `autocrlf` on Windows). `streamlit run app.py` (port 8502, from the clone, no key, no index): the page loads in English with the disclaimer, the four tabs and the sidebar; a question gets "The knowledge base index is missing. Run python scripts/build_index.py to build it." with no crash and no API call (the index is opened before any model is built); no server error in the log.
   - Owner: OWNER_CLEAN_CLONE
+- **Code review** (before the PR, on 236dfba; needs changes, all taken): the README's privacy line said the profile stays in the browser, but it lives in the app's memory and goes to the model through OpenRouter when a question needs it (must-fix); "every answer cites" softened, as a tool-only answer cites nothing; a Core 1 row in the coverage table; a hint for PowerShell's blocked `Activate.ps1` and for `#` notes in cmd; the merged PR count is 36, not 37; T3.7's open last criterion gets a note on what was run and what the owner left as a known limit (it was done with its box open); the `#<n>` notes no longer claim the course repo has no issues or PRs (O6 is open); `docs/DEPLOYMENT.md`'s copying step 4 keeps the new personal-repo links; nits: the Details tab's cost wording, `live_check_llm.py` needs no index, the system prompt's path, the no-endorsement sentence and the DejaVu fonts' licence in the README.
 - **Follow-ups:** O6 (the course repo's URL, whether it is empty, and whether the reviewers use PRs, which decides whether `pr-checks.yml` is disabled there); the transfer and its PR.
 
 ## 2026-10-22 · T7.2 German answers end to end · #76 (closes #34)
