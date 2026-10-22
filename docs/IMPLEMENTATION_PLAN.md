@@ -56,7 +56,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T4.2 | #12 | Energy and macro tools with the calorie floor | M | T4.1, O3 | 10-25 | done |
 | T1.5 | #42 | Docs: run commands use the project's venv | S | T1.1 | 10-20 | done |
 | T1.6 | #55 | CI: accept the pillow 12.3.0 advisories until Streamlit allows pillow 13 | S | T1.1 | 10-20 | done |
-| T1.6a | #77 | CI: upgrade streamlit to 1.66.1 so pillow 13 replaces the pillow ignores (owner's request after PR #76's security job failed) | S | T1.6 | 10-22 | in review |
+| T1.6a | #77 | CI: upgrade streamlit to 1.66.1 so pillow 13 replaces the pillow ignores (owner's request after PR #76's security job failed) | S | T1.6 | 10-22 | done |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1, O7 | 10-26 | done |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2 | 10-27 | done |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | done |
@@ -149,7 +149,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] CI's security job passes on the PR - CI green on PR #58 (lint, test, security and linked-issue passed on 269d0cb, 2026-10-20).
 **Notes:** pillow 13.0.0 fixes all eight; streamlit 1.66.0 requires `pillow<13` and no later streamlit exists (checked on PyPI, 2026-10-20). Remove the ignores when Dependabot proposes a streamlit release that allows pillow 13 (done in T1.6a, #77). If a later ticket adds an image upload or reads images with Pillow, or if the PDF export (T5.2) draws images or lets text reach reportlab markup unescaped (an `<img src>` tag makes reportlab fetch and open the image with Pillow), review these ignores first. Code review on PR #58 (ready to merge): this trigger made explicit, and the test matches whole IDs and the `--ignore-vuln=ID` form. PR #58 merged before these fixes were pushed, so they reached `main` in a follow-up PR (#62). Its third fix, writing T5.2 in `docs/SECURITY.md` as planned, was dropped when `main` was merged into #62: T5.2 had shipped by then (#54), so the present tense is right.
 
-### T1.6a CI: upgrade streamlit to 1.66.1 so pillow 13 replaces the pillow ignores (S) · status: in review · issue #77
+### T1.6a CI: upgrade streamlit to 1.66.1 so pillow 13 replaces the pillow ignores (S) · status: done · issue #77
 **Serves:** core 3 and 4 (security measures, error-free CI with a dependency audit); `.claude/rules/security-privacy.md` (upgrade when a fixed release exists, no ignore without a documented reason). Owner's request (2026-10-22), after CI's security job failed on PR #76 (T7.2).
 **Depends on:** T1.6
 **Acceptance criteria** (from the owner's request, 2026-10-22)
