@@ -7,7 +7,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 **Numbers with `#`:** `#<PR>` and `closes #<issue>` refer to the personal repository where the work was done, https://github.com/NMH1988/nutrition-ai-assistant (PR `#76` is https://github.com/NMH1988/nutrition-ai-assistant/pull/76); issue and PR numbers in the course repository, if it has any, are unrelated. A source number (e.g. "#18a") is a row in `docs/SOURCES.md`.
 
 ```
-## YYYY-MM-DD · T<x.y> <title> · #<PR> (closes #88)
+## YYYY-MM-DD · T<x.y> <title> · #<PR> (closes #<issue>)
 - **Brief:** the requirement or optional task served, or "beyond the brief (owner's request)".
 - **What:** files/behaviour changed.
 - **Why:** reason for the approach chosen.
@@ -24,7 +24,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
   - Tests: `tests/test_app_smoke.py` (no credits before the click; the dialog's content and large width; the former sidebar test moved into the dialog), `tests/test_app_language.py` (German button, title and text).
   - Docs: `docs/UI_DESIGN.md`, `docs/IMPLEMENTATION_PLAN.md` (T3.9).
 - **Why:** with 20 credits the expander made the narrow sidebar long and wrapped each source over three or four lines; the modal is wide, so a source takes one or two.
-- **Decisions & gotchas:** no `session_state` flag, unlike the profile dialog: the content is static, so a press draws the dialog in that run and the X closes it without a rerun. The dialog is built on each run (`st.dialog(_t(...))`), so its title follows the language. A dialog cannot hold an expander. In AppTest the dialog is `at.get("dialog")`, and its width is `proto.dialog.width`. Checked in the browser: opens at the large width, no console or server errors.
+- **Decisions & gotchas:** no `session_state` flag, unlike the profile dialog: the content is static, so a press draws the dialog in that run and the X closes it without a rerun. The dialog is built in the run of the press (`st.dialog(_t(...))`), so its title follows the language. With the profile form open a press opens nothing (Streamlit allows one dialog per run; AppTest raised without the guard, the browser's modal normally keeps the button out of reach). Pressing the button reruns the script, as the other sidebar buttons do, so a press while an answer streams stops that answer (accepted, as for Edit details and the PDF button). A dialog cannot hold an expander. In AppTest the dialog is `at.get("dialog")`, and its width is `proto.dialog.width`. Checked in the browser: opens at the large width, no console or server errors.
 - **Follow-ups:** none.
 
 ## 2026-10-22 · T4.8 Mark T4.8 done · #87 (closes #85)

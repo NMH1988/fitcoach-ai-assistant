@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+import streamlit as st
 from streamlit.proto.Block_pb2 import Block
 from streamlit.testing.v1 import AppTest
 
@@ -72,6 +73,31 @@ def test_the_sidebar_has_a_button_and_no_credits_until_it_is_pressed():
     assert not at.sidebar.expander
     assert not at.get("dialog")
     assert not [m for m in at.sidebar.markdown if "creativecommons.org" in m.value]
+    [button] = [b for b in at.sidebar.button if b.label == "About the answers"]
+    assert button.proto.icon == ":material/menu_book:"
+
+
+def test_without_a_manifest_the_sidebar_has_no_about_button(monkeypatch):
+    """With no approved sources there is nothing to credit, so no button is drawn."""
+    monkeypatch.setattr(chat, "manifest_by_id", dict)
+    st.cache_resource.clear()  # the app caches the manifest per process
+    try:
+        at = _run_app()
+    finally:
+        st.cache_resource.clear()  # so later tests read the real manifest again
+    assert not at.exception
+    assert not [b for b in at.sidebar.button if b.label == "About the answers"]
+
+
+def test_the_about_button_does_nothing_while_the_profile_form_is_open():
+    """With the profile form open, pressing About opens no second dialog (one per run)."""
+    at = _run_app()
+    [add] = [b for b in at.sidebar.button if b.label == "Add your details"]
+    at = add.click().run(timeout=30)
+    [about] = [b for b in at.sidebar.button if b.label == "About the answers"]
+    at = about.click().run(timeout=30)
+    assert not at.exception
+    assert [d.proto.dialog.title for d in at.get("dialog")] == ["Your details"]
 
 
 def test_the_about_dialog_says_what_the_answers_are_based_on():

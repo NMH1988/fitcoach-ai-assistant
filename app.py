@@ -1253,8 +1253,12 @@ def _about_sidebar() -> None:
     st.divider()
     # A dialog, not an expander: the 20 credits are long and the sidebar is narrow (T3.9). The
     # content is static, so it needs no session state to stay open; a click draws it in this run.
-    if st.button(_t("about.title"), icon=":material/menu_book:", width="stretch", key="about_open"):
-        # Built on each run, so the dialog's title is in the language chosen now.
+    opened = st.button(
+        _t("about.title"), icon=":material/menu_book:", width="stretch", key="about_open"
+    )
+    # Streamlit allows one dialog per run: with the profile form open, a press changes nothing.
+    if opened and not st.session_state.get("profile_form_open"):
+        # Built in the run of the press, so the dialog's title is in the language chosen now.
         st.dialog(_t("about.title"), width="large")(_about_content)(manifest)
 
 
