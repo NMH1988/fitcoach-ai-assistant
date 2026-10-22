@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-22 · T6.2 README, final checks and transfer to the course repo · #<PR> (closes #79; #20 closes with the transfer PR)
+## 2026-10-22 · T6.2 README, final checks and transfer to the course repo · #80 (closes #79; #20 closes with the transfer PR)
 - **Brief:** submission; the evaluation's "the app works (you can chat and get answers)" when run as documented.
 - **What:**
   - `README.md` rewritten: what the app does, how one turn works (guard, query translation, hybrid retrieval, answer with tools), the knowledge base and models, a brief coverage table, the run steps (the lint and format checks now on two lines, as Windows PowerShell 5.1 has no `&&`, T1.5's follow-up), the data and evaluation scripts (attribution and USDA, T2.1's follow-up), every doc and `ATTRIBUTION.md` linked, and a note on `#<n>` numbers.
