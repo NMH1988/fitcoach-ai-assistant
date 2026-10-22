@@ -17,6 +17,17 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-22 · T6.2 Record the transfer to the course repo · #PR (closes #20)
+- **Brief:** submission (through the GitHub repository the course provides).
+- **What:** `docs/IMPLEMENTATION_PLAN.md`: O6 done (the course repo's URL, the reviewers read the files only); T6.2 done, its last criterion ticked with what the course repo shows and each checklist step, criterion 2's count brought up to date (38 merged PRs, T1.8 planned after the submission), and a note that issue #20 was reopened. `docs/DEPLOYMENT.md`: what was done, and how to update the course repo later, with the commands.
+- **Why:** the course repo gets files and history only, so the record of the transfer must be in the files; T6.2 stayed "in review" in the copy, and T1.7 merged here after it.
+- **Decisions & gotchas:**
+  - The copy (8a27496 in the course repo, 2026-10-22 08:46 UTC) merged the course's first commit fc25447 (`125.md`, the task description) with this repo's 8bcdc74, keeping both. CI's push run on it passed; the two Dependabot PRs it opened there were closed by the owner.
+  - Owner's choices (2026-10-22): the course allows updates before the deadline; the reviewers read the files only, so `.github/workflows/pr-checks.yml` stays in the course repo; issue #20 reopened (PR #80's description and its commit 07b904b said the transfer PR "closes #20", which GitHub read as a closing keyword, so #80's merge closed it), so this PR closes it; Claude merges this PR once reviewed and green, then merges this repo's `main` into the course repo's `main` and pushes it; T6.2 is marked done in this PR, before that push.
+  - Lesson: "closes #<n>" in a PR description or a commit message closes the issue at the merge, even in a sentence about later work; write "#20 stays open for the transfer PR" instead.
+- **Code review** (before the PR; needs changes, all taken): `docs/DEPLOYMENT.md` named 8a27496 as this repo's `main` (it is the course repo's; this repo's was 8bcdc74); the update steps get commands and a warning against merging the course's `main` into this one, and copying step 2 points to them; the Dependabot PRs here stay open (not closed "as in this repo"); each checklist step recorded; criterion 2's count updated; the order of "done" and the second push written down.
+- **Follow-ups:** after the merge, this repo's `main` is merged into the course repo's `main` and pushed (`docs/DEPLOYMENT.md`, "Updating the course repository later"), and its CI checked; the result can only reach the files through a later PR, so this PR's last comment records it. T1.8 (#82) after the submission.
+
 ## 2026-10-22 · T1.7 Streamlit runs on localhost only, without telemetry or error details · #83 (closes #81)
 - **Brief:** core 3 and 4 (security measures relevant to the domain, proper error handling); AC-11 and AC-13.
 - **What:**
