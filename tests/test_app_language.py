@@ -174,6 +174,17 @@ def test_the_profile_form_and_its_errors_are_german(monkeypatch):
     assert "Wählen Sie Ihr Ziel." in error.value
 
 
+def test_the_about_button_and_dialog_are_german(monkeypatch):
+    """The sidebar button, the dialog's title and its text follow the language (T3.9)."""
+    at = _start(monkeypatch, "de-DE")
+    [about] = [b for b in at.sidebar.button if b.label == "Über die Antworten"]
+    at = about.click().run(timeout=30)
+    [dialog] = at.get("dialog")
+    assert dialog.proto.dialog.title == "Über die Antworten"
+    assert "**:material/license: Quellen und Nachweise**" in [m.value for m in dialog.markdown]
+    assert [c.value for c in dialog.caption][0].startswith("An jedem Artikel geändert")
+
+
 def test_the_food_lookup_is_german_with_english_food_names(monkeypatch):
     """The tab's texts are German and say the names are English; the USDA name stays English."""
     at = _start(monkeypatch, "de-DE")
