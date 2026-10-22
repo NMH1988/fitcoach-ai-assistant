@@ -232,7 +232,7 @@ _EN: dict[str, str] = {
         "from the USDA FoodData Central Foundation Foods table, named in English."
     ),
     # The Food lookup tab's own messages (no model call there; owner's choice in the review of
-    # PR #74). The English ones are the food tool's, as the English tab showed before.
+    # PR #74). The English tab shows the lookup's own fixed text (`lookup_chosen_food()`, T4.8).
     "food.tab.invalid": (
         "Invalid food lookup: choose one food from the list; the amount must be a number of "
         "grams from 0.1 to 2000."

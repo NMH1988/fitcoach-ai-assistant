@@ -11,7 +11,7 @@ from src import chat, config, export_pdf, guard, i18n, llm, profile, units, usag
 from src.rag import hybrid, store
 from src.tools import meal_plan, registry
 from src.tools.energy import Macro, MacroTargetsResult, TdeeResult, protein_lowered_note
-from src.tools.food import FoodLookupResult, FoodTableError, food_names
+from src.tools.food import FoodLookupResult, food_names
 from src.tools.meal_plan import MealPlanResult
 
 # The language: the browser's at the start of a session, then the user's choice from the header
@@ -832,7 +832,10 @@ def _food_tab() -> None:
     # The dropdown lists the table's own foods, so a visitor sees what can be looked up (T4.8).
     try:
         names = food_names()
-    except FoodTableError:
+    except Exception:
+        # A missing or broken table (FoodTableError) or one that cannot be read at all (e.g. not
+        # UTF-8): the fixed message, never the exception's text, and the rest of the page still
+        # draws (the Details tab and the sidebar come after this tab).
         names = ()
         st.error(_t("food.tab.error"), icon=":material/error:")
     food_column, grams_column, button_column = st.columns([4, 1, 1], vertical_alignment="bottom")

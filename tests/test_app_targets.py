@@ -10,6 +10,7 @@ from streamlit.testing.v1 import AppTest
 from src import config, i18n, llm
 from src.profile import UserProfile
 from src.tools.energy import TDEE_METHOD, protein_lowered_note
+from src.tools.registry import ToolNotice
 from tests.fakes import HOSTILE_FOOD_NAME, PROFILE, write_food_table
 
 APP = Path(__file__).resolve().parent.parent / "app.py"
@@ -346,6 +347,30 @@ def test_a_missing_foods_table_shows_the_fixed_error(monkeypatch, tmp_path):
     assert [e.value for e in at.tabs[FOOD_TAB].error] == [config.TOOL_FAILED_MESSAGE]
     assert at.selectbox(key="food_query").disabled
     assert at.button(key="food_lookup").disabled
+
+
+def test_a_foods_table_that_cannot_be_read_still_draws_the_rest_of_the_page(monkeypatch, tmp_path):
+    """A table that is not UTF-8 gives the fixed error; the Details tab and sidebar still draw."""
+    table = tmp_path / "latin1.csv"
+    table.write_bytes(
+        write_food_table(tmp_path / "foods.csv").read_bytes() + "Pâté\n".encode("latin-1")
+    )
+    monkeypatch.setattr(config, "USDA_FOODS_PATH", table)
+    at = _start()
+    assert not at.exception
+    assert [e.value for e in at.tabs[FOOD_TAB].error] == [config.TOOL_FAILED_MESSAGE]
+    assert at.selectbox(key="food_query").disabled
+    assert _sidebar_metric(at, "Daily target")
+    assert len(at.tabs) == 4
+
+
+def test_a_lookup_that_fails_shows_the_fixed_error():
+    """A lookup that fails after the dropdown was drawn shows the fixed error, nothing else."""
+    at = _start()
+    at.session_state["food_result"] = ToolNotice(status="error", message=config.TOOL_FAILED_MESSAGE)
+    tab = at.run(timeout=30).tabs[FOOD_TAB]
+    assert [e.value for e in tab.error] == [config.TOOL_FAILED_MESSAGE]
+    assert not tab.metric and not tab.text
 
 
 def test_the_result_stays_after_another_rerun():

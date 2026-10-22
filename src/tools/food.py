@@ -1,9 +1,11 @@
 """lookup_food_nutrition: nutrients of a food and amount, from the USDA Foundation Foods table.
 
 The table (`data/usda_foods.csv`) is made by `scripts/prepare_usda.py` from USDA FoodData Central
-(CC0 1.0; docs/SOURCES.md #21). Food names are matched with rapidfuzz, so small typos and plurals
-still find the food; the matched USDA name and close alternatives are always returned, so the
-model and the user can see what was looked up.
+(CC0 1.0; docs/SOURCES.md #21). The chat's tool (`lookup_food_nutrition`) matches food names with
+rapidfuzz, so small typos and plurals still find the food; the matched USDA name and close
+alternatives are always returned, so the model and the user can see what was looked up. The Food
+lookup tab's dropdown (`food_names`, `lookup_chosen_food`, T4.8) takes only the table's own names
+and looks them up exactly, with no alternatives.
 """
 
 import csv

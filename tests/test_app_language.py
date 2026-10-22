@@ -217,8 +217,18 @@ def test_a_missing_foods_table_shows_the_german_error(monkeypatch, tmp_path):
     assert [e.value for e in at.tabs[FOOD_TAB].error] == [i18n.t("food.tab.error", "de")]
 
 
-def test_the_english_food_lookup_keeps_the_tool_s_messages(monkeypatch):
-    """In English the tab shows the food tool's own text, as before T7.1."""
+def test_a_lookup_that_fails_shows_the_german_error(monkeypatch):
+    """A lookup that fails after the dropdown was drawn shows the German fixed error."""
+    at = _start(monkeypatch, "de-DE")
+    at.session_state["food_result"] = registry.ToolNotice(
+        status="error", message=config.TOOL_FAILED_MESSAGE
+    )
+    tab = at.run(timeout=30).tabs[FOOD_TAB]
+    assert [e.value for e in tab.error] == [i18n.t("food.tab.error", "de")]
+
+
+def test_the_english_food_lookup_keeps_the_lookup_s_messages(monkeypatch):
+    """In English the tab shows the lookup's own fixed text, not a translated one."""
     at = _start(monkeypatch)
     at.session_state["food_result"] = registry.run_chosen_food_lookup(OATS, 0)
     at = at.run(timeout=30)
