@@ -329,24 +329,18 @@ def test_macro_targets_follow_the_goal():
     assert lose.targets.kcal_target < keep.targets.kcal_target
 
 
-def test_the_food_lookup_runs_like_the_tool():
-    """run_food_lookup gives the tool's result for a food and grams."""
-    result = registry.run_food_lookup("rolled oats", 80.0, FOODS)
-    assert result.status == "found"
-    assert result.matched_name == "Oats, whole grain, rolled, old fashioned"
-    assert result.nutrients.kcal == 304
+def test_run_chosen_food_lookup_gives_the_exact_food():
+    """run_chosen_food_lookup looks up the food with exactly this name."""
+    result = registry.run_chosen_food_lookup(
+        "Oats, whole grain, rolled, old fashioned", 80.0, FOODS
+    )
+    assert (result.status, result.nutrients.kcal) == ("found", 304)
 
 
-@pytest.mark.parametrize(("food", "grams"), [("", 100.0), ("oats", 0.0), ("oats", 5000.0)])
-def test_an_invalid_food_lookup_gives_the_fixed_message(food, grams):
-    """Bad input gives the tool's fixed "invalid" message, not an exception or an echo."""
-    result = registry.run_food_lookup(food, grams, FOODS)
-    assert result.status == "invalid"
-    assert result.message.startswith("Invalid food lookup:")
-
-
-def test_a_missing_foods_table_gives_the_fixed_error(monkeypatch, tmp_path):
-    """Without the foods table the lookup fails with the fixed message, never the exception."""
+def test_run_chosen_food_lookup_fails_with_the_fixed_message_without_the_table(
+    monkeypatch, tmp_path
+):
+    """A missing foods table gives the fixed error notice, never an exception or its text."""
     monkeypatch.setattr(config, "USDA_FOODS_PATH", tmp_path / "missing.csv")
-    result = registry.run_food_lookup("oats", 100.0)
+    result = registry.run_chosen_food_lookup("Oats", 100.0)
     assert (result.status, result.message) == ("error", config.TOOL_FAILED_MESSAGE)

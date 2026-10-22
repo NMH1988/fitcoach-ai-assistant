@@ -7,13 +7,17 @@ import pytest
 import streamlit as st
 from streamlit.testing.v1 import AppTest
 
-from src import config, llm
+from src import config, i18n, llm
 from src.profile import UserProfile
 from src.tools.energy import TDEE_METHOD, protein_lowered_note
+from src.tools.registry import ToolNotice
 from tests.fakes import HOSTILE_FOOD_NAME, PROFILE, write_food_table
 
 APP = Path(__file__).resolve().parent.parent / "app.py"
 TARGETS_TAB, FOOD_TAB = 1, 2
+OATS = "Oats, whole grain, rolled, old fashioned"
+CHICKEN = "Chicken, breast, boneless, skinless, raw"
+REAL_FOODS = config.USDA_FOODS_PATH
 # A made-up profile whose protein by body weight and fat do not fit its target (2,054 kcal), so
 # protein is lowered; the sources' range for 300 kg is 480-660 g.
 HEAVY = UserProfile(
@@ -67,8 +71,9 @@ def _spec(chart) -> dict:
 
 
 def _look_up(at: AppTest, food: str, grams: float) -> AppTest:
-    """Type a food and grams in the Food lookup tab and press Look up."""
-    at.text_input(key="food_query").set_value(food)
+    """Choose a food in the Food lookup tab's dropdown, set the grams and press Look up."""
+    # A rerun in between: the button is disabled until the dropdown has a food.
+    at = at.selectbox(key="food_query").set_value(food).run(timeout=30)
     at.number_input(key="food_grams").set_value(grams)
     return at.button(key="food_lookup").click().run(timeout=30)
 
@@ -265,7 +270,7 @@ def test_imperial_users_see_the_protein_range_in_grams_per_lb():
 
 def test_the_food_lookup_tab_shows_the_food_and_its_nutrients_without_a_model_call():
     """A lookup shows the USDA name, the four values, fibre and the source; no model is built."""
-    at = _look_up(_start(), "rolled oats", 80.0)
+    at = _look_up(_start(), OATS, 80.0)
     assert not at.exception
     tab = at.tabs[FOOD_TAB]
     assert [t.value for t in tab.text] == ["Oats, whole grain, rolled, old fashioned"]
@@ -282,59 +287,106 @@ def test_the_food_lookup_tab_shows_the_food_and_its_nutrients_without_a_model_ca
 
 def test_the_food_lookup_works_without_a_profile():
     """The lookup needs no personal data."""
-    at = _look_up(_start(profile=None), "chicken breast", 100.0)
+    at = _look_up(_start(profile=None), CHICKEN, 100.0)
     assert at.tabs[FOOD_TAB].metric[0].value == "120 kcal"
 
 
 def test_missing_fibre_is_shown_as_not_reported():
     """A food without a USDA fibre value says so, rather than 0 g."""
-    at = _look_up(_start(), "chicken breast", 100.0)
+    at = _look_up(_start(), CHICKEN, 100.0)
     assert "Fiber: not reported" in [c.value for c in at.tabs[FOOD_TAB].caption]
 
 
-def test_a_food_not_found_shows_the_message_and_the_suggestions():
-    """A misspelt food shows the fixed message and the close names as a table."""
-    tab = _look_up(_start(), "chicken brest", 100.0).tabs[FOOD_TAB]
-    [info] = tab.info
-    assert info.value.startswith("No close match in the USDA Foundation Foods table.")
-    [suggestions] = tab.dataframe
-    assert list(suggestions.value["Did you mean"]) == ["Chicken, breast, boneless, skinless, raw"]
-    assert not tab.metric
+def test_the_food_dropdown_lists_every_food_sorted_with_none_chosen():
+    """The tab offers the table's foods in a dropdown, sorted, and starts with none chosen."""
+    at = _start()
+    dropdown = at.selectbox(key="food_query")
+    assert dropdown.value is None
+    assert list(dropdown.options) == [CHICKEN, HOSTILE_FOOD_NAME, OATS]
+    assert dropdown.placeholder == i18n.t("food.placeholder", "en")
+    assert i18n.t("food.caption", "en") in [c.value for c in at.tabs[FOOD_TAB].caption]
+    assert not at.tabs[FOOD_TAB].metric
 
 
-def test_an_invalid_lookup_shows_the_fixed_message():
-    """A name with no real word gives the tool's fixed message, not an error page."""
-    tab = _look_up(_start(), "a", 100.0).tabs[FOOD_TAB]
-    [warning] = tab.warning
-    assert warning.value.startswith("Invalid food lookup:")
+def test_look_up_is_disabled_until_a_food_is_chosen():
+    """Without a food chosen the button is disabled and nothing is looked up."""
+    at = _start()
+    assert at.button(key="food_lookup").disabled
+    at.selectbox(key="food_query").set_value(OATS).run(timeout=30)
+    assert not at.button(key="food_lookup").disabled
+    assert "food_result" not in at.session_state
+
+
+def test_the_dropdown_shows_the_exact_food_chosen_with_no_alternatives():
+    """The chosen food is looked up exactly: no fuzzy match, so no "close alternatives" table."""
+    tab = _look_up(_start(), CHICKEN, 100.0).tabs[FOOD_TAB]
+    assert [t.value for t in tab.text] == [CHICKEN]
+    assert not tab.dataframe and not tab.info
+
+
+def test_every_food_of_the_real_table_can_be_chosen_and_looked_up(monkeypatch):
+    """All foods of the committed table are in the dropdown, even the two with very long names."""
+    monkeypatch.setattr(config, "USDA_FOODS_PATH", REAL_FOODS)
+    at = _start()
+    names = list(at.selectbox(key="food_query").options)
+    assert len(names) == len(set(names)) > 300
+    assert names == sorted(names, key=str.casefold)
+    long_names = [name for name in names if len(name) > config.FOOD_MAX_NAME_CHARS]
+    assert long_names
+    for name in [names[0], *long_names]:
+        tab = _look_up(at, name, 100.0).tabs[FOOD_TAB]
+        assert [t.value for t in tab.text] == [name]
+        assert tab.metric
 
 
 def test_a_missing_foods_table_shows_the_fixed_error(monkeypatch, tmp_path):
-    """Without the foods table the tab shows the fixed message, never a traceback."""
-    at = _start()
+    """Without the foods table the tab shows the fixed message and a disabled dropdown."""
     monkeypatch.setattr(config, "USDA_FOODS_PATH", tmp_path / "missing.csv")
-    at = _look_up(at, "rolled oats", 100.0)
+    at = _start()
     assert not at.exception
     assert [e.value for e in at.tabs[FOOD_TAB].error] == [config.TOOL_FAILED_MESSAGE]
+    assert at.selectbox(key="food_query").disabled
+    assert at.button(key="food_lookup").disabled
+
+
+def test_a_foods_table_that_cannot_be_read_still_draws_the_rest_of_the_page(monkeypatch, tmp_path):
+    """A table that is not UTF-8 gives the fixed error; the Details tab and sidebar still draw."""
+    table = tmp_path / "latin1.csv"
+    table.write_bytes(
+        write_food_table(tmp_path / "foods.csv").read_bytes() + "Pâté\n".encode("latin-1")
+    )
+    monkeypatch.setattr(config, "USDA_FOODS_PATH", table)
+    at = _start()
+    assert not at.exception
+    assert [e.value for e in at.tabs[FOOD_TAB].error] == [config.TOOL_FAILED_MESSAGE]
+    assert at.selectbox(key="food_query").disabled
+    assert _sidebar_metric(at, "Daily target")
+    assert len(at.tabs) == 4
+
+
+def test_a_lookup_that_fails_shows_the_fixed_error():
+    """A lookup that fails after the dropdown was drawn shows the fixed error, nothing else."""
+    at = _start()
+    at.session_state["food_result"] = ToolNotice(status="error", message=config.TOOL_FAILED_MESSAGE)
+    tab = at.run(timeout=30).tabs[FOOD_TAB]
+    assert [e.value for e in tab.error] == [config.TOOL_FAILED_MESSAGE]
+    assert not tab.metric and not tab.text
 
 
 def test_the_result_stays_after_another_rerun():
     """The last lookup stays on the page while other widgets rerun it."""
-    at = _look_up(_start(), "rolled oats", 80.0)
+    at = _look_up(_start(), OATS, 80.0)
     at.sidebar.segmented_control(key="sidebar_goal").set_value("maintain").run(timeout=30)
-    assert [t.value for t in at.tabs[FOOD_TAB].text] == ["Oats, whole grain, rolled, old fashioned"]
+    assert [t.value for t in at.tabs[FOOD_TAB].text] == [OATS]
 
 
-@pytest.mark.parametrize("food", [HOSTILE_FOOD_NAME, "oats"])
+@pytest.mark.parametrize("food", [HOSTILE_FOOD_NAME, OATS])
 def test_usda_names_in_the_food_tab_are_plain_text(food):
     """A USDA name with a link, an image and a delimiter is shown only as plain text."""
-    # As the match, and as a close alternative of "oats".
     at = _look_up(_start(), food, 100.0)
     tab = at.tabs[FOOD_TAB]
-    shown_plain = [t.value for t in tab.text] + [
-        name for frame in tab.dataframe for column in frame.value for name in frame.value[column]
-    ]
-    assert HOSTILE_FOOD_NAME in shown_plain
+    shown_plain = [t.value for t in tab.text]
+    assert food in shown_plain
     shown = [m.value for m in at.markdown] + [c.value for c in at.caption]
     shown += [i.value for i in at.info] + [w.value for w in at.warning]
     shown += [m.label for m in at.metric]

@@ -1,9 +1,11 @@
 """lookup_food_nutrition: nutrients of a food and amount, from the USDA Foundation Foods table.
 
 The table (`data/usda_foods.csv`) is made by `scripts/prepare_usda.py` from USDA FoodData Central
-(CC0 1.0; docs/SOURCES.md #21). Food names are matched with rapidfuzz, so small typos and plurals
-still find the food; the matched USDA name and close alternatives are always returned, so the
-model and the user can see what was looked up.
+(CC0 1.0; docs/SOURCES.md #21). The chat's tool (`lookup_food_nutrition`) matches food names with
+rapidfuzz, so small typos and plurals still find the food; the matched USDA name and close
+alternatives are always returned, so the model and the user can see what was looked up. The Food
+lookup tab's dropdown (`food_names`, `lookup_chosen_food`, T4.8) takes only the table's own names
+and looks them up exactly, with no alternatives.
 """
 
 import csv
@@ -11,7 +13,7 @@ import re
 from collections.abc import Sequence
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from rapidfuzz import fuzz, process, utils
@@ -295,16 +297,49 @@ def lookup_food_nutrition(
             status="not_found", message=message, grams=args.grams, alternatives=suggestions
         )
 
-    best = ranked[0][0]
-    message = f"{args.grams:g} g of {best.description}, from per-100 g USDA values."
-    if best.fiber_g is None:
+    return _found(ranked[0][0], args.grams, [f.description for f, _ in ranked[1 : 1 + limit]])
+
+
+def _found(food: Food, grams: float, alternatives: list[str]) -> FoodLookupResult:
+    """Return the "found" result for this food and amount."""
+    message = f"{grams:g} g of {food.description}, from per-100 g USDA values."
+    if food.fiber_g is None:
         message += " USDA reports no fiber value for this food."
     return FoodLookupResult(
         status="found",
         message=message,
-        grams=args.grams,
-        matched_name=best.description,
-        fdc_id=best.fdc_id,
-        nutrients=_scale(best, args.grams),
-        alternatives=[f.description for f, _ in ranked[1 : 1 + limit]],
+        grams=grams,
+        matched_name=food.description,
+        fdc_id=food.fdc_id,
+        nutrients=_scale(food, grams),
+        alternatives=alternatives,
     )
+
+
+def food_names(table: Sequence[Food] | None = None) -> tuple[str, ...]:
+    """Return the names of the foods in the table, sorted, for the Food lookup tab's dropdown."""
+    foods = load_food_table() if table is None else table
+    return tuple(sorted((food.description for food in foods), key=str.casefold))
+
+
+def lookup_chosen_food(
+    name: object, grams: object, table: Sequence[Food] | None = None
+) -> FoodLookupResult:
+    """Return the nutrients of the food with exactly this name, chosen from the dropdown (T4.8)."""
+    # No fuzzy matching and no length limit on the name: it is one of the table's own names (two
+    # are longer than FOOD_MAX_NAME_CHARS, which limits free text). Anything else is invalid.
+    foods = load_food_table() if table is None else table
+    chosen = next((food for food in foods if food.description == name), None)
+    # A number only (no strings or booleans); NaN fails both comparisons.
+    grams_ok = (
+        isinstance(grams, int | float)
+        and not isinstance(grams, bool)
+        and config.FOOD_MIN_GRAMS <= grams <= config.FOOD_MAX_GRAMS
+    )
+    if chosen is None or not grams_ok:
+        parts = ["choose one food from the list"] if chosen is None else []
+        parts += [] if grams_ok else lookup_problems({"grams"})
+        return FoodLookupResult(
+            status="invalid", message="Invalid food lookup: " + "; ".join(parts) + "."
+        )
+    return _found(chosen, float(cast(float, grams)), [])

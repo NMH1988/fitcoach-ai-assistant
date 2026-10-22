@@ -224,26 +224,18 @@ _EN: dict[str, str] = {
     # Food lookup (tab and tool result) and the meal plan check.
     "food.title": "Food lookup",
     "food.food": "Food",
-    "food.placeholder": "e.g. rolled oats, chicken breast raw",
+    "food.placeholder": "Choose a food or type to search",
     "food.grams": "Grams",
     "food.look_up": "Look up",
     "food.caption": (
-        "Single, unprocessed foods from the USDA FoodData Central Foundation Foods table, named "
-        "in English."
+        "Pick a food from the list, or type a few letters to search it. Single, unprocessed foods "
+        "from the USDA FoodData Central Foundation Foods table, named in English."
     ),
     # The Food lookup tab's own messages (no model call there; owner's choice in the review of
-    # PR #74). The English ones are the food tool's, as the English tab showed before.
+    # PR #74). The English tab shows the lookup's own fixed text (`lookup_chosen_food()`, T4.8).
     "food.tab.invalid": (
-        "Invalid food lookup: food must be the name of one food in 2 to 100 characters, with at "
-        "least one word of 2 or more letters or digits."
-    ),
-    "food.tab.not_found_alternatives": (
-        "No close match in the USDA Foundation Foods table. Did you mean one of the alternatives? "
-        "They are the closest names in it."
-    ),
-    "food.tab.not_found_none": (
-        "No close match in the USDA Foundation Foods table. No similar name: the table holds "
-        "single, unprocessed foods under plainer names (e.g. 'rolled oats')."
+        "Invalid food lookup: choose one food from the list; the amount must be a number of "
+        "grams from 0.1 to 2000."
     ),
     "food.tab.error": config.TOOL_FAILED_MESSAGE,
     "food.did_you_mean": "Did you mean",
@@ -651,26 +643,17 @@ _DE: dict[str, str] = {
     "macros.per_weight": "Pro {unit} Körpergewicht",
     "food.title": "Lebensmittelsuche",
     "food.food": "Lebensmittel",
-    "food.placeholder": "z. B. rolled oats, chicken breast raw",
+    "food.placeholder": "Wählen Sie ein Lebensmittel oder tippen Sie zum Suchen",
     "food.grams": "Gramm",
     "food.look_up": "Suchen",
     "food.caption": (
-        "Einzelne, unverarbeitete Lebensmittel aus der Tabelle Foundation Foods von USDA "
-        "FoodData Central. Geben Sie den Namen auf Englisch ein: Die Tabelle hat nur englische "
-        "Namen."
+        "Wählen Sie ein Lebensmittel aus der Liste oder geben Sie einige Buchstaben ein, um danach "
+        "zu suchen. Verfügbar sind einzelne, unverarbeitete Lebensmittel aus der "
+        "Foundation-Foods-Tabelle von USDA FoodData Central; die Bezeichnungen sind auf Englisch."
     ),
     "food.tab.invalid": (
-        "Geben Sie den Namen eines Lebensmittels auf Englisch ein: 2 bis 100 Zeichen, mit "
-        "mindestens einem Wort aus 2 oder mehr Buchstaben oder Ziffern."
-    ),
-    "food.tab.not_found_alternatives": (
-        "Keine genaue Übereinstimmung in der USDA-Tabelle Foundation Foods. Meinten Sie einen der "
-        "ähnlichen Einträge unten? Es sind die nächsten Namen in der Tabelle."
-    ),
-    "food.tab.not_found_none": (
-        "Keine genaue Übereinstimmung in der USDA-Tabelle Foundation Foods und kein ähnlicher "
-        "Name: Die Tabelle enthält einzelne, unverarbeitete Lebensmittel unter einfachen "
-        "englischen Namen (z. B. 'rolled oats')."
+        "Wählen Sie ein Lebensmittel aus der Liste und geben Sie eine Menge von 0,1 bis 2000 "
+        "Gramm an."
     ),
     "food.tab.error": (
         "Die Lebensmittelsuche ist gerade nicht verfügbar: Die Lebensmitteltabelle konnte nicht "

@@ -17,6 +17,19 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-22 · T4.8 Food lookup tab: a searchable dropdown of the USDA foods · #86 (closes #85)
+- **Brief:** beyond the brief (owner's request, after seeing the tab): refines T4.7's Food lookup tab (core 5, an intuitive UI that shows tool results).
+- **What:**
+  - `src/tools/food.py`: `food_names()` (the table's names, sorted) and `lookup_chosen_food()` (the food with exactly this name, no fuzzy matching, grams checked); `_found()` is the "found" result shared with `lookup_food_nutrition`.
+  - `src/tools/registry.py`: `run_chosen_food_lookup()`, the tab's entry point (fixed error notice for a missing table); `run_food_lookup()` (T4.7's entry point) and its three tests are removed, since nothing calls it any more.
+  - `app.py`: `st.selectbox` (`food_query`, no food chosen at the start) instead of the text box; Look up disabled until a food is chosen; a missing table shows the fixed error with a disabled dropdown; the "Did you mean" and "close alternatives" tables are gone from the tab.
+  - `src/i18n.py`: new placeholder, caption and invalid text (EN and DE); `food.tab.not_found_*` removed.
+  - Tests: `tests/test_food_lookup.py`, `test_tools_registry.py`, `test_app_targets.py`, `test_app_language.py`, `test_i18n.py`. Docs: `UI_DESIGN.md`, `ARCHITECTURE.md`, `SECURITY.md`, `IMPLEMENTATION_PLAN.md`, `TESTING.md`.
+- **Why:** a visitor could not know which foods the table holds. The owner chose a dropdown with only the table's foods (no free typing, no fuzzy matching) over a dropdown that also accepts typed names.
+- **Decisions & gotchas:** the lookup is by exact name, not through `FoodLookupArgs`, because two USDA names are longer than `FOOD_MAX_NAME_CHARS` (100) and would be refused as free text. Names are unique in the table (tested). In AppTest the button stays disabled until a rerun after the dropdown is set, so the test helpers rerun in between. The chat tool and the meal plan check are unchanged (free text, fuzzy). A result stays on screen when another food is chosen until Look up is pressed again (as in T4.7). The owner reviewed the new German texts on 2026-10-22: the placeholder now uses "Sie" ("Wählen Sie ein Lebensmittel oder tippen Sie zum Suchen"), the caption is reworded ("die Bezeichnungen sind auf Englisch"), the invalid text stays. Streamlit's own filter ranks the closest names first (typing "egg" lists "Eggplant, raw" first).
+- **PR #86 review:** the tab now reads the table each time it is drawn, so `app.py` catches any error there, not only `FoodTableError`: a table that is not UTF-8 stopped the page before the Details tab and the sidebar were drawn (`test_a_foods_table_that_cannot_be_read_still_draws_the_rest_of_the_page`). The error shown after a failed lookup is tested again in both languages; stale comments and the food module's docstring are updated.
+- **Follow-ups:** none.
+
 ## 2026-10-22 · T6.2 Record the transfer to the course repo · #84 (closes #20)
 - **Brief:** submission (through the GitHub repository the course provides).
 - **What:** `docs/IMPLEMENTATION_PLAN.md`: O6 done (the course repo's URL, the reviewers read the files only); T6.2 done, its last criterion ticked with what the course repo shows and each checklist step, criterion 2's count brought up to date (38 merged PRs, T1.8 planned after the submission), and a note that issue #20 was reopened. `docs/DEPLOYMENT.md`: what was done, and how to update the course repo later, with the commands.
