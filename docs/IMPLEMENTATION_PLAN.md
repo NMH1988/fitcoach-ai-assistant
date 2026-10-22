@@ -59,7 +59,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T1.5 | #42 | Docs: run commands use the project's venv | S | T1.1 | 10-20 | done |
 | T1.6 | #55 | CI: accept the pillow 12.3.0 advisories until Streamlit allows pillow 13 | S | T1.1 | 10-20 | done |
 | T1.6a | #77 | CI: upgrade streamlit to 1.66.1 so pillow 13 replaces the pillow ignores (owner's request after PR #76's security job failed) | S | T1.6 | 10-22 | done |
-| T1.7 | #81 | Streamlit runs on localhost only, without telemetry or error details (owner's request after the 2026-10-22 security audit) | S | T1.1 | 10-22 | in review |
+| T1.7 | #81 | Streamlit runs on localhost only, without telemetry or error details (owner's request after the 2026-10-22 security audit) | S | T1.1 | 10-22 | done |
 | T1.8 | #82 | A fixed message for unexpected errors in a chat turn (split from T1.7) | S | T1.7 | after the submission | todo |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1, O7 | 10-26 | done |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2 | 10-27 | done |
@@ -164,7 +164,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] Records: `docs/ARCHITECTURE.md` dependency table (streamlit 1.66.1, a pillow row), this plan, `docs/PROGRESS.md`.
 **Notes:** the source scan in `tests/test_app_export.py` (no image input in the app) stays as defence in depth; its comments no longer point to the removed rows. Tested first in a scratch venv, as the owner's app was running on the main checkout's venv; after the reinstall the main venv passes the same checks. Not checked in a browser: AppTest cannot see the CSS that hides "Press Enter to apply" (it relies on Streamlit's `InputInstructions` test id) or the theme hint, so a short look in the app is the remaining check, if wanted.
 
-### T1.7 Streamlit runs on localhost only, without telemetry or error details (S) · status: in review · issue #81
+### T1.7 Streamlit runs on localhost only, without telemetry or error details (S) · status: done · issue #81
 **Serves:** core 3 and 4 (security measures relevant to the domain, proper error handling); AC-11 and AC-13; `.claude/rules/security-privacy.md` (no anonymous visitor may spend the owner's key; local only until a deployment option exists). Owner's request (2026-10-22), after the whole-app security audit on 8bcdc74 (findings 1-3, `docs/SECURITY.md`, "Security audits").
 **Depends on:** T1.1
 **Acceptance criteria** (approved by the owner, 2026-10-22; the catch-all criteria moved to T1.8 when the owner split the ticket the same day)
@@ -172,7 +172,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] `.streamlit/config.toml` sets `[browser] gatherUsageStats = false` - `test_usage_statistics_are_off`.
 - [x] `.streamlit/config.toml` sets `[client] showErrorDetails = "none"` (owner's choice) - `test_error_details_are_hidden`; `test_every_setting_is_an_option_streamlit_knows` checks every key of the file against Streamlit's own option list, so a misspelt one fails, and `test_streamlit_reads_the_settings_from_the_file` reads the three values back through Streamlit's own config loader, in a separate Python process started in the repo root.
 - [x] `docs/SECURITY.md` lists the three settings as controls and records the 2026-10-22 audit with each finding's status; `docs/DEPLOYMENT.md` says a public deployment may change `server.address` only together with one of its options - review.
-- [x] `ruff check .`, `ruff format --check .` and `python -m pytest -q` pass - locally on this branch: clean, clean, 2962 passed (2026-10-22, after the PR review's fix); CI green on PR #83 (linked-issue, lint, test and security passed on f7fe7f0).
+- [x] `ruff check .`, `ruff format --check .` and `python -m pytest -q` pass - locally on this branch: clean, clean, 2962 passed (2026-10-22, after the PR review's fix); CI green on PR #83 (linked-issue, lint, test and security passed on 2523114).
 - [x] Records: this plan (T1.7 and T1.8), `docs/PROGRESS.md`, `docs/ARCHITECTURE.md` section 10, a `docs/TESTING.md` live-check row.
 **Notes:** finding 2's first half was the T1.4 audit's finding 1 (2026-10-20); its criterion went to issue #7 (T3.1) only and never reached this plan, so it was never done. Findings 4-6 of the audit stay open, recorded in `docs/SECURITY.md` for the owner to decide.
 

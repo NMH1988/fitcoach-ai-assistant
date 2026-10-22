@@ -67,6 +67,7 @@ def test_streamlit_reads_the_settings_from_the_file():
         capture_output=True,
         text=True,
         timeout=60,
-        check=True,
     )
+    # The child's traceback, if any, is in its stderr; show it rather than only the exit status.
+    assert done.returncode == 0, done.stderr
     assert json.loads(done.stdout.splitlines()[-1]) == expected
