@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-22 · T6.2 Record the transfer to the course repo · #PR (closes #20)
+## 2026-10-22 · T6.2 Record the transfer to the course repo · #84 (closes #20)
 - **Brief:** submission (through the GitHub repository the course provides).
 - **What:** `docs/IMPLEMENTATION_PLAN.md`: O6 done (the course repo's URL, the reviewers read the files only); T6.2 done, its last criterion ticked with what the course repo shows and each checklist step, criterion 2's count brought up to date (38 merged PRs, T1.8 planned after the submission), and a note that issue #20 was reopened. `docs/DEPLOYMENT.md`: what was done, and how to update the course repo later, with the commands.
 - **Why:** the course repo gets files and history only, so the record of the transfer must be in the files; T6.2 stayed "in review" in the copy, and T1.7 merged here after it.
