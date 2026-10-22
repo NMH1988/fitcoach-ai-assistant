@@ -62,12 +62,15 @@ Updating the course repository later (allowed before the deadline):
 1. Merge the change into this repo's `main` first, through its PR as usual.
 2. Merge this repo's `main` into the course repo's `main` (it has its own merge commit, so a fast-forward is not possible and a plain `git push course main` is rejected), never with `--force`, and push it there:
    ```bash
+   git fetch origin
    git fetch course
    git switch --detach course/main
-   git merge main -m "T<x.y> Update from NMH1988/nutrition-ai-assistant"
+   git merge origin/main -m "T<x.y> Update from NMH1988/nutrition-ai-assistant"
+   git log --oneline -1 HEAD^2    # must be the merged PR's commit on main
    git push course HEAD:main
    git switch main
    ```
+   It merges `origin/main`, not the local `main`, which may not have the PR merged on GitHub yet.
    Never merge `course/main` into this repo's `main`: the course's own commit (`125.md`) would land in the personal repo.
 3. Check that CI passes on the course repo's new `main`.
 
