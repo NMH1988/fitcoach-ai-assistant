@@ -1,10 +1,23 @@
-# Streamlit settings: the theme from docs/UI_DESIGN.md (T3.1), light and dark mode (T7.3).
+# Streamlit settings: the theme from docs/UI_DESIGN.md (T3.1), light and dark mode (T7.3), and
+# the server, telemetry and error settings (T1.7).
+
+[server]
+# This machine only: without it Streamlit listens on every interface, so anyone on the same
+# network could open the app and spend the key. A public deployment may change it only together
+# with one of the options in docs/DEPLOYMENT.md (T1.7).
+address = "localhost"
+
+[browser]
+# No usage events, so page views do not send visitors' IPs to Streamlit's metrics host (T1.7).
+gatherUsageStats = false
 
 [client]
 # Users switch System, Light or Dark at the top of Streamlit's menu (top right) (T7.3). "auto"
 # keeps that switch for every visitor and shows the developer options only on localhost;
 # "minimal" would hide it.
 toolbarMode = "auto"
+# An uncaught error shows a generic message, never its text, type or traceback (T1.7).
+showErrorDetails = "none"
 
 [theme]
 # System font: no Google Fonts request, so visitors' IPs are not sent to Google.

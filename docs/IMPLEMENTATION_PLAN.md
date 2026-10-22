@@ -59,6 +59,8 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T1.5 | #42 | Docs: run commands use the project's venv | S | T1.1 | 10-20 | done |
 | T1.6 | #55 | CI: accept the pillow 12.3.0 advisories until Streamlit allows pillow 13 | S | T1.1 | 10-20 | done |
 | T1.6a | #77 | CI: upgrade streamlit to 1.66.1 so pillow 13 replaces the pillow ignores (owner's request after PR #76's security job failed) | S | T1.6 | 10-22 | done |
+| T1.7 | #81 | Streamlit runs on localhost only, without telemetry or error details (owner's request after the 2026-10-22 security audit) | S | T1.1 | 10-22 | in review |
+| T1.8 | #82 | A fixed message for unexpected errors in a chat turn (split from T1.7) | S | T1.7 | after the submission | todo |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1, O7 | 10-26 | done |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2 | 10-27 | done |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | done |
@@ -161,6 +163,32 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] The app still works on the new streamlit: `ruff check .`, `ruff format --check .` and `python -m pytest -q` (AppTests included) pass - in that venv on `main` plus this change, and again in the reinstalled main venv: clean, clean, 2866 passed; CI green on PR #78 (see above).
 - [x] Records: `docs/ARCHITECTURE.md` dependency table (streamlit 1.66.1, a pillow row), this plan, `docs/PROGRESS.md`.
 **Notes:** the source scan in `tests/test_app_export.py` (no image input in the app) stays as defence in depth; its comments no longer point to the removed rows. Tested first in a scratch venv, as the owner's app was running on the main checkout's venv; after the reinstall the main venv passes the same checks. Not checked in a browser: AppTest cannot see the CSS that hides "Press Enter to apply" (it relies on Streamlit's `InputInstructions` test id) or the theme hint, so a short look in the app is the remaining check, if wanted.
+
+### T1.7 Streamlit runs on localhost only, without telemetry or error details (S) · status: in review · issue #81
+**Serves:** core 3 and 4 (security measures relevant to the domain, proper error handling); AC-11 and AC-13; `.claude/rules/security-privacy.md` (no anonymous visitor may spend the owner's key; local only until a deployment option exists). Owner's request (2026-10-22), after the whole-app security audit on 8bcdc74 (findings 1-3, `docs/SECURITY.md`, "Security audits").
+**Depends on:** T1.1
+**Acceptance criteria** (approved by the owner, 2026-10-22; the catch-all criteria moved to T1.8 when the owner split the ticket the same day)
+- [x] `.streamlit/config.toml` sets `[server] address = "localhost"` - `tests/test_streamlit_config.py::test_the_server_listens_on_localhost_only`; manual check (2026-10-22, the app started from this branch): the log says "Uvicorn server started on localhost:8501" and prints only `URL: http://localhost:8501`, no "Network URL"; `Get-NetTCPConnection -LocalPort 8501 -State Listen` shows one socket, `127.0.0.1`; the page loads on `http://localhost:8501`, and `http://192.168.178.64:8501` (the machine's Wi-Fi address) and `http://172.20.80.1:8501` (its Hyper-V switch) are refused from the same machine, while `http://localhost:8501/_stcore/health` answers `ok`. Not tried from a second device (a refused connection on the machine's own network address is what that device would get).
+- [x] `.streamlit/config.toml` sets `[browser] gatherUsageStats = false` - `test_usage_statistics_are_off`.
+- [x] `.streamlit/config.toml` sets `[client] showErrorDetails = "none"` (owner's choice) - `test_error_details_are_hidden`; `test_every_setting_is_an_option_streamlit_knows` checks every key of the file against Streamlit's own option list, so a misspelt one fails, and `test_streamlit_reads_the_settings_from_the_file` reads the three values back through Streamlit's own config loader.
+- [x] `docs/SECURITY.md` lists the three settings as controls and records the 2026-10-22 audit with each finding's status; `docs/DEPLOYMENT.md` says a public deployment may change `server.address` only together with one of its options - review.
+- [ ] `ruff check .`, `ruff format --check .` and `python -m pytest -q` pass - locally on this branch: clean, clean, 2964 passed (2026-10-22); CI on the PR.
+- [x] Records: this plan (T1.7 and T1.8), `docs/PROGRESS.md`, `docs/ARCHITECTURE.md` section 10, a `docs/TESTING.md` live-check row.
+**Notes:** finding 2's first half was the T1.4 audit's finding 1 (2026-10-20); its criterion went to issue #7 (T3.1) only and never reached this plan, so it was never done. Findings 4-6 of the audit stay open, recorded in `docs/SECURITY.md` for the owner to decide.
+
+### T1.8 A fixed message for unexpected errors in a chat turn (S) · status: todo · issue #82
+**Serves:** core 4 (proper error handling); AC-13. Finding 2 of the 2026-10-22 audit, second half; split from T1.7 by the owner (2026-10-22), to follow after the course submission.
+**Depends on:** T1.7
+**Acceptance criteria** (approved by the owner, 2026-10-22)
+- [ ] Any other `Exception` raised after the guard accepts a question (opening the index, building the models, query translation, retrieval, the answer, the tools) makes `chat.run_turn` return an `"error"` result with a new fixed message (code `turn.error`, English and German in `src/i18n.py`; the owner reviews the German text), the steps run and the tokens spent so far; the original is not chained or shown - `tests/test_chat.py`: a fake that raises `RuntimeError("SECRET-MARKER")` at each of these points; "SECRET-MARKER" appears nowhere in the result.
+- [ ] The catch-all writes one log line with the exception's type and where it was raised (as `LLMError.diagnostic`), never its message or arguments - `tests/test_chat.py` with `caplog`.
+- [ ] Streamlit's control exceptions (`RerunException`, `StopException`, which derive from `BaseException`) are not caught - a test with a `BaseException` raised inside the turn.
+- [ ] An unknown answer language still raises `ValueError` before any call, and a rejected question still makes no API call - the existing tests keep passing.
+- [ ] In the app, such an error shows the fixed message in the chosen language, no "SECRET-MARKER", and the chat history stays - AppTest in `tests/test_app_chat.py`.
+- [ ] `docs/SECURITY.md` and `docs/ARCHITECTURE.md` section 10 list the catch-all - review.
+- [ ] `ruff check .`, `ruff format --check .` and `python -m pytest -q` pass - CI.
+- [ ] Records: this plan (T1.8), `docs/PROGRESS.md`.
+**Notes:** owner's choices (2026-10-22): a new message rather than `llm.error` (which names the model service); log only the type and location. Plan drafted in the T1.7 session: make `llm._diagnostic` public, put `TURN_ERROR_MESSAGE` in `src/config.py`, add `except Exception` after the named handlers in `run_turn()`. A catch-all can hide a UI bug raised in the app's `on_text`/`on_step` callbacks in AppTests; the tests that check the answer's content still catch it.
 
 ## Epic 2: Knowledge base
 
