@@ -31,6 +31,7 @@ from src.tools.food import (
     FoodLookupArgs,
     FoodLookupResult,
     invalid_lookup_message,
+    lookup_chosen_food,
     lookup_food_nutrition,
 )
 from src.tools.meal_plan import (
@@ -247,13 +248,16 @@ def _run(tool: StructuredTool, args: object) -> ToolResult:
     return result
 
 
-def run_food_lookup(
+def run_chosen_food_lookup(
     food: object, grams: object, table: Sequence[Food] | None = None
 ) -> FoodLookupResult | ToolNotice:
-    """Look a food up as the tool would, for the Food lookup tab: checked, never an exception."""
-    # Same schema check and fixed messages as a model's call; no model is involved (T4.7).
-    tool = build_tools(None, table)[FOOD_TOOL]
-    return cast(FoodLookupResult | ToolNotice, _run(tool, {"food": food, "grams": grams}))
+    """Look up a food chosen in the Food lookup tab's dropdown: exact, never an exception."""
+    # Not a tool call: no model and no schema of the model's; the name must be one of the table's.
+    try:
+        return lookup_chosen_food(food, grams, table)
+    except Exception:
+        # A missing or broken foods table: the fixed message, never the exception's text.
+        return ToolNotice(status="error", message=config.TOOL_FAILED_MESSAGE)
 
 
 def tool_message(call_id: str, result: ToolResult, name: str | None = None) -> ToolMessage:

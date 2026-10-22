@@ -11,7 +11,7 @@ from src import chat, config, export_pdf, guard, i18n, llm, profile, units, usag
 from src.rag import hybrid, store
 from src.tools import meal_plan, registry
 from src.tools.energy import Macro, MacroTargetsResult, TdeeResult, protein_lowered_note
-from src.tools.food import FoodLookupResult
+from src.tools.food import FoodLookupResult, FoodTableError, food_names
 from src.tools.meal_plan import MealPlanResult
 
 # The language: the browser's at the start of a session, then the user's choice from the header
@@ -792,18 +792,13 @@ def _fiber_text(fiber_g: float | None) -> str:
 
 
 def _food_tab_message(result: registry.ToolResult) -> str:
-    """Return why a Food lookup tab lookup found nothing, in the session's language."""
+    """Return why a Food lookup tab lookup gave no result, in the session's language."""
     # The tab calls no model, so its messages follow the language (owner's choice in the review
-    # of PR #74); English keeps the tool's own fixed text, as before. The tab's widgets keep the
-    # grams in range, so an invalid lookup is always the food's name.
+    # of PR #74); English keeps the lookup's own fixed text. The dropdown and the grams widget
+    # keep both in range, so an invalid lookup is not expected; a food is never "not found".
     if _lang() == "en":
         return result.message
-    if result.status == "invalid":
-        return _t("food.tab.invalid")
-    if not isinstance(result, FoodLookupResult):
-        return _t("food.tab.error")
-    alternatives = "alternatives" if result.alternatives else "none"
-    return _t(f"food.tab.not_found_{alternatives}")
+    return _t("food.tab.invalid" if result.status == "invalid" else "food.tab.error")
 
 
 def _food_result(result: registry.ToolResult) -> None:
@@ -812,17 +807,9 @@ def _food_result(result: registry.ToolResult) -> None:
     if result.status == "invalid":
         st.warning(_food_tab_message(result), icon=":material/edit:")
         return
-    if not isinstance(result, FoodLookupResult):
+    if not isinstance(result, FoodLookupResult) or result.nutrients is None:
         # The foods table is missing or broken.
         st.error(_food_tab_message(result), icon=":material/error:")
-        return
-    if result.status != "found" or result.nutrients is None:
-        # Fixed text; the suggestions are USDA names, so only table cells.
-        st.info(_food_tab_message(result), icon=":material/search_off:")
-        if result.alternatives:
-            st.dataframe(
-                {_t("food.did_you_mean"): result.alternatives}, hide_index=True, width="stretch"
-            )
         return
     nutrients = result.nutrients
     st.caption(_t("food.matched", grams=result.grams))
@@ -836,22 +823,26 @@ def _food_result(result: registry.ToolResult) -> None:
     )
     fat.metric(_t("nutrient.fat"), f"{_plain(nutrients.fat_g)} g", border=True)
     st.caption(_t("food.fiber_line", fiber=_fiber_text(nutrients.fiber_g)))
-    if result.alternatives:
-        st.dataframe(
-            {_t("food.close_alternatives"): result.alternatives}, hide_index=True, width="stretch"
-        )
     st.caption(_t("usda.source_line"))
 
 
 def _food_tab() -> None:
     """Look up the nutrients of a food and amount in the USDA table, with no model call (T4.7)."""
     st.subheader(f":material/search: {_t('food.title')}")
+    # The dropdown lists the table's own foods, so a visitor sees what can be looked up (T4.8).
+    try:
+        names = food_names()
+    except FoodTableError:
+        names = ()
+        st.error(_t("food.tab.error"), icon=":material/error:")
     food_column, grams_column, button_column = st.columns([4, 1, 1], vertical_alignment="bottom")
-    food = food_column.text_input(
+    food = food_column.selectbox(
         _t("food.food"),
+        names,
+        index=None,
         key="food_query",
-        max_chars=config.FOOD_MAX_NAME_CHARS,
         placeholder=_t("food.placeholder"),
+        disabled=not names,
     )
     grams = grams_column.number_input(
         _t("food.grams"),
@@ -868,10 +859,11 @@ def _food_tab() -> None:
         key="food_lookup",
         type="primary",
         width="stretch",
+        disabled=food is None,
     ):
         # Kept for the session, so the result stays while other widgets rerun the page.
-        st.session_state["food_result"] = registry.run_food_lookup(food, grams)
-    # In German it also says to enter the name in English: the USDA table has English names only.
+        st.session_state["food_result"] = registry.run_chosen_food_lookup(food, grams)
+    # The caption also says the food names are English: the USDA table has English names only.
     st.caption(_t("food.caption"))
     result = st.session_state.get("food_result")
     if result is not None:

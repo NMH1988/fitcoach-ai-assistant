@@ -10,7 +10,9 @@ from src.tools.food import (
     Food,
     FoodLookupArgs,
     FoodTableError,
+    food_names,
     load_food_table,
+    lookup_chosen_food,
     lookup_food_nutrition,
     read_usda_release,
 )
@@ -404,3 +406,65 @@ def test_common_foods_are_found_in_the_committed_table(query, head):
     result = lookup_food_nutrition(query, 100)
     assert result.status == "found"
     assert result.matched_name.startswith(head)
+
+
+# --- the dropdown's exact lookup (T4.8) ---
+
+
+def test_food_names_are_the_tables_names_sorted_without_regard_to_case():
+    """The dropdown lists each food of the table once, in alphabetical order."""
+    names = food_names(TABLE)
+    assert sorted(names, key=str.casefold) == list(names)
+    assert set(names) == {food.description for food in TABLE}
+
+
+def test_the_committed_table_gives_every_food_a_unique_name_for_the_dropdown():
+    """No two foods share a name, so a name always picks one food."""
+    names = food_names()
+    assert len(names) == len(set(names)) == len(load_food_table())
+
+
+def test_a_chosen_food_is_looked_up_exactly_with_no_alternatives():
+    """The exact name gives that food's scaled values, whatever else is similar."""
+    result = lookup_chosen_food("Flour, oat, whole grain", 50, TABLE)
+    assert result.status == "found"
+    assert result.matched_name == "Flour, oat, whole grain"
+    assert result.nutrients.kcal == 195
+    assert result.alternatives == []
+
+
+@pytest.mark.parametrize("name", ["oats", "Oats", "Flour, oat", "", None, 5])
+def test_a_name_that_is_not_in_the_table_is_invalid_with_no_guessing(name):
+    """Only the table's own names are accepted: a near name is not matched, it is invalid."""
+    result = lookup_chosen_food(name, 100, TABLE)
+    assert result.status == "invalid"
+    assert result.message.startswith("Invalid food lookup: choose one food from the list")
+    assert result.nutrients is None
+
+
+@pytest.mark.parametrize(
+    "grams",
+    [0, -5, config.FOOD_MAX_GRAMS + 1, math.nan, math.inf, True, "100", None],
+)
+def test_grams_out_of_range_or_not_a_number_are_invalid(grams):
+    """The amount is checked like the tool's: a number from the minimum to the maximum."""
+    result = lookup_chosen_food("Flour, oat, whole grain", grams, TABLE)
+    assert result.status == "invalid"
+    assert "the amount must be a number of grams" in result.message
+    assert "choose one food" not in result.message
+
+
+def test_a_name_longer_than_the_free_text_limit_can_be_chosen():
+    """The table's two names over FOOD_MAX_NAME_CHARS are looked up by the dropdown."""
+    long_name = "Beans, " + "very long description, " * 6 + "raw"
+    assert len(long_name) > config.FOOD_MAX_NAME_CHARS
+    table = (*TABLE, TABLE[0].model_copy(update={"fdc_id": 99, "description": long_name}))
+    result = lookup_chosen_food(long_name, 100, table)
+    assert (result.status, result.matched_name) == ("found", long_name)
+
+
+def test_every_food_of_the_committed_table_is_found_by_its_own_name():
+    """Each name in the dropdown gives its own food, the very long ones included."""
+    for food in load_food_table():
+        result = lookup_chosen_food(food.description, 100)
+        assert (result.status, result.fdc_id) == ("found", food.fdc_id)

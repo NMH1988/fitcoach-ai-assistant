@@ -263,8 +263,8 @@ def test_every_unit_system_activity_level_and_topic_has_its_labels():
             assert {f"{prefix}.{value}" for value in options} <= set(i18n.TEXT[lang])
 
 
-def test_the_food_tab_s_english_messages_are_the_food_tool_s():
-    """The Food lookup tab's English messages are the tool's own texts, so English is unchanged."""
+def test_the_food_tab_s_english_messages_are_the_lookup_s():
+    """The Food lookup tab's English messages are the lookup's own texts (English unchanged)."""
     table = [
         food.Food(
             fdc_id=1,
@@ -276,18 +276,13 @@ def test_the_food_tab_s_english_messages_are_the_food_tool_s():
             fiber_g=10.6,
         )
     ]
-    invalid = registry.run_food_lookup("", 100, table)
+    invalid = registry.run_chosen_food_lookup("", 0, table)
     assert i18n.t("food.tab.invalid", "en") == invalid.message
-    suggestion = registry.run_food_lookup("toast", 100, table)
-    assert suggestion.alternatives
-    assert i18n.t("food.tab.not_found_alternatives", "en") == suggestion.message
-    nothing = registry.run_food_lookup("zzzz qqqq", 100, table)
-    assert not nothing.alternatives
-    assert i18n.t("food.tab.not_found_none", "en") == nothing.message
     assert i18n.t("food.tab.error", "en") == config.TOOL_FAILED_MESSAGE
 
 
 def test_the_german_invalid_food_message_names_the_configured_limits():
-    """The German invalid-name text spells out the limits, so it must follow the config."""
-    expected = f"{config.FOOD_MIN_NAME_CHARS} bis {config.FOOD_MAX_NAME_CHARS} Zeichen"
-    assert expected in i18n.t("food.tab.invalid", "de")
+    """The German invalid text spells out the grams limits, so it must follow the config."""
+    text = i18n.t("food.tab.invalid", "de")
+    assert f"{config.FOOD_MIN_GRAMS:g}".replace(".", ",") in text
+    assert str(config.FOOD_MAX_GRAMS) in text
