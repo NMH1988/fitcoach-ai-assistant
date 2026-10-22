@@ -17,6 +17,20 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-22 · T6.2 README, final checks and transfer to the course repo · #<PR> (refs #20; the transfer PR closes it)
+- **Brief:** submission; the evaluation's "the app works (you can chat and get answers)" when run as documented.
+- **What:**
+  - `README.md` rewritten: what the app does, how one turn works (guard, query translation, hybrid retrieval, answer with tools), the knowledge base and models, a brief coverage table, the run steps (the lint and format checks now on two lines, as Windows PowerShell 5.1 has no `&&`, T1.5's follow-up), the data and evaluation scripts (attribution and USDA, T2.1's follow-up), every doc and `ATTRIBUTION.md` linked, and a note on `#<n>` numbers.
+  - `docs/IMPLEMENTATION_PLAN.md`: T6.1 and T7.2 (merged as #75 and #76 but still "in review") and O5 done; T6.2 in review with criterion 2 ticked and the owner's choices; a note on `#<n>` numbers under the plan's status. `docs/PROGRESS.md`: the same note. `docs/DEPLOYMENT.md`: the transfer checklist's item 4 keeps the numbers instead of rewriting them as URLs. `docs/ARCHITECTURE.md` section 15: Easy 1, Easy 3 and Hard 4 rows (the PRD claims them).
+- **Why:** the repo is read by the course reviewers in a copy without issues or PRs, so the README must say what the app is and how to run it, and the files must carry every status.
+- **Decisions & gotchas:**
+  - Owner's choices at the start (2026-10-22): two steps (this PR leaves T6.2 in review; after it merges, `main` is pushed to the course repo and a small PR records the transfer and marks T6.2 done); keep the about 400 `#<n>` numbers with a note; split the clean-clone check (below); nothing beyond the brief (the Dependabot PRs #22 and #23, a code licence and the untracked `.claude/launch.json` left out).
+  - `.github/workflows/pr-checks.yml` fails a PR that closes no issue, and T6.2 has one issue (#20) for two PRs: which PR closes it is the owner's choice at the PR (ISSUE_CHOICE).
+- **Clean-clone check (criterion 1):**
+  - Claude, 2026-10-22, on 8871d6d (this branch's first commit), following the README word for word: `git clone --branch feature/t6.2-readme-final-checks` of the local repo into a scratch folder, so nothing gitignored came along (no `.venv`, `data/raw/`, `chroma/` or `.streamlit/secrets.toml`); `py -3.14 -m venv .venv` (Python 3.14.8); `pip install -e ".[dev]"` and `pip check`: no broken requirements; `scripts/download_sources.py`: 21 articles saved (1-20 and 18a) from the Europe PMC API; `ruff check .`: all checks passed; `ruff format --check .`: 108 files already formatted; `python -m pytest -q`: 2957 passed (235 s), no key in the environment; `scripts/generate_attribution.py` gave the same `ATTRIBUTION.md` apart from line endings (Git's `autocrlf` on Windows). `streamlit run app.py` (port 8502, from the clone, no key, no index): the page loads in English with the disclaimer, the four tabs and the sidebar; a question gets "The knowledge base index is missing. Run python scripts/build_index.py to build it." with no crash and no API call (the index is opened before any model is built); no server error in the log.
+  - Owner: OWNER_CLEAN_CLONE
+- **Follow-ups:** O6 (the course repo's URL, whether it is empty, and whether the reviewers use PRs, which decides whether `pr-checks.yml` is disabled there); the transfer and its PR.
+
 ## 2026-10-22 · T7.2 German answers end to end · #76 (closes #34)
 - **Brief:** Hard 4 (multi-language support) as an extra after the core; AC-16. Beyond the PRD's original English-only scope (owner's request, 2026-10-20).
 - **What:**
