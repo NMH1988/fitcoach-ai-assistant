@@ -643,13 +643,13 @@ _DE: dict[str, str] = {
     "macros.per_weight": "Pro {unit} Körpergewicht",
     "food.title": "Lebensmittelsuche",
     "food.food": "Lebensmittel",
-    "food.placeholder": "Lebensmittel wählen oder zum Suchen tippen",
+    "food.placeholder": "Wählen Sie ein Lebensmittel oder tippen Sie zum Suchen",
     "food.grams": "Gramm",
     "food.look_up": "Suchen",
     "food.caption": (
-        "Wählen Sie ein Lebensmittel aus der Liste oder tippen Sie einige Buchstaben, um zu "
-        "suchen. Einzelne, unverarbeitete Lebensmittel aus der Tabelle Foundation Foods von USDA "
-        "FoodData Central; die Namen sind englisch."
+        "Wählen Sie ein Lebensmittel aus der Liste oder geben Sie einige Buchstaben ein, um danach "
+        "zu suchen. Verfügbar sind einzelne, unverarbeitete Lebensmittel aus der "
+        "Foundation-Foods-Tabelle von USDA FoodData Central; die Bezeichnungen sind auf Englisch."
     ),
     "food.tab.invalid": (
         "Wählen Sie ein Lebensmittel aus der Liste und geben Sie eine Menge von 0,1 bis 2000 "

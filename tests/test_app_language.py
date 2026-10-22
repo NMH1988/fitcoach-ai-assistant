@@ -179,7 +179,7 @@ def test_the_food_lookup_is_german_with_english_food_names(monkeypatch):
     at = _start(monkeypatch, "de-DE")
     tab = at.tabs[FOOD_TAB]
     assert i18n.t("food.caption", "de") in [c.value for c in tab.caption]
-    assert "englisch" in i18n.t("food.caption", "de")
+    assert "auf Englisch" in i18n.t("food.caption", "de")
     assert at.selectbox(key="food_query").placeholder == i18n.t("food.placeholder", "de")
     at = _look_up(at, OATS)
     tab = at.tabs[FOOD_TAB]
