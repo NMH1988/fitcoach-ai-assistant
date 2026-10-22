@@ -4,6 +4,8 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 **Adding an entry:** every PR (Dependabot exempt) adds one entry at the top of the log below, in the same PR, so the log reaches `main` together with the work. Keep it short and record what the code does not say. Parallel PRs all add at the top, so they conflict here: keep both entries. `.gitattributes` sets `merge=union` for this file, which handles local merges; GitHub's web conflict editor ignores it.
 
+**Numbers with `#`:** `#<PR>` and `closes #<issue>` refer to the personal repository where the work was done, https://github.com/NMH1988/nutrition-ai-assistant (PR `#76` is https://github.com/NMH1988/nutrition-ai-assistant/pull/76); the course repository has no issues or pull requests of its own. A source number (e.g. "#18a") is a row in `docs/SOURCES.md`.
+
 ```
 ## YYYY-MM-DD · T<x.y> <title> · #<PR> (closes #<issue>)
 - **Brief:** the requirement or optional task served, or "beyond the brief (owner's request)".

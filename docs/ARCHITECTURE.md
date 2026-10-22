@@ -241,3 +241,5 @@ Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 
 | Medium 3 prompt injection, Medium 5 tokens and cost, Medium 6 tool result charts | sections 8, 9, 7 |
 | Hard 1 hybrid search | section 5 |
 | Medium 7 PDF export (extra) | section 7 |
+| Easy 3 source citations; Easy 1 conversation export (the session PDF, extra) | sections 2, 7 |
+| Hard 4 multi-language support, English and German (extra) | sections 2, 7; `docs/UI_DESIGN.md` |

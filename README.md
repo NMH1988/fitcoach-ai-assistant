@@ -1,24 +1,43 @@
 # Nutrition AI Assistant for Gym Enthusiasts
 
-A chatbot that answers nutrition questions for adults who do recreational strength training. It combines retrieval-augmented generation over open-licensed sports nutrition research with tools for personal calculations (energy needs, macro targets) and food lookups.
+A chatbot that answers nutrition questions for adults who do recreational strength training. It combines retrieval-augmented generation over open-licensed sports nutrition research with tools for personal calculations (energy needs, macro targets, a day's meal plan) and food lookups. Every answer cites the research passages it used.
 
-**Status:** in development (see [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)). Built as the Sprint 2 project of the Turing College AI Engineering course, deadline 2026-11-02.
+**Status:** complete for the review of the Sprint 2 project of the Turing College AI Engineering course (deadline 2026-11-02). Every ticket and its status are in [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md); what each change did and why is in [`docs/PROGRESS.md`](docs/PROGRESS.md).
 
-## Documentation
+## What it does
 
-| Document | Contents |
+- **Chat with sources:** ask a nutrition question; the answer cites the research it used (`[S1]`, `[S2]`...) and lists each cited article with its title, authors, year, evidence tier, licence and link. When the sources do not cover a question, the app says so instead of guessing.
+- **Personal numbers:** enter your weight, height, age, sex, activity level and goal (in kg and cm, or lb and ft/in). The assistant calls tools for your daily energy needs, your calorie and macro targets, the nutrients of a food, and a check of a whole day's meal plan against your targets. Tool results show as tables, and the macro split as a chart.
+- **My targets and Food lookup tabs:** your targets, and a food search, without asking the chatbot.
+- **Details tab:** how the last answer was found (the question's rewrites and the filters), and the tokens and cost of each turn and the session.
+- **Session summary as PDF:** your profile, targets, questions and answers with their sources, built in memory and downloaded; nothing is kept on the server.
+- **English and German:** the UI and the answers follow an EN | DE switch in the header (the sources stay English). Light and dark mode through Streamlit's menu.
+- **Safety:** input validation, prompt injection protection, a per-session rate limit, and domain guardrails: no dosing advice on performance-enhancing drugs, a 1200 kcal/day calorie floor in the tools, and a redirect to a professional for under 18s, pregnancy, medical conditions and signs of disordered eating. A "not medical advice" disclaimer is always visible.
+
+Your profile stays in the browser session only: it is never logged, stored or put in the knowledge base.
+
+## How it works
+
+One chat turn runs a fixed pipeline (details in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), section 2):
+
+1. **Input guard** (`src/guard.py`, `src/guardrails.py`): cleans the text and rejects empty, too long or prompt-injection input and high-risk requests before any API call.
+2. **Query translation** (`src/rag/query_translation.py`): a small model rewrites the question three ways in English and picks optional filters (topic, year, evidence tier) from a fixed schema.
+3. **Hybrid retrieval** (`src/rag/`): vector search in a local Chroma index plus BM25 keyword search, for the question and each rewrite, merged with Reciprocal Rank Fusion; a distance limit decides whether the sources cover the question at all.
+4. **Answer with tools** (`src/chat.py`, `src/tools/`): the chat model gets the owner's system prompt, the retrieved passages as delimited data and, when needed, the profile; it may call the four tools (at most 4 rounds) and then writes the answer with `[S#]` citations.
+
+The knowledge base is 20 open-access sports nutrition articles (ISSN position stands and peer-reviewed reviews, all CC BY) and one correction notice, split into chunks with their licence and citation data. Food values come from USDA FoodData Central Foundation Foods (CC0). Models run through OpenRouter: `openai/gpt-5-mini` for answers, `openai/gpt-5-nano` for query translation, `qwen/qwen3-embedding-8b` for embeddings.
+
+## Course brief coverage
+
+| Brief item | Where |
 |---|---|
-| [`docs/BRIEF.md`](docs/BRIEF.md) | Summary of the course brief |
-| [`docs/PRD.md`](docs/PRD.md) | What we build: features, guardrails, acceptance criteria |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Technical design and decisions |
-| [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) | Tickets, order and status |
-| [`docs/TESTING.md`](docs/TESTING.md) | Test strategy and evaluation results |
-| [`docs/SECURITY.md`](docs/SECURITY.md) | Threat model and controls |
-| [`docs/SOURCES.md`](docs/SOURCES.md) | Knowledge base sources and their licences |
-| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Deployment notes |
-| [`docs/PROGRESS.md`](docs/PROGRESS.md) | What each change did and why |
-
-Stack: Python, Streamlit, LangChain, OpenRouter, Chroma, USDA FoodData Central.
+| Advanced RAG: query translation and structured retrieval | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) sections 4-5 |
+| Core 2: at least 3 tools | four tools, section 6 |
+| Core 3: domain, focused knowledge base, domain prompts, security | [`docs/PRD.md`](docs/PRD.md), [`docs/SOURCES.md`](docs/SOURCES.md), [`docs/SECURITY.md`](docs/SECURITY.md), `src/prompts/` |
+| Core 4: LangChain with OpenRouter, error handling, input validation | sections 2, 8, 10 |
+| Core 5: UI with sources, tool results and progress | section 7, [`docs/UI_DESIGN.md`](docs/UI_DESIGN.md) |
+| Optional tasks | Easy 1 and 3, Medium 3, 5, 6 and 7, Hard 1 and 4 (section 15) |
+| Reflection: problems and improvements | [`docs/TESTING.md`](docs/TESTING.md), "Known problems and suggested improvements (T6.1)" |
 
 ## Run locally
 
@@ -58,14 +77,43 @@ Then:
 ```bash
 streamlit run app.py      # start the app
 python -m pytest -q       # run the tests (no key needed; all API calls are mocked)
-ruff check . && ruff format --check .   # lint and format check
+ruff check .              # lint
+ruff format --check .     # format check
 ```
 
 The app runs locally only for now; a public deployment needs one of the options in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
+### Data and evaluation scripts
+
+These are not needed to run the app:
+
+- **Attribution:** after changing `data/sources.json` or `data/usda_foods.csv`, run `python scripts/generate_attribution.py` to regenerate [`ATTRIBUTION.md`](ATTRIBUTION.md).
+- **USDA foods table:** `data/usda_foods.csv` is committed. To rebuild it, download the Foundation Foods CSV zip from https://fdc.nal.usda.gov/download-datasets/ into `data/usda/` (gitignored), then run `python scripts/prepare_usda.py` and `python scripts/generate_attribution.py`.
+- **Live checks and evaluation** (need the key and the index): `scripts/live_check_llm.py`, `scripts/live_check_retrieval.py`, `scripts/compare_retrieval.py` and `scripts/run_evaluation.py`. How to run each one and their results are in [`docs/TESTING.md`](docs/TESTING.md).
+
+## Documentation
+
+| Document | Contents |
+|---|---|
+| [`docs/BRIEF.md`](docs/BRIEF.md) | Summary of the course brief |
+| [`docs/PRD.md`](docs/PRD.md) | What we build: features, guardrails, acceptance criteria |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Technical design and decisions |
+| [`docs/UI_DESIGN.md`](docs/UI_DESIGN.md) | Layout, tabs, language and themes |
+| [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) | Tickets, acceptance criteria, order and status |
+| [`docs/TESTING.md`](docs/TESTING.md) | Test strategy, evaluation results, known problems and live checks |
+| [`docs/SECURITY.md`](docs/SECURITY.md) | Threat model and controls |
+| [`docs/SOURCES.md`](docs/SOURCES.md) | Knowledge base sources and their licences |
+| [`ATTRIBUTION.md`](ATTRIBUTION.md) | Credits for every source and the food data |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Deployment notes and the transfer checklist |
+| [`docs/PROGRESS.md`](docs/PROGRESS.md) | What each change did and why |
+
+Numbers such as `#76` in the docs and commit messages are issues and pull requests in the repository where the work was done, https://github.com/NMH1988/nutrition-ai-assistant; a source number such as "#18a" is a row in `docs/SOURCES.md`.
+
+Stack: Python, Streamlit, LangChain, OpenRouter, Chroma, rank-bm25, reportlab, USDA FoodData Central.
+
 ## Content and licences
 
-The knowledge base uses only openly licensed material (CC BY articles and the public-domain USDA FoodData Central data). Each source keeps its own licence and is credited; see [`docs/SOURCES.md`](docs/SOURCES.md).
+The knowledge base uses only openly licensed material (CC BY articles and the public-domain USDA FoodData Central data). Each source keeps its own licence and is credited; see [`docs/SOURCES.md`](docs/SOURCES.md) and [`ATTRIBUTION.md`](ATTRIBUTION.md). The article texts are not committed: `scripts/download_sources.py` fetches them.
 
 ## Disclaimer
 

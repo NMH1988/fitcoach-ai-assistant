@@ -4,6 +4,8 @@ Epics, tickets, acceptance criteria, dependencies, order and status. This file i
 
 **Status of this plan:** approved by the owner on 2026-10-19; GitHub issues #1-#20 created the same day (one per ticket). Epic 7 (T7.1-T7.3, issues #33-#35) added by the owner on 2026-10-20; T7.4 (issue #63) split from T7.1 by the owner on 2026-10-21. It follows `docs/PRD.md` (acceptance criteria AC-1 to AC-17) and `docs/ARCHITECTURE.md` (decisions D1-D8).
 
+**Numbers with `#`:** `#<n>` (an issue or pull request, here and in commit messages) refers to the personal repository where the work was done, https://github.com/NMH1988/nutrition-ai-assistant (issue `#20` is https://github.com/NMH1988/nutrition-ai-assistant/issues/20); the course repository has no issues or pull requests of its own. A source number (e.g. "sources #1 and #9", "#18a") is a row in `docs/SOURCES.md`.
+
 ## Status legend
 
 `todo` · `in progress` · `in review` · `done` · `dropped` (with the reason)
@@ -31,7 +33,7 @@ The owner writes these first; Claude reviews (`.claude/rules/workflow.md`).
 | O2 | Draft the evaluation questions (about 10-15), each with the source(s) it should find and what a good answer contains | T3.6 (from T3.3), T6.1; T7.2 (3-5 German questions, one about a food) | done (2026-10-21, in T3.6): 16 English questions in `data/eval_questions.json` (10 the sources cover, 2 near-domain they do not, 2 tool, 2 guardrail) and 5 German ones in `data/eval_questions_de.json` for T7.2; drafted by the owner, revised after two Claude reviews against the articles |
 | O3 | Approve the calorie floor and the macro ranges; Claude proposes them with the exact source passages | T4.2 | done (2026-10-19, in T4.2: floor 1200 kcal/day; values in `src/config.py`) |
 | O4 | If Europe PMC still has no copy of source #1, save its XML or PDF by hand from the publisher page into `data/raw/` | T2.1 | done: not needed (Europe PMC has #1 as PMC13665703, found in T2.1 on 2026-10-19) |
-| O5 | Live checks with the real key: T1.2 (one chat and one embedding call), T2.3 (real index build), T5.1 (the cost check: the app's cost of one call against OpenRouter's record), T3.6 (retrieval comparison), T6.1 (evaluation run), T7.2 (German run) | T1.2, T2.3, T5.1, T3.6, T6.1, T7.2 | in progress (T1.2 and T2.3 done 2026-10-19; T3.2 query translation checked 2026-10-20; T5.1 cost check done 2026-10-21; T3.6 retrieval comparison run 2026-10-21; T6.1 evaluation runs 2026-10-21, two; T7.2 German run 2026-10-21) |
+| O5 | Live checks with the real key: T1.2 (one chat and one embedding call), T2.3 (real index build), T5.1 (the cost check: the app's cost of one call against OpenRouter's record), T3.6 (retrieval comparison), T6.1 (evaluation run), T7.2 (German run) | T1.2, T2.3, T5.1, T3.6, T6.1, T7.2 | done (T1.2 and T2.3 done 2026-10-19; T3.2 query translation checked 2026-10-20; T5.1 cost check done 2026-10-21; T3.6 retrieval comparison run 2026-10-21; T6.1 evaluation runs 2026-10-21, two; T7.2 German run 2026-10-21) |
 | O6 | Get the course repository URL and confirm how the reviewers read it (files only, or through PRs) | T6.2 | todo |
 | O7 | Draft the query translation system prompt (3 rewrites in English that keep the question's meaning; when to set `topics`, `min_year` and `evidence_tier`, and to leave them empty when unsure; the question is data) in `src/prompts/query_translation_system.md`; it must name `<user_input>`, the four fields and the six topics (tested) | T3.2 (before the merge); T3.5 (before the merge) | done for T3.2 (2026-10-20): drafted by the owner, revised after Claude's review (no guessed year for "recent", no nutrition words added to an unrelated question, a line per topic, four examples); done for T3.5 (2026-10-20): drafted by the owner as a query-rewriting and routing prompt: both fields in the JSON shape, a section each for `needs_tool` (the three tool tasks; true when unsure) and `needs_profile` (false when unsure, and when the question already holds the numbers), the two flags independent, both fields in every example and a fifth example for a food lookup; Claude's first review found nothing to change; revised by the owner on 2026-10-21 after the merge with T4.5: a fourth tool task, the full-day meal plan check (`needs_tool` and `needs_profile` both true, with an example), and the food lookup also for a food with no gram amount; then, after the first live check (option B), `needs_profile` true for personal advice (a meal suggestion included) and whenever the user types personal values, so the answer can compare them with the stored ones, and true when unsure if the user refers to themselves (Example 7); then, after PR #67's review, `needs_tool` true for a meal, menu or nutrition suggestion that should fit the user's own goal or targets (the daily-target tool supplies them; Example 8), and false for a general one such as a post-workout meal (Example 9) |
 
@@ -67,7 +69,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T3.6 | #51 | Retrieval comparison on the owner's evaluation questions (split from T3.3, owner's decision) | S | T3.3, O2, O5 | 10-30 | done |
 | T3.7 | #66 | Drop registration boilerplate and merge short chunk pieces at ingest (found in T3.5's live check) | S | T2.2, T2.3, O5 | 10-29 | done |
 | T3.8 | #71 | Only the question itself decides whether the sources cover it (found in T3.5's live check after T3.7) | S | T3.2, T3.3, T3.5, O5 | 10-29 | done |
-| T6.1 | #19 | Evaluation run and reflection | S | T3.3, T3.6, T4.4, O2, O5 | 10-30 | in review |
+| T6.1 | #19 | Evaluation run and reflection | S | T3.3, T3.6, T4.4, O2, O5 | 10-30 | done |
 | **Extras** | | | | | | |
 | T1.4 | #32 | Security reviewer agent (beyond the brief; owner's request, done early as it is dev tooling with no product change) | S | T1.1 | 10-20 | done |
 | T5.1 | #16 | Token usage and cost | S | T3.2 | 10-30 | done |
@@ -76,11 +78,11 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T7.3 | #35 | Light and dark mode | S | T3.1 | 10-31 | done |
 | T7.4 | #63 | German input guard and guardrails (split from T7.1, owner's decision) | M | T1.3, T5.3 | 10-31 | done |
 | T7.1 | #33 | Language switch: English and German UI | M | T4.4, T4.7, T5.3, T1.3, T7.4 | 10-31 | done |
-| T7.2 | #34 | German answers end to end | M | T7.1, T3.2, O1, O2, O5 | 11-01 | in review |
+| T7.2 | #34 | German answers end to end | M | T7.1, T3.2, O1, O2, O5 | 11-01 | done |
 | T4.5 | #15 | `evaluate_meal_plan` tool (stretch; done early by the owner's choice) | S | T4.4 | only if ahead | done |
 | T4.6 | #40 | Profile form: a hint instead of "Press Enter to apply" (beyond the brief; owner's request, done early as a small fix) | S | T4.1, T3.1 | 10-20 | done |
 | **Last** | | | | | | |
-| T6.2 | #20 | README, final checks and transfer to the course repo | S | all, O6 | 11-01 | todo |
+| T6.2 | #20 | README, final checks and transfer to the course repo | S | all, O6 | 11-01 | in review |
 
 **Critical path:** T1.1 -> T1.2 -> T2.1 -> T2.2 -> T2.3 -> T3.1 -> T3.2 -> T3.3 -> T3.6 -> T6.1 -> T6.2. T1.3, T4.1 and T4.3 can run alongside it; the extras run after T6.1, or alongside it once their dependencies are done.
 
@@ -410,7 +412,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 
 ## Epic 6: Evaluation and submission
 
-### T6.1 Evaluation run and reflection (S) · status: in review · issue #19
+### T6.1 Evaluation run and reflection (S) · status: done · issue #19
 **Serves:** evaluation criteria (reflection); supports Hard 1.
 **Depends on:** T3.3, T3.6 (the retrieval comparison its reflection uses; owner's decision, 2026-10-20), T4.4, O2, O5
 **Acceptance criteria**
@@ -418,13 +420,14 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] `docs/TESTING.md` lists the known problems and suggested improvements found - "Known problems and suggested improvements (T6.1)" (15 items).
 **Notes:** owner's choices (2026-10-21): a script through `chat.run_turn()` plus a check of q13 and q14 in the app; q13's fixed profile as a `profile` field in `data/eval_questions.json`; Claude drafts the judgement from the full report and the owner approves it; one run per question (`--repeat N` for later runs). The script's full report (answers and chunk text) goes to gitignored `data/eval_runs/`. `chat.run_turn()` gained an `on_chunks` hook for it (the app does not pass it). The question loader moved to `src/eval_questions.py`, as one script cannot import another. Not claimed as Hard 7: the script checks sources, tools and guardrails, and the answers were judged by reading them.
 
-### T6.2 README, final checks and transfer to the course repo (S) · status: todo · issue #20
+### T6.2 README, final checks and transfer to the course repo (S) · status: in review · issue #20
 **Serves:** submission.
 **Depends on:** all tickets, O6
 **Acceptance criteria**
 - [ ] The README explains what the app does, how to install, download sources, build the index and run it, and links the docs; a clean-clone run following it works - manual check recorded in `docs/PROGRESS.md`.
-- [ ] Every ticket's status above is final; `docs/PROGRESS.md` has an entry for every merged PR.
+- [x] Every ticket's status above is final; `docs/PROGRESS.md` has an entry for every merged PR - check (2026-10-22): T6.1 and T7.2, merged as #75 and #76, and O5 moved to done; every other ticket was done; T6.2 itself is done by the transfer PR below. The 37 merged PRs (`gh pr list --state merged`) each have a `docs/PROGRESS.md` heading with their number.
 - [ ] The transfer checklist in `docs/DEPLOYMENT.md` is done and the course repo shows the files, history and a green CI.
+**Notes:** owner's choices at the start (2026-10-22): two steps, as the transfer can only follow this PR's merge: this PR (README, statuses, the clean-clone check) leaves T6.2 in review; after it merges, `main` is pushed to the course repo and a small PR records the transfer, marks T6.2 done and is pushed again. The `#<n>` numbers stay, with a note that they refer to the personal repo (instead of rewriting about 400 as URLs). The clean-clone check is split: Claude runs the steps that need no key (install, download, lint, tests, the app without an index), the owner builds the index and asks one question in the clone. Nothing beyond the brief added (Dependabot PRs, a code licence and `.claude/launch.json` left out).
 
 ## Epic 7: Language and appearance (extras)
 
@@ -460,7 +463,7 @@ The German guard and guardrail criteria moved to T7.4 (owner's decision, 2026-10
 - Many messages come from `src/` (guard rejections and rate limit in `src/guard.py`, LLM errors in `src/llm.py`, `IndexNotReadyError` in `src/rag/store.py`, profile validation in `src/profile.py`). `src/` returns message keys or codes and the UI translates them. Tool notes stay English, so the tool result the UI shows matches what the model received. The size was rechecked at the start (closer to L), hence the T7.4 split. `chat.format_profile()` reads the profile labels for the model's `<profile>` block, so translated labels must stay out of it.
 - The German UI texts are our own writing. Every UI string added after T7.1 needs both languages.
 
-### T7.2 German answers end to end (M) · status: in review · issue #34
+### T7.2 German answers end to end (M) · status: done · issue #34
 **Serves:** Hard 4 (multi-language support), as an extra after the core; AC-16. Beyond the PRD (owner's request, 2026-10-20).
 **Depends on:** T7.1, T3.2, O1 (a language line in the system prompt), O2 (German evaluation questions), O5 (German live run)
 **Acceptance criteria**
