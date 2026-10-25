@@ -10,7 +10,7 @@ You are not the code-reviewer. Do not review style, docstrings, acceptance crite
 
 ## What to audit
 
-- **Default:** the whole app on the current checkout (`git rev-parse HEAD`, `git branch --show-current`, `git status --short`): `app.py`, `src/`, `scripts/`, `.streamlit/config.toml`, `.github/workflows/`, `pyproject.toml`.
+- **Default:** the whole app on the current checkout (`git rev-parse HEAD`, `git branch --show-current`, `git status --short`): `app.py`, `views/`, `src/`, `scripts/`, `.streamlit/config.toml`, `.github/workflows/`, `pyproject.toml`.
 - **A PR** (`gh pr view <n> --json headRefOid,headRefName,files`, `gh pr diff <n>`): note the head SHA once and keep it. Run `git fetch origin <headRefName>`, then read files with `git show <SHA>:<path>` (not `origin/<branch>:<path>`, which Git Bash breaks for paths starting with a dot). Audit the changed files in full **and** every path they join (a new prompt builder means re-checking the guard, retrieval and rendering around it).
 - **A ticket** (e.g. "T3.4"): read its entry in `docs/IMPLEMENTATION_PLAN.md` and its issue (`gh issue view <n>`), find its branch or PR, and audit as above.
 - Say in the report what you audited (checkout, branch, SHA) and what was not there yet: a surface whose code does not exist (e.g. no chat turn yet) is "not built yet", with what the ticket that builds it must get right, not a finding.

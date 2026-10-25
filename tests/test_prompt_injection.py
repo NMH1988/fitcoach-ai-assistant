@@ -32,6 +32,7 @@ TEST_PROMPT = "Test system prompt: answer from the sources and cite them as [S1]
 QUESTION = "How much protein per meal?"
 APP = config.PROJECT_ROOT / "app.py"
 SRC = config.PROJECT_ROOT / "src"
+VIEWS = config.PROJECT_ROOT / "views"
 
 # Look-alikes of the delimiters and fake role lines (T1.4 security audit, finding 3).
 LOOK_ALIKES = [
@@ -53,7 +54,7 @@ POISONED_TEXT = (
 )
 
 
-APP_FILES = [APP, *sorted(SRC.rglob("*.py"))]
+APP_FILES = [APP, *sorted(VIEWS.rglob("*.py")), *sorted(SRC.rglob("*.py"))]
 
 
 def _code_names(path) -> set[str]:
@@ -325,7 +326,7 @@ def test_the_render_scan_ignores_safe_calls_and_comments(code):
 
 
 def test_nothing_in_the_app_renders_with_unsafe_allow_html():
-    """No call in app.py or src/ passes unsafe_allow_html or unsafe_allow_javascript."""
+    """No call in app.py, views/ or src/ passes unsafe_allow_html or unsafe_allow_javascript."""
     found = {
         str(path): _unsafe_render_calls(path.read_text(encoding="utf-8")) for path in APP_FILES
     }
@@ -333,7 +334,7 @@ def test_nothing_in_the_app_renders_with_unsafe_allow_html():
 
 
 def test_the_app_uses_no_raw_html_components():
-    """The app uses no streamlit.components, which would render raw HTML in an iframe."""
+    """The app and its views use no streamlit.components (raw HTML in an iframe)."""
     used = set().union(*(_code_names(path) for path in APP_FILES))
     assert "components" not in used
     assert not any(name.startswith("streamlit.components") for name in used)

@@ -408,7 +408,7 @@ def test_the_details_tab_usage_and_tool_results_are_german(monkeypatch):
 
 
 def app_columns() -> tuple[str, ...]:
-    """Return the keys of the Details tab's usage columns, as app.py names them."""
+    """Return the keys of the Details tab's usage columns, as views/tables.py names them."""
     return ("step", "model", "input", "cached", "output", "reasoning", "cost")
 
 

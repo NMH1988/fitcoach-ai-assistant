@@ -17,6 +17,25 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-25 · T8.1 Split `app.py` into a `views/` package, no behaviour change · #<PR> (closes #90)
+- **Brief:** Sprint 2 review point 2 (`app.py` of about 1,380 lines against the project's layering); Sprint 3 evaluation (good code organisation); prepares the UI pieces Epic 9 adds.
+- **What:**
+  - `views/` (new, 16 modules): `text.py` (the session's language, `t()`, number formatters), `resources.py` (the five cached resources), `tables.py` and `charts.py` (table rows, cells and the two Vega-Lite specs, per language, no streamlit import), `header.py`, `sidebar.py`, `profile_form.py`, `targets.py`, `food.py`, `chat.py`, `sources.py`, `tool_results.py`, `usage_view.py`, `details.py`, `about.py`, `export.py`. The code was moved, not rewritten; the builders take `lang` as a parameter instead of reading the session.
+  - `app.py`: 1,383 to 71 lines: page config, session defaults, the sidebar block with its two slots, the profile dialog, the page columns and `_main_area()` (header and the four tabs).
+  - Tests: `tests/test_app_layout.py` (app.py at most 150 lines and one function; the two pure modules import no streamlit; the three security scans still list `views/`), `tests/test_views_tables.py`, `tests/test_views_charts.py` (no AppTest). The scan tests (`test_prompt_injection.py`, `test_app_export.py`, `test_app_profile.py`) list `views/` too; four tests that read the source of `app.py` (one each in `test_app_smoke.py` and `test_app_chat.py`, two in `test_app_export.py`) read the new modules, with the same assertions.
+  - Docs: `CLAUDE.md`, `docs/ARCHITECTURE.md` (sections 3 and 7), `docs/UI_DESIGN.md` ("Code layout"), `docs/SECURITY.md`, `docs/TESTING.md` (the browser check), the two reviewer agents, `docs/IMPLEMENTATION_PLAN.md`; screenshots `docs/ui/t8.1-*.jpg`.
+- **Why:** one 1,380-line script mixed the profile form, caching, chart specs, four tabs, usage tables, source cards and the PDF button; the later tickets (logging in T8.2, sign-in, memory and approvals in Epic 9) need a place each to land.
+- **Decisions & gotchas:**
+  - Counts: 2,985 tests before (`app.py`: 646 statements, 10 missed, 98%), 3,046 after (`app.py` and `views/`: 736 statements, the same 10 missed lines, 99%). The 61 new tests are the three files above.
+  - `views/` sits next to `app.py` (Streamlit puts the script's folder on `sys.path`, and pytest's `pythonpath = ["."]` covers the tests), so `pyproject.toml` still packages `src*` only; nothing in the venv had to be reinstalled.
+  - The pure modules are checked by their own imports (`ast`), not transitively: `src/config.py` imports streamlit itself (for `st.secrets`).
+  - Module order, so there is no import cycle: `text`, `tables`, `charts`, then `profile_form`, `targets`, `sidebar`, `sources`, `tool_results`, `usage_view`, `details`, `chat`. `profile_form` (dialog and callbacks) is apart from `sidebar` because `targets`, `tool_results` and the sidebar all open the dialog, and the sidebar draws the targets card.
+  - The functions lost their leading underscore when they became module functions (`views.food.tab()`, `views.targets.sidebar_card()`); `views/chat.py` imports `src.chat` as `turns`, and the fixture in `tests/conftest.py` that wraps `chat.run_turn` still works because the view calls it through the module.
+  - The cached resources stay in one module (`views/resources.py`), as the ticket asked; AppTest kept them fresh between tests exactly as before (the suite passed unchanged).
+  - A decision for the owner's review: I also updated the two reviewer agents (`.claude/agents/code-reviewer.md`, `security-reviewer.md`), which the ticket did not list, so that they name `views/` and do not skip it.
+  - Browser check (Claude, fake models, no key): all but the PDF click, which needs the owner's permission; the answered question with the real models is the owner's (O13).
+- **Follow-ups:** the owner's live check with the real models (O13); T1.8 and T8.2 next (the catch-all and the logger, written into `views/chat.py` and `src/chat.py`).
+
 ## 2026-10-25 · Plan Epics 8 and 9 (Sprint 2 review follow-ups and the Sprint 3 agent) · #108 (closes #107)
 - **Brief:** the Sprint 2 reviewer's feedback (Epic 8) and the Sprint 3 brief (Epic 9); planning only, no code.
 - **What:** `docs/BRIEF_SPRINT3.md` (new): the Sprint 3 brief and the reviewer's five points in our own words, with the optional tasks numbered and each point mapped to its ticket. `docs/IMPLEMENTATION_PLAN.md`: Epic 8 (T8.1-T8.6, issues #90-#95) and Epic 9 (T9.1-T9.11, issues #96-#106) with acceptance criteria, overview rows, owner tasks O8-O14. `CLAUDE.md`: the new brief in the mandatory reading and "Where things are".

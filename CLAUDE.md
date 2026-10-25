@@ -24,6 +24,7 @@ The owner writes in Vietnamese: reply in Vietnamese. Everything in the repo is i
 | `docs/SOURCES.md` | Approved and excluded knowledge base sources with licences |
 | `docs/DEPLOYMENT.md` | Deploy notes and the checklist for copying the repo to the course repository |
 | `docs/PROGRESS.md` | What each PR did and why, newest first |
+| `app.py`, `views/` | The Streamlit UI: `app.py` only composes the page (at most 150 lines); `views/` holds one module per concern (`chat`, `targets`, `food`, `details`, `sidebar`, `profile_form`, `sources`, `tool_results`, `usage_view`, `about`, `export`, `header`, plus `text` and `resources`); `views/charts.py` and `views/tables.py` build chart specs and table rows and import no streamlit (T8.1) |
 | `.claude/rules/` | Copyright, workflow, security and privacy, testing rules |
 | `.claude/skills/qrspi/`, `.claude/agents/code-reviewer.md` | The coding workflow and the reviewer |
 | `.claude/agents/security-reviewer.md` | Optional attacker-minded security audit (injection, guard before spend, key, personal data); read-only, no API or network calls except GitHub through `git`/`gh` |
@@ -31,7 +32,7 @@ The owner writes in Vietnamese: reply in Vietnamese. Everything in the repo is i
 ## Code conventions
 
 - Every function, method and class (tests and fixtures included) gets a one-line docstring saying in plain words what it does. Review checks this; no test enforces it.
-- Business logic lives in `src/`, not `app.py`. Defaults and limits (models, max lengths, calorie floor, tool loop limit) live in config, not as magic numbers.
+- Business logic lives in `src/`; the UI lives in `views/` (one module per concern) and `app.py` only composes the page, never defining a chart, table or card builder (`tests/test_app_layout.py`). `views/charts.py` and `views/tables.py` import no streamlit: they take the language as a parameter, so they are unit-tested without AppTest. Defaults and limits (models, max lengths, calorie floor, tool loop limit) live in config, not as magic numbers.
 - Internally everything uses kg and cm; other units are converted only at input and display.
 - All LLM, embedding and network calls are mocked in tests (`docs/TESTING.md`).
 
