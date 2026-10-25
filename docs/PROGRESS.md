@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-25 · Plan Epics 8 and 9 (Sprint 2 review follow-ups and the Sprint 3 agent) · #PR (closes #107)
+## 2026-10-25 · Plan Epics 8 and 9 (Sprint 2 review follow-ups and the Sprint 3 agent) · #108 (closes #107)
 - **Brief:** the Sprint 2 reviewer's feedback (Epic 8) and the Sprint 3 brief (Epic 9); planning only, no code.
 - **What:** `docs/BRIEF_SPRINT3.md` (new): the Sprint 3 brief and the reviewer's five points in our own words, with the optional tasks numbered and each point mapped to its ticket. `docs/IMPLEMENTATION_PLAN.md`: Epic 8 (T8.1-T8.6, issues #90-#95) and Epic 9 (T9.1-T9.11, issues #96-#106) with acceptance criteria, overview rows, owner tasks O8-O13. `CLAUDE.md`: the new brief in the mandatory reading and "Where things are".
 - **Why:** issues and PRs do not travel to the course repository, so the review, the Sprint 3 brief and the plan must be in files. The course allows the Sprint 3 agent to build on this project (owner, 2026-10-23).
