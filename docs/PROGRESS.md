@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-25 · T8.1 Split `app.py` into a `views/` package, no behaviour change · #<PR> (closes #90)
+## 2026-10-25 · T8.1 Split `app.py` into a `views/` package, no behaviour change · #109 (closes #90)
 - **Brief:** Sprint 2 review point 2 (`app.py` of about 1,380 lines against the project's layering); Sprint 3 evaluation (good code organisation); prepares the UI pieces Epic 9 adds.
 - **What:**
   - `views/` (new, 16 modules): `text.py` (the session's language, `t()`, number formatters), `resources.py` (the five cached resources), `tables.py` and `charts.py` (table rows, cells and the two Vega-Lite specs, per language, no streamlit import), `header.py`, `sidebar.py`, `profile_form.py`, `targets.py`, `food.py`, `chat.py`, `sources.py`, `tool_results.py`, `usage_view.py`, `details.py`, `about.py`, `export.py`. The code was moved, not rewritten; the builders take `lang` as a parameter instead of reading the session.
