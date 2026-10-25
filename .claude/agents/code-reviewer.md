@@ -31,7 +31,7 @@ Read `CLAUDE.md`, `.claude/rules/`, **both briefs** (`docs/BRIEF.md` for Sprint 
 ## Checklist
 
 ### 0. The briefs
-- The PR description's "Brief" section, the plan's **Serves** line and the PROGRESS **Brief:** line name what the ticket serves **by its number** in `docs/BRIEF_SPRINT3.md` (core 1-5, Easy/Medium/Hard n, an evaluation item, or Sprint 2 review point 1-5) and in `docs/BRIEF.md` (core or optional task), or "none" per brief; the three say the same. Check each claim against the brief files: an item that does not say what the PR claims, a missing item the change clearly serves, or "beyond the brief" for work a brief covers (its evaluation sections too) is a **Should fix**.
+- The PR description's "Brief" section, the plan's **Serves** line and the PROGRESS **Brief:** line name what the ticket serves **by its number** in `docs/BRIEF_SPRINT3.md` (core 1-5, Easy/Medium/Hard n, an evaluation item, or Sprint 2 review point 1-5) and in `docs/BRIEF.md` (core, Easy/Medium/Hard n or an evaluation item), or "none" per brief; the three say the same. Check each claim against the brief files: an item that does not say what the PR claims, a missing item the change clearly serves, or "beyond the brief" for work a brief covers (its evaluation sections too) is a **Should fix**.
 - The change contradicts neither brief, `docs/PRD.md` nor the copyright policy, and changes nothing the product does that the owner has not approved; a contradiction is a **Must fix**.
 
 ### 1. Correctness

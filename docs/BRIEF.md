@@ -43,6 +43,6 @@ Through the GitHub repository the course provides, followed by a scheduled revie
 
 ## Using this file
 
-- At the start of every ticket, name the requirement or optional task (by the numbers above) the ticket serves, or write "beyond the brief (owner's request)".
+- At the start of every ticket, name the requirement, optional task or evaluation item (by the numbers above) the ticket serves, or "none", together with the Sprint 3 item from `docs/BRIEF_SPRINT3.md`; write "beyond the brief (owner's request)" only when neither brief covers the work. The PR description's Brief section, the plan's **Serves** line and the PROGRESS **Brief:** line carry the same numbers.
 - When the exact wording matters, or this summary is unclear, read the full brief (ask the owner for it if it is not at hand). Don't guess from the summary.
 - If a ticket, `docs/PRD.md`, the plan or the prompts **contradict** the brief, or a choice changes what the product does, say so and ask the owner.

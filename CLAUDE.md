@@ -8,7 +8,7 @@ The owner writes in Vietnamese: reply in Vietnamese. Everything in the repo is i
 
 1. **Before writing or changing any code**, in every session: read this whole file and the rules in `.claude/rules/` (the unconditional ones load automatically: `copyright.md`, `workflow.md`, `security-privacy.md`; `testing.md` loads when working on `tests/`).
 2. **Before starting any ticket**: read both briefs, `docs/BRIEF.md` (what the Sprint 2 course brief asks) and `docs/BRIEF_SPRINT3.md` (the Sprint 3 brief and the reviewer's points on Sprint 2), and `docs/PRD.md` (what we build), and check the ticket against them; name what it serves by its number in each brief, then read `docs/PROGRESS.md` and run `gh pr list --state open`. If the ticket touches the knowledge base, data, prompts, tests, fixtures or docs content, also read `docs/SOURCES.md`.
-3. If a ticket, plan or prompt contradicts the brief, the PRD or the copyright policy, or a choice changes what the product does, stop, say so and ask the owner. Don't guess. Always flag work the brief does not ask for, even when the owner asked for it (label it "beyond the brief (owner's request)").
+3. If a ticket, plan or prompt contradicts either brief, the PRD or the copyright policy, or a choice changes what the product does, stop, say so and ask the owner. Don't guess. Always flag work neither brief asks for, even when the owner asked for it (label it "beyond the brief (owner's request)").
 
 ## Where things are
 

@@ -15,7 +15,7 @@
 ## Pull requests
 
 - One ticket per PR, on its own branch from `main` (e.g. `feature/t1.2-short-name`). Never commit directly to `main` once the setup ticket has merged.
-- The PR description follows `.github/pull_request_template.md`: `Closes #<issue>` on the first line (not `Refs`), the items it serves by their numbers in `docs/BRIEF_SPRINT3.md` and `docs/BRIEF.md` (or "beyond the brief (owner's request)"), checked against both briefs and the PRD, changes, **each acceptance criterion with the test or check that proves it**, testing done, sources and copyright checks. `.github/workflows/pr-checks.yml` fails a PR that closes no issue (Dependabot is exempt; a stacked PR is checked by keyword until it targets `main`).
+- The PR description follows `.github/pull_request_template.md`: `Closes #<issue>` on the first line (not `Refs`), the items it serves by their numbers in `docs/BRIEF_SPRINT3.md` and `docs/BRIEF.md` ("none" for a brief it does not touch, or "beyond the brief (owner's request)" when neither covers it), checked against both briefs and the PRD, changes, **each acceptance criterion with the test or check that proves it**, testing done, sources and copyright checks. `.github/workflows/pr-checks.yml` fails a PR that closes no issue (Dependabot is exempt; a stacked PR is checked by keyword until it targets `main`).
 - Closing keywords only fire when the PR merges into `main`. Retarget a stacked PR to `main` after its base PR merges, before merging it.
 - **Every PR adds its own entry** at the top of `docs/PROGRESS.md` and updates the ticket's status in `docs/IMPLEMENTATION_PLAN.md` (Dependabot exempt).
 - Commit, push, open PRs or merge only when the owner asks.
