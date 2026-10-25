@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-25 · T1.8 A fixed message for unexpected errors in a chat turn · #<PR> (closes #82)
+## 2026-10-25 · T1.8 A fixed message for unexpected errors in a chat turn · #120 (closes #82)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 4 (proper error handling, real-world use), evaluation: core concepts (error scenarios and edge cases) and technical (appropriate security: no error text on the page), Sprint 2 review point 1 in part (an unexpected error leaves a log line). Sprint 2 (`docs/BRIEF.md`): core 4 (proper error handling), Medium 10 in part (logging), evaluation: core concepts (error scenarios and edge cases) and technical (appropriate security). PRD AC-13.
 - **What:**
   - `src/chat.py`: `run_turn()` catches any other `Exception` after the named ones, logs one ERROR line with only the error's type and the function that raised it, and returns an `"error"` result with `TURN_ERROR_MESSAGE` (code `turn.error`), the steps run and the tokens spent so far. A module logger (`logging.getLogger(__name__)`) is added.
