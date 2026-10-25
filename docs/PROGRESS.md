@@ -17,6 +17,18 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-25 · T1.9 Workflow files: read and check both briefs for every ticket · #111 (closes #110)
+- **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): none. Sprint 2 (`docs/BRIEF.md`): none. Beyond the brief (owner's request): makes every ticket and review follow "Using this file" in both briefs.
+- **What:**
+  - `.claude/skills/qrspi/SKILL.md`: the Question phase reads both briefs for every ticket and names the items served by their numbers in each (or "none"), checking a "beyond the brief" claim against both files; the Implement phase writes the same numbers in the PR's Brief section, the plan's **Serves** line and the PROGRESS **Brief:** line.
+  - `.claude/agents/code-reviewer.md`: reads both briefs; a new checklist section "0. The briefs" (a wrong or missing item is a Should fix, a contradiction with a brief or the PRD a Must fix); the report always has a Brief section.
+  - `.github/pull_request_template.md`: the Brief section has a Sprint 3 line, a Sprint 2 line, the "beyond the brief" option and a box for the check against both briefs, the PRD and the copyright policy; the first line is still `Closes #`.
+  - `CLAUDE.md` (mandatory reading 2 and 3), `.claude/rules/workflow.md` (PR description), "Using this file" in `docs/BRIEF.md` and `docs/BRIEF_SPRINT3.md` (and the latter's "Read this before...") and the plan's ticket format: both briefs for every ticket, items by number, "none" per brief, "beyond the brief" only when neither covers the work.
+- **Why:** PR #109 (T8.1) said "beyond the Sprint 2 brief" although both briefs list good code organisation, named no Sprint 3 item by number, and its reviews never checked the briefs. The skill named only `docs/BRIEF.md`, the reviewer agent had no brief check, and the template asked for one unnumbered line, so nothing caught it.
+- **Decisions & gotchas:** owner's choice (2026-10-25): both briefs for every ticket, not only Epic 8 and 9. The agent's new section is numbered 0, so sections 1-5 keep their numbers. PR #109 (T8.1) merged while this branch was open; the branch was rebased on it with no conflict. My T1.9 commit first landed on the local `main` because the working tree had been switched to `main` for that merge; it was moved to this branch before anything reached GitHub's `main`.
+- **Code review on PR #111** (round 1, on ea60978, the new `code-reviewer.md` run by a general agent, as the session's agent still had the old version loaded): needs changes, all taken: Sprint 2 evaluation items were allowed by the template and the plan format but not by the skill and the agent; `docs/BRIEF.md` ("Using this file") and `CLAUDE.md` (mandatory reading 3) still spoke of one brief; a blank line in this file.
+- **Follow-ups:** T8.1 is merged (PR #109) but still "in review" in the plan; mark it done, as PR #87 did for T4.8.
+
 ## 2026-10-25 · T8.1 Split `app.py` into a `views/` package, no behaviour change · #109 (closes #90)
 - **Brief:** The Sprint 2 review, point 2 (`app.py` of about 1,380 lines against the project's layering; `docs/BRIEF_SPRINT3.md` names T8.1 for it); the Sprint 3 evaluation, core concepts: good code organisation (`docs/BRIEF_SPRINT3.md`), as in the Sprint 2 evaluation (`docs/BRIEF.md`); Sprint 3 core 5 (documentation: the technical decisions made, here the UI layout in `docs/ARCHITECTURE.md` and `docs/UI_DESIGN.md`); prepares Sprint 3 core 3 (a user interface for every function) for the UI Epic 9 adds (sign-in, Medium 4; memory, Medium 2; approvals).
 - **What:**

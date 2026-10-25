@@ -14,7 +14,7 @@ Epics, tickets, acceptance criteria, dependencies, order and status. This file i
 
 ```
 ### T<epic>.<n> <title> (S/M/L) · status: todo · issue #<n>
-**Serves:** <brief requirement or optional task> | beyond the brief (owner's request)
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): <core n | Easy, Medium or Hard n | evaluation item | Sprint 2 review point n> or none; Sprint 2 (`docs/BRIEF.md`): <core n | Easy, Medium or Hard n | evaluation item> or none | beyond the brief (owner's request)
 **Depends on:** T<x.y>, O<n>, ...
 **Acceptance criteria**
 - [ ] <testable criterion> - verified by <test or manual check>
@@ -68,6 +68,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T1.6a | #77 | CI: upgrade streamlit to 1.66.1 so pillow 13 replaces the pillow ignores (owner's request after PR #76's security job failed) | S | T1.6 | 10-22 | done |
 | T1.7 | #81 | Streamlit runs on localhost only, without telemetry or error details (owner's request after the 2026-10-22 security audit) | S | T1.1 | 10-22 | done |
 | T1.8 | #82 | A fixed message for unexpected errors in a chat turn (split from T1.7) | S | T1.7 | with T8.2 (Epic 8 order, owner, 2026-10-25) | todo |
+| T1.9 | #110 | Workflow files: read and check both briefs for every ticket (owner's request after PR #109) | S | - | 10-25 | in review |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1, O7 | 10-26 | done |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2 | 10-27 | done |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | done |
@@ -217,6 +218,18 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] `ruff check .`, `ruff format --check .` and `python -m pytest -q` pass - CI.
 - [ ] Records: this plan (T1.8), `docs/PROGRESS.md`.
 **Notes:** owner's choices (2026-10-22): a new message rather than `llm.error` (which names the model service); log only the type and location. Plan drafted in the T1.7 session: make `llm._diagnostic` public, put `TURN_ERROR_MESSAGE` in `src/config.py`, add `except Exception` after the named handlers in `run_turn()`. A catch-all can hide a UI bug raised in the app's `on_text`/`on_step` callbacks in AppTests; the tests that check the answer's content still catch it.
+
+### T1.9 Workflow files: read and check both briefs for every ticket (S) · status: in review · issue #110
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): none. Sprint 2 (`docs/BRIEF.md`): none. Beyond the brief (owner's request): the workflow files make every ticket and review follow "Using this file" in both briefs.
+**Depends on:** -
+**Acceptance criteria** (approved by the owner, 2026-10-25)
+- [x] `.claude/skills/qrspi/SKILL.md`, Question phase: every ticket reads `docs/BRIEF.md` and `docs/BRIEF_SPRINT3.md` and names the items it serves by their numbers there, or "beyond the brief (owner's request)" - review.
+- [x] `.claude/skills/qrspi/SKILL.md`, Implement phase: the PR description's Brief section, the plan's **Serves** line and the PROGRESS **Brief** line name those same numbered items - review.
+- [x] `.claude/agents/code-reviewer.md` reads both briefs, checks that the Brief section names the right items by number and that the change contradicts neither brief, the PRD nor the copyright policy, and its report has a Brief section - review, and the agent's own comment on PR #111 has that section. Done: round 1 on ea60978 (the new file run by a general agent) has the Brief section and checked this PR's "beyond the brief" claim against both briefs.
+- [x] `.github/pull_request_template.md`: the Brief section has a Sprint 3 line, a Sprint 2 line and a box for "checked against both briefs, the PRD and the copyright policy"; the first line is still `Closes #` - review, and `pr-checks` passes on PR #111 (`linked-issue` green on ea60978).
+- [x] `CLAUDE.md` (mandatory reading) and `.claude/rules/workflow.md` (PR description) say the same: both briefs for every ticket - review.
+- [x] A PROGRESS entry and T1.9 in this plan - review.
+**Notes:** owner's choice (2026-10-25): both briefs for every ticket, not only Epic 8 and 9, so `CLAUDE.md`, `.claude/rules/workflow.md`, "Using this file" in `docs/BRIEF.md` and `docs/BRIEF_SPRINT3.md` (and the latter's "Read this before...") and this plan's ticket format say the same as the skill and the agent. Prompted by PR #109 (T8.1), whose description said "beyond the Sprint 2 brief" although both briefs list good code organisation, named no Sprint 3 item by number, and whose reviews did not check the briefs.
 
 ## Epic 2: Knowledge base
 

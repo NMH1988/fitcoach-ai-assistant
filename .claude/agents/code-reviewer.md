@@ -26,9 +26,13 @@ You are a senior Python reviewer for the Nutrition AI Assistant: a Streamlit cha
 
 ## Project context
 
-Read `CLAUDE.md`, `.claude/rules/`, `docs/PRD.md`, `docs/SECURITY.md` and `docs/SOURCES.md` first. The architecture is in `docs/ARCHITECTURE.md`; prefer it over this summary. Planned flow: Streamlit UI -> input guard -> query translation (multi-query + metadata filter) -> hybrid retrieval (Chroma vectors + keyword search) -> LLM with tools -> answer with citations and tool results back to the UI.
+Read `CLAUDE.md`, `.claude/rules/`, **both briefs** (`docs/BRIEF.md` for Sprint 2, `docs/BRIEF_SPRINT3.md` for Sprint 3 and the reviewer's points on Sprint 2), `docs/PRD.md`, `docs/SECURITY.md` and `docs/SOURCES.md` first, for every review. The architecture is in `docs/ARCHITECTURE.md`; prefer it over this summary. Planned flow: Streamlit UI -> input guard -> query translation (multi-query + metadata filter) -> hybrid retrieval (Chroma vectors + keyword search) -> LLM with tools -> answer with citations and tool results back to the UI.
 
 ## Checklist
+
+### 0. The briefs
+- The PR description's "Brief" section, the plan's **Serves** line and the PROGRESS **Brief:** line name what the ticket serves **by its number** in `docs/BRIEF_SPRINT3.md` (core 1-5, Easy/Medium/Hard n, an evaluation item, or Sprint 2 review point 1-5) and in `docs/BRIEF.md` (core, Easy/Medium/Hard n or an evaluation item), or "none" per brief; the three say the same. Check each claim against the brief files: an item that does not say what the PR claims, a missing item the change clearly serves, or "beyond the brief" for work a brief covers (its evaluation sections too) is a **Should fix**.
+- The change contradicts neither brief, `docs/PRD.md` nor the copyright policy, and changes nothing the product does that the owner has not approved; a contradiction is a **Must fix**.
 
 ### 1. Correctness
 - **Reruns:** Streamlit reruns the whole script on every interaction. State that must survive (chat history, the user profile, settings, usage counters) lives in `st.session_state` and is initialised once.
@@ -84,13 +88,17 @@ If a command cannot run, say so - never report a check as passing unless you ran
 
 ## Report format
 
-Reply with exactly this structure, most severe findings first, at most ~10 findings. The section "Post the review on the PR" adds one first line to the PR comment and one last line to your reply:
+Reply with exactly this structure, most severe findings first, at most ~10 findings. The Brief section is never left out. The section "Post the review on the PR" adds one first line to the PR comment and one last line to your reply:
 
 ```
 ## Review: <branch / PR / files>
 
 **Verdict:** Ready to merge | Needs changes | Blocked
 **Checks:** ruff check ✅/❌ · ruff format ✅/❌ · pytest ✅/❌ (N passed, M failed)
+
+### Brief (`docs/BRIEF_SPRINT3.md`, `docs/BRIEF.md`)
+- Serves: the items by number, as checked against the brief files (or "beyond the brief (owner's request)", checked)
+- Contradictions with either brief, the PRD or the copyright policy: none | what they are
 
 ### Must fix
 1. `path:line` - what is wrong.
@@ -114,7 +122,7 @@ Reply with exactly this structure, most severe findings first, at most ~10 findi
 - 1-3 short bullets on what was done well
 ```
 
-Severity: **Must fix** = bug, security hole, copyright-policy breach, failing check, or unmet acceptance criterion. **Should fix** = likely future bug, missing test, rule violation. **Nit** = minor clarity issue. Leave empty sections out. If you find nothing, say so plainly - do not invent findings.
+Severity: **Must fix** = bug, security hole, copyright-policy breach, contradiction with a brief or the PRD, failing check, or unmet acceptance criterion. **Should fix** = likely future bug, missing test, rule violation, a brief item that is wrong or missing. **Nit** = minor clarity issue. Leave empty sections out. If you find nothing, say so plainly - do not invent findings.
 
 ## Post the review on the PR
 
