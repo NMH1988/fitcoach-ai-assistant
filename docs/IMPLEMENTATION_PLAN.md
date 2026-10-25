@@ -2,7 +2,7 @@
 
 Epics, tickets, acceptance criteria, dependencies, order and status. This file is the record of the work that travels with the repo to the course repository (GitHub issues and PRs do not), so keep each ticket's status current: every PR updates the status of its ticket.
 
-**Status of this plan:** approved by the owner on 2026-10-19; GitHub issues #1-#20 created the same day (one per ticket). Epic 7 (T7.1-T7.3, issues #33-#35) added by the owner on 2026-10-20; T7.4 (issue #63) split from T7.1 by the owner on 2026-10-21. Epic 8 (the Sprint 2 review's follow-ups) and Epic 9 (the Sprint 3 agent) added by the owner on 2026-10-25, from `docs/BRIEF_SPRINT3.md`; GitHub issues #90-#106 created the same day (one per ticket), and #107 for the PR that added them. It follows `docs/PRD.md` (acceptance criteria AC-1 to AC-17) and `docs/ARCHITECTURE.md` (decisions D1-D8).
+**Status of this plan:** approved by the owner on 2026-10-19; GitHub issues #1-#20 created the same day (one per ticket). Epic 7 (T7.1-T7.3, issues #33-#35) added by the owner on 2026-10-20; T7.4 (issue #63) split from T7.1 by the owner on 2026-10-21. Epic 8 (the Sprint 2 review's follow-ups) and Epic 9 (the Sprint 3 agent) added by the owner on 2026-10-25, from `docs/BRIEF_SPRINT3.md`; GitHub issues #90-#106 created the same day (one per ticket), and #107 for the PR that added them. Epic 9 rewritten by T9.1 on 2026-10-25 for the coach-first scope the owner chose that day (`docs/PRD.md`, "Sprint 3"): T9.4-T9.7 and T9.11 reworked, T9.12-T9.18 added (issues #112-#118). It follows `docs/PRD.md` (acceptance criteria AC-1 to AC-37) and `docs/ARCHITECTURE.md` (decisions D1-D21).
 
 **Numbers with `#`:** `#<n>` (an issue or pull request, here and in commit messages) refers to the personal repository where the work was done, https://github.com/NMH1988/nutrition-ai-assistant (issue `#20` is https://github.com/NMH1988/nutrition-ai-assistant/issues/20); issue and PR numbers in the course repository, if it has any, are unrelated. A source number (e.g. "sources #1 and #9", "#18a") is a row in `docs/SOURCES.md`.
 
@@ -36,19 +36,22 @@ The owner writes these first; Claude reviews (`.claude/rules/workflow.md`).
 | O5 | Live checks with the real key: T1.2 (one chat and one embedding call), T2.3 (real index build), T5.1 (the cost check: the app's cost of one call against OpenRouter's record), T3.6 (retrieval comparison), T6.1 (evaluation run), T7.2 (German run) | T1.2, T2.3, T5.1, T3.6, T6.1, T7.2 | done (T1.2 and T2.3 done 2026-10-19; T3.2 query translation checked 2026-10-20; T5.1 cost check done 2026-10-21; T3.6 retrieval comparison run 2026-10-21; T6.1 evaluation runs 2026-10-21, two; T7.2 German run 2026-10-21) |
 | O6 | Get the course repository URL and confirm how the reviewers read it (files only, or through PRs) | T6.2 | done (2026-10-22): https://github.com/TuringCollegeSubmissions/mnguye-AE.AFA.updated0209.2.5 (private, the course's); the reviewers read the files only, so `.github/workflows/pr-checks.yml` stays there; the course allows updates before the deadline |
 | O7 | Draft the query translation system prompt (3 rewrites in English that keep the question's meaning; when to set `topics`, `min_year` and `evidence_tier`, and to leave them empty when unsure; the question is data) in `src/prompts/query_translation_system.md`; it must name `<user_input>`, the four fields and the six topics (tested) | T3.2 (before the merge); T3.5 (before the merge) | done for T3.2 (2026-10-20): drafted by the owner, revised after Claude's review (no guessed year for "recent", no nutrition words added to an unrelated question, a line per topic, four examples); done for T3.5 (2026-10-20): drafted by the owner as a query-rewriting and routing prompt: both fields in the JSON shape, a section each for `needs_tool` (the three tool tasks; true when unsure) and `needs_profile` (false when unsure, and when the question already holds the numbers), the two flags independent, both fields in every example and a fifth example for a food lookup; Claude's first review found nothing to change; revised by the owner on 2026-10-21 after the merge with T4.5: a fourth tool task, the full-day meal plan check (`needs_tool` and `needs_profile` both true, with an example), and the food lookup also for a food with no gram amount; then, after the first live check (option B), `needs_profile` true for personal advice (a meal suggestion included) and whenever the user types personal values, so the answer can compare them with the stored ones, and true when unsure if the user refers to themselves (Example 7); then, after PR #67's review, `needs_tool` true for a meal, menu or nutrition suggestion that should fit the user's own goal or targets (the daily-target tool supplies them; Example 8), and false for a general one such as a post-workout meal (Example 9) |
-| O8 | Rewrite the answer system prompt for the agent: drop "Handle each request independently" for conversation memory, and add when to search the knowledge base, when to propose saving a preference or a profile value, how to write a chat summary (what to keep; leave out medical conditions, pregnancy and medication), and how to use `<memories>`; Claude reviews | T9.3, T9.4, T9.7 | todo |
-| O9 | Create a Google OAuth client (web application, redirect `http://localhost:8501/oauth2callback`) and put its values in the gitignored `.streamlit/secrets.toml`; Claude never creates accounts or enters credentials | T9.5 | todo |
+| O8 | Rewrite the answer system prompt for the agent: drop "Handle each request independently" for conversation memory, and add when to search the knowledge base, when to propose saving a preference (what may be saved; never medical conditions, pregnancy or medication), how to use `<memories>`, that training is reported as facts only with no training advice, and (P1, T9.18) when to propose a log entry; chat summaries moved to the Capstone (T9.1); Claude reviews | T9.3, T9.4, T9.7, T9.14, T9.18 | todo |
+| O9 | Create a Google OAuth client (web application, redirect `http://localhost:8501/oauth2callback`; the consent screen in Testing mode with only the `openid`, `email` and `profile` scopes, free), add the Google accounts that will play the coach and the gymers as test users, and put the client's values in the gitignored `.streamlit/secrets.toml`; Claude never creates accounts or enters credentials | T9.5 | todo |
 | O10 | Create a LangSmith account and key, and set it only in the gitignored secrets or environment | T9.8 | todo |
 | O11 | Create a separate OpenRouter key with a credit limit for the evaluation workflow and store it as the repository secret `OPENROUTER_API_KEY_EVAL` | T8.6 | todo |
 | O12 | Request a FoodData Central API key (api.data.gov), and approve or reject the change to copyright policy rule 10 | T9.9 | todo |
-| O13 | Live checks with the real key for Epics 8 and 9: T8.1 (one answered question), T8.3 (retrieval comparison and evaluation), T8.4 (the baseline run), T9.2 and T9.3 (evaluation against the baseline), T9.4 (a follow-up question), T9.5 (sign in and out), T9.8 (one trace), T9.10 (the scored run) | those tickets | todo |
+| O13 | Live checks with the real key for Epics 8 and 9: T8.1 (one answered question), T8.3 (retrieval comparison and evaluation), T8.4 (the baseline run), T9.2 and T9.3 (evaluation against the baseline), T9.4 (a follow-up question), T9.5 (sign in and out as a coach and as a gymer), T9.7 (a preference proposed and saved), T9.12 (an invitation accepted by a second account), T9.16 (one review drafted and approved), T9.8 (one trace), T9.10 (the scored run) | those tickets | todo (T8.1 done 2026-10-25) |
 | O14 | Write a reference answer for each evaluation question with expected sources, if context precision and recall are wanted in T9.10 (the owner writes the evaluation content, as for O2); Claude reviews | T9.10 | todo |
+| O15 | Draft the weekly review system prompt (observations as facts from the metrics, hypotheses as tentative, recommendations for the coach; training as facts only; cite only `<sources>`; no diagnosis; missing days are "not logged") and, for T9.17, the coach assistant's part; Claude reviews | T9.16, T9.17 | todo |
 
 ## Overview and order
 
-Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
+Deadline: **2026-11-02** (Sprint 2). Target dates leave 1-2 days of buffer.
 
-**Core first, then extras** (owner's decision, 2026-10-19): the brief's core requirements and the optional tasks needed for maximum points (Medium 3, Medium 6, Hard 1) are finished first. The extras (Medium 5 token cost, Medium 7 PDF, the stretch tool, and Epic 7: English/German and light/dark mode) come after them and are still wanted, but never delay a core ticket. T6.2 comes last.
+**Sprint 3** (deadline **2026-11-23**; owner's order, 2026-10-25): T9.1 first, then Epic 8's T1.8, T8.2, T8.3 and T8.4, then the Epic 9 P0 tickets in the table's order, then the "should" tickets (T9.8, T9.10), then P1 (T9.17, T9.18), then the extras (T9.9, T8.5, T8.6), and T9.11 last. The targets assume about 12 hours of work a day and leave about a week of buffer. Estimate: P0 about 96-132 hours (Epic 8's four tickets included), should 10-14, P1 11-15, extras 10-15. **If time runs short, cut in this order:** T9.9, T8.6, T8.5, T9.18, T9.17, T9.10, T9.8; the P0 tickets stay, as they carry Sprint 3's core requirements and its optional tasks for maximum points (Medium 2, Medium 4, Hard 1).
+
+**Core first, then extras** (owner's decision, 2026-10-19): the brief's core requirements and the optional tasks needed for maximum points (Sprint 2: Medium 3, Medium 6, Hard 1) are finished first. The extras (Medium 5 token cost, Medium 7 PDF, the stretch tool, and Epic 7: English/German and light/dark mode) come after them and are still wanted, but never delay a core ticket. T6.2 comes last.
 
 | Ticket | Issue | Title | Size | Depends on | Target | Status |
 |---|---|---|---|---|---|---|
@@ -67,8 +70,8 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T1.6 | #55 | CI: accept the pillow 12.3.0 advisories until Streamlit allows pillow 13 | S | T1.1 | 10-20 | done |
 | T1.6a | #77 | CI: upgrade streamlit to 1.66.1 so pillow 13 replaces the pillow ignores (owner's request after PR #76's security job failed) | S | T1.6 | 10-22 | done |
 | T1.7 | #81 | Streamlit runs on localhost only, without telemetry or error details (owner's request after the 2026-10-22 security audit) | S | T1.1 | 10-22 | done |
-| T1.8 | #82 | A fixed message for unexpected errors in a chat turn (split from T1.7) | S | T1.7 | with T8.2 (Epic 8 order, owner, 2026-10-25) | todo |
-| T1.9 | #110 | Workflow files: read and check both briefs for every ticket (owner's request after PR #109) | S | - | 10-25 | in review |
+| T1.8 | #82 | A fixed message for unexpected errors in a chat turn (split from T1.7) | S | T1.7 | 10-26 (before T8.2; Epic 8 order, owner, 2026-10-25) | todo |
+| T1.9 | #110 | Workflow files: read and check both briefs for every ticket (owner's request after PR #109) | S | - | 10-25 | done |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1, O7 | 10-26 | done |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2 | 10-27 | done |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | done |
@@ -94,30 +97,38 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T4.5 | #15 | `evaluate_meal_plan` tool (stretch; done early by the owner's choice) | S | T4.4 | only if ahead | done |
 | T4.6 | #40 | Profile form: a hint instead of "Press Enter to apply" (beyond the brief; owner's request, done early as a small fix) | S | T4.1, T3.1 | 10-20 | done |
 | **Epic 8: Sprint 2 review follow-ups** | | | | | | |
-| T8.1 | #90 | Split `app.py` into a `views/` package, no behaviour change | L | - | - | in review |
-| T8.2 | #91 | Structured turn logging with no personal data | M | T1.8, T8.1 | - | todo |
-| T8.3 | #92 | At most three chunks per source in the fused list | S | T8.1, O13 | - | todo |
-| T8.4 | #93 | Evaluation results as JSON and a committed baseline | M | T8.3, O13 | - | todo |
-| T8.5 | #94 | An offline retrieval regression suite in CI | M | T8.4 | - | todo |
-| T8.6 | #95 | A manually started live evaluation workflow | S | T8.4, O11 | - | todo |
-| **Epic 9: Sprint 3 agent** | | | | | | |
-| T9.1 | #96 | Sprint 3 product and design decisions | S | - | - | todo |
-| T9.2 | #97 | The chat turn as a LangGraph `StateGraph`, same behaviour | L | T9.1, T8.1, T8.2, T8.4 | - | todo |
-| T9.3 | #98 | Agentic RAG: searching the knowledge base is the agent's tool | M | T9.2, T8.4, O8 | - | todo |
-| T9.4 | #99 | Short-term memory: a conversation that remembers earlier turns | M | T9.2, O8 | - | todo |
-| T9.5 | #100 | Sign in with Google (`st.login`, OIDC), with a guest mode | M | T8.1, O9 | - | todo |
-| T9.6 | #101 | Long-term memory: the store and the "My data" view | M | T9.5 | - | todo |
-| T9.7 | #102 | Human in the loop: the user approves what is saved | L | T9.6, T9.4, O8 | - | todo |
-| T9.8 | #103 | LangSmith tracing with personal data masked (extra) | M | T9.2, T8.2, O10 | - | todo |
-| T9.9 | #104 | Food lookup through the USDA FoodData Central API (extra) | M | T9.2, O12 | - | todo |
-| T9.10 | #105 | Evaluation report with Ragas or DeepEval (extra) | M | T8.4, T9.3 | - | todo |
-| T9.11 | #106 | Sprint 3 documentation and reflection | S | T9.2-T9.7 | - | todo |
+| T8.1 | #90 | Split `app.py` into a `views/` package, no behaviour change | L | - | 10-25 | done |
+| T8.2 | #91 | Structured turn logging with no personal data | M | T1.8, T8.1 | 10-27 | todo |
+| T8.3 | #92 | At most three chunks per source in the fused list | S | T8.1, O13 | 10-27 | todo |
+| T8.4 | #93 | Evaluation results as JSON and a committed baseline | M | T8.3, O13 | 10-28 | todo |
+| T8.5 | #94 | An offline retrieval regression suite in CI (extra) | M | T8.4 | 11-15 | todo |
+| T8.6 | #95 | A manually started live evaluation workflow (extra) | S | T8.4, O11 | 11-15 | todo |
+| **Epic 9: Sprint 3 agent, P0** | | | | | | |
+| T9.1 | #96 | Sprint 3 product and design decisions (coach-first scope) | M | - | 10-26 | in review |
+| T9.2 | #97 | The chat turn as a LangGraph `StateGraph`, same behaviour | L | T9.1, T8.1, T8.2, T8.4 | 10-30 | todo |
+| T9.3 | #98 | Agentic RAG: searching the knowledge base is the agent's tool | M | T9.2, T8.4, O8 | 10-31 | todo |
+| T9.4 | #99 | Short-term memory: a conversation that remembers earlier turns | M | T9.2, O8 | 10-31 | todo |
+| T9.6 | #101 | The SQLite store and the authorisation layer | L | T9.1, T8.2 | 11-02 | todo |
+| T9.5 | #100 | Sign in with Google, roles, guest and demo mode, My data | L | T9.6, T8.1, O9 | 11-03 | todo |
+| T9.12 | #112 | Invitations and sharing | M | T9.5 | 11-04 | todo |
+| T9.13 | #113 | Food and weight diary, and the weekly nutrition metrics | M | T9.5, T9.2 | 11-05 | todo |
+| T9.14 | #114 | Workout log and the weekly training metrics | M | T9.5, O8 | 11-05 | todo |
+| T9.15 | #115 | Coach and gymer dashboards | M | T9.12, T9.13, T9.14 | 11-06 | todo |
+| T9.7 | #102 | Long-term memory: `remember_preference` with the user's approval | M | T9.4, T9.5, O8 | 11-07 | todo |
+| T9.16 | #116 | Weekly review with the coach's approval | L | T9.3, T9.15, O15 | 11-09 | todo |
+| T9.11 | #106 | Sprint 3 documentation and reflection | S | the P0 tickets | 11-16 | todo |
+| **Epic 9: should, P1 and extras** | | | | | | |
+| T9.8 | #103 | LangSmith tracing with personal data masked (should) | M | T9.2, T8.2, O10 | 11-10 | todo |
+| T9.10 | #105 | Evaluation report with Ragas or DeepEval (should) | M | T8.4, T9.3 | 11-11 | todo |
+| T9.17 | #117 | Coach assistant: client tools, a follow-up flag, coach-set targets (P1) | M | T9.16, O15 | 11-12 | todo |
+| T9.18 | #118 | Logging by chat with the gymer's approval (P1) | M | T9.7, T9.13, O8 | 11-13 | todo |
+| T9.9 | #104 | Food lookup through the USDA FoodData Central API (extra) | M | T9.2, O12 | 11-14 | todo |
 | **Last** | | | | | | |
 | T6.2 | #20 | README, final checks and transfer to the course repo | S | all, O6 | 11-01 | done |
 
 **Critical path:** T1.1 -> T1.2 -> T2.1 -> T2.2 -> T2.3 -> T3.1 -> T3.2 -> T3.3 -> T3.6 -> T6.1 -> T6.2. T1.3, T4.1 and T4.3 can run alongside it; the extras run after T6.1, or alongside it once their dependencies are done.
 
-**If time runs short, cut in this order:** T4.5, then T7.2 (keep the English answers), then T7.1, then T7.4 (German input still reaches an English UI), then T7.3 (both themes stay from T3.1; only its test, toolbar check and hint go), then T5.2 (or keep it with a plain text layout), then T5.1, then chart polish. T7.3 is beyond the brief, so it goes before T5.2 and T5.1, which the brief asks for (Medium 7, Medium 5). The core requirements and the optional tasks for maximum points (Medium 3, 6; Hard 1) stay.
+**If time runs short, cut in this order:** T4.5, then T7.2 (keep the English answers), then T7.1, then T7.4 (German input still reaches an English UI), then T7.3 (both themes stay from T3.1; only its test, toolbar check and hint go), then T5.2 (or keep it with a plain text layout), then T5.1, then chart polish. T7.3 is beyond the brief, so it goes before T5.2 and T5.1, which the brief asks for (Medium 7, Medium 5). The core requirements and the optional tasks for maximum points (Sprint 2: Medium 3, 6; Hard 1) stay.
 
 ---
 
@@ -219,7 +230,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [ ] Records: this plan (T1.8), `docs/PROGRESS.md`.
 **Notes:** owner's choices (2026-10-22): a new message rather than `llm.error` (which names the model service); log only the type and location. Plan drafted in the T1.7 session: make `llm._diagnostic` public, put `TURN_ERROR_MESSAGE` in `src/config.py`, add `except Exception` after the named handlers in `run_turn()`. A catch-all can hide a UI bug raised in the app's `on_text`/`on_step` callbacks in AppTests; the tests that check the answer's content still catch it.
 
-### T1.9 Workflow files: read and check both briefs for every ticket (S) · status: in review · issue #110
+### T1.9 Workflow files: read and check both briefs for every ticket (S) · status: done · issue #110
 **Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): none. Sprint 2 (`docs/BRIEF.md`): none. Beyond the brief (owner's request): the workflow files make every ticket and review follow "Using this file" in both briefs.
 **Depends on:** -
 **Acceptance criteria** (approved by the owner, 2026-10-25)
@@ -582,9 +593,9 @@ The German guard and guardrail criteria moved to T7.4 (owner's decision, 2026-10
 
 ## Epic 8: Sprint 2 review follow-ups
 
-Added by the owner on 2026-10-25 from the reviewer's feedback on the Sprint 2 project (summarised in `docs/BRIEF_SPRINT3.md`, "The Sprint 2 review"). Order agreed with the owner: T8.1, then T1.8 and T8.2, then T8.3 and T8.4, before Epic 9; T8.5 and T8.6 after the agent works. Review point 3 (tool questions get unrelated passages) is not a ticket here: T9.3's agentic RAG answers it.
+Added by the owner on 2026-10-25 from the reviewer's feedback on the Sprint 2 project (summarised in `docs/BRIEF_SPRINT3.md`, "The Sprint 2 review"). Order agreed with the owner: T8.1, then T1.8 and T8.2, then T8.3 and T8.4, before Epic 9; T8.5 and T8.6 after the agent works. On 2026-10-25 the owner put T9.1 (docs only) before T1.8; the rest of the order stands. Review point 3 (tool questions get unrelated passages) is not a ticket here: T9.3's agentic RAG answers it.
 
-### T8.1 Split `app.py` into a `views/` package, no behaviour change (L) · status: in review · issue #90
+### T8.1 Split `app.py` into a `views/` package, no behaviour change (L) · status: done · issue #90
 **Serves:** The Sprint 2 review, point 2 (`app.py` of about 1,380 lines against the project's layering; `docs/BRIEF_SPRINT3.md` names T8.1 for it); the Sprint 3 evaluation, core concepts: good code organisation (`docs/BRIEF_SPRINT3.md`), as in the Sprint 2 evaluation (`docs/BRIEF.md`); Sprint 3 core 5 (documentation: the technical decisions made, here the UI layout in `docs/ARCHITECTURE.md` and `docs/UI_DESIGN.md`); prepares Sprint 3 core 3 (a user interface for every function) for the UI Epic 9 adds (sign-in, Medium 4; memory, Medium 2; approvals).
 **Depends on:** -
 **Acceptance criteria**
@@ -651,37 +662,38 @@ Added by the owner on 2026-10-25 from the reviewer's feedback on the Sprint 2 pr
 
 ## Epic 9: Sprint 3 agent
 
-Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this app (`docs/BRIEF_SPRINT3.md`). Owner's decisions (2026-10-23 to 2026-10-25): a hand-built LangGraph `StateGraph`; short-term memory; long-term memory that may keep weight, height and age as dated history (a later epic may track nutrition and training over time: beyond the brief, owner's request); conversations themselves are never written to disk, and a returning user is remembered only through what they approved: profile entries, preferences and short summaries of earlier chats ("level 2", owner's choice after PR #108's review, 2026-10-25); real sign-in with `st.login` (Google, OIDC) before any body data is stored, with a guest mode that works as today; observability as local JSON logs (T8.2) plus LangSmith with personal data masked.
+Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this app (`docs/BRIEF_SPRINT3.md`); deadline **2026-11-23**. Rewritten the same day by T9.1 for the **coach-first scope** the owner chose (`docs/PRD.md`, "Sprint 3: the agent (coach-first workspace)"; decisions D9-D21 in `docs/ARCHITECTURE.md`; the planned design in its section 16): a coach invites gymers, follows their nutrition and training, and approves the weekly reviews the agent drafts. Earlier owner decisions that stand: a hand-built LangGraph `StateGraph`; conversations never written to disk ("level 2"); real sign-in with `st.login` (Google, OIDC) before any body data is stored, with a guest mode with nothing stored; observability as local JSON logs (T8.2) plus LangSmith with personal data masked. Chat summaries in long-term memory moved to the Capstone (T9.1).
 
-**This changes the privacy rule:** today the profile lives in the session only and is never written to disk (`.claude/rules/security-privacy.md`, PRD feature 4). T9.7, which adds the approved saves, changes this for signed-in users and updates the rule, the PRD and `docs/SECURITY.md` in the same PR; T9.6 before it only reads and deletes.
+**This changes the privacy rule:** today the profile lives in the session only and is never written to disk (`.claude/rules/security-privacy.md`, PRD feature 4). T9.6, which adds the store, changes this for signed-in users and updates the rule, the PRD and `docs/SECURITY.md` in the same PR.
 
-**For maximum points (done first):** Medium 2 (memory: T9.4, T9.6, T9.7), Medium 4 (authentication and personalisation: T9.5), Hard 1 (agentic RAG: T9.3); Medium 1 and Medium 8 are done from Sprint 2. **Extras after that:** T9.8 (Hard 2), T9.10 (Hard 3), T9.9 (Medium 3, Hard 5).
+**For maximum points (P0):** Medium 2 (memory: T9.4, T9.7), Medium 4 (authentication and personalisation: T9.5, T9.6), Hard 1 (agentic RAG: T9.3); Medium 1 and Medium 8 are kept from Sprint 2. **Should:** T9.8 (Hard 2), T9.10 (Hard 3). **P1:** T9.17, T9.18. **Extras:** T9.9 (Medium 3, Hard 5), T8.5, T8.6.
 
-### T9.1 Sprint 3 product and design decisions (S) · status: todo · issue #96
-**Serves:** Sprint 3 core 1 (agent purpose) and core 5 (technical decisions).
+### T9.1 Sprint 3 product and design decisions (coach-first scope) (M) · status: in review · issue #96
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 1 (agent purpose), core 5 (technical decisions), evaluation: problem definition and core concepts (how the agent works and why these agent types, D9, D11, D17); Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request): the coach-first scope.
 **Depends on:** -
-**Acceptance criteria**
-- [ ] `docs/PRD.md` gains "Sprint 3: the agent": the problem, why an agent helps, the target users (unchanged: healthy adults 18+ who lift), the new features (conversation memory, sign-in, saved profile history and preferences with approval, agentic search) and product acceptance criteria AC-18 onward; the privacy change above is stated there - owner review.
-- [ ] `docs/ARCHITECTURE.md` records decisions D9 onward: a raw `StateGraph` rather than `create_agent` (the guard must branch to the end before any paid call, and approvals pause at a chosen step), the checkpointers, the long-term store, sign-in, LangSmith masking - owner approval of each decision.
-- [ ] `README.md` says the project now serves two course briefs and links `docs/BRIEF.md` and `docs/BRIEF_SPRINT3.md` - review.
-**Notes:** docs only; the owner approves before T9.2 starts.
+**Acceptance criteria** (widened by the owner on 2026-10-25 for the coach-first scope; S became M)
+- [x] `docs/PRD.md` gains "Sprint 3: the agent (coach-first workspace)": the problem, why an agent helps, the users and roles, the features (P0, P1, should, extras), the added guardrails, the privacy change, product acceptance criteria AC-18 to AC-37, what is beyond the brief, what moves to the Capstone, and the 2026-11-23 deadline - owner review on the PR.
+- [x] `docs/ARCHITECTURE.md` records D9-D21 (raw `StateGraph`, agentic RAG, a tool set per role, the checkpointers, the `sqlite3` store, sign-in, invitations, sharing scopes, the review workflow, demo mode, observability, pages per role, time), marks D1 and D2 as superseded when T9.3 and T9.2 merge, and adds the planned design (section 16) and the Sprint 3 brief coverage (section 15) - owner approval of each decision: the 13 decisions of the owner's plan, and D11, D17, D20 and D21 asked separately after the code review, approved on 2026-10-25.
+- [x] This epic is rewritten: T9.4, T9.5, T9.6, T9.7 and T9.11 reworked, T9.12-T9.18 added with acceptance criteria and an issue each, P0/should/P1/extras, the order and target dates; O8, O9 and O13 updated and O15 added; issues #96-#106 match this plan - review; `gh issue view`.
+- [x] `README.md` says the project now serves two course briefs and links `docs/BRIEF.md` and `docs/BRIEF_SPRINT3.md` - review.
+**Notes:** docs only; the owner approves before T9.2 starts. The owner's 12-week product plan ("PRD v1.0", kept by the owner, not in the repo) was cut into this scope through a draft, `docs/PRD_V1.1_SPRINT3_DRAFT.md`, which was never committed and is deleted by this ticket.
 
 ### T9.2 The chat turn as a LangGraph `StateGraph`, same behaviour (L) · status: todo · issue #97
-**Serves:** Sprint 3 core 2 and 4; evaluation (how agents and function calling work).
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 2 and 4, evaluation (how agents and function calling work); Sprint 2 (`docs/BRIEF.md`): core 2 (tool calling).
 **Depends on:** T9.1, T8.1, T8.2, T8.4 (the baseline its last criterion checks against)
 **Acceptance criteria**
 - [ ] `langgraph` is pinned in `pyproject.toml` after its licence is checked (copyright policy rule 9) and listed in `docs/ARCHITECTURE.md` section 12 - review, CI install.
 - [ ] `src/agent/graph.py` builds a `StateGraph` with a `TypedDict` state (messages through `add_messages`; the profile, chunks and usage as private state the caller never gets back): guard, query translation, retrieval, the agent node and a `ToolNode` in a loop, and a finish node; conditional edges send a rejected input and an uncovered question to the end - unit tests per node and per edge with fake models.
 - [ ] The guard node runs first and a rejected or rate-limited input makes no model or embedding call - `tests/test_chat.py::test_rejected_input_opens_nothing_and_calls_no_model` passes through the graph, and a new spy test invokes the compiled graph with an `httpx.MockTransport` that sees zero requests.
 - [ ] The tool loop keeps `MAX_TOOL_ROUNDS` and `MAX_TOOL_CALLS_PER_ROUND`; tool arguments are validated as before; models come only from `build_chat_model()` - `tests/test_tool_loop.py` passes.
-- [ ] A new source-scan test fails on any call-time `model`, `max_tokens`, `max_completion_tokens`, `base_url` or `reasoning_effort` (in `.bind(...)`, `invoke(...)`, `model_kwargs`, `extra_body`) and on `model_copy(update=...)`, `configurable_fields(...)` or `configurable_alternatives(...)` anywhere in `src/`, `views/`, `app.py` and `scripts/`; `bind_tools(tools)` alone is allowed - `tests/test_client_rules.py`, with cases that must be caught and cases that must pass.
+- [ ] A new source-scan test fails on any call-time `model`, `max_tokens`, `max_completion_tokens`, `base_url` or `reasoning_effort` (in `.bind(...)`, `invoke(...)`, `model_kwargs`, `extra_body`) and on `model_copy(update=...)`, `configurable_fields(...)` or `configurable_alternatives(...)` anywhere in `src/`, `views/`, `app.py` and `scripts/`; `bind_tools(tools)` alone and `with_structured_output(schema, ...)` with no model, token or URL argument are allowed (query translation uses it today, the weekly review in T9.16) - `tests/test_client_rules.py`, with cases that must be caught and cases that must pass.
 - [ ] `chat.run_turn()` keeps its signature and `TurnResult`, so the app and `scripts/run_evaluation.py` are unchanged; every existing chat, tool, usage and AppTest passes - CI.
 - [ ] `docs/ARCHITECTURE.md` shows the graph as a Mermaid diagram generated from the compiled graph (`get_graph().draw_mermaid()`), and a test fails if the committed diagram differs - `tests/test_agent_graph.py`.
 - [ ] `run_evaluation.py --repeat 3` gives found and cited rates within the baseline tolerance - `scripts/check_eval_baseline.py` on the owner's run (O13).
-**Notes:** behaviour first, new abilities from T9.3 on, so a regression has one cause. The largest ticket in the epic; split in the Structure phase if needed.
+**Notes:** behaviour first, new abilities from T9.3 on, so a regression has one cause. The state's user field and the tool sets per role (D11) arrive with T9.5 and T9.7; this ticket keeps the guest's behaviour. The largest ticket in the epic; split in the Structure phase if needed.
 
 ### T9.3 Agentic RAG: searching the knowledge base is the agent's tool (M) · status: todo · issue #98
-**Serves:** Sprint 3 Hard 1; Sprint 2 review point 3.
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Hard 1, Sprint 2 review point 3; Sprint 2 (`docs/BRIEF.md`): core 1 (RAG).
 **Depends on:** T9.2, T8.4, O8
 **Acceptance criteria**
 - [ ] A `search_knowledge_base` tool runs query translation and hybrid search with the same coverage gate and returns the chunks inside a delimited `<sources>` tool message as data; its query argument is validated (type, length from config) - unit tests.
@@ -690,72 +702,176 @@ Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this 
 - [ ] An off-topic question still costs no answer call (AC-2) and gets the "not covered" message - existing tests, adapted.
 - [ ] "How this answer was found" shows each search the agent made (its rewrites and filters), or that it made none - AppTest.
 - [ ] `docs/SECURITY.md` covers the new path (a model-written search query is data; retrieved text stays inside `<sources>`) - review; the `security-reviewer` agent run on the PR.
-**Notes:** the owner writes the prompt's rules on when to search (O8).
+**Notes:** the owner writes the prompt's rules on when to search (O8). Serves AC-32.
 
 ### T9.4 Short-term memory: a conversation that remembers earlier turns (M) · status: todo · issue #99
-**Serves:** Sprint 3 Medium 2.
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Medium 2; Sprint 2 (`docs/BRIEF.md`): Easy 1 (conversation history).
 **Depends on:** T9.2, O8
 **Acceptance criteria**
 - [ ] The graph is compiled with an `InMemorySaver` for every user, guest or signed in; each browser session holds its own checkpointer and `thread_id` in `st.session_state` (never in `st.cache_resource`, so sessions share nothing and a closed session's memory goes with it); no conversation is written to disk - unit test: a second invoke on the same thread sees the first turn, a new thread does not; AppTest: two sessions do not see each other's threads; a test that no checkpoint file is created.
 - [ ] A follow-up ("and for 200 g?") is answered from the earlier turn - test with a scripted fake model on the messages it receives, plus one live follow-up by the owner (O13).
-- [ ] The model sees at most the last `config.HISTORY_MAX_TOKENS` of the conversation (`trim_messages` in the node), while the checkpoint keeps the whole thread - unit test comparing the model's input with `get_state()`.
+- [ ] The model sees at most the last `config.HISTORY_MAX_TOKENS` of the conversation (`trim_messages` in the node), while the stored thread keeps up to the cap below - unit test comparing the model's input with `get_state()`.
 - [ ] Every new message passes the guard first; a rejected message is not added to the thread - unit test.
-- [ ] The `<profile>` block and tool arguments with profile values are not stored in the thread; only the current turn's model call gets them. The one exception is a save proposal waiting for the user's answer (T9.7), held in memory only until then; T9.7 replaces its arguments once the user answers - test that reads the checkpoint for the canary values (with T9.7, after every choice).
-- [ ] A "New chat" button starts a new thread and clears the chat; the summary PDF and the session cost cover the current chat - AppTest.
+- [ ] The `<profile>` block and tool arguments with profile values never enter the thread; only the current turn's model call gets them - test that reads the latest checkpoint and `get_state_history()` for the canary profile values. The one exception is a save proposal waiting for the user's answer (T9.7): T9.7 replaces its arguments in the thread's latest state once the user answers, while the earlier in-memory checkpoints keep them until "New chat" or the end of the session (never on disk) - test on `get_state()` after every choice (with T9.7).
+- [ ] The thread's state keeps at most `config.HISTORY_MAX_MESSAGES` messages: a node deletes older ones with `RemoveMessage` (what is stored), next to `trim_messages` (what the model sees), and cuts only before a user message, so no tool message is left without the AI message that called it; older in-memory checkpoints keep removed messages until "New chat" - unit tests on `get_state()` after more turns than the cap, and with the cap falling inside a tool exchange.
+- [ ] A "New chat" button discards any pending proposal (T9.7), deletes the old thread from the checkpointer (`delete_thread()`), starts a new `thread_id` and clears the chat; the summary PDF and the session cost cover the current chat - unit test: the old thread has no checkpoint left (`get_state_history()` empty); AppTest (owner's choice of 2026-10-25, after the code review of T9.1).
 - [ ] The answer prompt no longer says each request stands alone (O8, written by the owner) - owner review; a test on the built prompt.
-**Notes:** cost rises with history; the trim limit is set from a measured turn.
+**Notes:** cost rises with history; the trim limit is set from a measured turn. Serves AC-31.
 
-### T9.5 Sign in with Google (`st.login`, OIDC), with a guest mode (M) · status: todo · issue #100
-**Serves:** Sprint 3 Medium 4; required before T9.6 stores body data (owner's decision, 2026-10-25).
-**Depends on:** T8.1, O9
+### T9.6 The SQLite store and the authorisation layer (L) · status: todo · issue #101
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Medium 2 (the long-term memory store), Medium 4 (personalisation), core 4 (real-world use), evaluation: appropriate security; Sprint 2 (`docs/BRIEF.md`): Medium 4 (personalisation); beyond the brief (owner's request): the coach-client sharing model.
+**Depends on:** T9.1, T8.2 (the canary log tests)
+**Acceptance criteria**
+- [ ] `src/store/` uses the standard library's `sqlite3` on a file in a gitignored directory set in config (D13); a versioned migration function creates the tables of `docs/ARCHITECTURE.md` section 16, with foreign keys on, non-negative quantities checked and UTC timestamps (D21) - unit tests on a temporary database.
+- [ ] Every query is parameterised - a scan test fails on SQL built with f-strings, `%`, `.format()` or `+` in `src/store/`.
+- [ ] Every read of another user's data takes the acting user and checks the role, an active relationship and the scope; a missing, foreign, ended or unshared resource gives the same `NotFound` (D16) - cross-client tests for every read function (AC-21, AC-22).
+- [ ] Nutrient snapshots and profile entries are never changed in place, and a new target is a new row - unit tests.
+- [ ] A coach's read of client data and every review decision write an audit row with no values - unit tests.
+- [ ] `export_user_data()` returns all of a user's rows as JSON; `delete_user_data()` removes them, the user's relationships, the reviews about the user and those the user wrote as a coach, and the audit rows by or about the user (the app is local and keeps no audit duty; the owner may change this) - unit tests with foreign keys on (AC-34); T9.16 adds the review threads.
+- [ ] No stored value appears in a log record - T8.2's canary tests extended to the store (AC-33).
+- [ ] `.claude/rules/security-privacy.md`, `docs/PRD.md` (feature 4 and the privacy note) and `docs/SECURITY.md` (what is stored, where, for whom and how it is deleted; a shared machine, a copied file; the file is not encrypted; local only) are updated - owner review.
+**Notes:** no UI here: T9.5 adds the first screens. Was "Long-term memory: the store and the My data view"; reworked by T9.1 for the coach-first scope, and moved before T9.5 so sign-in has a store to write to. PostgreSQL replaces this module in the Capstone.
+
+### T9.5 Sign in with Google, roles, guest and demo mode, My data (L) · status: todo · issue #100
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Medium 4 (authentication and personalisation), core 3; Sprint 2 (`docs/BRIEF.md`): Medium 4.
+**Depends on:** T9.6, T8.1, O9
 **Acceptance criteria**
 - [ ] `streamlit[auth]` (Authlib) is pinned after its licence is checked (rule 9) - review, CI install.
 - [ ] `.streamlit/secrets.toml.example` has an `[auth]` section with placeholders (`redirect_uri = "http://localhost:8501/oauth2callback"`, `cookie_secret`, the Google client ID and secret, `server_metadata_url`); the real values live only in the gitignored `secrets.toml` and are never logged or shown - review; the secrets tests extended.
-- [ ] The sidebar shows "Sign in with Google" for a guest, and the account's first name with "Sign out" when signed in; a guest uses the app exactly as today and nothing is written to disk - AppTest with `st.user` faked, and a test that no database file is created for a guest.
-- [ ] Without an `[auth]` section (a reviewer's clone) the sign-in button is hidden, a short note says why, and the app runs as a guest - AppTest.
+- [ ] The sidebar shows "Sign in with Google" for a guest, and the display name with "Sign out" when signed in; a guest uses the chat (session memory and agentic search included) and nothing is written to disk - AppTest with `st.user` faked, and a test that no database file is created for a guest.
+- [ ] At the first sign-in the user chooses Coach or Gymer and a display name (length and characters from config, through the input guard); the role is stored once and cannot be changed in the app - AppTest and unit tests (AC-18).
+- [ ] Pages per role with `st.navigation` (D20): a guest keeps today's tabs; a page of the other role cannot be reached, even by its URL - AppTest.
+- [ ] Without an `[auth]` section the sign-in button is hidden and a short note says why; with `DEMO_MODE` on, a picker offers the synthetic users of a fixture we wrote, on a temporary database seeded at start; `DEMO_MODE` is off by default and ignored when `[auth]` exists - AppTest (AC-19).
 - [ ] The user is identified by a key derived from the issuer and `sub` (a keyed hash with a secret from the secrets file); email, name and picture are never stored or logged - unit test on the key function, the canary log test extended.
-- [ ] `README.md` and `docs/DEPLOYMENT.md` explain how to set up the Google client for localhost; `docs/SECURITY.md` lists sign-in as a control - review; the owner signs in and out on localhost (O9, O13).
-**Notes:** Claude never creates the Google client or enters credentials; the owner does (O9). Streamlit 1.66.1 in the venv provides `st.login`, `st.logout` and `st.user` (checked 2026-10-25); Authlib is not installed yet.
+- [ ] Signing in as a gymer loads the latest profile into the session; Save in the profile form adds a dated entry for a signed-in gymer, never for a guest, and writes the active target row from `calculate_macro_targets` (`set_by` = system, `calc_version`) that the metrics compare with - AppTest and unit tests.
+- [ ] The sidebar's privacy note says, for a signed-in user, what is saved and links to My data, and asks not to enter real health data (synthetic data only); a guest keeps today's text - AppTest in English and German.
+- [ ] A "My data" page lists what is stored, exports it as JSON, deletes one entry, and deletes everything after a confirmation - AppTest (AC-34).
+- [ ] `README.md` and `docs/DEPLOYMENT.md` explain how to set up the Google client for localhost (test users included) and demo mode; `docs/SECURITY.md` lists sign-in and demo mode as controls - review; the owner signs in and out as a coach and as a gymer (O9, O13).
+**Notes:** Claude never creates the Google client or enters credentials; the owner does (O9). Streamlit 1.66.1 in the venv provides `st.login`, `st.logout` and `st.user` (checked 2026-10-25); Authlib is not installed yet. Reworked by T9.1: roles, demo mode and My data added.
 
-### T9.6 Long-term memory: the store and the "My data" view (M) · status: todo · issue #101
-**Serves:** Sprint 3 Medium 2 and Medium 4 (personalisation); groundwork for progress tracking (beyond the brief, owner's request).
+### T9.12 Invitations and sharing (M) · status: todo · issue #112
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 2 (user interactions), core 3, evaluation: appropriate security; Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request): the coach-client relationship.
 **Depends on:** T9.5
 **Acceptance criteria**
-- [ ] Only signed-in users have long-term memory; it lives in a SQLite file in a gitignored directory set in config, with tables for dated profile entries (weight in kg, height in cm, age, sex, activity, goal, and the date recorded; never overwritten), preferences (short facts such as "vegetarian") and chat summaries (one or two sentences with a date) per user key; every query is parameterised; this ticket adds no write path from the app (T9.7 adds the approved saves) - unit tests on a temporary, seeded database, and a scan for SQL built from strings.
-- [ ] Signing in loads the latest profile into the session, so the tools and the targets tab use it; the history is kept for later tracking - AppTest.
-- [ ] Saved preferences and the most recent chat summaries (at most `config.MEMORY_SUMMARIES_IN_PROMPT`) reach the model as data inside a delimited `<memories>` block, never in the system prompt - unit tests on the built messages, with an injection string seeded in the database staying inside the block.
-- [ ] A "My data" view lists the profile history, the preferences and the chat summaries, exports them as JSON, deletes one entry, and deletes everything for the user - AppTest and unit tests.
-- [ ] Nothing from memory appears in logs or traces - the canary tests of T8.2 extended to saved values.
-**Notes:** the database is not encrypted; it stays on the machine that runs the app, which is local only. A public deployment needs a privacy notice and a review of this ticket and T9.7 first (`docs/DEPLOYMENT.md`). Split from T9.7 after PR #108's review so that neither waits for the other: the store and its view come first, the approved writes and the privacy rule change come with T9.7.
+- [ ] A coach creates an invitation: a random code from the `secrets` module (length from config), shown once, stored as a hash, expiring after `config.INVITE_TTL_DAYS`; the coach can cancel it - unit tests and AppTest (D15).
+- [ ] A gymer enters the code and turns each scope on or off (nutrition, training, body); a valid, unexpired, unused code makes the relationship active; an invalid, used or expired code gets one fixed message that does not say which - unit tests (AC-20).
+- [ ] Code attempts are limited per user key in the store (`config.INVITE_MAX_ATTEMPTS` a day), so a page reload does not reset them - unit test.
+- [ ] A "Coach and sharing" page lets the gymer change scopes, revoke and end the relationship; the coach's next read is blocked - AppTest and store tests (AC-22).
+- [ ] The coach's client list shows each client's display name and which scopes are on - AppTest.
+- [ ] The owner accepts an invitation with a second Google account - owner live check (O13).
+**Notes:** no email is sent; the coach passes the code on by hand.
 
-### T9.7 Human in the loop: the user approves what is saved (L) · status: todo · issue #102
-**Serves:** Sprint 3 core 2 (user interactions), Medium 2 (long-term memory) and the course's human-in-the-loop pattern.
-**Depends on:** T9.6, T9.4 (the checkpointer that pauses, and "New chat"), O8
+### T9.13 Food and weight diary, and the weekly nutrition metrics (M) · status: todo · issue #113
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 2, core 3; Sprint 2 (`docs/BRIEF.md`): none (it reuses the USDA table of core 2's tools); beyond the brief (owner's request): the diary.
+**Depends on:** T9.5, T9.2
 **Acceptance criteria**
-- [ ] `remember_preference` and `update_profile` tools pause the graph with `interrupt()` before any write, carrying the proposed values; nothing is written before the user answers - unit test on the database after the interrupt.
-- [ ] The chat shows the proposal ("Save weight 82 kg, recorded today?") with Save, Edit and Discard; Save resumes the graph with `Command(resume=...)` and writes; Edit checks the values with the profile form's validation (age 18+, ranges, units); Discard writes nothing and the agent says so - AppTest per choice and unit tests.
-- [ ] A value the user types in chat ("I'm 80 kg now") becomes a proposal, never a silent write - test with a scripted fake model.
-- [ ] When a signed-in user starts a new chat, or after `config.SUMMARY_AFTER_TURNS` turns, the agent proposes a one- or two-sentence summary of the chat; the user saves, edits or discards it the same way; a returning user's next chat gets the saved summaries through `<memories>` (T9.6) - AppTest and unit tests.
-- [ ] Every proposed value and text passes the input guard and the domain guardrails before it is shown: preference and summary text with injection patterns, medical conditions, pregnancy or medication is not proposed (the summary leaves such content out), so it can never be saved - unit tests with attack strings and German and English medical examples.
-- [ ] After a Discard, the memory database holds nothing new and no file outside it was written - a test that reads the SQLite file after each choice.
-- [ ] Once the user answers, the paused tool call's arguments in the checkpoint are replaced with a placeholder, so no proposed value stays in the thread after Save, Edit or Discard (T9.4's rule) - a test that reads the checkpoint for the canary values after each choice.
-- [ ] `.claude/rules/security-privacy.md`, `docs/PRD.md` (feature 4 and the privacy note) and `docs/SECURITY.md` (threat model: a shared machine, a copied file; what is stored, where, how to delete it) are updated, and the sidebar's privacy note says what is saved and how to delete it - owner review.
-- [ ] Guests are never offered these tools - unit test on the tools built for a guest.
-- [ ] A pending approval survives a rerun of the page and is cleared by "New chat" - AppTest.
-**Notes:** the owner writes the prompt's rules on when to propose a save and how to summarise a chat (O8).
+- [ ] A gymer's "Today" page logs a food from the USDA dropdown (T4.8), grams (range from config), a meal (breakfast, lunch, dinner, snack) and a date (today in `Europe/Berlin` by default); the entry stores a snapshot of kcal, protein, carbohydrate, fat and fibre as per-100 g values × grams / 100 - unit tests (AC-23: 150 g stores exactly 1.5 times the values) and AppTest.
+- [ ] The snapshot stays the same when the foods table changes - unit test with two tables.
+- [ ] Entries can be deleted, and edited (food, grams, meal, date): an edit replaces the row with a new one whose snapshot is taken from the current table, so no snapshot changes in place; the day is listed by meal with totals - unit tests and AppTest.
+- [ ] A dated weight entry in the chosen units, stored in kg - unit tests (both ways) and AppTest.
+- [ ] `src/metrics.py` (pure, no streamlit) computes a week's logged days, averages over the logged days against the active target and the weight change; weeks run Monday to Sunday in `Europe/Berlin`, also across a daylight-saving change - known-answer tests, including 3 logged days out of 7 (AC-25, AC-26).
+- [ ] A `get_my_week` tool, for signed-in gymers only, returns the week's metrics of `src/metrics.py` for the acting user (never an ID the model writes) - unit tests on the tools built per role.
+- [ ] A guest has no diary - AppTest.
 
-### T9.8 LangSmith tracing with personal data masked (M) · status: todo · issue #103
-**Serves:** Sprint 3 Hard 2; Sprint 2 review point 1 (tracing).
+### T9.14 Workout log and the weekly training metrics (M) · status: todo · issue #114
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 2, core 3; Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request): training tracking.
+**Depends on:** T9.5, O8
+**Acceptance criteria**
+- [ ] `data/exercises.json` holds a short list of exercise names with their muscle group, written by us (no third-party list) - review; a test loads and checks it.
+- [ ] A session has a date and sets (exercise, reps, kg and an optional RPE, ranges from config); sessions can be edited and deleted - unit tests and AppTest (AC-24).
+- [ ] `src/metrics.py` adds the week's sessions, sets, volume (reps × kg) per exercise and top weight per exercise - known-answer tests.
+- [ ] The training views show facts only, no advice: a test scans their texts in `src/i18n.py` for the advice words listed in config; the answer prompt (O8) says training is reported as facts only - unit tests and a test on the built prompt (AC-35).
+
+### T9.15 Coach and gymer dashboards (M) · status: todo · issue #115
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 3 (a UI for every function), core 2; Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request): the dashboards.
+**Depends on:** T9.12, T9.13, T9.14
+**Acceptance criteria**
+- [ ] The coach's "Clients" page has one row per active client: logged days this week, average kcal against the target, sessions, the latest weight and the review status ("none" until T9.16 adds reviews); a scope the client does not share shows "not shared" - AppTest on a seeded store.
+- [ ] A client's page has a week picker and charts of kcal per day (days not logged marked as such), macros, the weight trend and training volume; the chart specs live in `views/charts.py` (no streamlit import) - unit tests on the specs and AppTest.
+- [ ] The gymer's "My week" shows the same views of their own data and their approved reviews - AppTest.
+- [ ] Every view says how many days were logged ("3 of 7 days logged") - unit test (AC-26).
+- [ ] A coach cannot open the page of someone who is not their active client, by any query parameter - AppTest (AC-21).
+- [ ] The coach's pages say that coach qualifications are not verified by the app - AppTest.
+
+### T9.7 Long-term memory: `remember_preference` with the user's approval (M) · status: todo · issue #102
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Medium 2 (long-term memory, the course's "remember" tool pattern), core 2 (user interactions) and the course's human-in-the-loop pattern; Sprint 2 (`docs/BRIEF.md`): none.
+**Depends on:** T9.4 (the checkpointer that pauses, and "New chat"), T9.5, O8
+**Acceptance criteria**
+- [ ] A `remember_preference` tool, offered to signed-in gymers only, pauses the graph with `interrupt()` before any write, carrying the proposed text; nothing is written before the user answers - unit test on the database after the interrupt.
+- [ ] The chat shows the proposal ("Remember: vegetarian?") with Save, Edit and Discard; Save resumes the graph with `Command(resume=...)` and writes; Edit checks the text again; Discard writes nothing and the agent says so - AppTest per choice and unit tests (AC-36).
+- [ ] Every proposed text passes the input guard and the domain guardrails before it is shown: text with injection patterns, medical conditions, pregnancy or medication is not proposed, so it can never be saved - unit tests with attack strings and German and English medical examples.
+- [ ] Saved preferences (at most `config.MEMORY_PREFERENCES_IN_PROMPT`) reach the model inside a delimited `<memories>` block, never in the system prompt; an injection string seeded in the database stays inside the block - unit tests on the built messages (AC-36).
+- [ ] Once the user answers, the paused tool call's arguments in the thread's latest state are replaced with a placeholder (T9.4's rule) - a test that reads `get_state()` for the canary values after each choice.
+- [ ] "My data" lists the preferences and deletes one - AppTest.
+- [ ] Guests and coaches are never offered the tool - unit test on the tools built per role.
+- [ ] A pending approval survives a rerun of the page and is discarded by "New chat" (T9.4) - AppTest.
+- [ ] The owner has one preference proposed and saved with the real model - owner live check (O13).
+**Notes:** the owner writes the prompt's rules on when to propose a save (O8). Moved to P0 by the owner on 2026-10-25, so long-term memory follows the pattern the course taught. Was "Human in the loop: the user approves what is saved" (profile values and chat summaries): the profile is now saved through the form (T9.5), chat summaries moved to the Capstone, and logging by chat became T9.18.
+
+### T9.16 Weekly review with the coach's approval (L) · status: todo · issue #116
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 2, core 4, evaluation: how agents work and the differences between agent types (a fixed workflow next to the tool-calling chat), and the course's human-in-the-loop pattern; Sprint 2 (`docs/BRIEF.md`): core 1 (RAG) and Easy 3 (source citations); beyond the brief (owner's request): the coach's review.
+**Depends on:** T9.3, T9.15, O15
+**Acceptance criteria**
+- [ ] `langgraph-checkpoint-sqlite` is pinned after its licence is checked (rule 9) - review, CI install.
+- [ ] `src/agent/review.py` builds a `StateGraph`: authorise, compute metrics, retrieve evidence, draft, validate, the coach's decision, save (D17); it is compiled with a `SqliteSaver` in a gitignored directory, one thread per review - unit tests per node and per edge with fake models.
+- [ ] The coach starts a review from a client's page for one finished week; while a review for that client and week is pending or approved, a new run is refused (a rejected one may be run again) - unit tests and AppTest.
+- [ ] Authorise ends with "not found" without access, and a scope revoked while a review waits blocks its resume - unit tests (AC-21, AC-22).
+- [ ] The metrics come from `src/metrics.py`; the model gets aggregates and "the client", never a name - test on the built messages.
+- [ ] The draft uses `with_structured_output(WeeklyReview)` on a model from `build_chat_model()` - unit tests.
+- [ ] Validation checks the schema, that every evidence reference is a chunk retrieved in this run, that no intake is below the calorie floor, that there is no diagnosis or training advice (word lists in config, English and German), that the numbers quoted match the metrics, and that a recommendation without a citation is labelled as the model's suggestion; one retry, then the run ends with no review - unit tests (AC-27, AC-35).
+- [ ] The review is saved as PENDING_REVIEW before the pause; Approve, Edit and Reject resume the run with `Command(resume=...)` and store the reviewer, the time and an audit row; an edited review passes the same calorie-floor, diagnosis and training-advice checks before it is saved, and is marked as edited by the coach; only an approved review reaches the gymer - AppTest and unit tests (AC-28, AC-29, AC-35).
+- [ ] A model timeout or error saves no review, loses no log entry and shows the coach a fixed message in the chosen language - unit test and AppTest (AC-30).
+- [ ] `delete_user_data()` (T9.6) also deletes the review threads in the `SqliteSaver` file about the user as a client and those the user started as a coach, and `docs/SECURITY.md` lists that file - unit test (AC-34).
+- [ ] The review prompt is the owner's (O15), read from `src/prompts/`; a test checks that it names its blocks - owner review.
+- [ ] `docs/ARCHITECTURE.md` shows the graph as a Mermaid diagram from the compiled graph, and a test fails if it differs - test.
+- [ ] `docs/SECURITY.md` covers the new path (client data to the model as aggregates; the evidence inside `<sources>`; access checked at every step) - review; the `security-reviewer` agent run on the PR; the owner drafts and approves one review (O13).
+
+### T9.11 Sprint 3 documentation and reflection (S) · status: todo · issue #106
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 5, evaluation (problem definition, core concepts, reflection); Sprint 2 (`docs/BRIEF.md`): none.
+**Depends on:** the P0 tickets (T9.2-T9.7, T9.12-T9.16); the should, P1 and extra tickets that are done by then
+**Acceptance criteria**
+- [ ] `README.md` explains the agent's purpose and users, how to use it (guest, coach, gymer and demo mode), and at least four example use cases with what the agent does in each: a coach invites a gymer, a gymer logs a day, a coach approves a weekly review, a guest asks a research question - review.
+- [ ] `docs/ARCHITECTURE.md` explains how the agent works, how function calling is implemented, and why this design over other agent types (a fixed chain, `create_agent`'s ReAct loop, several agents), with the chat and the review as two kinds side by side - review.
+- [ ] `docs/TESTING.md` lists known problems and improvements, and when prompt engineering, RAG or an agent fits each part of the app - review.
+- [ ] The repo is copied into the Sprint 3 course repository as in T6.2, before 2026-11-23 - check, once the owner has that repository's URL.
+
+### T9.8 LangSmith tracing with personal data masked (M, should) · status: todo · issue #103
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Hard 2, Sprint 2 review point 1 (tracing); Sprint 2 (`docs/BRIEF.md`): Medium 10 (logging and monitoring).
 **Depends on:** T9.2, T8.2, O10
 **Acceptance criteria**
 - [ ] `langsmith` is pinned after its licence is checked (rule 9); tracing is off unless the LangSmith key and the tracing flag are set, and the key follows the OpenRouter key's rules (one config function, never logged or shown) - unit tests.
-- [ ] Masking functions applied to every run's inputs and outputs replace the question, rewrites, answer, chunk text, profile values, memories and tool arguments with placeholders, and keep node names, tool names, statuses, token counts and timing - unit tests with the canary values, on the payload a fake LangSmith client would send.
+- [ ] Masking functions applied to every run's inputs and outputs replace the question, rewrites, answer, chunk text, profile values, memories, logged values, review text and tool arguments with placeholders, and keep node names, tool names, statuses, token counts and timing - unit tests with the canary values, on the payload a fake LangSmith client would send (AC-33).
 - [ ] Each trace carries T8.2's `turn_id` as metadata, so a log line and a trace can be matched - unit test.
 - [ ] One traced turn is checked in the LangSmith UI by the owner: the graph's nodes are visible and no question, answer or profile value is - owner live check (O13), screenshot in `docs/TESTING.md`.
 - [ ] `docs/SECURITY.md` lists LangSmith as a third party that receives metadata only - review.
 
-### T9.9 Food lookup through the USDA FoodData Central API (M) · status: todo · issue #104
-**Serves:** Sprint 3 Medium 3 and Hard 5; T6.1 known problem 11 (foods missing from the Foundation Foods table).
+### T9.10 Evaluation report with Ragas or DeepEval (M, should) · status: todo · issue #105
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Hard 3, Sprint 2 review point 5; Sprint 2 (`docs/BRIEF.md`): Hard 7 (RAG evaluation).
+**Depends on:** T8.4, T9.3
+**Acceptance criteria**
+- [ ] The library (Ragas or DeepEval, chosen in the Research phase) is pinned after its licence is checked (rule 9); its judge model is built with `build_chat_model()` and any embeddings with `build_embeddings()`, both from the allowlist, and the library is given no model, token or URL override - unit tests, and T9.2's client-rule scan covers the script.
+- [ ] A script scores the owner's evaluation questions (O2) on faithfulness, answer relevancy and, if the owner writes reference answers (O14), context precision and recall, from the agent's answers and retrieved chunks, and writes the scores per question into `results.json` - unit tests with a mocked judge.
+- [ ] A report in `docs/TESTING.md` gives the scores, the cost of the run, what they show and their limits (an LLM judging an LLM, a small question set) - owner live run (O13) and review.
+
+### T9.17 Coach assistant: client tools, a follow-up flag, coach-set targets (M, P1) · status: todo · issue #117
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 2; Sprint 2 (`docs/BRIEF.md`): core 2 (tools); beyond the brief (owner's request): the coach's tools.
+**Depends on:** T9.16, O15
+**Acceptance criteria**
+- [ ] The coach's chat gets `list_my_clients` and `get_client_week`; a client argument is validated and checked in the store, with the same "not found" for any client the coach may not read - unit tests and cross-client tests (AC-21).
+- [ ] "Who logged fewer than 4 days this week?" is answered from the tool results - test with a scripted fake model.
+- [ ] A follow-up flag marks clients with fewer than `config.FOLLOW_UP_MIN_LOGGED_DAYS` logged days or no session this week in the client list - unit tests and AppTest.
+- [ ] A coach sets a client's targets when the nutrition scope is on: a new target row with `set_by`, never below the calorie floor - unit tests and AppTest.
+
+### T9.18 Logging by chat with the gymer's approval (M, P1) · status: todo · issue #118
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 2 (user interactions) and the course's human-in-the-loop pattern; Sprint 2 (`docs/BRIEF.md`): core 2 (tools); beyond the brief (owner's request): the diary.
+**Depends on:** T9.7, T9.13, O8
+**Acceptance criteria**
+- [ ] A `propose_log_entry` tool (a meal item or a weight) pauses with `interrupt()`; the proposal shows the matched USDA name and the grams, or the weight in the chosen units, with Save, Edit and Discard as in T9.7; nothing is written before Save - unit tests and AppTest (AC-37).
+- [ ] A value typed in the chat ("I'm 80 kg now", "I had 150 g of oats") becomes a proposal, never a silent write - test with a scripted fake model.
+- [ ] The values are checked with the diary's validation, and the paused call's arguments are replaced with a placeholder once the gymer answers - unit tests.
+
+### T9.9 Food lookup through the USDA FoodData Central API (M, extra) · status: todo · issue #104
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Medium 3 and Hard 5; Sprint 2 (`docs/BRIEF.md`): none; T6.1 known problem 11 (foods missing from the Foundation Foods table).
 **Depends on:** T9.2, O12, the owner's approval of a copyright policy change
 **Acceptance criteria**
 - [ ] Before any code: the FoodData Central API's data licence and terms are read on USDA's own pages and recorded in `docs/SOURCES.md`, and the owner approves the change to copyright policy rule 10, which today says USDA data comes from its download page - owner approval recorded in this plan.
@@ -763,20 +879,3 @@ Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this 
 - [ ] The food name sent to the API is validated, and only the food name is sent - unit test on the request.
 - [ ] `ATTRIBUTION.md` and the tool results credit the API data as its terms require - review.
 **Notes:** an extra, done only if time allows.
-
-### T9.10 Evaluation report with Ragas or DeepEval (M) · status: todo · issue #105
-**Serves:** Sprint 3 Hard 3; Sprint 2 review point 5.
-**Depends on:** T8.4, T9.3
-**Acceptance criteria**
-- [ ] The library (Ragas or DeepEval, chosen in the Research phase) is pinned after its licence is checked (rule 9); its judge model is built with `build_chat_model()` and any embeddings with `build_embeddings()`, both from the allowlist, and the library is given no model, token or URL override - unit tests, and T9.2's client-rule scan covers the script.
-- [ ] A script scores the owner's evaluation questions (O2) on faithfulness, answer relevancy and, if the owner writes reference answers (O14), context precision and recall, from the agent's answers and retrieved chunks, and writes the scores per question into `results.json` - unit tests with a mocked judge.
-- [ ] A report in `docs/TESTING.md` gives the scores, the cost of the run, what they show and their limits (an LLM judging an LLM, a small question set) - owner live run (O13) and review.
-
-### T9.11 Sprint 3 documentation and reflection (S) · status: todo · issue #106
-**Serves:** Sprint 3 core 5; evaluation (problem definition, core concepts, reflection).
-**Depends on:** T9.2 to T9.7
-**Acceptance criteria**
-- [ ] `README.md` explains the agent's purpose and users, how to use it (guest and signed in), and at least four example use cases with what the agent does in each - review.
-- [ ] `docs/ARCHITECTURE.md` explains how the agent works, how function calling is implemented, and why this design over other agent types (a fixed chain, `create_agent`'s ReAct loop, several agents) - review.
-- [ ] `docs/TESTING.md` lists known problems and improvements, and when prompt engineering, RAG or an agent fits each part of the app - review.
-- [ ] The repo is copied into the Sprint 3 course repository as in T6.2 - check, once the owner has that repository's URL.

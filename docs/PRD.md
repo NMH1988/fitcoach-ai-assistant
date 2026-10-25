@@ -1,17 +1,17 @@
 # Product requirements (PRD)
 
-What we build, for whom, and how we know it is done. The course requirements are in `docs/BRIEF.md`; the technical design is in `docs/ARCHITECTURE.md`. Decisions here were made by the owner on 2026-10-19.
+What we build, for whom, and how we know it is done. The course requirements are in `docs/BRIEF.md` (Sprint 2) and `docs/BRIEF_SPRINT3.md` (Sprint 3); the technical design is in `docs/ARCHITECTURE.md`. The Sprint 2 decisions below were made by the owner on 2026-10-19; the Sprint 3 decisions ("Sprint 3: the agent (coach-first workspace)") on 2026-10-25.
 
 ## Goal
 
-A chatbot that gives adults who lift weights clear, evidence-based nutrition answers with their sources, and turns their own numbers into personal targets (energy, macros) and food facts.
+A chatbot that gives adults who lift weights clear, evidence-based nutrition answers with their sources, and turns their own numbers into personal targets (energy, macros) and food facts. Sprint 3 turns it into a coach-first workspace: a coach invites gymers, follows their nutrition and training, and approves the weekly reviews an AI agent drafts (section "Sprint 3" below). The Sprint 2 sections that follow describe what Sprint 2 built and stay as its record.
 
 ## Users and scope
 
 - **For:** healthy adults (18+) doing recreational strength training who want to gain muscle, lose fat or maintain.
 - **Out of scope:** minors, pregnancy, medical conditions and medication, competitive weight cuts, professional endurance sport, meal delivery or shopping.
 - **Language:** English first (answers, UI and sources). German UI and answers are an extra (Epic 7, owner's decision 2026-10-20); the sources stay English.
-- **Deadline:** submission on **2026-11-02**.
+- **Deadline:** submission on **2026-11-02** (Sprint 2); Sprint 3 on **2026-11-23**.
 
 ## Features (MVP)
 
@@ -67,17 +67,104 @@ Each ticket in `docs/IMPLEMENTATION_PLAN.md` refines one or more of these into t
 | AC-16 | (Extra) Switching EN/DE changes all UI text and the answer language; a German question retrieves English sources and cites them; German injection inputs and German high-risk requests are caught like English ones. |
 | AC-17 | (Extra) The app offers Light, Dark and System appearance through Streamlit's built-in menu, the UI says where to find it, and the main screens are readable in both modes. |
 
+## Sprint 3: the agent (coach-first workspace)
+
+Decided by the owner on 2026-10-25 for the Sprint 3 project (`docs/BRIEF_SPRINT3.md`), which builds on this app. Submission on **2026-11-23**. It is a coach-first slice of the owner's longer-term product plan; what it leaves out moves to a later Capstone project (below). Technical decisions: `docs/ARCHITECTURE.md` D9-D21; tickets: Epic 9 in `docs/IMPLEMENTATION_PLAN.md`.
+
+### Problem and why an agent
+
+- **Problem:** coaches who follow gym clients' nutrition and training gather the data by hand from messages, spreadsheets and apps, and a weekly review of each client takes time; clients get feedback late. This is the owner's working assumption, not yet checked with coaches (interviews are planned for the Capstone).
+- **How the app addresses it:** the client logs meals, workouts and weight in one place and chooses what the coach sees; the coach sees each client's week and gets a weekly review drafted by an agent, which the coach approves, edits or rejects before the client reads it.
+- **Why an agent:** the review takes several steps the model should not do alone in one call: check access, compute the numbers, search the evidence, check the citations, and wait for a person. A LangGraph graph makes each step a node with its own rule and pauses where the coach decides. The chat is a tool-calling agent that decides whether to search the research, call a calculator or propose saving a preference.
+
+### Users and roles
+
+- **Coach:** one role for nutrition coaches and personal trainers. Qualifications are not verified, and the app says so.
+- **Gymer:** the client, a healthy adult (18+) doing recreational strength training, as in Sprint 2.
+- **Guest:** no account; the agent's chat (session memory, agentic search, the Sprint 2 tools) with nothing stored.
+- **Demo users:** a synthetic coach and gymers, for a clone with no Google client (`DEMO_MODE`, off unless set, and only without an `[auth]` section).
+
+One role per account, chosen at the first sign-in; no admin role. Out of scope as in Sprint 2, plus real client data (demos and tests use synthetic data only) and any public deployment.
+
+### Features
+
+**P0, needed for the submission** (numbering continues the Sprint 2 list):
+
+14. **Sign-in** with Google (`st.login`), the role chosen once, a display name the user picks; guest and demo modes. Serves Sprint 3 Medium 4.
+15. **Invitations and sharing:** the coach creates a single-use code and passes it on; the gymer accepts it and turns each scope on or off (nutrition, training, body); the gymer can revoke a scope or end the relationship at any time.
+16. **Food and weight diary:** foods from the USDA table logged in grams with a nutrient snapshot; dated weight entries.
+17. **Workout log:** a fixed exercise list we wrote ourselves; sessions with sets of reps, kg and an optional RPE.
+18. **Dashboards:** the coach's client list and one client's week (only what that client shares); the gymer's own week and approved reviews. A day with no entries shows as "not logged", never as "ate nothing".
+19. **Weekly review:** an agent workflow drafts observations, hypotheses and recommendations with citations; the coach approves, edits or rejects it (human in the loop); only approved reviews reach the gymer.
+20. **Agentic chat:** searching the knowledge base is one of the agent's tools, so a food or calculator question sends no research passages. Serves Sprint 3 Hard 1.
+21. **Conversation memory:** the chat remembers earlier turns of the session; "New chat" starts a new conversation and deletes the old one; chats are never written to disk. Serves Sprint 3 Medium 2.
+22. **Long-term memory:** for a signed-in user, the profile history, logs and targets, and preferences ("vegetarian") that the agent proposes with `remember_preference` and the user approves before anything is saved. Serves Sprint 3 Medium 2.
+23. **My data:** export everything as JSON, delete one entry or everything.
+
+**P1, if time allows:** 24. logging by chat ("I had 150 g of oats"), saved only after the gymer approves; 25. a coach assistant (read-only tools over the coach's clients, a follow-up flag, coach-set targets within the calorie floor).
+
+**Should, after P0:** LangSmith tracing with personal data masked (Sprint 3 Hard 2) and a Ragas or DeepEval report (Sprint 3 Hard 3). **Extras:** the USDA FoodData Central API (Sprint 3 Medium 3, Hard 5) and evaluation in CI (the Sprint 2 review, point 5).
+
+**Sprint 3 optional tasks for maximum points** (at least 2 medium and 1 hard, from new work alone): Medium 2, Medium 4, Hard 1; Medium 1 and Medium 8 are kept from Sprint 2.
+
+### Guardrails added in Sprint 3
+
+- Every domain guardrail above applies to gymers and coaches alike.
+- **Training is reported as facts only** (sessions, sets, volume, top weights): the knowledge base holds no approved training sources, so the app gives no training advice.
+- A review never recommends an intake below the calorie floor and never makes a diagnosis; a recommendation without a citation is labelled as the model's suggestion, never as evidence.
+- A coach reads a client's data only while the relationship is active and the scope is shared. This is checked in the data layer, not in the prompt or the UI.
+- The model gets aggregates and "the client", never a name; the Google name, email and picture are never stored or logged.
+
+### The privacy change
+
+Today the profile lives in the session only and is never written to disk (feature 4, `.claude/rules/security-privacy.md`). From T9.6, for signed-in users, the app keeps the profile history, logs, targets, preferences and reviews in a local SQLite file, and shares them with a coach only within the scopes the user turned on. T9.6 updates the rule, feature 4 and `docs/SECURITY.md` in the same PR. Chats stay in memory only; guests are unchanged. The app stays local: a public deployment needs a privacy notice and a GDPR review first (Capstone).
+
+### Acceptance criteria (product level, Sprint 3)
+
+| ID | Criterion |
+|---|---|
+| AC-18 | A user signs in with Google, chooses Coach or Gymer once, and lands on that role's home. |
+| AC-19 | Without an `[auth]` section the sign-in is hidden: a guest can use the chat with nothing stored, and demo mode (synthetic users only) works when `DEMO_MODE` is on. |
+| AC-20 | A coach-client relationship is active only after the gymer accepts a valid, unexpired, unused code. |
+| AC-21 | A coach reading a client who is not theirs, not active or not shared gets the same "not found", through the data layer and through every agent tool. |
+| AC-22 | Revoking a scope blocks the next read and any pending review that needs it. |
+| AC-23 | 150 g of a food stores exactly 1.5 times its per-100 g values, and the snapshot stays the same when the food table changes. |
+| AC-24 | Saved workout sets persist and show with the right volume. |
+| AC-25 | The weekly metrics use the chosen week in `Europe/Berlin` time. |
+| AC-26 | Three logged days out of seven are reported as "3 of 7 days logged" and averaged over those three days, never as four days without eating. |
+| AC-27 | A review cites only chunks retrieved for that review. |
+| AC-28 | A review passes the schema check, starts as PENDING_REVIEW, and the graph is paused before anything is released. |
+| AC-29 | Approve, edit and reject store the reviewer and the time and write an audit row; only approved reviews reach the gymer. |
+| AC-30 | A model timeout or error saves no review, loses no log entry and shows a clear message. |
+| AC-31 | The chat remembers earlier turns of the session; "New chat" starts a new conversation and deletes the old one from memory; nothing of the chat is on disk. |
+| AC-32 | A food question makes no knowledge base search; a research question searches and cites. |
+| AC-33 | No log line or trace holds a question, an answer, a profile value or a logged value (canary tests). |
+| AC-34 | A user exports all their data as JSON and deletes all of it. |
+| AC-35 | A review never recommends an intake below the calorie floor and gives no training advice. |
+| AC-36 | A preference is saved only after the user approves it, and it reaches the model inside a delimited `<memories>` block, never in the system prompt. |
+| AC-37 | (P1) A food or weight typed in the chat is saved only after the gymer approves the proposal. |
+
+### Beyond the brief (owner's request)
+
+The coach role, invitations and sharing, the workout log and the dashboards. Neither brief asks for them; they give the agent its users and its problem (Sprint 3 core 1 and 2).
+
+### Moved to the Capstone
+
+PostgreSQL (and pgvector instead of Chroma), a REST API, separate nutrition coach and personal trainer roles, accounts with several roles, email invitations, an admin role, asynchronous review jobs, meal plans, workout programs, messaging, recipes and shopping lists, food scanning, health devices, billing, chat summaries in long-term memory, a 375 px phone layout and a WCAG 2.2 AA review, Docker and a staging environment, EU hosting, a GDPR assessment, and interviews and pilot metrics with real coaches. The frontend is open: the Sprint 3 brief allows Streamlit or Next.js, so another framework needs the Capstone brief's approval. Open Food Facts stays excluded at every stage (ODbL, `docs/SOURCES.md`).
+
 ## Content ownership
 
-The owner drafts the system prompt(s) and the evaluation questions; Claude reviews them (as in Sprint 1).
+The owner drafts the system prompt(s) and the evaluation questions; Claude reviews them (as in Sprint 1). In Sprint 3 that includes the agent's answer prompt (O8) and the weekly review and coach assistant prompts (O15).
 
 ## Beyond the brief (owner's request)
 
 - The repo is the owner's personal, public portfolio project, viewed by recruiters and possibly opened as open source later; it is copied into the course repository for the review.
 - Because of that, a strict copyright policy applies (`.claude/rules/copyright.md`): open licences only (public domain, CC0, CC BY), nothing that needs permission, licence checked on the article itself, text only, attribution, raw documents not committed. The brief only asks for a relevant knowledge base.
 - Light and dark mode (T7.3). German support (T7.1, T7.2) is an optional task in the brief (Hard 4) but goes beyond this PRD's original English-only scope.
+- Sprint 3: the coach role, invitations and sharing, the workout log and the dashboards (section "Sprint 3" above).
 
 ## Open items
 
 - Deployment: the app runs locally for the review; a public demo comes later (`docs/DEPLOYMENT.md`).
 - The repo's own code licence (e.g. MIT). Without one, others may view the code but not reuse it.
+- The Capstone project: the parts of the owner's product plan that Sprint 3 leaves out ("Moved to the Capstone" above).

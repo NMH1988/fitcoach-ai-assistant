@@ -1,6 +1,6 @@
 # Architecture
 
-**Status:** approved by the owner on 2026-10-19, including decisions **D1-D8** (section 13). Inputs: `docs/BRIEF.md` (course requirements), `docs/PRD.md` (product decisions), `docs/SOURCES.md` (approved sources), `.claude/rules/` (rules).
+**Status:** approved by the owner on 2026-10-19, including decisions **D1-D8** (section 13); the Sprint 3 decisions **D9-D21** approved on 2026-10-25 (section 13) and the planned Sprint 3 design (section 16) take effect as their tickets merge. Inputs: `docs/BRIEF.md` and `docs/BRIEF_SPRINT3.md` (course requirements), `docs/PRD.md` (product decisions), `docs/SOURCES.md` (approved sources), `.claude/rules/` (rules). Sections 1-12 describe the app as it is (section 12 also lists the packages Sprint 3 plans to add).
 
 **Models** (the Sprint 1 list, reused by choice; the Sprint 2 brief names none): `openai/gpt-5-mini` (default for answers), `openai/gpt-5-nano` (query translation), `openai/gpt-5` (selectable). Embeddings: `qwen/qwen3-embedding-8b`. All through OpenRouter. Checked on OpenRouter's model lists on 2026-10-19: all are listed; the three chat models support tool calling and none supports `temperature`.
 
@@ -224,20 +224,35 @@ Checked on PyPI on 2026-10-19. Licences are permissive, as the copyright policy 
 | DejaVu Sans fonts | 2.37 | Bitstream Vera and Arev font licences (free to use, copy and redistribute with software, notice kept, not sold alone); DejaVu changes public domain | the PDF's text (`assets/fonts/`, committed with `LICENSE` and a README with the source and SHA-256; checked 2026-10-20, T5.2) |
 | pydantic | 2.14.1 | MIT | schemas |
 
+Planned for Sprint 3 (section 16), each pinned and its licence checked in its ticket (copyright policy rule 9): `langgraph` and `langgraph-checkpoint-sqlite` (T9.2, T9.16), `streamlit[auth]` with Authlib (T9.5), `langsmith` (T9.8), Ragas or DeepEval (T9.10). The store uses the standard library's `sqlite3` (D13).
+
 Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 7.1.0 (MIT), ruff 0.17.1 (MIT), pip-audit 2.10.1 (Apache-2.0), httpx2 2.14.0 (BSD-3-Clause; the OpenAI SDK's HTTP library, whose `MockTransport` the T1.2 tests use), and pypdf 6.21.1 (BSD-3-Clause, no dependencies; reads the summary PDF's text back in the T5.2 tests; checked 2026-10-20). Not chosen: fpdf2 (LGPL-3.0, not permissive). Python **3.14** as in Sprint 1; every package above has a wheel or pure-Python build for it.
 
-## 13. Decisions (approved by the owner on 2026-10-19)
+## 13. Decisions (D1-D8 approved by the owner on 2026-10-19, D9-D21 on 2026-10-25)
 
 | # | Decision | Alternative considered | Why |
 |---|---|---|---|
-| D1 | **Always retrieve** before answering (fixed pipeline) | Retrieval as a tool the model may call | Every answer is grounded and cites sources; matches the brief's flow (retrieval, then reasoning and tools); easier to explain and test |
-| D2 | **Own tool loop** with `bind_tools`, max 4 rounds | LangChain v1 `create_agent` | Each step is visible and testable with a fake model; the round limit is explicit |
+| D1 | **Always retrieve** before answering (fixed pipeline). **Superseded by D10** when T9.3 merges | Retrieval as a tool the model may call | Every answer is grounded and cites sources; matches the brief's flow (retrieval, then reasoning and tools); easier to explain and test |
+| D2 | **Own tool loop** with `bind_tools`, max 4 rounds. **Superseded by D9** when T9.2 merges (the round limits stay) | LangChain v1 `create_agent` | Each step is visible and testable with a fake model; the round limit is explicit |
 | D3 | **langchain-openai** (`ChatOpenAI`, `OpenAIEmbeddings`) with OpenRouter's base URL | `langchain-openrouter` (official integration, v0.2.9) | Matches the brief's "OpenAI-compatible SDK" and Sprint 1; one package for chat and embeddings |
 | D4 | **Own RRF + rank-bm25** for hybrid search | `EnsembleRetriever` (now in `langchain-classic`) | About 20 lines we can explain in the review; no legacy package |
 | D5 | **reportlab** for the PDF | fpdf2 | BSD vs LGPL-3.0 |
 | D6 | **gpt-5-nano** for query translation, **gpt-5-mini** for answers | One model for both | The rewrite step is simple; cheaper and faster |
 | D7 | Commit the manifest and the trimmed USDA table; do not commit raw XML or the Chroma index | Commit the index | Copyright policy rule 8 (raw documents not committed); the index is cheap to rebuild |
 | D8 | Python 3.14 | 3.13 | Same as Sprint 1; all dependencies support it. Check the host's Python options at deploy time |
+| D9 | **A hand-built LangGraph `StateGraph`** (`TypedDict` state, `add_messages`, `ToolNode`, `tools_condition`) for the chat (T9.2) | `create_agent` with middleware | The guard must end the run before any paid call, and approvals pause at a node we choose; each node and edge is tested with fake models; the course teaches both, and the docs explain the choice |
+| D10 | **Agentic RAG:** `search_knowledge_base` is a tool the agent calls when it needs to (T9.3) | Always retrieve (D1) | A food or calculator question sends no research passages (the Sprint 2 review, point 3); Hard 1 |
+| D11 | **One graph builder, a tool set per role** (guest, gymer, coach) | A separate agent per role | One guard and one loop to test; a guest is never offered a write tool; every coach tool checks access in the store |
+| D12 | **Checkpointers:** an `InMemorySaver` per browser session for chats; a `SqliteSaver` in a gitignored directory for weekly review threads | A `SqliteSaver` for everything | Chats are never written to disk (the owner's "level 2" rule: a returning user is remembered only through what they saved or approved, never through stored chats); a review waiting for the coach survives a restart and holds metrics, not chat messages |
+| D13 | **The store:** the standard library's `sqlite3` behind `src/store/`, parameterised queries only, authorisation inside the store functions (T9.6) | SQLAlchemy with PostgreSQL now | Taught in the course, no server to run, local only; the Capstone moves to PostgreSQL by replacing one module |
+| D14 | **Sign-in:** `st.login` with Google (OIDC); the user is a keyed hash of the issuer and `sub`; a display name the user picks; one role per account (T9.5) | Email and password; a managed auth service | No passwords to store; free; built into Streamlit; the Google name, email and picture are never stored |
+| D15 | **Invitations:** a single-use code with an expiry, stored as a hash and passed on by the coach by hand (T9.12) | Invitation emails | No mail service and no email address to keep |
+| D16 | **Sharing:** three scopes (nutrition, training, body), checked in the store on every read; a missing, foreign or unshared resource gives the same "not found" (T9.6, T9.12) | One all-or-nothing share | The client controls each kind of data, and an answer never reveals whether a client exists |
+| D17 | **Weekly review as a fixed workflow:** authorise, compute, retrieve, draft with `with_structured_output(WeeklyReview)`, validate, then `interrupt()` for the coach's decision; it starts as PENDING_REVIEW (T9.16) | A free agent that writes the review | The numbers are deterministic, the citations are checked, a person decides; the course's human-in-the-loop pattern |
+| D18 | **Demo mode** with synthetic users, only when `DEMO_MODE` is on and there is no `[auth]` section (T9.5) | Requiring a Google client for every clone | A reviewer can try the coach and gymer flows without credentials; no real data |
+| D19 | **Observability:** local JSON logs (T8.2) plus LangSmith with personal data masked (T9.8) | Logs only | The owner's decision of 2026-10-25; Hard 2 |
+| D20 | **UI:** Streamlit pages per role with `st.navigation`; a guest keeps today's tabs | One page with tabs for every role | Each role sees only its screens; each page maps to a module in `views/` |
+| D21 | **Time:** timestamps stored in UTC; a week is Monday to Sunday in `Europe/Berlin` | The browser's time zone | The market is Germany; one rule for every metric (AC-25) |
 
 ## 14. Risks and early checks
 
@@ -262,3 +277,76 @@ Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 
 | Medium 7 PDF export (extra) | section 7 |
 | Easy 3 source citations; Easy 1 conversation export (the session PDF, extra) | sections 2, 7 |
 | Hard 4 multi-language support, English and German (extra) | sections 2, 7; `docs/UI_DESIGN.md` |
+
+**Sprint 3** (`docs/BRIEF_SPRINT3.md`; planned, section 16):
+
+| Brief item | Where |
+|---|---|
+| Core 1 purpose and users; evaluation: problem definition | `docs/PRD.md`, "Sprint 3" |
+| Core 2 core functionality and interactions | section 16; `docs/PRD.md` features 14-23 |
+| Core 3 a UI for every function | section 16 (pages per role, D20) |
+| Core 4 tools, error handling, real-world use | D9-D17; section 10; T8.2 |
+| Core 5 documentation | this file (D9-D21), T9.11 |
+| Medium 2 memory | D12, section 16 (memory) |
+| Medium 4 authentication and personalisation | D14, D18 |
+| Hard 1 agentic RAG | D10 |
+| Hard 2 observability, Hard 3 evaluation report (should) | D19; T9.10 |
+| Evaluation: how agents work, agent types, function calling | D9, D11, D17; section 16 |
+
+## 16. Sprint 3 design (planned, T9.1)
+
+The plan for Epic 9; each part is built and described in sections 1-12 by its ticket.
+
+**The chat graph (D9, D11).** State: a `TypedDict` with `messages` (`add_messages`) and private fields the caller never gets back: the user (key and role), the profile, the retrieved chunks, the usage and a pending proposal. Nodes: `guard`, then `agent` and a `ToolNode` in a loop (`tools_condition`), then `finish`; a conditional edge sends a rejected input to the end with no model call. The tool loop keeps `MAX_TOOL_ROUNDS` and `MAX_TOOL_CALLS_PER_ROUND`.
+
+| Role | Tools |
+|---|---|
+| Guest | the four Sprint 2 tools, `search_knowledge_base` |
+| Gymer | the guest's tools, `get_my_week`, `remember_preference` (pauses for approval); P1: `propose_log_entry` |
+| Coach | `search_knowledge_base`; P1: `list_my_clients`, `get_client_week` |
+
+A tool never trusts an ID the model writes: a client ID is checked against the coach's active clients in the store.
+
+**Memory (D12).** Short-term: an `InMemorySaver` per browser session and its `thread_id` in `st.session_state`; `trim_messages` limits what the model sees, and `RemoveMessage` deletes the oldest messages of the stored thread beyond a cap from config (what is stored); "New chat" discards any pending proposal, deletes the old thread from the checkpointer and starts a new `thread_id` (T9.4, owner's choice of 2026-10-25). Long-term: the store below, read by the tools; approved preferences reach the model in a delimited `<memories>` block (T9.7).
+
+**The weekly review (D17).**
+
+```mermaid
+flowchart LR
+  A[authorise] -->|no access| X[end: not found]
+  A --> B[compute metrics]
+  B --> C[retrieve evidence]
+  C --> D[draft: structured output]
+  D --> E[validate]
+  E -->|invalid, first time| D
+  E -->|invalid again| Y[end: no review]
+  E --> P[save as PENDING_REVIEW]
+  P --> F[coach decision: interrupt]
+  F -->|scope revoked| Z[end: not found]
+  F -->|approve or edit| G[save and release]
+  F -->|reject| H[save as rejected]
+```
+
+The metrics are computed in Python with no model: logged days, averages over logged days against the active target, the weight trend, sessions and volume, and `data_quality`. The evidence search covers only the topics the metrics raise. `WeeklyReview` holds period, metrics, data_quality, observations, hypotheses, recommendations, evidence_refs and model_version. Validation checks the schema, that every evidence reference is a chunk retrieved in this run, that no intake is below the calorie floor, that there is no diagnosis and no training advice, and that the numbers quoted match the metrics.
+
+**The store (D13, D16).** SQLite in a gitignored directory set in config; UTC timestamps (D21).
+
+| Table | Main fields |
+|---|---|
+| `users` | id (keyed hash), role, display_name, created_at |
+| `invitations` | id, coach_id, code_hash, expires_at, used_at |
+| `coach_clients` | id, coach_id, client_id, status (active, ended; created when a code is accepted), accepted_at, ended_at |
+| `consents` | id, relationship_id, scope (nutrition, training, body), granted_at, revoked_at |
+| `profile_entries` | id, user_id, height_cm, age, sex, activity, goal, recorded_at |
+| `body_measurements` | id, user_id, weight_kg, measured_on |
+| `nutrition_targets` | id, user_id, kcal, protein_g, carbs_g, fat_g, set_by, calc_version, effective_from |
+| `meal_items` | id, user_id, consumed_at, meal, fdc_id, grams, the nutrient snapshot |
+| `workout_sessions`, `exercise_sets` | id, user_id, performed_on; session_id, exercise_id, set_no, reps, weight_kg, rpe |
+| `preferences` | id, user_id, text, created_at |
+| `ai_reviews`, `ai_evidence_refs` | id, client_id, coach_id, period, metrics, data_quality, draft, final, status, edited_by_coach, model_version, reviewed_by, reviewed_at; review_id, source_id, chunk_id |
+| `audit_log` | id, actor_id, action, resource_type, resource_id, created_at (no values) |
+| `invite_attempts` | user_id, day, count (T9.12's daily limit) |
+
+Snapshots and profile entries are never changed in place, and a new target is a new row. Every read of another user's data takes the acting user and checks the role, an active relationship and the scope.
+
+**UI (D20).** Guest: today's tabs. Gymer: Today (log food and weight), Workouts, My week, Chat, Coach and sharing, My data. Coach: Clients, a client's week, Reviews, Chat. Demo mode adds a user picker (D18).

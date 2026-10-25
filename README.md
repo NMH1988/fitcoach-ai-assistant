@@ -2,7 +2,7 @@
 
 A chatbot that answers nutrition questions for adults who do recreational strength training. It combines retrieval-augmented generation over open-licensed sports nutrition research with tools for personal calculations (energy needs, macro targets, a day's meal plan) and food lookups. Answers cite the research passages they use; when the sources do not cover a question, the app says so.
 
-**Status:** complete for the review of the Sprint 2 project of the Turing College AI Engineering course (deadline 2026-11-02). Every ticket and its status are in [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md); what each change did and why is in [`docs/PROGRESS.md`](docs/PROGRESS.md).
+**Status:** the project serves two course briefs of the Turing College AI Engineering course. Sprint 2 ([`docs/BRIEF.md`](docs/BRIEF.md), deadline 2026-11-02) is complete; this README describes it. Sprint 3 ([`docs/BRIEF_SPRINT3.md`](docs/BRIEF_SPRINT3.md), deadline 2026-11-23) is in progress: it turns the chatbot into a coach-first workspace with an AI agent, where a coach invites gymers, follows their nutrition and training, and approves the weekly reviews the agent drafts ([`docs/PRD.md`](docs/PRD.md), "Sprint 3"). Every ticket and its status are in [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md); what each change did and why is in [`docs/PROGRESS.md`](docs/PROGRESS.md).
 
 ## What it does
 
@@ -97,7 +97,8 @@ These are not needed to run the app:
 
 | Document | Contents |
 |---|---|
-| [`docs/BRIEF.md`](docs/BRIEF.md) | Summary of the course brief |
+| [`docs/BRIEF.md`](docs/BRIEF.md) | Summary of the Sprint 2 course brief |
+| [`docs/BRIEF_SPRINT3.md`](docs/BRIEF_SPRINT3.md) | Summary of the Sprint 3 course brief and of the review of Sprint 2 |
 | [`docs/PRD.md`](docs/PRD.md) | What we build: features, guardrails, acceptance criteria |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Technical design and decisions |
 | [`docs/UI_DESIGN.md`](docs/UI_DESIGN.md) | Layout, tabs, language and themes |
