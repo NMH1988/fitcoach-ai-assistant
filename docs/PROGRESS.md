@@ -18,7 +18,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 ---
 
 ## 2026-10-25 · T8.1 Split `app.py` into a `views/` package, no behaviour change · #109 (closes #90)
-- **Brief:** Sprint 2 review point 2 (`app.py` of about 1,380 lines against the project's layering); Sprint 3 evaluation (good code organisation); prepares the UI pieces Epic 9 adds.
+- **Brief:** The Sprint 2 review, point 2 (`app.py` of about 1,380 lines against the project's layering; `docs/BRIEF_SPRINT3.md` names T8.1 for it); the Sprint 3 evaluation, core concepts: good code organisation (`docs/BRIEF_SPRINT3.md`), as in the Sprint 2 evaluation (`docs/BRIEF.md`); Sprint 3 core 5 (documentation: the technical decisions made, here the UI layout in `docs/ARCHITECTURE.md` and `docs/UI_DESIGN.md`); prepares Sprint 3 core 3 (a user interface for every function) for the UI Epic 9 adds (sign-in, Medium 4; memory, Medium 2; approvals).
 - **What:**
   - `views/` (new, 16 modules): `text.py` (the session's language, `t()`, number formatters), `resources.py` (the five cached resources), `tables.py` and `charts.py` (table rows, cells and the two Vega-Lite specs, per language, no streamlit import), `header.py`, `sidebar.py`, `profile_form.py`, `targets.py`, `food.py`, `chat.py`, `sources.py`, `tool_results.py`, `usage_view.py`, `details.py`, `about.py`, `export.py`. The code was moved, not rewritten; the builders take `lang` as a parameter instead of reading the session.
   - `app.py`: 1,383 to 71 lines: page config, session defaults, the sidebar block with its two slots, the profile dialog, the page columns and `_main_area()` (header and the four tabs).
