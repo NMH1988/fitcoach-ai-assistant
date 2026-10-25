@@ -13,6 +13,7 @@ part of the owner's prompt to the end of the system prompt, and nothing the user
 (T7.2).
 """
 
+import logging
 import os
 import re
 import time
@@ -49,6 +50,8 @@ from src.rag.store import IndexNotReadyError
 from src.tools import registry
 from src.tools.registry import ToolRun
 from src.usage import CallUsage, UsageRecorder
+
+logger = logging.getLogger(__name__)
 
 
 class Step(StrEnum):
@@ -751,6 +754,12 @@ def run_turn(
         return failed(config.SECRETS_FILE_MESSAGE, "key.secrets_file")
     except config.MissingAPIKeyError:
         return failed(config.MISSING_KEY_MESSAGE, "key.missing")
+    except Exception as exc:
+        # Any other error (a bug, an unexpected library error) gets a fixed message too (T1.8).
+        # Only its type and place are logged: its message or arguments may hold the question, a
+        # chunk or a server's reply. BaseException (Streamlit's rerun and stop) is not caught.
+        logger.error("Unexpected error in a chat turn: %s", llm.error_diagnostic(exc))
+        return failed(config.TURN_ERROR_MESSAGE, "turn.error")
     if result is None:
         kind = "guardrail" if decision.reason is guard.Rejection.GUARDRAIL else "rejected"
         return TurnResult(

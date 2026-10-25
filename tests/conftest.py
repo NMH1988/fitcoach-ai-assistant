@@ -52,13 +52,18 @@ def no_price_fetch(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def turn_codes_are_keys(monkeypatch):
-    """Check that every turn ending in a fixed message has a text in both languages (T7.1)."""
+def turn_codes_are_keys(monkeypatch, request):
+    """Check every turn's fixed message (T7.1), and fail a hidden unexpected error (T1.8)."""
     run_turn = chat.run_turn
+    expects_turn_error = request.node.get_closest_marker("turn_error") is not None
 
     def checked(*args, **kwargs):
         """Run the turn; unless the model answered, its message must fill in both languages."""
         result = run_turn(*args, **kwargs)
+        # The catch-all would turn a fake's AssertionError or a regression into a plain error
+        # result; only the tests marked turn_error expect it.
+        if result.code == "turn.error" and not expects_turn_error:
+            pytest.fail("The turn ended in turn.error: an unexpected error was caught (T1.8).")
         if result.kind != "answer":
             # A missing key or a {placeholder} the params do not fill would break every later
             # run of the session, as the chat history is drawn again each time.

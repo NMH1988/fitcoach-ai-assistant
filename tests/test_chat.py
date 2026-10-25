@@ -1,5 +1,7 @@
 """Tests for src/chat.py and src/rag/retriever.py: one chat turn with fakes (T3.1-T3.3)."""
 
+import logging
+
 import httpx2
 import openai
 import pytest
@@ -12,6 +14,7 @@ from src.rag import hybrid, retriever
 from src.rag.query_translation import QueryPlan
 from src.rag.sources import ManifestError
 from src.rag.store import IndexNotReadyError
+from src.tools import registry
 from tests.fakes import (
     CHUNKS,
     TEST_LANGUAGE_PARTS,
@@ -1384,3 +1387,150 @@ def test_a_chunk_found_only_by_a_rewrite_does_not_reach_the_model(index):
     assert result.kind == "no_sources"
     [[_, user]] = model.calls
     assert "Made-up article" not in user.content
+
+
+# --- Unexpected errors: the catch-all (T1.8, AC-13) -----------------------------------------------
+
+MARKER = "SECRET-MARKER"
+TRANSLATION_USAGE = {"input_tokens": 40, "output_tokens": 12, "total_tokens": 52}
+UNTIL_INDEX = (Step.CHECK,)
+UNTIL_SEARCH = (Step.CHECK, Step.REWRITE, Step.SEARCH)
+UNTIL_ANSWER = (Step.CHECK, Step.REWRITE, Step.SEARCH, Step.ANSWER)
+
+
+def _boom(*args, **kwargs):
+    """Raise an unexpected error whose message must never reach the user."""
+    raise RuntimeError(MARKER)
+
+
+def _fail_opening_the_index(index, monkeypatch):
+    """Make opening the index raise."""
+    return {"open_index": _boom}
+
+
+def _fail_building_the_answer_model(index, monkeypatch):
+    """Make building the answer model raise."""
+    return {"chat_model": _boom}
+
+
+def _fail_building_the_translation_model(index, monkeypatch):
+    """Make building the query translation model raise."""
+    return {"translation_model": _boom}
+
+
+def _fail_in_query_translation(index, monkeypatch):
+    """Make the query translation call raise."""
+    translator = ScriptedTranslator(plans=[RuntimeError(MARKER)])
+    return {"translation_model": lambda: translator}
+
+
+def _fail_in_retrieval(index, monkeypatch):
+    """Make the vector search raise."""
+    monkeypatch.setattr(index, "similarity_search_by_vector_with_relevance_scores", _boom)
+    return {}
+
+
+def _fail_in_the_answer(index, monkeypatch):
+    """Make the answer model raise when it is called."""
+    model = _model()
+    model.error = RuntimeError(MARKER)
+    return {"chat_model": lambda: model}
+
+
+def _fail_building_the_tools(index, monkeypatch):
+    """Make building the tools raise."""
+    monkeypatch.setattr(registry, "build_tools", _boom)
+    return {}
+
+
+FAILURE_POINTS = [
+    (_fail_opening_the_index, UNTIL_INDEX),
+    (_fail_building_the_answer_model, UNTIL_INDEX),
+    (_fail_building_the_translation_model, UNTIL_INDEX),
+    (_fail_in_query_translation, (Step.CHECK, Step.REWRITE)),
+    (_fail_in_retrieval, UNTIL_SEARCH),
+    (_fail_in_the_answer, UNTIL_ANSWER),
+    (_fail_building_the_tools, UNTIL_ANSWER),
+]
+FAILURE_IDS = [fail.__name__.removeprefix("_fail_") for fail, _ in FAILURE_POINTS]
+# Every point raises from _boom except these, which raise inside a fake.
+RAISED_IN = {_fail_in_query_translation: "reply", _fail_in_the_answer: "_stream"}
+
+
+def _failing_turn(fail, index, monkeypatch, language="en"):
+    """Run one turn with the given failure point; the translator reports its tokens."""
+    translator = ScriptedTranslator(usage=TRANSLATION_USAGE)
+    kwargs = {
+        "open_index": lambda: index,
+        "chat_model": lambda: _model("Four meals [S1]."),
+        "translation_model": lambda: translator,
+    } | fail(index, monkeypatch)
+    return chat.run_turn(QUESTION, guard.RateLimiter(), language=language, **kwargs)
+
+
+@pytest.mark.turn_error
+@pytest.mark.parametrize(("fail", "steps"), FAILURE_POINTS, ids=FAILURE_IDS)
+def test_an_unexpected_error_gives_the_fixed_turn_error(index, monkeypatch, fail, steps):
+    """Any other error after the guard gives the fixed message, the steps run and no detail."""
+    result = _failing_turn(fail, index, monkeypatch)
+    assert result.kind == "error"
+    assert result.code == "turn.error"
+    assert result.text == config.TURN_ERROR_MESSAGE
+    assert result.steps == steps
+    assert MARKER not in repr(result)
+
+
+@pytest.mark.turn_error
+def test_an_unexpected_error_keeps_the_tokens_spent_before_it(index, monkeypatch):
+    """The tokens spent before the answer failed stay in the result."""
+    # The fixture's embeddings report no count, so the rewrite is the only row.
+    result = _failing_turn(_fail_in_the_answer, index, monkeypatch)
+    assert result.code == "turn.error"
+    assert [call.step for call in result.usage] == [config.USAGE_STEP_REWRITE]
+    assert result.usage[0].input_tokens == TRANSLATION_USAGE["input_tokens"]
+
+
+@pytest.mark.turn_error
+def test_the_turn_error_is_shown_in_the_chosen_language(index, monkeypatch):
+    """The fixed message has a German text, used when the turn ran in German."""
+    result = _failing_turn(_fail_in_the_answer, index, monkeypatch, language="de")
+    assert chat.fixed_text(result, "de") == i18n.t("turn.error", "de")
+    assert chat.fixed_text(result, "de") != config.TURN_ERROR_MESSAGE
+
+
+@pytest.mark.turn_error
+@pytest.mark.parametrize("fail", [fail for fail, _ in FAILURE_POINTS], ids=FAILURE_IDS)
+def test_an_unexpected_error_logs_its_type_and_place_only(index, monkeypatch, caplog, fail):
+    """One error line names the exception's type and where it was raised, never its message."""
+    caplog.set_level(logging.DEBUG)
+    _failing_turn(fail, index, monkeypatch)
+    records = [r for r in caplog.records if r.name == "src.chat"]
+    assert len(records) == 1
+    [record] = records
+    assert record.levelno == logging.ERROR
+    assert record.exc_info is None
+    assert "RuntimeError in " in record.getMessage()
+    assert record.getMessage().endswith("." + RAISED_IN.get(fail, "_boom"))
+    assert MARKER not in caplog.text
+
+
+def test_a_named_error_writes_no_catch_all_line(index, caplog):
+    """An error with its own fixed message is not logged by the catch-all."""
+    caplog.set_level(logging.DEBUG)
+    model = _model()
+    model.error = llm.RateLimitedError(429)
+    result = _turn(QUESTION, index, model)
+    assert result.code == llm.RateLimitedError.code
+    assert [r for r in caplog.records if r.name == "src.chat"] == []
+
+
+class _ControlFlow(BaseException):
+    """Stands in for Streamlit's RerunException and StopException, which are BaseExceptions."""
+
+
+def test_a_base_exception_inside_the_turn_is_not_caught(index):
+    """Streamlit's control exceptions pass through the catch-all to Streamlit."""
+    model = _model()
+    model.error = _ControlFlow()
+    with pytest.raises(_ControlFlow):
+        _turn(QUESTION, index, model)

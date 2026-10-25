@@ -480,6 +480,7 @@ _EN: dict[str, str] = {
     "prompt.language_missing": config.LANGUAGE_PROMPT_MISSING_MESSAGE,
     "key.missing": config.MISSING_KEY_MESSAGE,
     "key.secrets_file": config.SECRETS_FILE_MESSAGE,
+    "turn.error": config.TURN_ERROR_MESSAGE,
 }
 
 # The app's German name, also in the summary PDF's title and footer (T7.2).
@@ -952,6 +953,9 @@ _DE: dict[str, str] = {
     "key.secrets_file": (
         "`.streamlit/secrets.toml` konnte nicht gelesen werden. Korrigieren Sie die Datei oder "
         f"setzen Sie die Umgebungsvariable {_KEY} und starten Sie die App dann neu."
+    ),
+    "turn.error": (
+        "Beim Beantworten Ihrer Frage ist etwas schiefgelaufen. Versuchen Sie es bitte erneut."
     ),
 }
 

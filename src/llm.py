@@ -110,7 +110,7 @@ _CLIENT_PACKAGES = frozenset({"langchain_openai", "openai"})
 _STRUCTURED_PARSER = "_oai_structured_outputs_parser"
 
 
-def _diagnostic(exc: BaseException) -> str:
+def error_diagnostic(exc: BaseException) -> str:
     """Return the error's type and the function that raised it, without its message."""
     tb = exc.__traceback__
     if tb is None:
@@ -123,7 +123,7 @@ def _diagnostic(exc: BaseException) -> str:
 
 def translate_error(exc: openai.OpenAIError) -> LLMError:
     """Return the user-facing LLMError for an OpenAI SDK error, keeping only its status code."""
-    diagnostic = _diagnostic(exc)
+    diagnostic = error_diagnostic(exc)
     # APITimeoutError is a subclass of APIConnectionError, so it must be checked first.
     if isinstance(exc, openai.APITimeoutError):
         return LLMTimeoutError(diagnostic=diagnostic)
@@ -171,7 +171,7 @@ def mapped_errors() -> Iterator[None]:
         raise translate_error(exc) from None
     except OpenAIRefusalError as exc:
         # The model declined to answer; its message is the refusal text.
-        raise InvalidReplyError(diagnostic=_diagnostic(exc)) from None
+        raise InvalidReplyError(diagnostic=error_diagnostic(exc)) from None
     except (ValueError, KeyError, TypeError) as exc:
         # Only errors raised while the client handled the call; the caller's own pass through.
         # A bug of ours that langchain raises (e.g. a bad message type) also lands here, which
@@ -180,8 +180,8 @@ def mapped_errors() -> Iterator[None]:
             raise
         # Its message quotes the model's reply, so it is mapped (and hidden) too.
         if _is_invalid_reply(exc):
-            raise InvalidReplyError(diagnostic=_diagnostic(exc)) from None
-        raise ServiceUnavailableError(diagnostic=_diagnostic(exc)) from None
+            raise InvalidReplyError(diagnostic=error_diagnostic(exc)) from None
+        raise ServiceUnavailableError(diagnostic=error_diagnostic(exc)) from None
 
 
 def build_chat_model(

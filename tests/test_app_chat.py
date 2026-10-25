@@ -7,7 +7,7 @@ import streamlit as st
 from langchain_core.messages import AIMessage
 from streamlit.testing.v1 import AppTest
 
-from src import chat, config, guard, guardrails, llm
+from src import chat, config, guard, guardrails, i18n, llm
 from src.rag import hybrid, store
 from tests.fakes import (
     ScriptedChatModel,
@@ -297,6 +297,26 @@ def test_a_model_error_shows_the_mapped_message_and_keeps_the_history(monkeypatc
     assert message.status[0].state == "error"
     assert _assistant(at, 0).markdown[0].value == "Four meals [S1]."
     assert not at.exception
+
+
+@pytest.mark.turn_error
+def test_an_unexpected_error_shows_the_fixed_message_in_the_chosen_language(monkeypatch):
+    """A bug inside the turn shows the turn error, never its text, and the history stays (T1.8)."""
+    model = _use_model(monkeypatch, _answers("Four meals [S1]."))
+    at = _ask(_start(), QUESTION)
+    model.error = RuntimeError("SECRET-MARKER")
+    at = _ask(at, "And protein per day?")
+    message = _assistant(at)
+    assert [e.value for e in message.error] == [config.TURN_ERROR_MESSAGE]
+    assert message.status[0].state == "error"
+    assert _assistant(at, 0).markdown[0].value == "Four meals [S1]."
+    assert not at.exception
+    at = at.segmented_control(key=i18n.SESSION_KEY).set_value("de").run(timeout=30)
+    assert [e.value for e in _assistant(at).error] == [i18n.t("turn.error", "de")]
+    assert not at.exception
+    kinds = (at.markdown, at.error, at.warning, at.info, at.caption)
+    shown = [str(e.value) for kind in kinds for e in kind] + [s.label for s in at.status]
+    assert not any("SECRET-MARKER" in text for text in shown)
 
 
 @pytest.mark.parametrize(

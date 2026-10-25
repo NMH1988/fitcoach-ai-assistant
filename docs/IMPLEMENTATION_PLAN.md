@@ -70,7 +70,7 @@ Deadline: **2026-11-02** (Sprint 2). Target dates leave 1-2 days of buffer.
 | T1.6 | #55 | CI: accept the pillow 12.3.0 advisories until Streamlit allows pillow 13 | S | T1.1 | 10-20 | done |
 | T1.6a | #77 | CI: upgrade streamlit to 1.66.1 so pillow 13 replaces the pillow ignores (owner's request after PR #76's security job failed) | S | T1.6 | 10-22 | done |
 | T1.7 | #81 | Streamlit runs on localhost only, without telemetry or error details (owner's request after the 2026-10-22 security audit) | S | T1.1 | 10-22 | done |
-| T1.8 | #82 | A fixed message for unexpected errors in a chat turn (split from T1.7) | S | T1.7 | 10-26 (before T8.2; Epic 8 order, owner, 2026-10-25) | todo |
+| T1.8 | #82 | A fixed message for unexpected errors in a chat turn (split from T1.7) | S | T1.7 | 10-26 (before T8.2; Epic 8 order, owner, 2026-10-25) | done |
 | T1.9 | #110 | Workflow files: read and check both briefs for every ticket (owner's request after PR #109) | S | - | 10-25 | done |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1, O7 | 10-26 | done |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2 | 10-27 | done |
@@ -104,7 +104,7 @@ Deadline: **2026-11-02** (Sprint 2). Target dates leave 1-2 days of buffer.
 | T8.5 | #94 | An offline retrieval regression suite in CI (extra) | M | T8.4 | 11-15 | todo |
 | T8.6 | #95 | A manually started live evaluation workflow (extra) | S | T8.4, O11 | 11-15 | todo |
 | **Epic 9: Sprint 3 agent, P0** | | | | | | |
-| T9.1 | #96 | Sprint 3 product and design decisions (coach-first scope) | M | - | 10-26 | in review |
+| T9.1 | #96 | Sprint 3 product and design decisions (coach-first scope) | M | - | 10-25 | done |
 | T9.2 | #97 | The chat turn as a LangGraph `StateGraph`, same behaviour | L | T9.1, T8.1, T8.2, T8.4 | 10-30 | todo |
 | T9.3 | #98 | Agentic RAG: searching the knowledge base is the agent's tool | M | T9.2, T8.4, O8 | 10-31 | todo |
 | T9.4 | #99 | Short-term memory: a conversation that remembers earlier turns | M | T9.2, O8 | 10-31 | todo |
@@ -216,19 +216,19 @@ Deadline: **2026-11-02** (Sprint 2). Target dates leave 1-2 days of buffer.
 - [x] Records: this plan (T1.7 and T1.8), `docs/PROGRESS.md`, `docs/ARCHITECTURE.md` section 10, a `docs/TESTING.md` live-check row.
 **Notes:** finding 2's first half was the T1.4 audit's finding 1 (2026-10-20); its criterion went to issue #7 (T3.1) only and never reached this plan, so it was never done. Findings 4-6 of the audit stay open, recorded in `docs/SECURITY.md` for the owner to decide.
 
-### T1.8 A fixed message for unexpected errors in a chat turn (S) · status: todo · issue #82
-**Serves:** core 4 (proper error handling); AC-13. Finding 2 of the 2026-10-22 audit, second half; split from T1.7 by the owner (2026-10-22), to follow after the course submission.
+### T1.8 A fixed message for unexpected errors in a chat turn (S) · status: done · issue #82
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 4 (proper error handling, real-world use), evaluation: core concepts (error scenarios and edge cases) and technical (appropriate security: no error text on the page), Sprint 2 review point 1 in part (an unexpected error leaves a log line); Sprint 2 (`docs/BRIEF.md`): core 4 (proper error handling), Medium 10 in part (logging), evaluation: core concepts (error scenarios and edge cases) and technical (appropriate security); AC-13. Finding 2 of the 2026-10-22 audit, second half; split from T1.7 by the owner (2026-10-22), to follow after the course submission.
 **Depends on:** T1.7
 **Acceptance criteria** (approved by the owner, 2026-10-22)
-- [ ] Any other `Exception` raised after the guard accepts a question (opening the index, building the models, query translation, retrieval, the answer, the tools) makes `chat.run_turn` return an `"error"` result with a new fixed message (code `turn.error`, English and German in `src/i18n.py`; the owner reviews the German text), the steps run and the tokens spent so far; the original is not chained or shown - `tests/test_chat.py`: a fake that raises `RuntimeError("SECRET-MARKER")` at each of these points; "SECRET-MARKER" appears nowhere in the result.
-- [ ] The catch-all writes one log line with the exception's type and where it was raised (as `LLMError.diagnostic`), never its message or arguments - `tests/test_chat.py` with `caplog`.
-- [ ] Streamlit's control exceptions (`RerunException`, `StopException`, which derive from `BaseException`) are not caught - a test with a `BaseException` raised inside the turn.
-- [ ] An unknown answer language still raises `ValueError` before any call, and a rejected question still makes no API call - the existing tests keep passing.
-- [ ] In the app, such an error shows the fixed message in the chosen language, no "SECRET-MARKER", and the chat history stays - AppTest in `tests/test_app_chat.py`.
-- [ ] `docs/SECURITY.md` and `docs/ARCHITECTURE.md` section 10 list the catch-all - review.
-- [ ] `ruff check .`, `ruff format --check .` and `python -m pytest -q` pass - CI.
-- [ ] Records: this plan (T1.8), `docs/PROGRESS.md`.
-**Notes:** owner's choices (2026-10-22): a new message rather than `llm.error` (which names the model service); log only the type and location. Plan drafted in the T1.7 session: make `llm._diagnostic` public, put `TURN_ERROR_MESSAGE` in `src/config.py`, add `except Exception` after the named handlers in `run_turn()`. A catch-all can hide a UI bug raised in the app's `on_text`/`on_step` callbacks in AppTests; the tests that check the answer's content still catch it.
+- [x] Any other `Exception` raised after the guard accepts a question (opening the index, building the models, query translation, retrieval, the answer, the tools) makes `chat.run_turn` return an `"error"` result with a new fixed message (code `turn.error`, English and German in `src/i18n.py`; the owner reviews the German text), the steps run and the tokens spent so far; the original is not chained or shown - `tests/test_chat.py`: a fake that raises `RuntimeError("SECRET-MARKER")` at each of these points; "SECRET-MARKER" appears nowhere in the result. Done: `test_an_unexpected_error_gives_the_fixed_turn_error` (seven points: opening the index, building each model, query translation, the vector search, the answer call, building the tools; the steps per point; the marker not in the result's `repr`), `test_an_unexpected_error_keeps_the_tokens_spent_before_it`, `test_the_turn_error_is_shown_in_the_chosen_language`; the English and German texts approved by the owner on 2026-10-25. `tests/conftest.py` fails any other test whose turn ends in `turn.error`, so the catch-all cannot hide a fake's assertion or a regression (tests that expect it carry the `turn_error` marker).
+- [x] The catch-all writes one log line with the exception's type and where it was raised (as `LLMError.diagnostic`), never its message or arguments - `tests/test_chat.py` with `caplog`. Done: `test_an_unexpected_error_logs_its_type_and_place_only` (one ERROR record from `src.chat` at each point, no `exc_info`, "RuntimeError in ...", no marker), and `test_a_named_error_writes_no_catch_all_line`.
+- [x] Streamlit's control exceptions (`RerunException`, `StopException`, which derive from `BaseException`) are not caught - a test with a `BaseException` raised inside the turn. Done: `test_a_base_exception_inside_the_turn_is_not_caught`.
+- [x] An unknown answer language still raises `ValueError` before any call, and a rejected question still makes no API call - the existing tests keep passing. Done: the check sits before the `try`, and the existing tests pass.
+- [x] In the app, such an error shows the fixed message in the chosen language, no "SECRET-MARKER", and the chat history stays - AppTest in `tests/test_app_chat.py`. Done: `test_an_unexpected_error_shows_the_fixed_message_in_the_chosen_language` (English, then German after the switch).
+- [x] `docs/SECURITY.md` and `docs/ARCHITECTURE.md` section 10 list the catch-all - review.
+- [x] `ruff check .`, `ruff format --check .` and `python -m pytest -q` pass - CI.
+- [x] Records: this plan (T1.8), `docs/PROGRESS.md`.
+**Notes:** owner's choices (2026-10-22): a new message rather than `llm.error` (which names the model service); log only the type and location. Plan drafted in the T1.7 session: make `llm._diagnostic` public (now `llm.error_diagnostic()`), put `TURN_ERROR_MESSAGE` in `src/config.py`, add `except Exception` after the named handlers in `run_turn()`. A catch-all can hide a UI bug raised in the app's `on_text`/`on_step` callbacks in AppTests; the tests that check the answer's content still catch it.
 
 ### T1.9 Workflow files: read and check both briefs for every ticket (S) · status: done · issue #110
 **Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): none. Sprint 2 (`docs/BRIEF.md`): none. Beyond the brief (owner's request): the workflow files make every ticket and review follow "Using this file" in both briefs.
@@ -668,7 +668,7 @@ Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this 
 
 **For maximum points (P0):** Medium 2 (memory: T9.4, T9.7), Medium 4 (authentication and personalisation: T9.5, T9.6), Hard 1 (agentic RAG: T9.3); Medium 1 and Medium 8 are kept from Sprint 2. **Should:** T9.8 (Hard 2), T9.10 (Hard 3). **P1:** T9.17, T9.18. **Extras:** T9.9 (Medium 3, Hard 5), T8.5, T8.6.
 
-### T9.1 Sprint 3 product and design decisions (coach-first scope) (M) · status: in review · issue #96
+### T9.1 Sprint 3 product and design decisions (coach-first scope) (M) · status: done · issue #96
 **Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 1 (agent purpose), core 5 (technical decisions), evaluation: problem definition and core concepts (how the agent works and why these agent types, D9, D11, D17); Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request): the coach-first scope.
 **Depends on:** -
 **Acceptance criteria** (widened by the owner on 2026-10-25 for the coach-first scope; S became M)
