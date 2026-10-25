@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-25 · T9.1 Sprint 3 product and design decisions (coach-first scope) · #<PR> (closes #96)
+## 2026-10-25 · T9.1 Sprint 3 product and design decisions (coach-first scope) · #119 (closes #96)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 1 (agent purpose), core 5 (technical decisions), evaluation: problem definition and core concepts (how the agent works and why these agent types, D9, D11, D17). Sprint 2 (`docs/BRIEF.md`): none. Beyond the brief (owner's request): the coach-first scope (the coach role, invitations and sharing, the workout log, the dashboards).
 - **What:**
   - `docs/PRD.md`: a "Sprint 3: the agent (coach-first workspace)" section (problem, why an agent, users and roles, features 14-25 as P0, P1, should and extras, added guardrails, the privacy change, AC-18 to AC-37, beyond the brief, what moves to the Capstone); the Goal, the deadline (2026-11-23), content ownership (O8, O15), beyond the brief and open items updated.
