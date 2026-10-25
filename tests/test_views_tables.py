@@ -67,16 +67,18 @@ def test_columns_turns_rows_into_named_columns():
     }
 
 
-def test_an_unknown_tier_is_called_review_in_each_language():
-    """A tier the app does not know gets the generic name "Review", in both languages."""
-    assert tables.tier_label(99, "en") == "Review"
-    assert tables.tier_label(99, "de") == i18n.t("tier.unknown", "de")
-
-
-def test_a_known_tier_has_its_own_name_in_each_language():
-    """Tier 1 is named from the UI texts, in the language asked for."""
-    for lang in ("en", "de"):
-        assert tables.tier_label(1, lang) == i18n.t("tier.1", lang)
+@pytest.mark.parametrize(
+    ("tier", "lang", "expected"),
+    [
+        (1, "en", "ISSN position stand"),
+        (1, "de", "ISSN-Positionspapier"),
+        (99, "en", "Review"),
+        (99, "de", "Übersichtsarbeit"),
+    ],
+)
+def test_a_tier_is_named_in_the_language_and_an_unknown_one_is_a_review(tier, lang, expected):
+    """Tier 1 has its own name; a tier the app does not know is called a review."""
+    assert tables.tier_label(tier, lang) == expected
 
 
 def test_a_topic_the_app_does_not_know_is_shown_as_it_is():
@@ -88,15 +90,16 @@ def test_a_topic_the_app_does_not_know_is_shown_as_it_is():
 
 @pytest.mark.parametrize(
     ("fiber", "lang", "expected"),
-    [(None, "en", "Not reported"), (2.5, "en", "2.5 g"), (2.5, "de", "2,5 g")],
+    [
+        (None, "en", "not reported"),
+        (None, "de", "nicht angegeben"),
+        (2.5, "en", "2.5 g"),
+        (2.5, "de", "2,5 g"),
+    ],
 )
 def test_fiber_is_a_number_with_the_languages_decimal_mark_or_not_reported(fiber, lang, expected):
     """Fiber reads "2.5 g" or "2,5 g"; USDA giving no value reads "not reported"."""
-    text = tables.fiber_text(fiber, lang)
-    if fiber is None:
-        assert text == i18n.t("food.not_reported", lang)
-    else:
-        assert text == expected
+    assert tables.fiber_text(fiber, lang) == expected
 
 
 def test_the_macros_come_in_the_colour_order_and_a_missing_one_is_left_out(macros):
@@ -190,28 +193,19 @@ def test_the_german_kcal_delta_uses_the_german_thousands_mark():
 
 
 @pytest.mark.parametrize(
-    ("difference", "key"),
+    ("difference", "lang", "expected"),
     [
-        (0, "targets.at_maintenance"),
-        (300, "targets.above_maintenance"),
-        (-300, "targets.below_maintenance"),
+        (0, "en", "Build muscle: at maintenance"),
+        (300, "en", "Build muscle: 300 kcal above maintenance"),
+        (-1500, "en", "Build muscle: 1,500 kcal below maintenance"),
+        (0, "de", "Muskeln aufbauen: auf Erhaltungsbedarf"),
+        (300, "de", "Muskeln aufbauen: 300 kcal über dem Erhaltungsbedarf"),
+        (-1500, "de", "Muskeln aufbauen: 1.500 kcal unter dem Erhaltungsbedarf"),
     ],
 )
-def test_the_goal_line_says_where_the_target_is_against_maintenance(difference, key):
-    """The goal line uses the at, above or below maintenance text, with the goal's name."""
-    for lang in ("en", "de"):
-        line = tables.goal_line("build_muscle", difference, lang)
-        assert i18n.t("goal.build_muscle", lang) in line
-        if difference:
-            expected = i18n.t(
-                key,
-                lang,
-                goal=i18n.t("goal.build_muscle", lang),
-                kcal=i18n.number(abs(difference), lang),
-            )
-        else:
-            expected = i18n.t(key, lang, goal=i18n.t("goal.build_muscle", lang))
-        assert line == expected
+def test_the_goal_line_says_where_the_target_is_against_maintenance(difference, lang, expected):
+    """The goal line names the goal and says at, above or below maintenance, by how much."""
+    assert tables.goal_line("build_muscle", difference, lang) == expected
 
 
 def test_the_tdee_rows_hold_resting_energy_factor_and_daily_needs():
@@ -227,21 +221,27 @@ def test_the_tdee_rows_hold_resting_energy_factor_and_daily_needs():
 
 def test_the_macro_summary_rows_hold_target_range_needs_and_protein_range(macros):
     """Four rows: the daily target, its range, the energy needs and the protein range."""
-    rows = tables.macro_summary_rows(macros, "en")
-    assert len(rows) == 4
-    values = list(rows.values())
-    assert values[0] == f"{i18n.number(macros.targets.kcal_target, 'en')} kcal"
-    assert values[2] == f"{i18n.number(macros.energy_needs.tdee_kcal, 'en')} kcal"
-    assert values[3].endswith(" g")
+    assert tables.macro_summary_rows(macros, "en") == {
+        "Daily target": "3,035 kcal",
+        "Range for the goal": "3,035-3,311 kcal",
+        "Daily energy needs": "2,759 kcal",
+        "Protein range": "128-176 g",
+    }
+    german = tables.macro_summary_rows(macros, "de")
+    assert list(german.values()) == ["3.035 kcal", "3.035-3.311 kcal", "2.759 kcal", "128-176 g"]
 
 
-def test_the_macro_table_has_four_columns_of_three_macros(macros):
-    """Macro, per day, share and per body weight; one row for each of the three macros."""
-    table = tables.macro_table(macros.targets, "imperial", "en")
-    assert len(table) == 4
-    assert all(len(column) == 3 for column in table.values())
-    assert any("lb" in name for name in table)
-    assert any("kg" in name for name in tables.macro_table(macros.targets, "metric", "en"))
+def test_the_macro_table_has_a_row_per_macro_in_the_chosen_units(macros):
+    """Macro, per day, share and per body weight, as columns; g/lb in imperial."""
+    assert tables.macro_table(macros.targets, "imperial", "en") == {
+        "Macro": ["Protein", "Carbohydrate", "Fat"],
+        "Per day": ["152 g", "418 g", "84 g"],
+        "Share of kcal": ["20%", "55%", "25%"],
+        "Per lb of body weight": ["0.86 g/lb", "2.37 g/lb", "0.48 g/lb"],
+    }
+    german = list(tables.macro_table(macros.targets, "metric", "de").values())
+    assert german[2] == ["20 %", "55 %", "25 %"]
+    assert german[3] == ["1,9 g/kg", "5,2 g/kg", "1,1 g/kg"]
 
 
 def test_a_found_food_is_a_table_of_its_amount_and_nutrients():
@@ -267,13 +267,21 @@ def test_a_food_without_a_fiber_value_says_not_reported():
     assert list(rows.values())[6] == i18n.t("food.not_reported", "de")
 
 
-@pytest.mark.parametrize("lang", ["en", "de"])
-def test_a_call_step_is_named_in_the_language(lang):
+@pytest.mark.parametrize(
+    ("lang", "expected"),
+    [
+        ("en", ["Rewrite the question", "Embed the searches", "Answer, round 3"]),
+        ("de", ["Frage umformulieren", "Suchanfragen einbetten", "Antwort, Runde 3"]),
+    ],
+)
+def test_a_call_step_is_named_in_the_language(lang, expected):
     """The rewrite, search and answer steps have names; an unknown step is shown as it is."""
-    assert tables.usage_step(config.USAGE_STEP_REWRITE, lang) == i18n.t("usage.step.rewrite", lang)
-    assert tables.usage_step(config.USAGE_STEP_SEARCH, lang) == i18n.t("usage.step.search", lang)
-    answer = config.USAGE_STEP_ANSWER.format(round=3)
-    assert tables.usage_step(answer, lang) == i18n.t("usage.step.answer", lang, round=3)
+    steps = [
+        config.USAGE_STEP_REWRITE,
+        config.USAGE_STEP_SEARCH,
+        config.USAGE_STEP_ANSWER.format(round=3),
+    ]
+    assert [tables.usage_step(step, lang) for step in steps] == expected
     assert tables.usage_step("Something else", lang) == "Something else"
 
 

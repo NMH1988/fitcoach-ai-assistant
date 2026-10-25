@@ -1,7 +1,6 @@
 """The UI layout (T8.1): app.py only composes the page; the views hold the rest."""
 
 import ast
-import importlib
 from pathlib import Path
 
 import pytest
@@ -81,17 +80,25 @@ def test_the_function_scan_finds_functions_methods_and_classes(tmp_path):
     assert _functions(source) == {"a", "b", "C", "d", "e"}
 
 
-def _scanned_files(test_file: str, name: str) -> list[Path]:
-    """Return the files a security scan test reads, by running its own file list."""
-    module = importlib.import_module(f"tests.{test_file}")
-    return list(getattr(module, name))
+def _list_parts(test_file: str, name: str) -> set[str]:
+    """Return the parts of a module-level list in a test file, as written (e.g. `APP_FILES`)."""
+    tree = ast.parse((ROOT / "tests" / test_file).read_text(encoding="utf-8"))
+    [value] = [
+        node.value
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == name for target in node.targets)
+    ]
+    assert isinstance(value, ast.List)
+    return {ast.unparse(element) for element in value.elts}
 
 
 def test_the_unsafe_html_and_components_scans_list_the_views():
-    """The files test_prompt_injection scans (`APP_FILES`) include every view module."""
-    scanned = {path.resolve() for path in _scanned_files("test_prompt_injection", "APP_FILES")}
-    assert {path.resolve() for path in VIEWS.glob("*.py")} <= scanned
-    assert APP.resolve() in scanned
+    """test_prompt_injection's `APP_FILES` (both scans read it) holds app.py, views/ and src/."""
+    parts = _list_parts("test_prompt_injection.py", "APP_FILES")
+    assert {"APP", "*sorted(VIEWS.rglob('*.py'))", "*sorted(SRC.rglob('*.py'))"} <= parts
+    source = (ROOT / "tests" / "test_prompt_injection.py").read_text(encoding="utf-8")
+    assert 'VIEWS = config.PROJECT_ROOT / "views"' in source
 
 
 @pytest.mark.parametrize("test_file", ["test_app_export.py", "test_app_profile.py"])
