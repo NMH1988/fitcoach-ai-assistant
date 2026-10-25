@@ -7,7 +7,7 @@ The owner writes in Vietnamese: reply in Vietnamese. Everything in the repo is i
 ## Mandatory reading (non-negotiable)
 
 1. **Before writing or changing any code**, in every session: read this whole file and the rules in `.claude/rules/` (the unconditional ones load automatically: `copyright.md`, `workflow.md`, `security-privacy.md`; `testing.md` loads when working on `tests/`).
-2. **Before starting any ticket**: read `docs/BRIEF.md` (what the course asks) and `docs/PRD.md` (what we build) and check the ticket against them, then read `docs/PROGRESS.md` and run `gh pr list --state open`. If the ticket touches the knowledge base, data, prompts, tests, fixtures or docs content, also read `docs/SOURCES.md`.
+2. **Before starting any ticket**: read `docs/BRIEF.md` (what the course asks; for Epic 8 and 9 tickets also `docs/BRIEF_SPRINT3.md`) and `docs/PRD.md` (what we build) and check the ticket against them, then read `docs/PROGRESS.md` and run `gh pr list --state open`. If the ticket touches the knowledge base, data, prompts, tests, fixtures or docs content, also read `docs/SOURCES.md`.
 3. If a ticket, plan or prompt contradicts the brief, the PRD or the copyright policy, or a choice changes what the product does, stop, say so and ask the owner. Don't guess. Always flag work the brief does not ask for, even when the owner asked for it (label it "beyond the brief (owner's request)").
 
 ## Where things are
@@ -15,6 +15,7 @@ The owner writes in Vietnamese: reply in Vietnamese. Everything in the repo is i
 | File | What it holds |
 |---|---|
 | `docs/BRIEF.md` | Summary of the course brief (requirements, optional tasks, evaluation) |
+| `docs/BRIEF_SPRINT3.md` | Summary of the Sprint 3 brief (the agent) and of the reviewer's feedback on Sprint 2 |
 | `docs/PRD.md` | Product decisions, features, guardrails, product-level acceptance criteria |
 | `docs/ARCHITECTURE.md` | Technical design and the approved decisions D1-D8 |
 | `docs/IMPLEMENTATION_PLAN.md` | Epics, tickets, acceptance criteria, dependencies, order, status |

@@ -17,6 +17,13 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-25 · Plan Epics 8 and 9 (Sprint 2 review follow-ups and the Sprint 3 agent) · #PR (closes #107)
+- **Brief:** the Sprint 2 reviewer's feedback (Epic 8) and the Sprint 3 brief (Epic 9); planning only, no code.
+- **What:** `docs/BRIEF_SPRINT3.md` (new): the Sprint 3 brief and the reviewer's five points in our own words, with the optional tasks numbered and each point mapped to its ticket. `docs/IMPLEMENTATION_PLAN.md`: Epic 8 (T8.1-T8.6, issues #90-#95) and Epic 9 (T9.1-T9.11, issues #96-#106) with acceptance criteria, overview rows, owner tasks O8-O13. `CLAUDE.md`: the new brief in the mandatory reading and "Where things are".
+- **Why:** issues and PRs do not travel to the course repository, so the review, the Sprint 3 brief and the plan must be in files. The course allows the Sprint 3 agent to build on this project (owner, 2026-10-23).
+- **Decisions & gotchas:** owner's choices (2026-10-23 to 2026-10-25): Epic 8 first, in the order T8.1 (split `app.py`), T1.8 and T8.2 (logging), T8.3 (three chunks per source), T8.4 (JSON results and a baseline), then Epic 9, then T8.5 and T8.6; review point 3 (tool questions get unrelated passages) has no Epic 8 ticket, as T9.3's agentic RAG answers it; "unexpected citations" means sources cited that are not in a question's expected list; the offline retrieval fixture uses texts we write ourselves (copyright rule 8); a hand-built LangGraph `StateGraph`; long-term memory may keep weight, height and age as dated history, for a later progress-tracking feature (beyond the brief, owner's request), which changes the "profile in the session only" rule in T9.6; real sign-in with `st.login` (Google) before any body data is stored, with a guest mode for reviewers' clones; observability as local JSON logs plus LangSmith with personal data masked. T9.9 (the USDA API) needs the owner to approve a change to copyright rule 10 first. Source numbers in the issue bodies (e.g. "#12" in #92) are rows in `docs/SOURCES.md`, not issues.
+- **Follow-ups:** T8.1 (#90) next; owner tasks O8-O13.
+
 ## 2026-10-22 · T3.9 "About the answers" opens as a modal · #89 (closes #88)
 - **Brief:** beyond the brief (owner's request): refines T3.1's sidebar block; the credits keep copyright policy rule 6.
 - **What:**
