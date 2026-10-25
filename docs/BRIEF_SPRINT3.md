@@ -2,7 +2,7 @@
 
 **Read this before starting any ticket**, together with `docs/BRIEF.md` (Sprint 2) (owner's rule, 2026-10-25: both briefs for every ticket). It summarises the course brief *Sprint 3: build an AI agent of your own choosing* (Turing College) and the reviewer's feedback on the Sprint 2 project, in our own words; the course text is not copied here. The owner keeps the full brief and the review. When this summary and the full brief seem to differ, the full brief wins: ask the owner.
 
-The course allows the Sprint 3 project to build on the Sprint 2 project (owner, 2026-10-23), so the nutrition assistant becomes the agent. What we decided to build is in `docs/PRD.md` ("Sprint 3: the agent") once T9.1 lands.
+The course allows the Sprint 3 project to build on the Sprint 2 project (owner, 2026-10-23), so the nutrition assistant becomes the agent. What we decided to build is in `docs/PRD.md` ("Sprint 3: the agent (coach-first workspace)", added by T9.1).
 
 ## What the Sprint 3 brief asks for
 
