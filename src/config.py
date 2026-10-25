@@ -259,6 +259,9 @@ LANGUAGE_PROMPT_MISSING_MESSAGE = (
     "The answer language prompt (`src/prompts/answer_language_en.md` or `answer_language_de.md`) "
     "is missing or empty, so no answer can be written. Restore the file and ask again."
 )
+# Shown in the answer for any other error in a chat turn (a bug, an unexpected library error);
+# never the error's own text (T1.8, AC-13).
+TURN_ERROR_MESSAGE = "Something went wrong while answering your question. Please try again."
 # How the evidence tiers are named in the answer's sources (docs/UI_DESIGN.md).
 EVIDENCE_TIER_LABELS: dict[int, str] = {1: "ISSN position stand", 2: "Peer-reviewed review"}
 UNKNOWN_TIER_LABEL = "Review"
