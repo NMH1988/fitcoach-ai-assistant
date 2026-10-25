@@ -1,6 +1,6 @@
 # Sprint 3 brief (summary) and the Sprint 2 review
 
-**Read this before starting any Epic 8 or Epic 9 ticket**, together with `docs/BRIEF.md` (Sprint 2). It summarises the course brief *Sprint 3: build an AI agent of your own choosing* (Turing College) and the reviewer's feedback on the Sprint 2 project, in our own words; the course text is not copied here. The owner keeps the full brief and the review. When this summary and the full brief seem to differ, the full brief wins: ask the owner.
+**Read this before starting any ticket**, together with `docs/BRIEF.md` (Sprint 2) (owner's rule, 2026-10-25: both briefs for every ticket). It summarises the course brief *Sprint 3: build an AI agent of your own choosing* (Turing College) and the reviewer's feedback on the Sprint 2 project, in our own words; the course text is not copied here. The owner keeps the full brief and the review. When this summary and the full brief seem to differ, the full brief wins: ask the owner.
 
 The course allows the Sprint 3 project to build on the Sprint 2 project (owner, 2026-10-23), so the nutrition assistant becomes the agent. What we decided to build is in `docs/PRD.md` ("Sprint 3: the agent") once T9.1 lands.
 
@@ -50,5 +50,5 @@ The reviewer's five points, each with the ticket that answers it:
 
 ## Using this file
 
-- At the start of every Epic 8 or 9 ticket, name the Sprint 3 requirement or optional task (by the numbers above) or the review point it serves, or write "beyond the brief (owner's request)".
+- At the start of every ticket, name the Sprint 3 requirement or optional task (by the numbers above) or the review point it serves, or "none", together with the Sprint 2 item from `docs/BRIEF.md`; write "beyond the brief (owner's request)" only when neither brief covers the work. The PR description's Brief section, the plan's **Serves** line and the PROGRESS **Brief:** line carry the same numbers.
 - If a ticket contradicts this brief, `docs/BRIEF.md`, the PRD or the copyright policy, or changes what the product does, say so and ask the owner.
