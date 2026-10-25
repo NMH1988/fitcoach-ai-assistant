@@ -2,7 +2,7 @@
 
 Epics, tickets, acceptance criteria, dependencies, order and status. This file is the record of the work that travels with the repo to the course repository (GitHub issues and PRs do not), so keep each ticket's status current: every PR updates the status of its ticket.
 
-**Status of this plan:** approved by the owner on 2026-10-19; GitHub issues #1-#20 created the same day (one per ticket). Epic 7 (T7.1-T7.3, issues #33-#35) added by the owner on 2026-10-20; T7.4 (issue #63) split from T7.1 by the owner on 2026-10-21. It follows `docs/PRD.md` (acceptance criteria AC-1 to AC-17) and `docs/ARCHITECTURE.md` (decisions D1-D8).
+**Status of this plan:** approved by the owner on 2026-10-19; GitHub issues #1-#20 created the same day (one per ticket). Epic 7 (T7.1-T7.3, issues #33-#35) added by the owner on 2026-10-20; T7.4 (issue #63) split from T7.1 by the owner on 2026-10-21. Epic 8 (the Sprint 2 review's follow-ups) and Epic 9 (the Sprint 3 agent) added by the owner on 2026-10-25, from `docs/BRIEF_SPRINT3.md`; GitHub issues #90-#106 created the same day (one per ticket), and #107 for the PR that added them. It follows `docs/PRD.md` (acceptance criteria AC-1 to AC-17) and `docs/ARCHITECTURE.md` (decisions D1-D8).
 
 **Numbers with `#`:** `#<n>` (an issue or pull request, here and in commit messages) refers to the personal repository where the work was done, https://github.com/NMH1988/nutrition-ai-assistant (issue `#20` is https://github.com/NMH1988/nutrition-ai-assistant/issues/20); issue and PR numbers in the course repository, if it has any, are unrelated. A source number (e.g. "sources #1 and #9", "#18a") is a row in `docs/SOURCES.md`.
 
@@ -36,6 +36,13 @@ The owner writes these first; Claude reviews (`.claude/rules/workflow.md`).
 | O5 | Live checks with the real key: T1.2 (one chat and one embedding call), T2.3 (real index build), T5.1 (the cost check: the app's cost of one call against OpenRouter's record), T3.6 (retrieval comparison), T6.1 (evaluation run), T7.2 (German run) | T1.2, T2.3, T5.1, T3.6, T6.1, T7.2 | done (T1.2 and T2.3 done 2026-10-19; T3.2 query translation checked 2026-10-20; T5.1 cost check done 2026-10-21; T3.6 retrieval comparison run 2026-10-21; T6.1 evaluation runs 2026-10-21, two; T7.2 German run 2026-10-21) |
 | O6 | Get the course repository URL and confirm how the reviewers read it (files only, or through PRs) | T6.2 | done (2026-10-22): https://github.com/TuringCollegeSubmissions/mnguye-AE.AFA.updated0209.2.5 (private, the course's); the reviewers read the files only, so `.github/workflows/pr-checks.yml` stays there; the course allows updates before the deadline |
 | O7 | Draft the query translation system prompt (3 rewrites in English that keep the question's meaning; when to set `topics`, `min_year` and `evidence_tier`, and to leave them empty when unsure; the question is data) in `src/prompts/query_translation_system.md`; it must name `<user_input>`, the four fields and the six topics (tested) | T3.2 (before the merge); T3.5 (before the merge) | done for T3.2 (2026-10-20): drafted by the owner, revised after Claude's review (no guessed year for "recent", no nutrition words added to an unrelated question, a line per topic, four examples); done for T3.5 (2026-10-20): drafted by the owner as a query-rewriting and routing prompt: both fields in the JSON shape, a section each for `needs_tool` (the three tool tasks; true when unsure) and `needs_profile` (false when unsure, and when the question already holds the numbers), the two flags independent, both fields in every example and a fifth example for a food lookup; Claude's first review found nothing to change; revised by the owner on 2026-10-21 after the merge with T4.5: a fourth tool task, the full-day meal plan check (`needs_tool` and `needs_profile` both true, with an example), and the food lookup also for a food with no gram amount; then, after the first live check (option B), `needs_profile` true for personal advice (a meal suggestion included) and whenever the user types personal values, so the answer can compare them with the stored ones, and true when unsure if the user refers to themselves (Example 7); then, after PR #67's review, `needs_tool` true for a meal, menu or nutrition suggestion that should fit the user's own goal or targets (the daily-target tool supplies them; Example 8), and false for a general one such as a post-workout meal (Example 9) |
+| O8 | Rewrite the answer system prompt for the agent: drop "Handle each request independently" for conversation memory, and add when to search the knowledge base, when to propose saving a preference or a profile value, how to write a chat summary (what to keep; leave out medical conditions, pregnancy and medication), and how to use `<memories>`; Claude reviews | T9.3, T9.4, T9.7 | todo |
+| O9 | Create a Google OAuth client (web application, redirect `http://localhost:8501/oauth2callback`) and put its values in the gitignored `.streamlit/secrets.toml`; Claude never creates accounts or enters credentials | T9.5 | todo |
+| O10 | Create a LangSmith account and key, and set it only in the gitignored secrets or environment | T9.8 | todo |
+| O11 | Create a separate OpenRouter key with a credit limit for the evaluation workflow and store it as the repository secret `OPENROUTER_API_KEY_EVAL` | T8.6 | todo |
+| O12 | Request a FoodData Central API key (api.data.gov), and approve or reject the change to copyright policy rule 10 | T9.9 | todo |
+| O13 | Live checks with the real key for Epics 8 and 9: T8.1 (one answered question), T8.3 (retrieval comparison and evaluation), T8.4 (the baseline run), T9.2 and T9.3 (evaluation against the baseline), T9.4 (a follow-up question), T9.5 (sign in and out), T9.8 (one trace), T9.10 (the scored run) | those tickets | todo |
+| O14 | Write a reference answer for each evaluation question with expected sources, if context precision and recall are wanted in T9.10 (the owner writes the evaluation content, as for O2); Claude reviews | T9.10 | todo |
 
 ## Overview and order
 
@@ -60,14 +67,14 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T1.6 | #55 | CI: accept the pillow 12.3.0 advisories until Streamlit allows pillow 13 | S | T1.1 | 10-20 | done |
 | T1.6a | #77 | CI: upgrade streamlit to 1.66.1 so pillow 13 replaces the pillow ignores (owner's request after PR #76's security job failed) | S | T1.6 | 10-22 | done |
 | T1.7 | #81 | Streamlit runs on localhost only, without telemetry or error details (owner's request after the 2026-10-22 security audit) | S | T1.1 | 10-22 | done |
-| T1.8 | #82 | A fixed message for unexpected errors in a chat turn (split from T1.7) | S | T1.7 | after the submission | todo |
+| T1.8 | #82 | A fixed message for unexpected errors in a chat turn (split from T1.7) | S | T1.7 | with T8.2 (Epic 8 order, owner, 2026-10-25) | todo |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1, O7 | 10-26 | done |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2 | 10-27 | done |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | done |
 | T4.4 | #14 | Tool-calling loop and tool results UI | M | T3.1, T4.2, T4.3 | 10-28 | done |
 | T4.7 | #44 | My targets: sidebar target, targets tab and Food lookup tab (split from T4.4, owner's decision) | M | T4.4 | 10-29 | done |
 | T4.8 | #85 | Food lookup tab: a searchable dropdown of the USDA foods (owner's request after T4.7) | S | T4.7 | 10-22 | done |
-| T3.9 | #88 | The "About the answers" block opens as a modal instead of an expander in the sidebar (owner's request) | S | T3.1 | 10-22 | in review |
+| T3.9 | #88 | The "About the answers" block opens as a modal instead of an expander in the sidebar (owner's request) | S | T3.1 | 10-22 | done |
 | T3.5 | #50 | Skip the answer call for off-topic questions with no source (owner's request after T4.4) | S | T4.4, T3.2, O7, O1 | 10-29 | done |
 | T5.3 | #18 | Domain guardrails | S | T3.1, T4.2 | 10-29 | done |
 | T3.6 | #51 | Retrieval comparison on the owner's evaluation questions (split from T3.3, owner's decision) | S | T3.3, O2, O5 | 10-30 | done |
@@ -85,6 +92,25 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T7.2 | #34 | German answers end to end | M | T7.1, T3.2, O1, O2, O5 | 11-01 | done |
 | T4.5 | #15 | `evaluate_meal_plan` tool (stretch; done early by the owner's choice) | S | T4.4 | only if ahead | done |
 | T4.6 | #40 | Profile form: a hint instead of "Press Enter to apply" (beyond the brief; owner's request, done early as a small fix) | S | T4.1, T3.1 | 10-20 | done |
+| **Epic 8: Sprint 2 review follow-ups** | | | | | | |
+| T8.1 | #90 | Split `app.py` into a `views/` package, no behaviour change | L | - | - | todo |
+| T8.2 | #91 | Structured turn logging with no personal data | M | T1.8, T8.1 | - | todo |
+| T8.3 | #92 | At most three chunks per source in the fused list | S | T8.1, O13 | - | todo |
+| T8.4 | #93 | Evaluation results as JSON and a committed baseline | M | T8.3, O13 | - | todo |
+| T8.5 | #94 | An offline retrieval regression suite in CI | M | T8.4 | - | todo |
+| T8.6 | #95 | A manually started live evaluation workflow | S | T8.4, O11 | - | todo |
+| **Epic 9: Sprint 3 agent** | | | | | | |
+| T9.1 | #96 | Sprint 3 product and design decisions | S | - | - | todo |
+| T9.2 | #97 | The chat turn as a LangGraph `StateGraph`, same behaviour | L | T9.1, T8.1, T8.2, T8.4 | - | todo |
+| T9.3 | #98 | Agentic RAG: searching the knowledge base is the agent's tool | M | T9.2, T8.4, O8 | - | todo |
+| T9.4 | #99 | Short-term memory: a conversation that remembers earlier turns | M | T9.2, O8 | - | todo |
+| T9.5 | #100 | Sign in with Google (`st.login`, OIDC), with a guest mode | M | T8.1, O9 | - | todo |
+| T9.6 | #101 | Long-term memory: the store and the "My data" view | M | T9.5 | - | todo |
+| T9.7 | #102 | Human in the loop: the user approves what is saved | L | T9.6, T9.4, O8 | - | todo |
+| T9.8 | #103 | LangSmith tracing with personal data masked (extra) | M | T9.2, T8.2, O10 | - | todo |
+| T9.9 | #104 | Food lookup through the USDA FoodData Central API (extra) | M | T9.2, O12 | - | todo |
+| T9.10 | #105 | Evaluation report with Ragas or DeepEval (extra) | M | T8.4, T9.3 | - | todo |
+| T9.11 | #106 | Sprint 3 documentation and reflection | S | T9.2-T9.7 | - | todo |
 | **Last** | | | | | | |
 | T6.2 | #20 | README, final checks and transfer to the course repo | S | all, O6 | 11-01 | done |
 
@@ -293,7 +319,7 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 - [x] Docs: `docs/ARCHITECTURE.md` section 5 (rewrites widen the search but do not decide coverage), `docs/SECURITY.md` ("Answers without evidence" and the known limit for single-letter questions), `src/config.py`'s comment on the limit, this plan, `docs/PROGRESS.md`.
 **Notes:** found in T3.5's live check after T3.7 (2026-10-21, real index, 1,703 chunks): "What is the offside rule in football?" reached the answer model in 2 of 3 app runs. In one captured run the question and two rewrites had 0 of 6 chunks within 0.62 (nearest 0.662-0.693), but the rewrite "VAR and offside rule in football" had 6 of 6 (0.548-0.592), and `hybrid_search()` counted a question as covered when any query had a chunk within the limit, so T3.5's skip never applied. The limit was calibrated on questions as asked (T3.1, 28 questions: covered at most 0.542, unrelated at least 0.700), never on rewrites. Owner's decision (2026-10-21): option 1 of (1) the question itself must have a chunk within the limit, (2) a stricter limit for rewrites (would need to be under 0.548, from one observation), (3) a chunk counts only within the limit of the question or of at least two queries (keeps T3.2's vague case, but rewrites stay uncalibrated), (4) a prompt rule against acronyms (fragile). A looser limit for the question is not usable: the offside question itself is at 0.659-0.665. What option 1 loses: a vague question whose own wording is further than 0.62 while its rewrites are close now gets "no matching research" (a question a tool could answer still takes T3.5's `needs_tool` path). Single-letter questions typed by the user ("A", "B", "C" sit within 0.62 themselves; the guard has no minimum length) are out of scope and recorded as a known limit (T3.7's last criterion left them to a ticket of their own; owner's choice, 2026-10-21).
 
-### T3.9 The "About the answers" block opens as a modal (S) · status: in review · issue #88
+### T3.9 The "About the answers" block opens as a modal (S) · status: done · issue #88
 **Serves:** beyond the brief (owner's request, 2026-10-22, after seeing the German sidebar): refines T3.1's "About the answers" block (core 5, an intuitive UI; copyright policy rule 6, the credits stay).
 **Depends on:** T3.1
 **Acceptance criteria** (approved by the owner, 2026-10-22: "Làm đi")
@@ -540,3 +566,204 @@ The German guard and guardrail criteria moved to T7.4 (owner's decision, 2026-10
 - [x] The badges and source cards are readable in both modes - manual check in both modes, recorded in `docs/TESTING.md` (2026-10-20), plus contrast tests in `tests/test_theme.py`. The macro bar, which T4.4 adds, moved to a T4.4 criterion (owner's choice, 2026-10-20).
 - [x] No `unsafe_allow_html` is added, and `st.html` is used only with T4.6's fixed CSS constant (`config.PROFILE_DIALOG_CSS`, allowlisted by name) - a source-scan test (T4.6's `st.html` test, T3.4's, or added here if neither covers it): both existing scans cover it (`test_st_html_is_used_only_with_the_fixed_dialog_css` and T3.4's `test_nothing_in_the_app_renders_with_unsafe_allow_html` and `test_the_app_uses_no_raw_html_components` in `tests/test_prompt_injection.py`), so none was added.
 **Notes:** T3.1 already writes both theme sections; this ticket adds the config test, the toolbar check, the hint and the two-mode check.
+
+## Epic 8: Sprint 2 review follow-ups
+
+Added by the owner on 2026-10-25 from the reviewer's feedback on the Sprint 2 project (summarised in `docs/BRIEF_SPRINT3.md`, "The Sprint 2 review"). Order agreed with the owner: T8.1, then T1.8 and T8.2, then T8.3 and T8.4, before Epic 9; T8.5 and T8.6 after the agent works. Review point 3 (tool questions get unrelated passages) is not a ticket here: T9.3's agentic RAG answers it.
+
+### T8.1 Split `app.py` into a `views/` package, no behaviour change (L) · status: todo · issue #90
+**Serves:** Sprint 2 review point 2; Sprint 3 evaluation (good code organisation); prepares the UI pieces Epic 9 adds (sign-in, memory, approvals).
+**Depends on:** -
+**Acceptance criteria**
+- [ ] A `views/` package holds the UI by concern (at least `chat.py`, `targets.py`, `food.py`, `details.py`, `charts.py`, `profile_form.py`, `sources.py`, `export.py`; the exact split is set in the Structure phase); the functions that build chart specs and table rows do not import `streamlit` and are unit-tested without AppTest - their unit tests, plus a test that their modules do not import `streamlit`.
+- [ ] `app.py` has at most 150 lines and only composes the page: page config, session defaults, header, sidebar and tab routing; it defines no chart, table or card builder - `tests/test_app_layout.py` (line count, and the module-level functions it defines are on a short allowlist).
+- [ ] No behaviour changes: no test is deleted, skipped or loosened (only import paths change), the number of tests is not lower, and coverage of `views/` plus `app.py` is not lower than `app.py`'s before - the before and after counts and coverage in the PR description.
+- [ ] The rules that scan `app.py` (no `unsafe_allow_html`, `st.html` only with the fixed dialog CSS, no raw HTML components, no image input) scan `views/` too - the existing scan tests, widened to the package.
+- [ ] In the browser the four tabs, the profile dialog, the About dialog, the units switch, EN | DE, both themes and the PDF download look and work as before; one question with sources is answered - manual check with screenshots, the answered question by the owner (needs the key).
+- [ ] `CLAUDE.md` ("Where things are", code conventions: UI in `views/`, logic in `src/`), `docs/ARCHITECTURE.md` section 3 and `docs/UI_DESIGN.md` name the new layout - review.
+**Notes:** test-first: move one tab at a time with its tests (`tests/test_app_targets.py` and `tests/test_app_tools.py` map onto the split). AppTest still runs `app.py`. Cached resources (`st.cache_resource`) stay in one module so they are not built twice.
+
+### T8.2 Structured turn logging with no personal data (M) · status: todo · issue #91
+**Serves:** Sprint 2 review point 1; Sprint 2 Medium 10 (logging and monitoring); Sprint 3 core 4 (error handling, real-world use).
+**Depends on:** T1.8 (its catch-all writes the first log line; this ticket builds the logger it uses), T8.1 (order agreed with the owner)
+**Acceptance criteria**
+- [ ] `src/observability.py` has `configure_logging()`, which puts a JSON formatter on the app's logger and writes to stderr only (no file handler); calling it twice leaves one handler; the level comes from `config.LOG_LEVEL` - unit tests (each line parses as JSON with `ts`, `level`, `logger`, `event`; handler count; no `FileHandler`).
+- [ ] Each chat turn gets a `turn_id` (UUID4), carried in `TurnResult`, and writes exactly one INFO record `turn` on every ending (answer, no sources, rejected, guardrail, error) with `turn_id`, `kind`, `code`, `language`, `chunks`, `source_ids`, `tools`, `tool_statuses`, `tokens`, `cost_usd` (as text), `duration_ms` and `profile_sent` - `tests/test_chat.py` with `caplog`, one test per ending.
+- [ ] An `LLMError` writes a WARNING with its `diagnostic`, status code and code; a guard rejection writes a WARNING with the `Rejection` reason and code; a tool result with an error or invalid status writes a WARNING with the tool name and status; each carries the `turn_id` - unit tests.
+- [ ] The formatter writes only allowlisted fields: an unknown `extra` key is dropped - unit test.
+- [ ] No record holds the question, the rewrites, the answer, chunk text, profile values or the key: every ending is run with a profile of distinctive values (87.3 kg, 181.7 cm, age 37), a question containing `CANARY-Q` and a fake key `sk-or-CANARY`, and none of them appears in any formatted record - `tests/test_observability.py`.
+- [ ] The app and the scripts call `configure_logging()` once at start - AppTest and script tests.
+- [ ] `docs/SECURITY.md` (what is logged, what never is), `docs/ARCHITECTURE.md` section 10 and `.claude/rules/security-privacy.md` (the never-log list) are updated - review.
+- [ ] `ruff check .`, `ruff format --check .` and `python -m pytest -q` pass - CI.
+**Notes:** source IDs and tool names are not personal data; tool arguments can be (a weight, a food name typed by the user), so they are never logged. T9.8 reuses `turn_id` to tie a log line to a trace.
+
+### T8.3 At most three chunks per source in the fused list (S) · status: todo · issue #92
+**Serves:** Sprint 2 review point 4; supports Sprint 2 Hard 1 (hybrid search) and core 1.
+**Depends on:** T8.1 (order agreed with the owner), O13
+**Acceptance criteria**
+- [ ] `config.MAX_CHUNKS_PER_SOURCE = 3`; the fusion ranks every candidate first, then keeps at most that many chunks per source, then cuts to `RETRIEVAL_TOP_K`; when too few other sources are left to fill the places, the skipped chunks fill them in fused order (the owner may change this in the Q phase) - unit tests in `tests/test_hybrid.py` (six chunks of A and two of B give 3 A, 2 B, then 1 A; a single-source list still gives six; ties keep their order).
+- [ ] The `[S#]` order is the fused order and each chunk keeps its smallest distance; the coverage gate (the question's own vector list against `RETRIEVAL_MAX_DISTANCE`) is unchanged; the HMB test (AC-4) passes - existing and new tests.
+- [ ] `scripts/compare_retrieval.py` uses the same capped list, and its hit rates are not lower than T3.6's recorded run - owner live check (O13), recorded in `docs/TESTING.md`.
+- [ ] `scripts/run_evaluation.py --repeat 3` records whether q5 now finds #12 and q10 finds #8, and that no expected source is lost - owner live check (O13), recorded in `docs/TESTING.md` next to T6.1's results.
+**Notes:** MMR was the reviewer's other option; it needs every candidate's vector and a tuning value, so the cap comes first and MMR only if the cap fails the hit-rate check.
+
+### T8.4 Evaluation results as JSON and a committed baseline (M) · status: todo · issue #93
+**Serves:** Sprint 2 review point 5; groundwork for Sprint 3 Hard 3 (T9.10).
+**Depends on:** T8.3 (the baseline is taken on the capped retrieval), O13
+**Acceptance criteria**
+- [ ] `scripts/run_evaluation.py` also writes `results.json` next to its report, with `schema_version`, the git commit, the models, the language, `--repeat` and the date, and per run of each question: `id`, `kind`, `code`, `expected_found`, `expected_cited`, `unexpected_citations` (sources cited that are not in the question's expected list; owner's definition, 2026-10-25), `tools`, `tokens` and `cost_usd`; it holds no answer text, chunk text or key - unit tests on the written file (schema, values from a fake turn, no canary text).
+- [ ] The file's summary gives the found rate and the cited rate over the questions with expected sources, per run and averaged - unit test.
+- [ ] `data/eval_baseline.json` is committed from an owner run with `--repeat 3` on `main` after T8.3 - owner live check (O13), the run recorded in `docs/TESTING.md`.
+- [ ] `scripts/check_eval_baseline.py <results.json>` exits 1 when the found rate or the cited rate is below its baseline minus `config.EVAL_TOLERANCE` (set from the spread of the three baseline runs) and 0 otherwise, printing each rate and its baseline - unit tests with fixture files.
+**Notes:** the questions stay the owner's (O2); a new question changes the baseline and needs a new owner run.
+
+### T8.5 An offline retrieval regression suite in CI (M) · status: todo · issue #94
+**Serves:** Sprint 2 review point 5 (catch recall regressions with no key).
+**Depends on:** T8.4
+**Acceptance criteria**
+- [ ] A fixture index is built in a temporary directory from short texts we wrote ourselves (no article text: copyright policy rule 8; owner's choice, 2026-10-25), with a deterministic fake embedder, through the same ingest metadata and `store` code as the real index - fixture in `tests/fixtures/`.
+- [ ] A suite of fixture questions with expected chunk IDs runs the real pipeline (filters, the gate, BM25, RRF, the per-source cap) and fails if the hit rate at `RETRIEVAL_TOP_K` drops below the rate recorded in the fixture - `tests/test_retrieval_regression.py`, run by the ordinary CI test job with no key.
+- [ ] A deliberate break (for example the cap set to 1, or BM25 removed) makes the suite fail - shown once in the PR description.
+**Notes:** this catches pipeline bugs, not embedding quality; T8.6 covers the real model.
+
+### T8.6 A manually started live evaluation workflow (S) · status: todo · issue #95
+**Serves:** Sprint 2 review point 5.
+**Depends on:** T8.4, O11
+**Acceptance criteria**
+- [ ] `.github/workflows/eval.yml` runs only on `workflow_dispatch` (a schedule only if the owner asks), never on `pull_request` or `pull_request_target`, with `permissions: contents: read` - a test that parses the workflow.
+- [ ] It downloads the sources through the Europe PMC REST API and builds the index (or restores it from the Actions cache), runs `scripts/run_evaluation.py --repeat N`, uploads `results.json` (no answers, no chunk text) as an artifact and runs `scripts/check_eval_baseline.py`, failing below the baseline - one dispatched run, linked in `docs/TESTING.md`.
+- [ ] The key comes only from the secret `OPENROUTER_API_KEY_EVAL`, a separate OpenRouter key with a credit limit (O11), and is never echoed - workflow test and review of the run log.
+- [ ] One run's cost is recorded in `docs/TESTING.md`, and `docs/SECURITY.md` lists the secret and who can start the workflow - review.
+**Notes:** only people with write access can start a dispatched workflow, so no visitor can spend the key (`.claude/rules/security-privacy.md`).
+
+## Epic 9: Sprint 3 agent
+
+Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this app (`docs/BRIEF_SPRINT3.md`). Owner's decisions (2026-10-23 to 2026-10-25): a hand-built LangGraph `StateGraph`; short-term memory; long-term memory that may keep weight, height and age as dated history (a later epic may track nutrition and training over time: beyond the brief, owner's request); conversations themselves are never written to disk, and a returning user is remembered only through what they approved: profile entries, preferences and short summaries of earlier chats ("level 2", owner's choice after PR #108's review, 2026-10-25); real sign-in with `st.login` (Google, OIDC) before any body data is stored, with a guest mode that works as today; observability as local JSON logs (T8.2) plus LangSmith with personal data masked.
+
+**This changes the privacy rule:** today the profile lives in the session only and is never written to disk (`.claude/rules/security-privacy.md`, PRD feature 4). T9.7, which adds the approved saves, changes this for signed-in users and updates the rule, the PRD and `docs/SECURITY.md` in the same PR; T9.6 before it only reads and deletes.
+
+**For maximum points (done first):** Medium 2 (memory: T9.4, T9.6, T9.7), Medium 4 (authentication and personalisation: T9.5), Hard 1 (agentic RAG: T9.3); Medium 1 and Medium 8 are done from Sprint 2. **Extras after that:** T9.8 (Hard 2), T9.10 (Hard 3), T9.9 (Medium 3, Hard 5).
+
+### T9.1 Sprint 3 product and design decisions (S) · status: todo · issue #96
+**Serves:** Sprint 3 core 1 (agent purpose) and core 5 (technical decisions).
+**Depends on:** -
+**Acceptance criteria**
+- [ ] `docs/PRD.md` gains "Sprint 3: the agent": the problem, why an agent helps, the target users (unchanged: healthy adults 18+ who lift), the new features (conversation memory, sign-in, saved profile history and preferences with approval, agentic search) and product acceptance criteria AC-18 onward; the privacy change above is stated there - owner review.
+- [ ] `docs/ARCHITECTURE.md` records decisions D9 onward: a raw `StateGraph` rather than `create_agent` (the guard must branch to the end before any paid call, and approvals pause at a chosen step), the checkpointers, the long-term store, sign-in, LangSmith masking - owner approval of each decision.
+- [ ] `README.md` says the project now serves two course briefs and links `docs/BRIEF.md` and `docs/BRIEF_SPRINT3.md` - review.
+**Notes:** docs only; the owner approves before T9.2 starts.
+
+### T9.2 The chat turn as a LangGraph `StateGraph`, same behaviour (L) · status: todo · issue #97
+**Serves:** Sprint 3 core 2 and 4; evaluation (how agents and function calling work).
+**Depends on:** T9.1, T8.1, T8.2, T8.4 (the baseline its last criterion checks against)
+**Acceptance criteria**
+- [ ] `langgraph` is pinned in `pyproject.toml` after its licence is checked (copyright policy rule 9) and listed in `docs/ARCHITECTURE.md` section 12 - review, CI install.
+- [ ] `src/agent/graph.py` builds a `StateGraph` with a `TypedDict` state (messages through `add_messages`; the profile, chunks and usage as private state the caller never gets back): guard, query translation, retrieval, the agent node and a `ToolNode` in a loop, and a finish node; conditional edges send a rejected input and an uncovered question to the end - unit tests per node and per edge with fake models.
+- [ ] The guard node runs first and a rejected or rate-limited input makes no model or embedding call - `tests/test_chat.py::test_rejected_input_opens_nothing_and_calls_no_model` passes through the graph, and a new spy test invokes the compiled graph with an `httpx.MockTransport` that sees zero requests.
+- [ ] The tool loop keeps `MAX_TOOL_ROUNDS` and `MAX_TOOL_CALLS_PER_ROUND`; tool arguments are validated as before; models come only from `build_chat_model()` - `tests/test_tool_loop.py` passes.
+- [ ] A new source-scan test fails on any call-time `model`, `max_tokens`, `max_completion_tokens`, `base_url` or `reasoning_effort` (in `.bind(...)`, `invoke(...)`, `model_kwargs`, `extra_body`) and on `model_copy(update=...)`, `configurable_fields(...)` or `configurable_alternatives(...)` anywhere in `src/`, `views/`, `app.py` and `scripts/`; `bind_tools(tools)` alone is allowed - `tests/test_client_rules.py`, with cases that must be caught and cases that must pass.
+- [ ] `chat.run_turn()` keeps its signature and `TurnResult`, so the app and `scripts/run_evaluation.py` are unchanged; every existing chat, tool, usage and AppTest passes - CI.
+- [ ] `docs/ARCHITECTURE.md` shows the graph as a Mermaid diagram generated from the compiled graph (`get_graph().draw_mermaid()`), and a test fails if the committed diagram differs - `tests/test_agent_graph.py`.
+- [ ] `run_evaluation.py --repeat 3` gives found and cited rates within the baseline tolerance - `scripts/check_eval_baseline.py` on the owner's run (O13).
+**Notes:** behaviour first, new abilities from T9.3 on, so a regression has one cause. The largest ticket in the epic; split in the Structure phase if needed.
+
+### T9.3 Agentic RAG: searching the knowledge base is the agent's tool (M) · status: todo · issue #98
+**Serves:** Sprint 3 Hard 1; Sprint 2 review point 3.
+**Depends on:** T9.2, T8.4, O8
+**Acceptance criteria**
+- [ ] A `search_knowledge_base` tool runs query translation and hybrid search with the same coverage gate and returns the chunks inside a delimited `<sources>` tool message as data; its query argument is validated (type, length from config) - unit tests.
+- [ ] The agent decides whether to search: a food lookup such as q14 ("150 g rolled oats") makes no search and sends no passages to the answer model; a research question searches and cites `[S#]`; a question about the user's targets may do both - tests with scripted fake models, plus the owner's run (O13): q14 and de4 tokens before and after recorded in `docs/TESTING.md`, and found and cited rates within the baseline tolerance.
+- [ ] Searches per turn are capped in config; `[S#]` labels stay unique across several searches in one turn, and the source cards list each cited source once - unit tests.
+- [ ] An off-topic question still costs no answer call (AC-2) and gets the "not covered" message - existing tests, adapted.
+- [ ] "How this answer was found" shows each search the agent made (its rewrites and filters), or that it made none - AppTest.
+- [ ] `docs/SECURITY.md` covers the new path (a model-written search query is data; retrieved text stays inside `<sources>`) - review; the `security-reviewer` agent run on the PR.
+**Notes:** the owner writes the prompt's rules on when to search (O8).
+
+### T9.4 Short-term memory: a conversation that remembers earlier turns (M) · status: todo · issue #99
+**Serves:** Sprint 3 Medium 2.
+**Depends on:** T9.2, O8
+**Acceptance criteria**
+- [ ] The graph is compiled with an `InMemorySaver` for every user, guest or signed in; each browser session holds its own checkpointer and `thread_id` in `st.session_state` (never in `st.cache_resource`, so sessions share nothing and a closed session's memory goes with it); no conversation is written to disk - unit test: a second invoke on the same thread sees the first turn, a new thread does not; AppTest: two sessions do not see each other's threads; a test that no checkpoint file is created.
+- [ ] A follow-up ("and for 200 g?") is answered from the earlier turn - test with a scripted fake model on the messages it receives, plus one live follow-up by the owner (O13).
+- [ ] The model sees at most the last `config.HISTORY_MAX_TOKENS` of the conversation (`trim_messages` in the node), while the checkpoint keeps the whole thread - unit test comparing the model's input with `get_state()`.
+- [ ] Every new message passes the guard first; a rejected message is not added to the thread - unit test.
+- [ ] The `<profile>` block and tool arguments with profile values are not stored in the thread; only the current turn's model call gets them. The one exception is a save proposal waiting for the user's answer (T9.7), held in memory only until then; T9.7 replaces its arguments once the user answers - test that reads the checkpoint for the canary values (with T9.7, after every choice).
+- [ ] A "New chat" button starts a new thread and clears the chat; the summary PDF and the session cost cover the current chat - AppTest.
+- [ ] The answer prompt no longer says each request stands alone (O8, written by the owner) - owner review; a test on the built prompt.
+**Notes:** cost rises with history; the trim limit is set from a measured turn.
+
+### T9.5 Sign in with Google (`st.login`, OIDC), with a guest mode (M) · status: todo · issue #100
+**Serves:** Sprint 3 Medium 4; required before T9.6 stores body data (owner's decision, 2026-10-25).
+**Depends on:** T8.1, O9
+**Acceptance criteria**
+- [ ] `streamlit[auth]` (Authlib) is pinned after its licence is checked (rule 9) - review, CI install.
+- [ ] `.streamlit/secrets.toml.example` has an `[auth]` section with placeholders (`redirect_uri = "http://localhost:8501/oauth2callback"`, `cookie_secret`, the Google client ID and secret, `server_metadata_url`); the real values live only in the gitignored `secrets.toml` and are never logged or shown - review; the secrets tests extended.
+- [ ] The sidebar shows "Sign in with Google" for a guest, and the account's first name with "Sign out" when signed in; a guest uses the app exactly as today and nothing is written to disk - AppTest with `st.user` faked, and a test that no database file is created for a guest.
+- [ ] Without an `[auth]` section (a reviewer's clone) the sign-in button is hidden, a short note says why, and the app runs as a guest - AppTest.
+- [ ] The user is identified by a key derived from the issuer and `sub` (a keyed hash with a secret from the secrets file); email, name and picture are never stored or logged - unit test on the key function, the canary log test extended.
+- [ ] `README.md` and `docs/DEPLOYMENT.md` explain how to set up the Google client for localhost; `docs/SECURITY.md` lists sign-in as a control - review; the owner signs in and out on localhost (O9, O13).
+**Notes:** Claude never creates the Google client or enters credentials; the owner does (O9). Streamlit 1.66.1 in the venv provides `st.login`, `st.logout` and `st.user` (checked 2026-10-25); Authlib is not installed yet.
+
+### T9.6 Long-term memory: the store and the "My data" view (M) · status: todo · issue #101
+**Serves:** Sprint 3 Medium 2 and Medium 4 (personalisation); groundwork for progress tracking (beyond the brief, owner's request).
+**Depends on:** T9.5
+**Acceptance criteria**
+- [ ] Only signed-in users have long-term memory; it lives in a SQLite file in a gitignored directory set in config, with tables for dated profile entries (weight in kg, height in cm, age, sex, activity, goal, and the date recorded; never overwritten), preferences (short facts such as "vegetarian") and chat summaries (one or two sentences with a date) per user key; every query is parameterised; this ticket adds no write path from the app (T9.7 adds the approved saves) - unit tests on a temporary, seeded database, and a scan for SQL built from strings.
+- [ ] Signing in loads the latest profile into the session, so the tools and the targets tab use it; the history is kept for later tracking - AppTest.
+- [ ] Saved preferences and the most recent chat summaries (at most `config.MEMORY_SUMMARIES_IN_PROMPT`) reach the model as data inside a delimited `<memories>` block, never in the system prompt - unit tests on the built messages, with an injection string seeded in the database staying inside the block.
+- [ ] A "My data" view lists the profile history, the preferences and the chat summaries, exports them as JSON, deletes one entry, and deletes everything for the user - AppTest and unit tests.
+- [ ] Nothing from memory appears in logs or traces - the canary tests of T8.2 extended to saved values.
+**Notes:** the database is not encrypted; it stays on the machine that runs the app, which is local only. A public deployment needs a privacy notice and a review of this ticket and T9.7 first (`docs/DEPLOYMENT.md`). Split from T9.7 after PR #108's review so that neither waits for the other: the store and its view come first, the approved writes and the privacy rule change come with T9.7.
+
+### T9.7 Human in the loop: the user approves what is saved (L) · status: todo · issue #102
+**Serves:** Sprint 3 core 2 (user interactions), Medium 2 (long-term memory) and the course's human-in-the-loop pattern.
+**Depends on:** T9.6, T9.4 (the checkpointer that pauses, and "New chat"), O8
+**Acceptance criteria**
+- [ ] `remember_preference` and `update_profile` tools pause the graph with `interrupt()` before any write, carrying the proposed values; nothing is written before the user answers - unit test on the database after the interrupt.
+- [ ] The chat shows the proposal ("Save weight 82 kg, recorded today?") with Save, Edit and Discard; Save resumes the graph with `Command(resume=...)` and writes; Edit checks the values with the profile form's validation (age 18+, ranges, units); Discard writes nothing and the agent says so - AppTest per choice and unit tests.
+- [ ] A value the user types in chat ("I'm 80 kg now") becomes a proposal, never a silent write - test with a scripted fake model.
+- [ ] When a signed-in user starts a new chat, or after `config.SUMMARY_AFTER_TURNS` turns, the agent proposes a one- or two-sentence summary of the chat; the user saves, edits or discards it the same way; a returning user's next chat gets the saved summaries through `<memories>` (T9.6) - AppTest and unit tests.
+- [ ] Every proposed value and text passes the input guard and the domain guardrails before it is shown: preference and summary text with injection patterns, medical conditions, pregnancy or medication is not proposed (the summary leaves such content out), so it can never be saved - unit tests with attack strings and German and English medical examples.
+- [ ] After a Discard, the memory database holds nothing new and no file outside it was written - a test that reads the SQLite file after each choice.
+- [ ] Once the user answers, the paused tool call's arguments in the checkpoint are replaced with a placeholder, so no proposed value stays in the thread after Save, Edit or Discard (T9.4's rule) - a test that reads the checkpoint for the canary values after each choice.
+- [ ] `.claude/rules/security-privacy.md`, `docs/PRD.md` (feature 4 and the privacy note) and `docs/SECURITY.md` (threat model: a shared machine, a copied file; what is stored, where, how to delete it) are updated, and the sidebar's privacy note says what is saved and how to delete it - owner review.
+- [ ] Guests are never offered these tools - unit test on the tools built for a guest.
+- [ ] A pending approval survives a rerun of the page and is cleared by "New chat" - AppTest.
+**Notes:** the owner writes the prompt's rules on when to propose a save and how to summarise a chat (O8).
+
+### T9.8 LangSmith tracing with personal data masked (M) · status: todo · issue #103
+**Serves:** Sprint 3 Hard 2; Sprint 2 review point 1 (tracing).
+**Depends on:** T9.2, T8.2, O10
+**Acceptance criteria**
+- [ ] `langsmith` is pinned after its licence is checked (rule 9); tracing is off unless the LangSmith key and the tracing flag are set, and the key follows the OpenRouter key's rules (one config function, never logged or shown) - unit tests.
+- [ ] Masking functions applied to every run's inputs and outputs replace the question, rewrites, answer, chunk text, profile values, memories and tool arguments with placeholders, and keep node names, tool names, statuses, token counts and timing - unit tests with the canary values, on the payload a fake LangSmith client would send.
+- [ ] Each trace carries T8.2's `turn_id` as metadata, so a log line and a trace can be matched - unit test.
+- [ ] One traced turn is checked in the LangSmith UI by the owner: the graph's nodes are visible and no question, answer or profile value is - owner live check (O13), screenshot in `docs/TESTING.md`.
+- [ ] `docs/SECURITY.md` lists LangSmith as a third party that receives metadata only - review.
+
+### T9.9 Food lookup through the USDA FoodData Central API (M) · status: todo · issue #104
+**Serves:** Sprint 3 Medium 3 and Hard 5; T6.1 known problem 11 (foods missing from the Foundation Foods table).
+**Depends on:** T9.2, O12, the owner's approval of a copyright policy change
+**Acceptance criteria**
+- [ ] Before any code: the FoodData Central API's data licence and terms are read on USDA's own pages and recorded in `docs/SOURCES.md`, and the owner approves the change to copyright policy rule 10, which today says USDA data comes from its download page - owner approval recorded in this plan.
+- [ ] When the local table has no good match, the food tool asks the API; the API key follows the same rules as the OpenRouter key; calls have a timeout, bounded retries and mapped errors; the result names its source ("USDA FoodData Central API") - unit tests with a mocked HTTP client (no network in tests).
+- [ ] The food name sent to the API is validated, and only the food name is sent - unit test on the request.
+- [ ] `ATTRIBUTION.md` and the tool results credit the API data as its terms require - review.
+**Notes:** an extra, done only if time allows.
+
+### T9.10 Evaluation report with Ragas or DeepEval (M) · status: todo · issue #105
+**Serves:** Sprint 3 Hard 3; Sprint 2 review point 5.
+**Depends on:** T8.4, T9.3
+**Acceptance criteria**
+- [ ] The library (Ragas or DeepEval, chosen in the Research phase) is pinned after its licence is checked (rule 9); its judge model is built with `build_chat_model()` and any embeddings with `build_embeddings()`, both from the allowlist, and the library is given no model, token or URL override - unit tests, and T9.2's client-rule scan covers the script.
+- [ ] A script scores the owner's evaluation questions (O2) on faithfulness, answer relevancy and, if the owner writes reference answers (O14), context precision and recall, from the agent's answers and retrieved chunks, and writes the scores per question into `results.json` - unit tests with a mocked judge.
+- [ ] A report in `docs/TESTING.md` gives the scores, the cost of the run, what they show and their limits (an LLM judging an LLM, a small question set) - owner live run (O13) and review.
+
+### T9.11 Sprint 3 documentation and reflection (S) · status: todo · issue #106
+**Serves:** Sprint 3 core 5; evaluation (problem definition, core concepts, reflection).
+**Depends on:** T9.2 to T9.7
+**Acceptance criteria**
+- [ ] `README.md` explains the agent's purpose and users, how to use it (guest and signed in), and at least four example use cases with what the agent does in each - review.
+- [ ] `docs/ARCHITECTURE.md` explains how the agent works, how function calling is implemented, and why this design over other agent types (a fixed chain, `create_agent`'s ReAct loop, several agents) - review.
+- [ ] `docs/TESTING.md` lists known problems and improvements, and when prompt engineering, RAG or an agent fits each part of the app - review.
+- [ ] The repo is copied into the Sprint 3 course repository as in T6.2 - check, once the owner has that repository's URL.
