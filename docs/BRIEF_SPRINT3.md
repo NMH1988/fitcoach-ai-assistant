@@ -50,5 +50,5 @@ The reviewer's five points, each with the ticket that answers it:
 
 ## Using this file
 
-- At the start of every ticket, name the Sprint 3 requirement or optional task (by the numbers above) or the review point it serves, or "none", together with the Sprint 2 item from `docs/BRIEF.md`; write "beyond the brief (owner's request)" only when neither brief covers the work. The PR description's Brief section, the plan's **Serves** line and the PROGRESS **Brief:** line carry the same numbers.
+- At the start of every ticket, name the Sprint 3 requirement, optional task or evaluation item (by the numbers above) or the review point it serves, or "none", together with the Sprint 2 item from `docs/BRIEF.md`; write "beyond the brief (owner's request)" only when neither brief covers the work. The PR description's Brief section, the plan's **Serves** line and the PROGRESS **Brief:** line carry the same numbers.
 - If a ticket contradicts this brief, `docs/BRIEF.md`, the PRD or the copyright policy, or changes what the product does, say so and ask the owner.
