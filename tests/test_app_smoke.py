@@ -113,7 +113,8 @@ def test_the_about_button_is_a_fragment_so_a_press_does_not_stop_a_turn():
     """The button is drawn in an st.fragment: its press waits for a running turn, not stop it."""
     # AppTest neither shows fragments nor interrupts a run, so this reads the decorator. A press
     # outside a fragment reruns the script and stops an answer that is streaming (T3.9 review).
-    assert _decorators(APP.read_text(encoding="utf-8"), "_about_button") == ["st.fragment"]
+    about = APP.parent / "views" / "about.py"
+    assert _decorators(about.read_text(encoding="utf-8"), "about_button") == ["st.fragment"]
 
 
 def test_the_about_dialog_says_what_the_answers_are_based_on():

@@ -215,8 +215,8 @@ def build_chat_model(
 class CountingEmbeddings(OpenAIEmbeddings):
     """OpenAIEmbeddings that can also return the input tokens the API reports (T5.1)."""
 
-    # The client is shared by all sessions (app.py caches it), so the count is returned with the
-    # vectors, never kept on the client.
+    # The client is shared by all sessions (views/resources.py caches it), so the count is
+    # returned with the vectors, never kept on the client.
 
     def embed_with_usage(self, texts: list[str]) -> tuple[list[list[float]], int | None]:
         """Embed the texts as embed_documents does; also return the tokens, None if unreported."""

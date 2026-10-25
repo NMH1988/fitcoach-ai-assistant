@@ -581,8 +581,8 @@ def test_the_sidebar_card_is_drawn_once_per_run():
     # checked instead.
     source = APP.read_text(encoding="utf-8")
     assert source.count("last_answer_slot.container()") == 1
-    # One call; the def line ("_last_answer_card() -> None:") does not end there.
-    assert source.count("_last_answer_card()\n") == 1
+    # One call; the def line ("last_answer_card() -> None:") is in views/details.py.
+    assert source.count("details.last_answer_card()\n") == 1
 
 
 def test_the_sidebar_card_counts_a_single_rewrite_in_the_singular(monkeypatch):

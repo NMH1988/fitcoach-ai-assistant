@@ -130,7 +130,7 @@ Built in T4.7. Screenshots (fake model, sample profile): `docs/ui/t4.7-my-target
 
 - Four `st.metric(border=True)` in one row: daily kcal, with the surplus or deficit as a short grey delta ("+276 kcal", `delta_color="off"`: a deficit for fat loss is the plan, not a warning; a longer delta was cut off in a quarter of the tab), and protein, carbohydrate and fat in grams. Under each, a caption: the goal and the distance from maintenance ("Build muscle: 276 kcal above maintenance"), or the macro's % of the kcal and its grams per body weight (g/kg, or g/lb in imperial). Visible captions rather than help text, so the values are always on screen.
 - When protein was lowered to fit the target (very heavy body, low target), an `st.warning` right under the metrics with the note and the sources' protein range for this weight ("480-660 g a day (1.6 g/kg to 2.2 g/kg)").
-- The horizontal stacked bar of the macro split, the same chart as in "Tool results" (`_macro_bar()`), with `alt=`.
+- The horizontal stacked bar of the macro split, the same chart as in "Tool results" (`views/targets.macro_bar()`, the spec from `views/charts.macro_bar()`), with `alt=`.
 - Captions: maintenance kcal with how it was calculated, the target's message, any other note (e.g. the calorie floor), and the sources as a list.
 - Without a profile: an invitation and the "Add your details" button (the same dialog).
 
@@ -160,6 +160,27 @@ Built in T4.7, changed from a text box to a dropdown in T4.8 (owner's request, 2
 - Colour is never the only signal: badges carry text, deltas carry a sign.
 - Contrast checked in light and dark mode.
 
+## Code layout (T8.1)
+
+`app.py` composes the page (page config, session defaults, the sidebar block, the profile dialog, the three-column layout and the four tabs); each piece of the design lives in one module of `views/`. No behaviour or look changed in T8.1.
+
+| On screen | Module |
+|---|---|
+| Title, "Not medical advice" badge, EN \| DE switch, disclaimer box | `views/header.py` |
+| Sidebar "Your profile": goal control, tiles, Edit details | `views/sidebar.py` |
+| "Your details" dialog, units switch, Save | `views/profile_form.py` |
+| Ask tab: history, input, progress steps, the answer | `views/chat.py` |
+| Source cards, "Sources (n)" | `views/sources.py` |
+| "Tool results (n)": tables and the macro bar | `views/tool_results.py` |
+| Tokens and cost under an answer, the Details tab's usage table | `views/usage_view.py` |
+| My targets tab, sidebar daily target and donut card | `views/targets.py` |
+| Food lookup tab | `views/food.py` |
+| Details tab, sidebar "Last answer" card | `views/details.py` |
+| "About the answers" button and dialog | `views/about.py` |
+| "Download summary (PDF)" button | `views/export.py` |
+
+The Vega-Lite specs of the bar and the donut (`views/charts.py`) and the table rows and cells (`views/tables.py`) take the language as a parameter and import no streamlit; `views/targets.py` draws the charts. `views/text.py` holds `t()` and the number formatters for the session's language, `views/resources.py` the cached index, keyword index, model clients and manifest.
+
 ## Built in which ticket
 
 | Piece | Ticket |
@@ -181,6 +202,7 @@ Built in T4.7, changed from a text box to a dropdown in T4.8 (owner's request, 2
 | German guard and guardrail patterns | T7.4 (extra) |
 | Language control, German UI text | T7.1 (extra) |
 | German answers, English rewrites for retrieval | T7.2 (extra) |
+| Code split into `views/`, same look (Sprint 2 review, point 2) | T8.1 |
 | Empty-state suggestions, colour tuning, final polish | UI polish ticket (extra, beyond the brief, owner's request) |
 
 ## Open questions

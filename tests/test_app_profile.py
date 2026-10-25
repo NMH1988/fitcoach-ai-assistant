@@ -15,7 +15,7 @@ pytestmark = pytest.mark.usefixtures("no_env_key")
 
 
 def _key(field: str) -> str:
-    """Return the session state key of a profile form field, as app.py names it."""
+    """Return the session state key of a profile form field, as views/profile_form.py names it."""
     return f"profile_form_{field}"
 
 
@@ -343,7 +343,8 @@ def test_the_dialog_css_is_one_fixed_rule_scoped_to_the_dialog():
 
 def test_st_html_is_used_only_with_the_fixed_dialog_css():
     """The app calls st.html once, with the constant: never with user or model text."""
-    files = [APP, *sorted((APP.parent / "src").rglob("*.py"))]
+    root = APP.parent
+    files = [APP, *sorted((root / "views").rglob("*.py")), *sorted((root / "src").rglob("*.py"))]
     source = "\n".join(path.read_text(encoding="utf-8") for path in files)
     assert source.count("st.html(") == 1
     assert "st.html(config.PROFILE_DIALOG_CSS)" in source

@@ -67,7 +67,7 @@ Read `CLAUDE.md`, `.claude/rules/`, `docs/PRD.md`, `docs/SECURITY.md` and `docs/
 
 ### 5. Project conventions
 - Everything in English. Every function, method and class - tests, fixtures and small helper classes included - has a one-line docstring saying what it does in plain words. No test enforces this, so this review is where it is checked: list each missing or multi-line docstring in the changed files.
-- Business logic lives in `src/`, not `app.py`. Defaults and limits (models, max lengths, calorie floor, tool loop limit) live in config, not as magic numbers.
+- Business logic lives in `src/`; the UI lives in `views/` and `app.py` only composes the page (at most 150 lines, no chart, table or card builder); `views/charts.py` and `views/tables.py` import no streamlit. Defaults and limits (models, max lengths, calorie floor, tool loop limit) live in config, not as magic numbers.
 - The PR description starts with `Closes #<issue>`, lists the acceptance criteria and how each was tested; `docs/PROGRESS.md` has a new entry at the top; the ticket's status in `docs/IMPLEMENTATION_PLAN.md` is updated; the ticket ID (e.g. `T1.2`) is in the PR title and commit messages (issues and PRs do not travel to the course repository).
 
 ## Run the checks
