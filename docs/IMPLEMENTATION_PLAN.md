@@ -36,7 +36,7 @@ The owner writes these first; Claude reviews (`.claude/rules/workflow.md`).
 | O5 | Live checks with the real key: T1.2 (one chat and one embedding call), T2.3 (real index build), T5.1 (the cost check: the app's cost of one call against OpenRouter's record), T3.6 (retrieval comparison), T6.1 (evaluation run), T7.2 (German run) | T1.2, T2.3, T5.1, T3.6, T6.1, T7.2 | done (T1.2 and T2.3 done 2026-10-19; T3.2 query translation checked 2026-10-20; T5.1 cost check done 2026-10-21; T3.6 retrieval comparison run 2026-10-21; T6.1 evaluation runs 2026-10-21, two; T7.2 German run 2026-10-21) |
 | O6 | Get the course repository URL and confirm how the reviewers read it (files only, or through PRs) | T6.2 | done (2026-10-22): https://github.com/TuringCollegeSubmissions/mnguye-AE.AFA.updated0209.2.5 (private, the course's); the reviewers read the files only, so `.github/workflows/pr-checks.yml` stays there; the course allows updates before the deadline |
 | O7 | Draft the query translation system prompt (3 rewrites in English that keep the question's meaning; when to set `topics`, `min_year` and `evidence_tier`, and to leave them empty when unsure; the question is data) in `src/prompts/query_translation_system.md`; it must name `<user_input>`, the four fields and the six topics (tested) | T3.2 (before the merge); T3.5 (before the merge) | done for T3.2 (2026-10-20): drafted by the owner, revised after Claude's review (no guessed year for "recent", no nutrition words added to an unrelated question, a line per topic, four examples); done for T3.5 (2026-10-20): drafted by the owner as a query-rewriting and routing prompt: both fields in the JSON shape, a section each for `needs_tool` (the three tool tasks; true when unsure) and `needs_profile` (false when unsure, and when the question already holds the numbers), the two flags independent, both fields in every example and a fifth example for a food lookup; Claude's first review found nothing to change; revised by the owner on 2026-10-21 after the merge with T4.5: a fourth tool task, the full-day meal plan check (`needs_tool` and `needs_profile` both true, with an example), and the food lookup also for a food with no gram amount; then, after the first live check (option B), `needs_profile` true for personal advice (a meal suggestion included) and whenever the user types personal values, so the answer can compare them with the stored ones, and true when unsure if the user refers to themselves (Example 7); then, after PR #67's review, `needs_tool` true for a meal, menu or nutrition suggestion that should fit the user's own goal or targets (the daily-target tool supplies them; Example 8), and false for a general one such as a post-workout meal (Example 9) |
-| O8 | Rewrite the answer system prompt for the agent: drop "Handle each request independently" for conversation memory, and add when to search the knowledge base, when to propose saving a preference or a profile value, and how to use `<memories>`; Claude reviews | T9.3, T9.4, T9.7 | todo |
+| O8 | Rewrite the answer system prompt for the agent: drop "Handle each request independently" for conversation memory, and add when to search the knowledge base, when to propose saving a preference or a profile value, how to write a chat summary (what to keep; leave out medical conditions, pregnancy and medication), and how to use `<memories>`; Claude reviews | T9.3, T9.4, T9.7 | todo |
 | O9 | Create a Google OAuth client (web application, redirect `http://localhost:8501/oauth2callback`) and put its values in the gitignored `.streamlit/secrets.toml`; Claude never creates accounts or enters credentials | T9.5 | todo |
 | O10 | Create a LangSmith account and key, and set it only in the gitignored secrets or environment | T9.8 | todo |
 | O11 | Create a separate OpenRouter key with a credit limit for the evaluation workflow and store it as the repository secret `OPENROUTER_API_KEY_EVAL` | T8.6 | todo |
@@ -105,8 +105,8 @@ Deadline: **2026-11-02**. Target dates leave 1-2 days of buffer.
 | T9.3 | #98 | Agentic RAG: searching the knowledge base is the agent's tool | M | T9.2, T8.4, O8 | - | todo |
 | T9.4 | #99 | Short-term memory: a conversation that remembers earlier turns | M | T9.2, O8 | - | todo |
 | T9.5 | #100 | Sign in with Google (`st.login`, OIDC), with a guest mode | M | T8.1, O9 | - | todo |
-| T9.6 | #101 | Long-term memory: the store and the "My data" view | M | T9.5, T9.4 | - | todo |
-| T9.7 | #102 | Human in the loop: the user approves what is saved | L | T9.6, O8 | - | todo |
+| T9.6 | #101 | Long-term memory: the store and the "My data" view | M | T9.5 | - | todo |
+| T9.7 | #102 | Human in the loop: the user approves what is saved | L | T9.6, T9.4, O8 | - | todo |
 | T9.8 | #103 | LangSmith tracing with personal data masked (extra) | M | T9.2, T8.2, O10 | - | todo |
 | T9.9 | #104 | Food lookup through the USDA FoodData Central API (extra) | M | T9.2, O12 | - | todo |
 | T9.10 | #105 | Evaluation report with Ragas or DeepEval (extra) | M | T8.4, T9.3 | - | todo |
@@ -687,7 +687,7 @@ Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this 
 - [ ] A follow-up ("and for 200 g?") is answered from the earlier turn - test with a scripted fake model on the messages it receives, plus one live follow-up by the owner (O13).
 - [ ] The model sees at most the last `config.HISTORY_MAX_TOKENS` of the conversation (`trim_messages` in the node), while the checkpoint keeps the whole thread - unit test comparing the model's input with `get_state()`.
 - [ ] Every new message passes the guard first; a rejected message is not added to the thread - unit test.
-- [ ] The `<profile>` block and tool arguments with profile values are not stored in the thread; only the current turn's model call gets them - test that reads the checkpoint for the canary values.
+- [ ] The `<profile>` block and tool arguments with profile values are not stored in the thread; only the current turn's model call gets them. The one exception is a save proposal waiting for the user's answer (T9.7), held in memory only until then; T9.7 replaces its arguments once the user answers - test that reads the checkpoint for the canary values (with T9.7, after every choice).
 - [ ] A "New chat" button starts a new thread and clears the chat; the summary PDF and the session cost cover the current chat - AppTest.
 - [ ] The answer prompt no longer says each request stands alone (O8, written by the owner) - owner review; a test on the built prompt.
 **Notes:** cost rises with history; the trim limit is set from a measured turn.
@@ -706,7 +706,7 @@ Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this 
 
 ### T9.6 Long-term memory: the store and the "My data" view (M) · status: todo · issue #101
 **Serves:** Sprint 3 Medium 2 and Medium 4 (personalisation); groundwork for progress tracking (beyond the brief, owner's request).
-**Depends on:** T9.5, T9.4
+**Depends on:** T9.5
 **Acceptance criteria**
 - [ ] Only signed-in users have long-term memory; it lives in a SQLite file in a gitignored directory set in config, with tables for dated profile entries (weight in kg, height in cm, age, sex, activity, goal, and the date recorded; never overwritten), preferences (short facts such as "vegetarian") and chat summaries (one or two sentences with a date) per user key; every query is parameterised; this ticket adds no write path from the app (T9.7 adds the approved saves) - unit tests on a temporary, seeded database, and a scan for SQL built from strings.
 - [ ] Signing in loads the latest profile into the session, so the tools and the targets tab use it; the history is kept for later tracking - AppTest.
@@ -717,7 +717,7 @@ Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this 
 
 ### T9.7 Human in the loop: the user approves what is saved (L) · status: todo · issue #102
 **Serves:** Sprint 3 core 2 (user interactions), Medium 2 (long-term memory) and the course's human-in-the-loop pattern.
-**Depends on:** T9.6, O8
+**Depends on:** T9.6, T9.4 (the checkpointer that pauses, and "New chat"), O8
 **Acceptance criteria**
 - [ ] `remember_preference` and `update_profile` tools pause the graph with `interrupt()` before any write, carrying the proposed values; nothing is written before the user answers - unit test on the database after the interrupt.
 - [ ] The chat shows the proposal ("Save weight 82 kg, recorded today?") with Save, Edit and Discard; Save resumes the graph with `Command(resume=...)` and writes; Edit checks the values with the profile form's validation (age 18+, ranges, units); Discard writes nothing and the agent says so - AppTest per choice and unit tests.
@@ -725,10 +725,11 @@ Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this 
 - [ ] When a signed-in user starts a new chat, or after `config.SUMMARY_AFTER_TURNS` turns, the agent proposes a one- or two-sentence summary of the chat; the user saves, edits or discards it the same way; a returning user's next chat gets the saved summaries through `<memories>` (T9.6) - AppTest and unit tests.
 - [ ] Every proposed value and text passes the input guard and the domain guardrails before it is shown: preference and summary text with injection patterns, medical conditions, pregnancy or medication is not proposed (the summary leaves such content out), so it can never be saved - unit tests with attack strings and German and English medical examples.
 - [ ] After a Discard, the memory database holds nothing new and no file outside it was written - a test that reads the SQLite file after each choice.
+- [ ] Once the user answers, the paused tool call's arguments in the checkpoint are replaced with a placeholder, so no proposed value stays in the thread after Save, Edit or Discard (T9.4's rule) - a test that reads the checkpoint for the canary values after each choice.
 - [ ] `.claude/rules/security-privacy.md`, `docs/PRD.md` (feature 4 and the privacy note) and `docs/SECURITY.md` (threat model: a shared machine, a copied file; what is stored, where, how to delete it) are updated, and the sidebar's privacy note says what is saved and how to delete it - owner review.
 - [ ] Guests are never offered these tools - unit test on the tools built for a guest.
 - [ ] A pending approval survives a rerun of the page and is cleared by "New chat" - AppTest.
-**Notes:** the owner writes the prompt's rules on when to propose a save (O8).
+**Notes:** the owner writes the prompt's rules on when to propose a save and how to summarise a chat (O8).
 
 ### T9.8 LangSmith tracing with personal data masked (M) · status: todo · issue #103
 **Serves:** Sprint 3 Hard 2; Sprint 2 review point 1 (tracing).
