@@ -7,7 +7,7 @@ How the project is tested, and where evaluation results and live checks are reco
 | Level | What | How |
 |---|---|---|
 | Unit | Pure logic: TDEE and macro calculators, calorie floor, unit conversion, profile validation, input guard, JATS parsing and chunking, metadata filters, RRF, citation formatting, token cost, PDF content | pytest; known-answer tests (e.g. TDEE for a fixed profile), conversions tested both ways, RRF on a hand-computed example |
-| Integration | The pipeline end to end without the network: ingest -> Chroma -> query translation -> hybrid retrieval -> answer step with tools | `DeterministicFakeEmbedding` (langchain-core); Chroma in-memory or in a temp dir; a scripted fake chat model that returns fixed rewrites, tool calls and answers |
+| Integration | The pipeline end to end without the network: ingest -> Chroma -> query translation -> hybrid retrieval -> answer step with tools, run as the chat graph since T9.2 (`tests/test_agent_graph.py` also checks each node and edge, and that a rejected input sends no request on the wire) | `DeterministicFakeEmbedding` (langchain-core); Chroma in-memory or in a temp dir; a scripted fake chat model that returns fixed rewrites, tool calls and answers |
 | UI | Visible behaviour of `app.py` and `views/`: chat, sources, tool results, progress, settings, profile form, PDF button, error messages | `streamlit.testing.v1.AppTest` with the pipeline faked. This is our end-to-end level |
 | Live (manual) | Real models and the real index | Run by the owner; results recorded below, never in CI |
 
@@ -19,6 +19,7 @@ Browser end-to-end tests (e.g. Playwright) are not planned: AppTest covers the U
 - Every ticket's acceptance criteria map to tests or to named manual checks listed in the PR.
 - Guard tests use attack strings and benign strings, so both missed attacks and false positives are caught.
 - Test fixtures use only approved sources or text we wrote ourselves.
+- The model client rules (`.claude/rules/security-privacy.md`) are checked by a source scan, `tests/test_client_rules.py` (T9.2), with cases it must catch and cases it must pass.
 
 ## CI
 
@@ -242,6 +243,17 @@ What it shows:
 
 3. **How to use it:** after a change to retrieval, prompts or tools, `python -m scripts.run_evaluation --repeat 3`, then `python -m scripts.check_eval_baseline data/eval_runs/run-<date>-<time>.json`. The check prints "(files changed since)" for the baseline because it was taken from uncommitted code; a rerun from a clean `main` after T8.4 merges would remove that, at the cost of another $0.09, and is not needed to use the baseline.
 
+### Same behaviour on the graph (T9.2)
+
+Owner's run (O13, 2026-10-26, 16:29): `.venv\Scripts\python.exe -m scripts.run_evaluation --repeat 3` from this checkout on `feature/t9.2-langgraph-chat-turn` at eafc50e (clean: the file records `dirty` false), the real index, the app's models (`openai/gpt-5-mini` answers, `openai/gpt-5-nano` query translation, `qwen/qwen3-embedding-8b` embeddings), the English file. 51 runs, no error, 563,563 tokens, $0.0904 (the baseline: 563,093 tokens, $0.0859). Report `data/eval_runs/run-20261026-162933.md`, results `run-20261026-162933.json` (both gitignored). Then `python -m scripts.check_eval_baseline data/eval_runs/run-20261026-162933.json`, run by Claude on the owner's file (no key needed): exit 0.
+
+| Askings | 1 | 2 | 3 | Average | Baseline | Lowest allowed |
+|---|---|---|---|---|---|---|
+| Found rate (17 expected sources) | 0.8235 (14) | 0.8235 (14) | 0.8235 (14) | **0.8235** | 0.8235 | 0.7635 |
+| Cited rate | 0.8235 (14) | 0.8235 (14) | 0.8235 (14) | **0.8235** | 0.8039 | 0.7439 |
+
+The misses are the baseline's: q1's #15 and q10's #8 in all three askings, q5's #12 in two of three (found in asking 1), and q9's #4 in one (asking 1, where the plan set an `evidence_tier` 2 filter, as in T6.1's run). q6 cited both its sources in all three askings (the baseline cited one of two once), which is why the cited rate is a little higher; that is the query translation's variation between askings, not a change of the graph. Every scored question ended as an answer, the guardrail questions (q15, q16) ended at the guard with 0 tokens, and their `guard_rejected` lines now come from the `src.agent.graph` logger. q14 still sent six passages to the answer model with the food lookup, as before: making the search the agent's own tool is T9.3. The check notes "(files changed since)" for the baseline only because the baseline was taken from T8.4's uncommitted code.
+
 ## Live checks
 
 Record only what was actually run and observed: date, model, what was checked, result.
@@ -258,6 +270,7 @@ How to run the T3.8 check (O5): with the T3.8 code and the index built, start th
 
 | Date | Ticket | What was checked | Result |
 |---|---|---|---|
+| 2026-10-26 | T9.2 (O13) | `python -m scripts.run_evaluation --repeat 3` run by the owner at 16:29 on `feature/t9.2-langgraph-chat-turn` at eafc50e (clean), real index, the app's models, the English file; then `python -m scripts.check_eval_baseline` on its results file, run by Claude | 51 runs, no error, 563,563 tokens, $0.0904; found rate 0.8235 in each asking (baseline 0.8235, lowest allowed 0.7635) and cited rate 0.8235 (baseline 0.8039, lowest allowed 0.7439): exit 0, within the tolerance. Same misses as the baseline ("Same behaviour on the graph (T9.2)") |
 | 2026-10-26 | T8.4 (O13), the baseline | `python -m scripts.run_evaluation --repeat 3` run by the owner at 12:40 from the T8.4 branch (`main` at bd0304c plus T8.4's uncommitted code), real index, the app's models, the English file; the results file copied to `data/eval_baseline.json` | 51 runs, no error, 563,093 tokens, $0.0859; found rate 0.8235 and cited rate 0.8039 on average (found 0.8824 / 0.8235 / 0.7647, cited 0.8235 / 0.8235 / 0.7647 in the three askings); `config.EVAL_TOLERANCE` set to 0.06 from that spread; `scripts/check_eval_baseline.py` on the run itself: both rates ok. Details in "Baseline (T8.4)" above |
 | 2026-10-26 | T8.3 follow-up (O13), candidate depth | A scratch script (not committed) on the real index, run by the owner: q5 and q10 searched alone, the first rank and distance of each expected source and the fused top 6 for candidate lists of 6, 10, 15, 20 and 30 | q5: all three expected sources in the top 6 at every length (#12 at vector and keyword rank 3). q10: #8 in neither the 30 nearest vector chunks nor the top 30 by keyword. Decision: the lists stay `RETRIEVAL_TOP_K` long, no MMR. Details in "Candidate depth (T8.3 follow-up)" |
 | 2026-10-26 | T8.3 (O13) | `python -m scripts.run_evaluation --repeat 3`, run by the owner from 09:29 to 09:39 on the T8.3 worktree's uncommitted code on `main` at 5b3b3a0 (before 01ab117, whose docs already hold the result), the real index, `openai/gpt-5-nano` for the plan, `qwen/qwen3-embedding-8b` for the searches, `openai/gpt-5-mini` for the answers; report `data/eval_runs/run-20261026-092912.md` (gitignored) | 51 runs, no error, 568,730 tokens, $0.0854. q5 still does not find #12 and q10 not #8 (0 of 3 each); no expected source lost by the cap. Details and what is not judged yet: "Per-source cap results (T8.3)" |

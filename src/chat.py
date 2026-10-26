@@ -1,8 +1,10 @@
 """One chat turn: guard -> query translation -> retrieval -> answer with tools and [S#] citations.
 
-The user's question goes only inside <user_input>, the retrieved chunks only inside <sources> and
-the profile only inside <profile> (sent only when the query plan says the answer needs the user's
-numbers, T3.5), all in the user message; none is ever put into the system prompt
+`run_turn()` runs the turn as the LangGraph graph in `src/agent/graph.py` (T9.2), whose nodes use
+this module's helpers, and turns its errors into fixed messages. The user's question goes only
+inside <user_input>, the retrieved chunks only inside <sources> and the profile only inside
+<profile> (sent only when the query plan says the answer needs the user's numbers, T3.5), all in
+the user message; none is ever put into the system prompt
 (.claude/rules/security-privacy.md). All three are escaped first (`src/prompt_data.py`), so no text
 can close or open a block (T3.4). The rewrites from query translation are used only for the search
 and shown in the app; the answer model gets the user's own question. Tool results reach the model
@@ -22,19 +24,17 @@ import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
-from functools import partial
+from functools import cache, partial
 from pathlib import Path
 from typing import Any, Literal
 
 from langchain_chroma import Chroma
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import (
-    AIMessage,
     AIMessageChunk,
     BaseMessage,
     HumanMessage,
     SystemMessage,
-    ToolMessage,
 )
 from langchain_core.messages.ai import UsageMetadata
 from langchain_core.runnables import Runnable
@@ -217,14 +217,6 @@ def load_system_prompt(path: Path | None = None) -> str:
     if not text:
         raise ValueError("The answer system prompt is empty.")
     return text
-
-
-def _load_prompt(path: Path, message: str, code: str) -> str:
-    """Return a prompt file's text; raise PromptMissingError with message if it is unusable."""
-    try:
-        return load_system_prompt(path)
-    except OSError, ValueError:
-        raise PromptMissingError(message, code) from None
 
 
 def answer_system_prompt(prompt: str, language_part: str) -> str:
@@ -454,14 +446,6 @@ def source_cards(
     return tuple(cards)
 
 
-def _answer_text(reply: AIMessage) -> str:
-    """Return the text of the model's reply; raise LLMError if it is empty."""
-    text = remove_images(reply.text).strip()
-    if not text:
-        raise llm.LLMError(diagnostic="empty answer")
-    return text
-
-
 def stream_reply(
     chat_model: Runnable[Any, BaseMessage],
     messages: Sequence[BaseMessage],
@@ -488,33 +472,6 @@ def stream_reply(
     return reply
 
 
-def _run_round(
-    tools: Mapping[str, StructuredTool], reply: AIMessageChunk
-) -> list[tuple[ToolMessage, ToolRun]]:
-    """Run the reply's tool calls, within the limits per round; refuse the rest."""
-    # OpenAI models always send call ids; a call without one gets "", which the API would refuse
-    # on the next request (shown as a service error).
-    done = []
-    meal_plans = 0
-    for number, call in enumerate(reply.tool_calls):
-        if number >= config.MAX_TOOL_CALLS_PER_ROUND:
-            done.append(registry.refused_call(call["id"] or "", config.TOO_MANY_TOOL_CALLS_MESSAGE))
-        elif call["name"] == registry.MEAL_PLAN_TOOL:
-            # Its result is long (up to MEAL_PLAN_MAX_ITEMS foods), so fewer of them run (T4.5).
-            meal_plans += 1
-            if meal_plans > config.MAX_MEAL_PLAN_CALLS_PER_ROUND:
-                message = config.TOO_MANY_MEAL_PLANS_MESSAGE
-                done.append(registry.refused_call(call["id"] or "", message))
-            else:
-                done.append(registry.run_tool_call(tools, call))
-        else:
-            done.append(registry.run_tool_call(tools, call))
-    # Every call needs an answer, so arguments that are not valid JSON get one too.
-    for call in reply.invalid_tool_calls:
-        done.append(registry.refused_call(call["id"] or "", config.INVALID_TOOL_JSON_MESSAGE))
-    return done
-
-
 def answer_with_tools(
     chat_model: BaseChatModel,
     messages: Sequence[BaseMessage],
@@ -527,146 +484,29 @@ def answer_with_tools(
     on_tool_run: Callable[[ToolRun], None] | None = None,
 ) -> tuple[str | None, tuple[ToolRun, ...]]:
     """Let the model call tools for at most MAX_TOOL_ROUNDS rounds; return its answer and runs."""
-    # tools_only (no relevant source): replies are not shown until a tool has really run (a refused
-    # call, e.g. an unknown tool or bad arguments, does not count), and a reply with no tool call
-    # before that gives None, so the caller shows NO_SOURCES_MESSAGE, never an answer with no basis.
-    # on_tool_run(run) gets each run as it ends, so a turn that fails later still logs it (T8.2).
-    history = list(messages)
-    runs: list[ToolRun] = []
-    for round_number in range(config.MAX_TOOL_ROUNDS + 1):
-        last = round_number == config.MAX_TOOL_ROUNDS
-        hidden = tools_only and all(run.status == "invalid" for run in runs)
-        # Only the tools are bound (never the model or max_tokens; security-privacy.md). After the
-        # last round the model must answer from the results it has.
-        bound = chat_model.bind_tools(list(tools.values()), tool_choice="none" if last else None)
-        record = None
-        if recorder is not None:
-            step = config.USAGE_STEP_ANSWER.format(round=round_number + 1)
-            record = partial(recorder.add_chat, step, usage.model_name(chat_model))
-        try:
-            reply = stream_reply(bound, history, None if hidden else on_text, record)
-        except llm.ReplyCutOffError:
-            if hidden:
-                # Nothing was shown and no tool ran: the turn ends as "not covered".
-                return None, ()
-            raise
-        if not reply.tool_calls and not reply.invalid_tool_calls:
-            if hidden:
-                return None, ()
-            return _answer_text(reply), tuple(runs)
-        if last:
-            raise ToolLoopError(diagnostic="tool calls after the last round")
-        if on_text is not None:
-            # Text written before the tool calls is not the answer.
-            on_text("")
-        on_step(Step.TOOLS)
-        history.append(
-            AIMessage(
-                reply.content,
-                tool_calls=reply.tool_calls,
-                invalid_tool_calls=reply.invalid_tool_calls,
-            )
-        )
-        for message, run in _run_round(tools, reply):
-            history.append(message)
-            runs.append(run)
-            if on_tool_run is not None:
-                on_tool_run(run)
-        on_step(Step.ANSWER)
-    # Not reached: the last call either answers or raises.
-    raise ToolLoopError(diagnostic="tool loop ended without an answer")
+    # The chat graph's own answer loop (its agent and ToolNode), run on the given messages; a
+    # turn runs it inside the whole graph (src/agent/graph.py). tools_only: replies stay hidden
+    # until a tool has really run, and an answer of None means "not covered". The messages must
+    # come from a guarded turn: this loop has no guard of its own. on_tool_run gets a valid call's
+    # run from the ToolNode's worker thread and a refused bad-JSON call's from the caller's.
+    from src.agent import graph  # The graph builds its nodes from this module's helpers.
 
-
-@dataclass(frozen=True)
-class TurnModels:
-    """The clients and prompts an accepted question needs: query translation and the answer."""
-
-    translation_model: BaseChatModel
-    translation_prompt: str
-    chat_model: BaseChatModel
-    system_prompt: str
-
-
-def answer_question(
-    question: str,
-    index: Chroma,
-    models: TurnModels,
-    manifest: Mapping[str, Source],
-    on_step: Callable[[Step], None],
-    on_text: Callable[[str], None] | None = None,
-    user: profile.UserProfile | None = None,
-    *,
-    keyword_index: Callable[[Chroma], KeywordIndex] = hybrid.build_keyword_index,
-    recorder: UsageRecorder | None = None,
-    on_chunks: Callable[[Sequence[RetrievedChunk]], None] | None = None,
-    on_tool_run: Callable[[ToolRun], None] | None = None,
-    on_profile_sent: Callable[[], None] | None = None,
-) -> TurnResult:
-    """Rewrite an accepted question, retrieve its chunks and answer from them, citing [S#]."""
-    # recorder collects the tokens of every call; the caller keeps it, so an error keeps them too.
-    # on_chunks(chunks) gets the chunks found, in [S#] order, for the evaluation run (T6.1).
-    # on_tool_run(run) gets each tool run as it ends, and on_profile_sent() is called just before
-    # the first answer request that carries <profile>, so the log is right even if the turn fails
-    # afterwards (T8.2).
-    on_step(Step.REWRITE)
-    plan = query_translation.translate(
-        question, models.translation_model, models.translation_prompt, recorder
-    )
-    on_step(Step.SEARCH)
-    with llm.mapped_errors():
-        chunks, details = find_chunks(
-            question, plan, index, keyword_index=keyword_index, recorder=recorder
-        )
-    if on_chunks is not None:
-        on_chunks(tuple(chunks))
-    # With no relevant chunk the model may still answer from a tool (a food lookup rarely matches
-    # a research passage; owner's choice in T4.4), but only when the plan says a tool could: an
-    # off-topic question, or one with no usable plan, costs no answer call (AC-2; T3.5).
-    if not chunks and not (plan is not None and plan.needs_tool):
-        return TurnResult(
-            "no_sources", config.NO_SOURCES_MESSAGE, search=details, code="answer.no_sources"
-        )
-    on_step(Step.ANSWER)
-    # The user's own question, never the rewrites, goes to the answer model. The profile goes
-    # only when the plan says the answer needs the user's numbers (security-privacy.md; T3.5).
-    include_profile = plan is not None and plan.needs_profile
-    messages = build_messages(
-        question, chunks, models.system_prompt, user, include_profile=include_profile
-    )
-    # The energy and meal plan tools get the profile here, never from the model, with or without
-    # <profile>.
-    tools = registry.build_tools(user)
-    if include_profile and on_profile_sent is not None:
-        on_profile_sent()
-    # With no relevant chunk, replies stay hidden until a tool really runs; if the model calls
-    # none, the fixed "not covered" message is shown.
-    answer, runs = answer_with_tools(
-        models.chat_model,
-        messages,
-        tools,
-        on_step,
-        on_text,
-        tools_only=not chunks,
+    context = graph.TurnContext(
+        chat_model=lambda: chat_model,
+        tools=lambda: tools,
+        on_step=on_step,
+        on_text=on_text,
         recorder=recorder,
         on_tool_run=on_tool_run,
     )
-    if answer is None:
-        return TurnResult(
-            "no_sources",
-            config.NO_SOURCES_MESSAGE,
-            search=details,
-            profile_sent=include_profile,
-            code="answer.no_sources",
-        )
-    cards = source_cards(chunks, cited_labels(answer, len(chunks)), manifest)
-    return TurnResult(
-        "answer",
-        answer,
-        cards,
-        search=details,
-        tool_runs=runs,
-        profile_sent=include_profile,
+    state = graph.answer_loop_graph().invoke(
+        {"messages": list(messages), "tools_only": tools_only},
+        context=context,
+        config=graph.run_config(),
     )
+    if state["answer"] is None:
+        return None, ()
+    return state["answer"], tuple(state.get("runs", ()))
 
 
 def fixed_text(result: TurnResult, lang: i18n.Language) -> str:
@@ -788,40 +628,32 @@ def run_turn(
         if on_step is not None:
             on_step(name)
 
-    def answer(question: str) -> TurnResult:
-        """Open the index and the models only for an accepted question, then answer it."""
-        # Read before any API call, so a missing or empty prompt file costs nothing.
-        system_prompt = _load_prompt(
-            config.ANSWER_PROMPT_PATH, config.PROMPT_MISSING_MESSAGE, "prompt.answer_missing"
-        )
-        translation_prompt = _load_prompt(
-            config.QUERY_TRANSLATION_PROMPT_PATH,
-            config.QUERY_PROMPT_MISSING_MESSAGE,
-            "prompt.query_missing",
-        )
-        language_part = _load_prompt(
-            config.ANSWER_LANGUAGE_PROMPT_PATHS[language],
-            config.LANGUAGE_PROMPT_MISSING_MESSAGE,
-            "prompt.language_missing",
-        )
-        system_prompt = answer_system_prompt(system_prompt, language_part)
-        # The index is opened first: a missing index is reported even when the key is missing.
-        index = open_index()
-        models = TurnModels(translation_model(), translation_prompt, chat_model(), system_prompt)
-        return answer_question(
-            question,
-            index,
-            models,
-            manifest or {},
-            step,
-            on_text,
-            user,
-            keyword_index=keyword_index,
+    def graph_turn() -> TurnResult:
+        """Run the turn's graph: the guard first, the index and the models only if it passes."""
+        from src.agent import graph  # The graph builds its nodes from this module's helpers.
+
+        # Each factory runs at most once a turn; the prepare node calls them in order (T9.2).
+        context = graph.TurnContext(
+            chat_model=cache(chat_model),
+            tools=cache(partial(registry.build_tools, user)),
+            on_step=step,
+            on_text=on_text,
             recorder=recorder,
-            on_chunks=keep_chunks,
             on_tool_run=trace.tool_runs.append,
+            limiter=limiter,
+            open_index=cache(open_index),
+            translation_model=cache(translation_model),
+            manifest=manifest or {},
+            keyword_index=keyword_index,
+            language=language,
+            on_chunks=keep_chunks,
             on_profile_sent=profile_sent,
+            turn_id=turn_id,
         )
+        state = graph.chat_graph().invoke(
+            {"text": text, "profile": user}, context=context, config=graph.run_config()
+        )
+        return state["result"]
 
     def failed(message: str, code: str, *, index_not_ready: bool = False) -> TurnResult:
         """Return an error result with the steps run and the tokens spent before the error."""
@@ -835,10 +667,9 @@ def run_turn(
         )
 
     def outcome() -> TurnResult:
-        """Run the guarded turn and return how it ended, writing a warning for a failure."""
-        step(Step.CHECK)
+        """Run the turn's graph and return how it ended, writing a warning for a failure."""
         try:
-            decision, result = guard.run_guarded(text, limiter, answer)
+            result = graph_turn()
         except llm.LLMError as exc:
             # A fixed text, safe to show (never the server's reply or the key).
             logger.warning(
@@ -868,20 +699,6 @@ def run_turn(
                 "turn_error", extra={"turn_id": turn_id, "diagnostic": llm.error_diagnostic(exc)}
             )
             return failed(config.TURN_ERROR_MESSAGE, "turn.error")
-        if result is None:
-            reason = decision.reason.value if decision.reason is not None else None
-            logger.warning(
-                "guard_rejected",
-                extra={"turn_id": turn_id, "reason": reason, "code": decision.code},
-            )
-            kind = "guardrail" if decision.reason is guard.Rejection.GUARDRAIL else "rejected"
-            return TurnResult(
-                kind,
-                decision.message or "",
-                steps=tuple(steps),
-                code=decision.code,
-                params=decision.params,
-            )
         return replace(result, steps=tuple(steps), usage=tuple(recorder.calls))
 
     result = replace(outcome(), turn_id=turn_id)

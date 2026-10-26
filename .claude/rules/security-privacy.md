@@ -20,6 +20,7 @@ Full threat model and controls: `docs/SECURITY.md`.
 - Build chat and embedding clients only with `build_chat_model()` and `build_embeddings()` in `src/llm.py`; they check the model allowlist and cap `max_tokens` when the client is built.
 - **Never pass `model`, `max_tokens`, `max_completion_tokens`, `base_url` or `reasoning_effort` at call time** (`.bind(...)`, `invoke(..., max_tokens=...)`, `model_kwargs`, `extra_body`): call-time arguments override the client's settings and would get around the allowlist and the cap. For another model or budget, build a new client.
 - **Never change a built client** either: no assigning its fields (`chat.max_tokens = ...`, `chat.model_name = ...`), no `model_copy(update=...)`, no `configurable_fields(...)` or `configurable_alternatives(...)`. These bypass the checks in the same way.
+- `tests/test_client_rules.py` scans `src/`, `views/`, `app.py` and `scripts/` for the three rules above (T9.2); it cannot see a method reached through `getattr` or kept in a variable, so review still checks those.
 
 ## Personal data
 
