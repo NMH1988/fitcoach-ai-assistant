@@ -7,7 +7,7 @@ How the project is tested, and where evaluation results and live checks are reco
 | Level | What | How |
 |---|---|---|
 | Unit | Pure logic: TDEE and macro calculators, calorie floor, unit conversion, profile validation, input guard, JATS parsing and chunking, metadata filters, RRF, citation formatting, token cost, PDF content | pytest; known-answer tests (e.g. TDEE for a fixed profile), conversions tested both ways, RRF on a hand-computed example |
-| Integration | The pipeline end to end without the network: ingest -> Chroma -> query translation -> hybrid retrieval -> answer step with tools | `DeterministicFakeEmbedding` (langchain-core); Chroma in-memory or in a temp dir; a scripted fake chat model that returns fixed rewrites, tool calls and answers |
+| Integration | The pipeline end to end without the network: ingest -> Chroma -> query translation -> hybrid retrieval -> answer step with tools, run as the chat graph since T9.2 (`tests/test_agent_graph.py` also checks each node and edge, and that a rejected input sends no request on the wire) | `DeterministicFakeEmbedding` (langchain-core); Chroma in-memory or in a temp dir; a scripted fake chat model that returns fixed rewrites, tool calls and answers |
 | UI | Visible behaviour of `app.py` and `views/`: chat, sources, tool results, progress, settings, profile form, PDF button, error messages | `streamlit.testing.v1.AppTest` with the pipeline faked. This is our end-to-end level |
 | Live (manual) | Real models and the real index | Run by the owner; results recorded below, never in CI |
 
@@ -19,6 +19,7 @@ Browser end-to-end tests (e.g. Playwright) are not planned: AppTest covers the U
 - Every ticket's acceptance criteria map to tests or to named manual checks listed in the PR.
 - Guard tests use attack strings and benign strings, so both missed attacks and false positives are caught.
 - Test fixtures use only approved sources or text we wrote ourselves.
+- The model client rules (`.claude/rules/security-privacy.md`) are checked by a source scan, `tests/test_client_rules.py` (T9.2), with cases it must catch and cases it must pass.
 
 ## CI
 

@@ -3,7 +3,8 @@
 Checks run in this order: too long (raw), empty, too long (cleaned), prompt-injection
 patterns, the domain guardrails (`src/guardrails.py`, T5.3), then the per-session rate limit.
 Only a message that passes every check counts against the rate limit (owner's choice in T1.3),
-and a rejected message never reaches a model: callers go through `run_guarded()`. The patterns
+and a rejected message never reaches a model: callers go through `run_guarded()`, and a chat
+turn through the guard node that starts its graph (`src/agent/graph.py`, T9.2). The patterns
 cover English and German (T7.4).
 """
 

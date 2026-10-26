@@ -26,7 +26,7 @@ You are not the code-reviewer. Do not review style, docstrings, acceptance crite
 
 ## Project context
 
-Read first: `CLAUDE.md`, `.claude/rules/security-privacy.md`, `docs/SECURITY.md` (threat model, controls, accepted risks, known limits), `docs/ARCHITECTURE.md` sections 2, 5, 6, 8 and 10, `docs/PRD.md` (domain guardrails), and the newest entries of `docs/PROGRESS.md`. Prefer them over this summary. Planned turn: Streamlit chat input -> input guard (`src/guard.py`, `run_guarded()`) -> query translation (structured output: rewrites and filters) -> hybrid retrieval (Chroma vectors + BM25, RRF) -> answer model with tools (at most 4 rounds) -> answer with `[S#]` citations, sources, tool results and cost in the UI.
+Read first: `CLAUDE.md`, `.claude/rules/security-privacy.md`, `docs/SECURITY.md` (threat model, controls, accepted risks, known limits), `docs/ARCHITECTURE.md` sections 2, 5, 6, 8 and 10, `docs/PRD.md` (domain guardrails), and the newest entries of `docs/PROGRESS.md`. Prefer them over this summary. Planned turn: Streamlit chat input -> input guard (`src/guard.py`; in a chat turn the `guard` node of `src/agent/graph.py`, T9.2) -> query translation (structured output: rewrites and filters) -> hybrid retrieval (Chroma vectors + BM25, RRF) -> answer model with tools (at most 4 rounds) -> answer with `[S#]` citations, sources, tool results and cost in the UI.
 
 ## Step 1: map the attack surface
 
@@ -50,7 +50,7 @@ Write the map as a table in the report (source -> steps and controls -> sink), o
 For each surface: find the controls in code, compare them with `docs/SECURITY.md` and `.claude/rules/security-privacy.md`, then ask "what can an attacker still do?" and try it (Step 3).
 
 1. **Direct prompt injection (user input -> model).**
-   - Every path to a model or the embedding API goes through `run_guarded()` / `check_message()` with the cleaned text; nothing re-reads the raw `st.chat_input` value later (e.g. for history, query translation, the embedding or the PDF).
+   - Every path to a model or the embedding API goes through `run_guarded()` / `check_message()` with the cleaned text (a chat turn: the graph's `guard` node, the only edge from its start); nothing re-reads the raw `st.chat_input` value later (e.g. for history, query translation, the embedding or the PDF).
    - User text goes only into a delimited user message (`<user_input>`), never into the system prompt, an f-string template with the system text, or a `ChatPromptTemplate` variable that LangChain would parse (`{` and `}` in user text must not break or fill the template).
    - The delimiters cannot be closed or faked from inside: test `</user_input>`, `<sources>`, look-alike tags, a fake `System:` / `assistant:` line, and the same after NFKC folding, invisible characters and full-width letters. Check the guard's delimiter patterns and the escaping in the prompt builder together: a bypass of one must be caught by the other.
    - Chat history: earlier turns (user and assistant) sent back to the model are guarded or delimited the same way; an assistant turn that quoted an attack does not become an instruction next turn.
@@ -82,7 +82,7 @@ For each surface: find the controls in code, compare them with `docs/SECURITY.md
    - `scripts/build_index.py` and the XML parser (`src/rag/ingest.py`, `src/rag/sources.py`): expat with no external entities, entity limits as `docs/SECURITY.md` says, no `lxml` with `resolve_entities`.
    - Anywhere: no `subprocess` with `shell=True`, `os.system`, `eval`/`exec`, `pickle`, `yaml.load`, or a path built from input without checking it stays inside the expected directory. GitHub workflows: no `${{ github.event.* }}` (PR title, branch name, body) interpolated into `run:` lines.
 7. **Guard before spend and cost.**
-   - Trace every model and embedding call back to the chat input: each must be inside the function `run_guarded()` calls, after the rate limiter accepted the message. Look for calls at import time or on rerun (Streamlit reruns the script on every widget change), in `st.cache_resource` builders (building a client is fine; calling it is not), in error retries, and in history or summary features.
+   - Trace every model and embedding call back to the chat input: each must be inside the function `run_guarded()` calls, or in a node of the chat graph after its `guard` node, after the rate limiter accepted the message. Look for calls at import time or on rerun (Streamlit reruns the script on every widget change), in `st.cache_resource` builders (building a client is fine; calling it is not), in error retries, and in history or summary features.
    - Clients are built only with `build_chat_model()` / `build_embeddings()`; no call-time `model`, `max_tokens`, `max_completion_tokens`, `base_url`, `reasoning_effort`, `.bind(...)`, `model_kwargs`, `extra_body`, `model_copy(update=...)`, field assignment or `configurable_*` (`.claude/rules/security-privacy.md`). A model chosen in the UI is checked against `ALLOWED_MODELS`.
    - Bounded spend per message: input length, `max_tokens` cap, tool rounds, retries, number of query rewrites and embeddings per turn. Note what a determined visitor can still spend (the rate limit lives in the browser session; `docs/DEPLOYMENT.md` covers public deployments).
 8. **Key handling.**
