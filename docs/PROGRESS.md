@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-26 · T8.2 Structured turn logging with no personal data · #<PR> (closes #91)
+## 2026-10-26 · T8.2 Structured turn logging with no personal data · #121 (closes #91)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Sprint 2 review point 1 (no logging or request tracing; the brief names T8.2 for it), core 4 (proper error handling, real-world use), evaluation: technical (appropriate security: no personal data in the logs). Sprint 2 (`docs/BRIEF.md`): Medium 10 (logging and monitoring), evaluation: technical (appropriate security). PRD AC-33 in part.
 - **What:**
   - `src/observability.py` (new): `JsonFormatter` (one JSON line with `ts`, `level`, `logger`, `event` and only the fields in `ALLOWED_FIELDS`; message arguments and exceptions are never written) and `configure_logging()` (one handler on the `src` logger, stderr, no file, level from the new `config.LOG_LEVEL`, `propagate` off).
