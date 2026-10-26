@@ -121,6 +121,25 @@ def test_other_models_are_a_note_not_a_failure(tmp_path, capsys):
     assert "note: the models differ from the baseline's" in capsys.readouterr().out
 
 
+def test_runs_that_ended_in_an_error_are_named_next_to_the_verdict(tmp_path, capsys):
+    """Errors (e.g. no credit left) lower the cited rate with no code change; the output says so."""
+    results = _results(found=0.9, cited=0.5)
+    results["runs"] += [
+        {"id": "q11", "run": 2, "expected": [], "kind": "error"},
+        {"id": "q12", "run": 3, "expected": [], "kind": "error"},
+    ]
+    assert _check(tmp_path, results) == 1
+    out = capsys.readouterr().out
+    assert "note: 2 runs ended in an error" in out
+    assert "cited rate: 0.5000" in out
+
+
+def test_a_run_with_no_error_has_no_error_note(tmp_path, capsys):
+    """The error note appears only when some run ended in an error."""
+    assert _check(tmp_path, _results()) == 0
+    assert "ended in an error" not in capsys.readouterr().out
+
+
 @pytest.mark.parametrize(
     ("changes", "message"),
     [

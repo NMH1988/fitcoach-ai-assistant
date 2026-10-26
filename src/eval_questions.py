@@ -46,9 +46,15 @@ def load_questions[Q: EvalQuestion](path: Path, model: type[Q] = EvalQuestion) -
     if not isinstance(data, list) or not data:
         raise QuestionsFileError(f"{path} must hold a non-empty JSON list of questions.")
     try:
-        return [model.model_validate(item) for item in data]
+        questions = [model.model_validate(item) for item in data]
     except ValidationError as exc:
         raise QuestionsFileError(f"{path} has a question in the wrong format: {exc}") from None
+    # The results file of an evaluation run counts runs per ID (T8.4), so an ID must be unique.
+    ids = [question.id for question in questions]
+    repeated = sorted({question_id for question_id in ids if ids.count(question_id) > 1})
+    if repeated:
+        raise QuestionsFileError(f"{path} uses an ID for more than one question: {repeated}")
+    return questions
 
 
 def load_eval_items(path: Path) -> list[EvalItem]:

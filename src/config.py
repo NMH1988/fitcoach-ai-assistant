@@ -220,12 +220,16 @@ EVAL_BASELINE_PATH = PROJECT_ROOT / "data" / "eval_baseline.json"
 # Set from the spread of the baseline run's three askings (T8.4, 2026-10-26): the same code gives
 # different rates from run to run (the query translation step picks other rewrites and topic
 # filters, and the embedding API's vectors move a little). The largest distance of one asking from
-# the baseline's average was 0.0589 (found rate 0.8824, 0.8235, 0.7647; cited 0.8235, 0.8235,
-# 0.7647), rounded up to 0.06: every baseline asking passes against its own average. One expected
-# source is worth 0.0588 of a single asking and 0.0196 of an average of three. Three askings are
-# a rough measure: a no-change run falls below this about one time in ten, so rerun before
-# believing a failure (docs/TESTING.md, "Baseline (T8.4)").
+# the baseline's average was one expected source of 17, 0.0588 (found rate 15, 14 and 13 of 17;
+# cited 14, 14 and 13), rounded up to 0.06: every baseline asking passes against its own average.
+# One source is worth 0.0588 of a single asking and 0.0196 of an average of three. Limits: the
+# check compares averages of three askings, so losing one expected source in all three (found
+# 39 of 51, 0.7647, against a lowest allowed 0.7635) still passes, and only a loss of two fails;
+# and a run of unchanged code falls below the found rate's limit about one time in ten (less often
+# for the cited rate), so rerun before believing a failure (docs/TESTING.md, "Baseline (T8.4)").
 EVAL_TOLERANCE = 0.06
+# How long each of the two git calls that read the evaluated code's commit may take (T8.4).
+EVAL_GIT_TIMEOUT_SECONDS = 10
 # The answer system prompt, written by the owner (O1; .claude/rules/workflow.md).
 ANSWER_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "answer_system.md"
 # The language part of the answer prompt, one file per UI language, written by the owner (O1, T7.2).

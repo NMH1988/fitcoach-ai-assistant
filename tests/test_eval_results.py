@@ -241,8 +241,19 @@ def test_a_question_with_no_expected_source_is_not_in_the_rates():
     assert eval_results.summarise(records) == eval_results.summarise(_two_runs())
 
 
+def test_a_run_that_ended_in_an_error_after_the_search_keeps_what_it_found():
+    """An error after the search keeps its found sources but cites none; it is never dropped."""
+    failed = _record(
+        id="q1", kind="error", code="llm.error", expected_found=("1",), expected_cited=()
+    )
+    summary = eval_results.summarise([failed, _record(id="q2", expected=("2",))])
+    assert summary["runs"][0]["expected_sources"] == 3
+    assert summary["runs"][0]["found"] == 2
+    assert summary["runs"][0]["cited"] == 1
+
+
 def test_a_run_that_ended_in_an_error_counts_its_expected_sources_as_missed():
-    """An error ending finds and cites nothing, so it lowers both rates instead of dropping out."""
+    """An error before the search finds and cites nothing, so it lowers both rates."""
     failed = _record(id="q1", kind="error", code="llm.error", expected_found=(), expected_cited=())
     summary = eval_results.summarise([failed, _record(id="q2", expected=("2",))])
     assert summary["runs"][0]["expected_sources"] == 3

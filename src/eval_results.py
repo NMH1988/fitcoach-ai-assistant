@@ -16,9 +16,6 @@ from pathlib import Path
 
 from src import config
 
-# How long git may take to answer; it only reads the repository's own state.
-GIT_TIMEOUT_SECONDS = 10
-
 
 @dataclass(frozen=True)
 class RunRecord:
@@ -97,7 +94,7 @@ def _git(run: Callable[..., subprocess.CompletedProcess[str]], folder: Path, *ar
         capture_output=True,
         text=True,
         encoding="utf-8",
-        timeout=GIT_TIMEOUT_SECONDS,
+        timeout=config.EVAL_GIT_TIMEOUT_SECONDS,
         check=False,
     )
     if done.returncode != 0:
@@ -115,7 +112,8 @@ def summarise(records: Sequence[RunRecord]) -> dict:
     # A question is scored when it has expected sources. A rate counts expected sources, not
     # questions: of all the sources the scored questions expect in a run, the share found among
     # the chunks the answer model got, and the share the answer cites. A run that ended in an
-    # error found and cited nothing, so it counts as missed. `run` is the asking's number.
+    # error is never dropped: before the search it found nothing, after it (e.g. the answer model
+    # failed) it keeps what it found but cites nothing. `run` is the asking's number.
     runs = []
     found_rates, cited_rates = [], []
     for number in sorted({record.run for record in records if record.expected}):
@@ -257,6 +255,12 @@ def compare(results: Mapping, baseline: Mapping, tolerance: float) -> Comparison
     if results.get("repeat") != baseline.get("repeat"):
         lines.append(
             f"note: --repeat is {results.get('repeat')}, the baseline's is {baseline.get('repeat')}"
+        )
+    # An error (no credit left, a provider outage) lowers the cited rate with no code change.
+    errors = sum(isinstance(run, dict) and run.get("kind") == "error" for run in results["runs"])
+    if errors:
+        lines.append(
+            f"note: {errors} runs ended in an error: a rate below the baseline may be the errors"
         )
     below = []
     for name, label in (("found_rate", "found rate"), ("cited_rate", "cited rate")):

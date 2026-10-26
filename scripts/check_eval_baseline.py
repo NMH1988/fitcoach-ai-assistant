@@ -1,6 +1,9 @@
 """Compare an evaluation run's results with the committed baseline (T8.4).
 
-    python scripts/check_eval_baseline.py data/eval_runs/run-<date>-<time>.json [--baseline FILE]
+    python -m scripts.check_eval_baseline data/eval_runs/run-<date>-<time>.json [--baseline FILE]
+
+Run it with -m from the checkout you mean to test: a plain `python scripts/...` can
+import `src`, and so the baseline path and the tolerance, from another checkout.
 
 The results file is the one scripts/run_evaluation.py writes next to its report. The check reads
 two JSON files and calls nothing: no key, no index, no network. It prints the found rate and the
