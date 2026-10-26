@@ -2,9 +2,12 @@
 
 import streamlit as st
 
-from src import config, i18n
+from src import config, i18n, observability
 from views import about, chat, details, export, food, header, profile_form, sidebar, targets
 from views.text import t
+
+# One JSON log handler for the app's lines, set up on every rerun (it keeps a single handler, T8.2).
+observability.configure_logging()
 
 # The language: the browser's at the start of a session, then the user's choice from the header
 # (T7.1). Written once, before the control is drawn, so it is kept for the session.

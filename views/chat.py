@@ -4,7 +4,7 @@ import streamlit as st
 
 # src.chat is imported as `turns`: this module is views.chat, and the name `chat` would hide it.
 from src import chat as turns
-from src import config, guard
+from src import config, guard, usage
 from views import resources, sources, tool_results, usage_view
 from views.text import lang, t
 
@@ -126,6 +126,8 @@ def run_turn(question: str, turn: int) -> None:
         # The answer is written in the language chosen in the header when the question is asked
         # (T7.2); the question's own language does not change it.
         language=lang(),
+        # Only the prices already read, so the turn's log line never waits for the network.
+        prices=usage.PRICES.peek,
     )
     if result.index_not_ready:
         # Open the index again on the next turn, e.g. once the owner has rebuilt it.

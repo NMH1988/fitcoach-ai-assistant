@@ -13,7 +13,7 @@ import sys
 
 from chromadb.errors import ChromaError
 
-from src import config, llm
+from src import config, llm, observability
 from src.rag import store
 from src.rag.ingest import IngestError, load_chunks
 from src.rag.sources import ManifestError
@@ -26,6 +26,7 @@ def _show_progress(done: int, total: int) -> None:
 
 def main() -> int:
     """Build the index; print a summary and return 0, or print the error and return 1."""
+    observability.configure_logging()
     try:
         chunks = load_chunks()
         embeddings = llm.build_embeddings()

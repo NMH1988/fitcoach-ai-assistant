@@ -35,7 +35,7 @@ from pathlib import Path
 from langchain_chroma import Chroma
 from langchain_core.language_models import BaseChatModel
 
-from src import chat, config, guard, i18n, llm, usage
+from src import chat, config, guard, i18n, llm, observability, usage
 from src.eval_questions import EvalItem, QuestionsFileError, load_eval_items
 from src.rag import hybrid, store
 from src.rag.retriever import RetrievedChunk
@@ -100,6 +100,7 @@ def evaluate(
             keyword_index=lambda _: keywords,
             on_chunks=seen.append,
             language=language,
+            prices=lambda: prices,
         )
         chunks = tuple(seen[0]) if seen else ()
         done.append(
@@ -280,6 +281,7 @@ def _prices() -> Mapping[str, ModelPrice] | None:
 
 def main(args: Sequence[str] | None = None) -> int:
     """Run the evaluation questions through the app's chat turn and return the exit code."""
+    observability.configure_logging()
     parser = argparse.ArgumentParser(description="Run the owner's evaluation questions (T6.1).")
     parser.add_argument("path", nargs="?", type=Path, default=config.EVAL_QUESTIONS_PATH)
     parser.add_argument("--repeat", type=int, default=1, help="times to ask each question")
