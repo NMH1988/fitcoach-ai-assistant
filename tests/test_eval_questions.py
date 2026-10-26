@@ -6,7 +6,7 @@ import json
 import pytest
 
 from src import config
-from src.eval_questions import load_eval_items, load_questions
+from src.eval_questions import QuestionsFileError, load_eval_items, load_questions
 from src.rag.sources import load_manifest
 from src.tools import registry
 
@@ -28,6 +28,15 @@ def test_question_ids_are_unique_within_a_file(questions):
     """No two questions share an ID, so results can be recorded per question."""
     ids = [question.id for question in questions]
     assert len(ids) == len(set(ids))
+
+
+def test_a_file_with_a_repeated_id_is_refused(tmp_path):
+    """Two questions with one ID would be counted as one in the results file, so it is refused."""
+    item = {"id": "q1", "question": "How much protein per meal?", "expected_sources": ["1"]}
+    path = tmp_path / "questions.json"
+    path.write_text(json.dumps([item, {**item, "question": "Another one?"}]), encoding="utf-8")
+    with pytest.raises(QuestionsFileError, match="q1"):
+        load_questions(path)
 
 
 def test_every_expected_source_is_in_the_manifest(questions):

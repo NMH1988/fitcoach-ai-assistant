@@ -358,3 +358,215 @@ def test_a_good_answer_is_required(tmp_path, capsys, real_pieces):
     path = _questions_file(tmp_path, [{"id": "q1", "question": QUESTION, "expected_sources": []}])
     assert run_evaluation.main([path]) == 2
     assert "wrong format" in capsys.readouterr().err
+
+
+# --- The results file (T8.4) ------------------------------------------------------------
+
+
+def _records(items, index, model, translator=None, repeat=1):
+    """Run the evaluation on the fixture index and return the runs' result records."""
+    runs = _evaluate(items, index, model, translator, repeat=repeat)
+    return run_evaluation.run_records(runs)
+
+
+def test_a_record_holds_what_was_expected_found_and_cited(index):
+    """The record lists the expected sources found among the chunks and cited, and the rest."""
+    model = ScriptedChatModel(replies=[AIMessage(ANSWER)])
+    [record] = _records([_item("q1", QUESTION, expected=["1", "3"])], index, model)
+    assert (record.id, record.run, record.with_profile) == ("q1", 1, False)
+    assert (record.kind, record.code) == ("answer", None)
+    assert record.expected == ("1", "3")
+    assert record.expected_found == ("1",)
+    assert record.expected_cited == ("1",)
+    assert record.unexpected_citations == ()
+    assert record.tools == ()
+    # The fake model reported no tokens, so the turn cost nothing (a price is not needed for 0).
+    assert (record.tokens, record.cost_usd) == (0, "0")
+
+
+def test_a_source_cited_that_was_not_expected_is_unexpected(index):
+    """Citing #1 when only #3 is expected: nothing expected found or cited, #1 unexpected."""
+    model = ScriptedChatModel(replies=[AIMessage(ANSWER)])
+    [record] = _records([_item("q1", QUESTION, expected=["3"])], index, model)
+    assert record.expected_found == () and record.expected_cited == ()
+    assert record.unexpected_citations == ("1",)
+
+
+def test_with_no_expected_source_every_citation_is_unexpected(index):
+    """A question that should cite nothing counts what it cites, as the summary's check says."""
+    model = ScriptedChatModel(replies=[AIMessage(ANSWER)])
+    [record] = _records([_item("q12", QUESTION)], index, model)
+    assert record.expected == () and record.expected_found == ()
+    assert record.unexpected_citations == ("1",)
+
+
+def test_a_turn_that_made_no_search_has_nothing_found_or_cited(index):
+    """A guardrail refusal gives its kind and code, and every expected source is missed."""
+    [record] = _records(
+        [_item("q15", STEROIDS, expected=["1"])], index, ScriptedChatModel(), ScriptedTranslator()
+    )
+    assert record.kind == "guardrail"
+    assert record.code
+    assert record.expected_found == () and record.expected_cited == ()
+    assert record.tokens == 0
+
+
+def test_tokens_cost_and_tools_come_from_the_turn(index):
+    """Tokens and cost are the turn's totals; each tool is its name and status."""
+    calls = {"input_tokens": 1000, "output_tokens": 100, "total_tokens": 1100}
+    # The question runs twice, with its profile and without: a tool call and an answer each time.
+    model = ScriptedChatModel(
+        replies=[tool_reply((MACRO_TOOL, {})), AIMessage(ANSWER, usage_metadata=calls)] * 2
+    )
+    price = ModelPrice(prompt=Decimal("0.000001"), completion=Decimal("0.000002"))
+    prices = {config.DEFAULT_ANSWER_MODEL: price, config.QUERY_TRANSLATION_MODEL: price}
+    runs = _evaluate([_item("q13", TARGETS, profile=PROFILE)], index, model, prices=prices)
+    with_profile, without = run_evaluation.run_records(runs)
+    assert with_profile.tools == ((MACRO_TOOL, "ok"),)
+    assert with_profile.with_profile and not without.with_profile
+    assert with_profile.cost_usd is not None
+    assert Decimal(with_profile.cost_usd) == runs[0].cost.cost
+
+
+def test_a_tool_the_model_made_up_is_recorded_as_unknown(index):
+    """A name that is not a tool never reaches the file: it is written as 'unknown'."""
+    made_up = "CANARY_NOT_A_TOOL"
+    model = ScriptedChatModel(replies=[tool_reply((made_up, {})), AIMessage(ANSWER)])
+    runs = _evaluate([_item("q1", QUESTION, expected=["1"])], index, model)
+    assert runs[0].result.tool_runs[0].name is None
+    [record] = run_evaluation.run_records(runs)
+    assert record.tools == (("unknown", runs[0].result.tool_runs[0].status),)
+    assert made_up not in json.dumps(record.as_dict())
+
+
+def test_repeats_are_numbered_per_question_and_profile_variant(index):
+    """--repeat 2 gives each question runs 1 and 2; q13's two variants are numbered apart."""
+    model = ScriptedChatModel(replies=[AIMessage(ANSWER)] * 6)
+    items = [_item("q1", QUESTION, expected=["1"]), _item("q13", TARGETS, profile=PROFILE)]
+    records = _records(items, index, model, repeat=2)
+    assert [(r.id, r.with_profile, r.run) for r in records] == [
+        ("q1", False, 1),
+        ("q1", False, 2),
+        ("q13", True, 1),
+        ("q13", True, 2),
+        ("q13", False, 1),
+        ("q13", False, 2),
+    ]
+
+
+def _results_file(tmp_path):
+    """Return the one results file the run wrote next to its report, read as JSON."""
+    [results] = (tmp_path / "eval_runs").glob("run-*.json")
+    return results, json.loads(results.read_text(encoding="utf-8"))
+
+
+def test_main_writes_the_results_file_next_to_the_report(real_pieces, tmp_path, capsys):
+    """The file has the run's details and a record per run, and the output names its path."""
+    item = {
+        "id": "q1",
+        "question": QUESTION,
+        "expected_sources": ["1"],
+        "good_answer": "Says to spread protein over the day.",
+    }
+    path = _questions_file(tmp_path, [item])
+    real_pieces.replies *= 2
+    assert run_evaluation.main(["--repeat", "2", path]) == 0
+    results, document = _results_file(tmp_path)
+    [report] = (tmp_path / "eval_runs").glob("run-*.md")
+    assert results.stem == report.stem
+    assert f"Results file: {results}" in capsys.readouterr().out
+    assert document["schema_version"] == config.EVAL_RESULTS_SCHEMA_VERSION
+    assert (document["language"], document["repeat"]) == ("en", 2)
+    assert document["questions_file"] == "questions.json"
+    assert document["models"] == {
+        "answer": config.DEFAULT_ANSWER_MODEL,
+        "query_translation": config.QUERY_TRANSLATION_MODEL,
+        "embedding": config.EMBEDDING_MODEL,
+    }
+    assert [(r["id"], r["run"], r["kind"]) for r in document["runs"]] == [
+        ("q1", 1, "answer"),
+        ("q1", 2, "answer"),
+    ]
+    assert document["runs"][0]["expected_found"] == ["1"]
+    assert document["runs"][0]["tokens"] == 1100
+    # The prices could not be read, so the cost is unknown, not 0.
+    assert document["runs"][0]["cost_usd"] is None
+
+
+def test_the_commit_is_read_from_the_code_that_ran_not_the_working_folder(
+    real_pieces, tmp_path, monkeypatch
+):
+    """The git state is asked for the project folder (where `src` was loaded from)."""
+    seen = []
+
+    def fake_state(folder):
+        """Record the folder asked about and answer like a clean checkout."""
+        seen.append(folder)
+        return run_evaluation.eval_results.GitState("e" * 40, False)
+
+    monkeypatch.setattr(run_evaluation.eval_results, "git_state", fake_state)
+    monkeypatch.chdir(tmp_path)
+    item = {"id": "q1", "question": QUESTION, "expected_sources": [], "good_answer": "x"}
+    assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 0
+    assert seen == [config.PROJECT_ROOT]
+    _, document = _results_file(tmp_path)
+    assert (document["commit"], document["dirty"]) == ("e" * 40, False)
+
+
+def test_the_results_file_holds_no_text_from_the_answer_the_chunks_or_the_key(
+    tmp_path, monkeypatch, capsys
+):
+    """Canary text in the answer, a chunk, the good answer and the key never reaches the file."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", FAKE_KEY)
+    canary_chunk = chunk("1", 0, "CANARY-CHUNK protein per meal.")
+    index = open_fixture_index(build_fixture_index(tmp_path / "chroma", [canary_chunk]))
+    model = ScriptedChatModel(replies=[AIMessage("CANARY-ANSWER [S1].")])
+    translator = ScriptedTranslator()
+    monkeypatch.setattr(store, "open_index", lambda: index)
+    monkeypatch.setattr(
+        llm,
+        "build_chat_model",
+        lambda name=config.DEFAULT_ANSWER_MODEL, *_: (
+            translator if name == config.QUERY_TRANSLATION_MODEL else model
+        ),
+    )
+    monkeypatch.setattr(usage, "fetch_prices", lambda: {})
+    monkeypatch.setattr(config, "EVAL_RUNS_DIR", tmp_path / "eval_runs")
+    item = {
+        "id": "q1",
+        "question": "CANARY-QUESTION how much protein per meal?",
+        "expected_sources": ["1"],
+        "good_answer": "CANARY-GOOD-ANSWER",
+    }
+    assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 0
+    capsys.readouterr()
+    results, document = _results_file(tmp_path)
+    assert document["runs"][0]["expected_cited"] == ["1"]
+    text = results.read_text(encoding="utf-8")
+    for canary in ("CANARY", FAKE_KEY, "protein per meal"):
+        assert canary not in text
+    # The report next to it does hold them: the canaries can reach a file, so the check can fail.
+    [report] = (tmp_path / "eval_runs").glob("run-*.md")
+    assert "CANARY-ANSWER" in report.read_text(encoding="utf-8")
+
+
+def test_a_turn_that_ends_in_an_error_is_in_the_results_file(real_pieces, tmp_path):
+    """An error ending is recorded with its kind and code, and the exit code stays 1."""
+    real_pieces.error = llm.LLMError(diagnostic="test")
+    item = {"id": "q1", "question": QUESTION, "expected_sources": ["1"], "good_answer": "x"}
+    assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 1
+    _, document = _results_file(tmp_path)
+    [record] = document["runs"]
+    assert record["kind"] == "error"
+    assert record["code"]
+    # The chunks were found before the answer call failed; nothing was cited.
+    assert record["expected_found"] == ["1"]
+    assert record["expected_cited"] == []
+    assert "test" not in json.dumps(record)
+
+
+def test_the_summary_lines_are_the_same_with_the_data_split_out(index):
+    """Printing the expectation still gives the lines the owner already reads."""
+    model = ScriptedChatModel(replies=[AIMessage(ANSWER)])
+    [run] = _evaluate([_item("q1", QUESTION, expected=["1", "3"])], index, model)
+    assert run_evaluation.expectation_line(run) == "expected #1 #3: found #1, cited #1"

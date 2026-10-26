@@ -91,7 +91,7 @@ These are not needed to run the app:
 
 - **Attribution:** after changing `data/sources.json` or `data/usda_foods.csv`, run `python scripts/generate_attribution.py` to regenerate [`ATTRIBUTION.md`](ATTRIBUTION.md).
 - **USDA foods table:** `data/usda_foods.csv` is committed. To rebuild it, download the Foundation Foods CSV zip from https://fdc.nal.usda.gov/download-datasets/ into `data/usda/` (gitignored), then run `python scripts/prepare_usda.py` and `python scripts/generate_attribution.py`.
-- **Live checks and evaluation** (need the key, and all but `scripts/live_check_llm.py` the index): `scripts/live_check_llm.py`, `scripts/live_check_retrieval.py`, `scripts/compare_retrieval.py` and `scripts/run_evaluation.py`. How to run each one and their results are in [`docs/TESTING.md`](docs/TESTING.md).
+- **Live checks and evaluation** (need the key, and all but `scripts/live_check_llm.py` the index): `scripts/live_check_llm.py`, `scripts/live_check_retrieval.py`, `scripts/compare_retrieval.py` and `scripts/run_evaluation.py`. How to run each one and their results are in [`docs/TESTING.md`](docs/TESTING.md). `scripts/check_eval_baseline.py` (no key needed) compares an evaluation run's results file with the committed baseline.
 
 ## Documentation
 
