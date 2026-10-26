@@ -10,7 +10,7 @@ A test fails while the committed file differs from what this script writes.
 import sys
 from pathlib import Path
 
-from src import config
+from src import config, observability
 from src.rag.sources import ManifestError, load_manifest, render_attribution
 from src.tools.energy import FORMULA_SOURCES
 from src.tools.food import FoodTableError, read_usda_release
@@ -31,6 +31,7 @@ def write_attribution(
 
 def main() -> int:
     """Write ATTRIBUTION.md; return 0 on success, 1 if the manifest or foods table is invalid."""
+    observability.configure_logging()
     try:
         count = write_attribution()
     except (ManifestError, FoodTableError) as exc:

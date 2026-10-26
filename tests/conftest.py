@@ -1,12 +1,13 @@
 """Shared pytest fixtures."""
 
+import logging
 import os
 
 import pytest
 from streamlit import config as st_config
 from streamlit.runtime.secrets import Secrets
 
-from src import chat, config, i18n, usage
+from src import chat, config, i18n, observability, usage
 from tests.fakes import TEST_LANGUAGE_PARTS
 
 
@@ -49,6 +50,20 @@ def no_price_fetch(monkeypatch):
     cache = usage.PriceCache(_no_price_network)
     monkeypatch.setattr(usage, "PRICES", cache)
     return cache
+
+
+@pytest.fixture(autouse=True)
+def app_logger_is_reset():
+    """Undo configure_logging() after every test, so its handler never reaches caplog tests."""
+    yield
+    logger = logging.getLogger(observability.LOGGER_NAME)
+    for handler in list(logger.handlers):
+        logger.removeHandler(handler)
+    logger.setLevel(logging.NOTSET)
+    logger.propagate = True
+    # configure_logging() also keeps these libraries' loggers at WARNING.
+    for name in ("openai", "httpx", "httpcore"):
+        logging.getLogger(name).setLevel(logging.NOTSET)
 
 
 @pytest.fixture(autouse=True)

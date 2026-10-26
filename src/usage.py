@@ -191,6 +191,13 @@ class PriceCache:
         # Sessions run in threads; one read at a time, which the others then reuse.
         self._lock = threading.Lock()
 
+    def peek(self) -> Mapping[str, ModelPrice] | None:
+        """Return the prices already read, however old, or None; never reads them (T8.2)."""
+        # For the turn's log line, which must not wait for the network (views/chat.py prices the
+        # turn after its answer is shown); an old price is better than none for a log. No lock:
+        # get() holds it during a read, and one attribute read is atomic.
+        return self._prices
+
     def get(self) -> Mapping[str, ModelPrice] | None:
         """Return the prices, reading them again when older than a day; None if the read failed."""
         with self._lock:

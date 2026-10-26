@@ -15,7 +15,7 @@ import math
 import sys
 from collections.abc import Sequence
 
-from src import config, guard, llm
+from src import config, guard, llm, observability
 from src.rag import store
 from src.rag.retriever import retrieve
 
@@ -44,6 +44,7 @@ def check_question(index, question: str, limiter: guard.RateLimiter) -> list[str
 
 def main(questions: Sequence[str] | None = None) -> int:
     """Check each question given on the command line and return the exit code."""
+    observability.configure_logging()
     questions = list(sys.argv[1:] if questions is None else questions)
     if not questions:
         print("Give one or more questions in quotes.", file=sys.stderr)

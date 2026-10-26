@@ -18,6 +18,7 @@ import os
 import re
 import time
 import urllib.parse
+import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
@@ -49,7 +50,7 @@ from src.rag.sources import ManifestError, Source, license_url_for, load_manifes
 from src.rag.store import IndexNotReadyError
 from src.tools import registry
 from src.tools.registry import ToolRun
-from src.usage import CallUsage, UsageRecorder
+from src.usage import CallUsage, ModelPrice, UsageRecorder
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +151,9 @@ class TurnResult:
     # the model's answer. `text` stays English, for the summary PDF.
     code: str | None = None
     params: Mapping[str, int] = field(default_factory=dict)
+    # The turn's ID (a UUID4), set by run_turn() and written on every log line of the turn, so the
+    # lines can be matched (T8.2; T9.8 puts it on the trace too). Empty for a hand-made result.
+    turn_id: str = ""
 
 
 # A citation is one bracket holding labels or ranges: [S1], [S1, S3], [S2; S4], [S1 and S2],
@@ -520,11 +524,13 @@ def answer_with_tools(
     *,
     tools_only: bool = False,
     recorder: UsageRecorder | None = None,
+    on_tool_run: Callable[[ToolRun], None] | None = None,
 ) -> tuple[str | None, tuple[ToolRun, ...]]:
     """Let the model call tools for at most MAX_TOOL_ROUNDS rounds; return its answer and runs."""
     # tools_only (no relevant source): replies are not shown until a tool has really run (a refused
     # call, e.g. an unknown tool or bad arguments, does not count), and a reply with no tool call
     # before that gives None, so the caller shows NO_SOURCES_MESSAGE, never an answer with no basis.
+    # on_tool_run(run) gets each run as it ends, so a turn that fails later still logs it (T8.2).
     history = list(messages)
     runs: list[ToolRun] = []
     for round_number in range(config.MAX_TOOL_ROUNDS + 1):
@@ -564,6 +570,8 @@ def answer_with_tools(
         for message, run in _run_round(tools, reply):
             history.append(message)
             runs.append(run)
+            if on_tool_run is not None:
+                on_tool_run(run)
         on_step(Step.ANSWER)
     # Not reached: the last call either answers or raises.
     raise ToolLoopError(diagnostic="tool loop ended without an answer")
@@ -591,10 +599,15 @@ def answer_question(
     keyword_index: Callable[[Chroma], KeywordIndex] = hybrid.build_keyword_index,
     recorder: UsageRecorder | None = None,
     on_chunks: Callable[[Sequence[RetrievedChunk]], None] | None = None,
+    on_tool_run: Callable[[ToolRun], None] | None = None,
+    on_profile_sent: Callable[[], None] | None = None,
 ) -> TurnResult:
     """Rewrite an accepted question, retrieve its chunks and answer from them, citing [S#]."""
     # recorder collects the tokens of every call; the caller keeps it, so an error keeps them too.
     # on_chunks(chunks) gets the chunks found, in [S#] order, for the evaluation run (T6.1).
+    # on_tool_run(run) gets each tool run as it ends, and on_profile_sent() is called just before
+    # the first answer request that carries <profile>, so the log is right even if the turn fails
+    # afterwards (T8.2).
     on_step(Step.REWRITE)
     plan = query_translation.translate(
         question, models.translation_model, models.translation_prompt, recorder
@@ -623,6 +636,8 @@ def answer_question(
     # The energy and meal plan tools get the profile here, never from the model, with or without
     # <profile>.
     tools = registry.build_tools(user)
+    if include_profile and on_profile_sent is not None:
+        on_profile_sent()
     # With no relevant chunk, replies stay hidden until a tool really runs; if the model calls
     # none, the fixed "not covered" message is shown.
     answer, runs = answer_with_tools(
@@ -633,6 +648,7 @@ def answer_question(
         on_text,
         tools_only=not chunks,
         recorder=recorder,
+        on_tool_run=on_tool_run,
     )
     if answer is None:
         return TurnResult(
@@ -662,6 +678,66 @@ def fixed_text(result: TurnResult, lang: i18n.Language) -> str:
     return result.text
 
 
+def _cost_text(
+    result: TurnResult, prices: Callable[[], Mapping[str, ModelPrice] | None] | None
+) -> str | None:
+    """Return the turn's cost in dollars as text, or None when a price is unknown."""
+    known = prices() if prices is not None and result.usage else None
+    cost = usage.price_turn(result.usage, known).cost
+    return None if cost is None else format(cost, "f")
+
+
+@dataclass
+class _TurnTrace:
+    """What a turn did, collected as it happens, for its log lines (T8.2)."""
+
+    # The chunks the answer model got, the tool runs and whether a request carried <profile>. An
+    # error result has no tool runs and says profile_sent=False, so the log cannot read them there.
+    chunks: list[RetrievedChunk] = field(default_factory=list)
+    tool_runs: list[ToolRun] = field(default_factory=list)
+    profile_sent: bool = False
+
+
+def _log_turn(
+    result: TurnResult,
+    language: i18n.Language,
+    trace: _TurnTrace,
+    seconds: float,
+    prices: Callable[[], Mapping[str, ModelPrice] | None] | None,
+) -> None:
+    """Write the turn's one INFO record, and a warning for each tool call that failed (T8.2)."""
+    # Only ids, counts, codes and statuses: no question, rewrite, answer, chunk text, profile value
+    # or tool argument, and no tool name the model made up (a run's name is None then).
+    for run in trace.tool_runs:
+        if run.status in ("error", "invalid"):
+            logger.warning(
+                "tool_failed",
+                extra={"turn_id": result.turn_id, "tool": run.name, "status": run.status},
+            )
+    source_ids = dict.fromkeys(
+        str(chunk.metadata["source_id"])
+        for chunk in trace.chunks
+        if chunk.metadata.get("source_id")
+    )
+    logger.info(
+        "turn",
+        extra={
+            "turn_id": result.turn_id,
+            "kind": result.kind,
+            "code": result.code,
+            "language": language,
+            "chunks": len(trace.chunks),
+            "source_ids": list(source_ids),
+            "tools": [run.name for run in trace.tool_runs],
+            "tool_statuses": [run.status for run in trace.tool_runs],
+            "tokens": sum(call.tokens for call in result.usage),
+            "cost_usd": _cost_text(result, prices),
+            "duration_ms": round(seconds * 1000),
+            "profile_sent": trace.profile_sent,
+        },
+    )
+
+
 def run_turn(
     text: str,
     limiter: guard.RateLimiter,
@@ -676,6 +752,7 @@ def run_turn(
     keyword_index: Callable[[Chroma], KeywordIndex] = hybrid.build_keyword_index,
     on_chunks: Callable[[Sequence[RetrievedChunk]], None] | None = None,
     language: i18n.Language = "en",
+    prices: Callable[[], Mapping[str, ModelPrice] | None] | None = None,
 ) -> TurnResult:
     """Run one chat turn: guard, retrieval, answer; never raise for an error a user can cause."""
     # on_step(step) is called as each step starts; on_text(text) as the answer streams in. `user`
@@ -685,10 +762,25 @@ def run_turn(
     # on_chunks(chunks) gets the chunks found, in [S#] order; only the evaluation run uses it, T6.1.
     # language is the app's EN | DE choice (T7.2), never taken from the text; an unknown one is a
     # bug in the caller, refused before any call.
+    # prices() gives the model prices already known, never reading them (T8.2): only the turn's log
+    # line uses them, and the cost is null when there are none.
     if language not in config.ANSWER_LANGUAGE_PROMPT_PATHS:
         raise ValueError(f"Unknown answer language: {language!r}")
+    turn_id = str(uuid.uuid4())
+    started = time.monotonic()
     steps: list[Step] = []
     recorder = UsageRecorder()
+    trace = _TurnTrace()
+
+    def keep_chunks(chunks: Sequence[RetrievedChunk]) -> None:
+        """Keep the chunks found for the log line, then pass them on to the caller's callback."""
+        trace.chunks.extend(chunks)
+        if on_chunks is not None:
+            on_chunks(chunks)
+
+    def profile_sent() -> None:
+        """Note that an answer request carried the <profile> block."""
+        trace.profile_sent = True
 
     def step(name: Step) -> None:
         """Record a step and report it to the caller's progress indicator."""
@@ -726,7 +818,9 @@ def run_turn(
             user,
             keyword_index=keyword_index,
             recorder=recorder,
-            on_chunks=on_chunks,
+            on_chunks=keep_chunks,
+            on_tool_run=trace.tool_runs.append,
+            on_profile_sent=profile_sent,
         )
 
     def failed(message: str, code: str, *, index_not_ready: bool = False) -> TurnResult:
@@ -740,33 +834,61 @@ def run_turn(
             code=code,
         )
 
-    step(Step.CHECK)
+    def outcome() -> TurnResult:
+        """Run the guarded turn and return how it ended, writing a warning for a failure."""
+        step(Step.CHECK)
+        try:
+            decision, result = guard.run_guarded(text, limiter, answer)
+        except llm.LLMError as exc:
+            # A fixed text, safe to show (never the server's reply or the key).
+            logger.warning(
+                "llm_error",
+                extra={
+                    "turn_id": turn_id,
+                    "code": exc.code,
+                    "status_code": exc.status_code,
+                    "diagnostic": exc.diagnostic,
+                },
+            )
+            return failed(str(exc), exc.code)
+        except IndexNotReadyError as exc:
+            return failed(str(exc), exc.code, index_not_ready=True)
+        except PromptMissingError as exc:
+            return failed(str(exc), exc.code)
+        except config.SecretsFileError:
+            return failed(config.SECRETS_FILE_MESSAGE, "key.secrets_file")
+        except config.MissingAPIKeyError:
+            return failed(config.MISSING_KEY_MESSAGE, "key.missing")
+        except Exception as exc:
+            # Any other error (a bug, an unexpected library error) gets a fixed message too (T1.8).
+            # Only its type and place are logged: its message or arguments may hold the question,
+            # a chunk or a server's reply. BaseException (Streamlit's rerun and stop) is not
+            # caught.
+            logger.error(
+                "turn_error", extra={"turn_id": turn_id, "diagnostic": llm.error_diagnostic(exc)}
+            )
+            return failed(config.TURN_ERROR_MESSAGE, "turn.error")
+        if result is None:
+            reason = decision.reason.value if decision.reason is not None else None
+            logger.warning(
+                "guard_rejected",
+                extra={"turn_id": turn_id, "reason": reason, "code": decision.code},
+            )
+            kind = "guardrail" if decision.reason is guard.Rejection.GUARDRAIL else "rejected"
+            return TurnResult(
+                kind,
+                decision.message or "",
+                steps=tuple(steps),
+                code=decision.code,
+                params=decision.params,
+            )
+        return replace(result, steps=tuple(steps), usage=tuple(recorder.calls))
+
+    result = replace(outcome(), turn_id=turn_id)
     try:
-        decision, result = guard.run_guarded(text, limiter, answer)
-    except llm.LLMError as exc:
-        # A fixed text, safe to show (never the server's reply or the key).
-        return failed(str(exc), exc.code)
-    except IndexNotReadyError as exc:
-        return failed(str(exc), exc.code, index_not_ready=True)
-    except PromptMissingError as exc:
-        return failed(str(exc), exc.code)
-    except config.SecretsFileError:
-        return failed(config.SECRETS_FILE_MESSAGE, "key.secrets_file")
-    except config.MissingAPIKeyError:
-        return failed(config.MISSING_KEY_MESSAGE, "key.missing")
-    except Exception as exc:
-        # Any other error (a bug, an unexpected library error) gets a fixed message too (T1.8).
-        # Only its type and place are logged: its message or arguments may hold the question, a
-        # chunk or a server's reply. BaseException (Streamlit's rerun and stop) is not caught.
-        logger.error("Unexpected error in a chat turn: %s", llm.error_diagnostic(exc))
-        return failed(config.TURN_ERROR_MESSAGE, "turn.error")
-    if result is None:
-        kind = "guardrail" if decision.reason is guard.Rejection.GUARDRAIL else "rejected"
-        return TurnResult(
-            kind,
-            decision.message or "",
-            steps=tuple(steps),
-            code=decision.code,
-            params=decision.params,
-        )
-    return replace(result, steps=tuple(steps), usage=tuple(recorder.calls))
+        _log_turn(result, language, trace, time.monotonic() - started, prices)
+    except Exception:
+        # A turn is not lost because its log line could not be built (e.g. the prices callable
+        # raised); only the fixed event is written, never the error's message.
+        logger.error("log_failed", extra={"turn_id": turn_id})
+    return result
