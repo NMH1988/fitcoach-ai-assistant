@@ -5,13 +5,14 @@ ids, counts, codes, statuses and durations. Never the question, a rewrite, the a
 profile values, tool arguments or the key (.claude/rules/security-privacy.md). Two rules keep that
 true even if a caller slips: the formatter drops every `extra` field that is not on the list, and it
 ignores the message's arguments and any exception, so an error's text or a traceback cannot reach a
-line. The event is a fixed name too: a message that is not a short lowercase name (an f-string, an
-exception object) is written as `unnamed_event`.
+line. The event is a fixed name too: a message that is not one of `EVENTS` (an f-string, an
+exception object, a word) is written as `unnamed_event`. A field's value must be plain (text, a
+number, a boolean, None or a flat list of them): an object such as an exception is never turned
+into text, and the record becomes a `log_failed` line instead.
 """
 
 import json
 import logging
-import re
 import threading
 from datetime import UTC, datetime
 from typing import IO
@@ -21,10 +22,14 @@ from src import config
 # The app's logger: every module's `logging.getLogger(__name__)` under `src.` reports through it.
 LOGGER_NAME = "src"
 
-# What an event name looks like: `turn`, `guard_rejected`. Anything else is not a name.
-_EVENT_NAME = re.compile(r"[a-z][a-z_]{0,39}")
-# The event written for a message that is not a name.
+# The app's events; a message that is not one of them is written as UNNAMED_EVENT. Add a name here
+# when a new kind of record is added (docs/ARCHITECTURE.md section 10).
+LOG_FAILED_EVENT = "log_failed"
+EVENTS = frozenset(
+    {"turn", "turn_error", "llm_error", "guard_rejected", "tool_failed", LOG_FAILED_EVENT}
+)
 UNNAMED_EVENT = "unnamed_event"
+_PLAIN = (str, int, float, bool, type(None))
 # The libraries whose own loggers could write a prompt, the profile or the key at DEBUG level (the
 # OpenAI SDK logs its request options, httpcore its headers). They bypass the allowlist, so
 # configure_logging() keeps them at WARNING.
@@ -57,24 +62,39 @@ ALLOWED_FIELDS = frozenset(
 )
 
 
+def _is_plain(value: object) -> bool:
+    """Return True for text, a number, a boolean, None, or a flat list or tuple of them."""
+    if isinstance(value, list | tuple):
+        return all(isinstance(item, _PLAIN) for item in value)
+    return isinstance(value, _PLAIN)
+
+
+def _base_fields(record: logging.LogRecord) -> dict[str, object]:
+    """Return the time, level and logger name every line starts with."""
+    return {
+        "ts": datetime.fromtimestamp(record.created, UTC).isoformat(timespec="milliseconds"),
+        "level": record.levelname,
+        "logger": record.name,
+    }
+
+
 class JsonFormatter(logging.Formatter):
     """Format a record as one line of JSON with ts, level, logger, event and allowed fields."""
 
     def format(self, record: logging.LogRecord) -> str:
         """Return the record as a JSON line, without unknown fields, arguments or exceptions."""
-        entry: dict[str, object] = {
-            "ts": datetime.fromtimestamp(record.created, UTC).isoformat(timespec="milliseconds"),
-            "level": record.levelname,
-            "logger": record.name,
-            # The event is a fixed name; `args` are never applied, so a value put there stays out.
-            "event": record.msg
-            if isinstance(record.msg, str) and _EVENT_NAME.fullmatch(record.msg)
-            else UNNAMED_EVENT,
-        }
+        entry = _base_fields(record)
+        # The event is a fixed name; `args` are never applied, so a value put there stays out.
+        entry["event"] = record.msg if record.msg in EVENTS else UNNAMED_EVENT
         for name in sorted(ALLOWED_FIELDS):
             if name in record.__dict__:
-                entry[name] = record.__dict__[name]
-        return json.dumps(entry, default=str)
+                value = record.__dict__[name]
+                if not _is_plain(value):
+                    # E.g. an exception passed instead of its diagnostic: its text could quote the
+                    # question or a server's reply. The handler writes a log_failed line instead.
+                    raise TypeError(f"log field {name} is not a plain value")
+                entry[name] = value
+        return json.dumps(entry)
 
 
 class _JsonHandler(logging.StreamHandler):
@@ -88,7 +108,8 @@ class _JsonHandler(logging.StreamHandler):
         # The default prints the message, its arguments and a traceback to stderr, outside the
         # allowlist; a value json.dumps cannot write (e.g. an integer of 5,000 digits) lands here.
         try:
-            self.stream.write('{"event": "log_failed"}\n')
+            line = json.dumps({**_base_fields(record), "event": LOG_FAILED_EVENT})
+            self.stream.write(line + "\n")
         except Exception:  # noqa: BLE001 - nothing more can be done for a broken stream
             pass
 

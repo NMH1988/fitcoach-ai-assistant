@@ -524,11 +524,13 @@ def answer_with_tools(
     *,
     tools_only: bool = False,
     recorder: UsageRecorder | None = None,
+    on_tool_run: Callable[[ToolRun], None] | None = None,
 ) -> tuple[str | None, tuple[ToolRun, ...]]:
     """Let the model call tools for at most MAX_TOOL_ROUNDS rounds; return its answer and runs."""
     # tools_only (no relevant source): replies are not shown until a tool has really run (a refused
     # call, e.g. an unknown tool or bad arguments, does not count), and a reply with no tool call
     # before that gives None, so the caller shows NO_SOURCES_MESSAGE, never an answer with no basis.
+    # on_tool_run(run) gets each run as it ends, so a turn that fails later still logs it (T8.2).
     history = list(messages)
     runs: list[ToolRun] = []
     for round_number in range(config.MAX_TOOL_ROUNDS + 1):
@@ -568,6 +570,8 @@ def answer_with_tools(
         for message, run in _run_round(tools, reply):
             history.append(message)
             runs.append(run)
+            if on_tool_run is not None:
+                on_tool_run(run)
         on_step(Step.ANSWER)
     # Not reached: the last call either answers or raises.
     raise ToolLoopError(diagnostic="tool loop ended without an answer")
@@ -595,10 +599,15 @@ def answer_question(
     keyword_index: Callable[[Chroma], KeywordIndex] = hybrid.build_keyword_index,
     recorder: UsageRecorder | None = None,
     on_chunks: Callable[[Sequence[RetrievedChunk]], None] | None = None,
+    on_tool_run: Callable[[ToolRun], None] | None = None,
+    on_profile_sent: Callable[[], None] | None = None,
 ) -> TurnResult:
     """Rewrite an accepted question, retrieve its chunks and answer from them, citing [S#]."""
     # recorder collects the tokens of every call; the caller keeps it, so an error keeps them too.
     # on_chunks(chunks) gets the chunks found, in [S#] order, for the evaluation run (T6.1).
+    # on_tool_run(run) gets each tool run as it ends, and on_profile_sent() is called just before
+    # the first answer request that carries <profile>, so the log is right even if the turn fails
+    # afterwards (T8.2).
     on_step(Step.REWRITE)
     plan = query_translation.translate(
         question, models.translation_model, models.translation_prompt, recorder
@@ -627,6 +636,8 @@ def answer_question(
     # The energy and meal plan tools get the profile here, never from the model, with or without
     # <profile>.
     tools = registry.build_tools(user)
+    if include_profile and on_profile_sent is not None:
+        on_profile_sent()
     # With no relevant chunk, replies stay hidden until a tool really runs; if the model calls
     # none, the fixed "not covered" message is shown.
     answer, runs = answer_with_tools(
@@ -637,6 +648,7 @@ def answer_question(
         on_text,
         tools_only=not chunks,
         recorder=recorder,
+        on_tool_run=on_tool_run,
     )
     if answer is None:
         return TurnResult(
@@ -675,24 +687,37 @@ def _cost_text(
     return None if cost is None else format(cost, "f")
 
 
+@dataclass
+class _TurnTrace:
+    """What a turn did, collected as it happens, for its log lines (T8.2)."""
+
+    # The chunks the answer model got, the tool runs and whether a request carried <profile>. An
+    # error result has no tool runs and says profile_sent=False, so the log cannot read them there.
+    chunks: list[RetrievedChunk] = field(default_factory=list)
+    tool_runs: list[ToolRun] = field(default_factory=list)
+    profile_sent: bool = False
+
+
 def _log_turn(
     result: TurnResult,
     language: i18n.Language,
-    chunks: Sequence[RetrievedChunk],
+    trace: _TurnTrace,
     seconds: float,
     prices: Callable[[], Mapping[str, ModelPrice] | None] | None,
 ) -> None:
     """Write the turn's one INFO record, and a warning for each tool call that failed (T8.2)."""
     # Only ids, counts, codes and statuses: no question, rewrite, answer, chunk text, profile value
     # or tool argument, and no tool name the model made up (a run's name is None then).
-    for run in result.tool_runs:
+    for run in trace.tool_runs:
         if run.status in ("error", "invalid"):
             logger.warning(
                 "tool_failed",
                 extra={"turn_id": result.turn_id, "tool": run.name, "status": run.status},
             )
     source_ids = dict.fromkeys(
-        str(chunk.metadata["source_id"]) for chunk in chunks if chunk.metadata.get("source_id")
+        str(chunk.metadata["source_id"])
+        for chunk in trace.chunks
+        if chunk.metadata.get("source_id")
     )
     logger.info(
         "turn",
@@ -701,14 +726,14 @@ def _log_turn(
             "kind": result.kind,
             "code": result.code,
             "language": language,
-            "chunks": len(chunks),
+            "chunks": len(trace.chunks),
             "source_ids": list(source_ids),
-            "tools": [run.name for run in result.tool_runs],
-            "tool_statuses": [run.status for run in result.tool_runs],
+            "tools": [run.name for run in trace.tool_runs],
+            "tool_statuses": [run.status for run in trace.tool_runs],
             "tokens": sum(call.tokens for call in result.usage),
             "cost_usd": _cost_text(result, prices),
             "duration_ms": round(seconds * 1000),
-            "profile_sent": result.profile_sent,
+            "profile_sent": trace.profile_sent,
         },
     )
 
@@ -745,14 +770,17 @@ def run_turn(
     started = time.monotonic()
     steps: list[Step] = []
     recorder = UsageRecorder()
-    # The chunks the answer model got, for the log line's counts (T8.2).
-    found: list[RetrievedChunk] = []
+    trace = _TurnTrace()
 
     def keep_chunks(chunks: Sequence[RetrievedChunk]) -> None:
         """Keep the chunks found for the log line, then pass them on to the caller's callback."""
-        found.extend(chunks)
+        trace.chunks.extend(chunks)
         if on_chunks is not None:
             on_chunks(chunks)
+
+    def profile_sent() -> None:
+        """Note that an answer request carried the <profile> block."""
+        trace.profile_sent = True
 
     def step(name: Step) -> None:
         """Record a step and report it to the caller's progress indicator."""
@@ -791,6 +819,8 @@ def run_turn(
             keyword_index=keyword_index,
             recorder=recorder,
             on_chunks=keep_chunks,
+            on_tool_run=trace.tool_runs.append,
+            on_profile_sent=profile_sent,
         )
 
     def failed(message: str, code: str, *, index_not_ready: bool = False) -> TurnResult:
@@ -856,7 +886,7 @@ def run_turn(
 
     result = replace(outcome(), turn_id=turn_id)
     try:
-        _log_turn(result, language, found, time.monotonic() - started, prices)
+        _log_turn(result, language, trace, time.monotonic() - started, prices)
     except Exception:
         # A turn is not lost because its log line could not be built (e.g. the prices callable
         # raised); only the fixed event is written, never the error's message.

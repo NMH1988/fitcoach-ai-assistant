@@ -12,7 +12,7 @@ Full threat model and controls: `docs/SECURITY.md`.
 
 - Log only through the app's loggers (`logging.getLogger(__name__)` in `src/`; `views/`, `scripts/` and `app.py` write no log lines, which `tests/test_observability.py` scans for): `src/observability.py` writes JSON lines to stderr and keeps only the fields on its allowlist. Add a field to `ALLOWED_FIELDS` only if it is an id, a count, a code, a status or a duration, and update the list in `docs/SECURITY.md`.
 - **Never log** the question, a rewrite, the answer, chunk text, a profile value, a tool argument or result, the key, an error's message or traceback (`exc_info`), or a name the model made up (a tool name). Log `LLMError.diagnostic` or `llm.error_diagnostic(exc)` instead of an error. Use a fixed event name, never an f-string or `%s` argument with data.
-- The event is a short lowercase name (`turn`, `guard_rejected`); anything else is written as `unnamed_event`. Never turn up the level of the `openai`, `httpx` or `httpcore` loggers (at DEBUG they log the prompt, the profile and the key); `configure_logging()` keeps them at WARNING.
+- The event is one of `observability.EVENTS` (`turn`, `guard_rejected`, ...; add a new one there); anything else is written as `unnamed_event`. Field values are plain (text, numbers, booleans, `None`, flat lists): pass `llm.error_diagnostic(exc)`, never `exc`. Never turn up the level of the `openai`, `httpx` or `httpcore` loggers (at DEBUG they log the prompt, the profile and the key); `configure_logging()` keeps them at WARNING.
 - Every new log call carries the `turn_id` when it runs inside a turn. A new ending of a turn needs a test in `tests/test_observability.py` that its lines hold none of the canary values.
 
 ## Model clients

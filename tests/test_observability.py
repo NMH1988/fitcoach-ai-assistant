@@ -71,14 +71,14 @@ def test_the_message_arguments_and_exceptions_are_not_written():
     try:
         raise RuntimeError("CANARY-EXC")
     except RuntimeError:
-        LOGGER.error("failed", "CANARY-ARG", exc_info=True)
+        LOGGER.error("turn_error", "CANARY-ARG", exc_info=True)
     [line] = _lines(stream)
-    assert line["event"] == "failed"
+    assert line["event"] == "turn_error"
     assert "CANARY" not in stream.getvalue()
 
 
 def test_the_event_is_a_fixed_name_not_free_text():
-    """A message that is not a short lowercase name (an f-string, an exception) is not written."""
+    """A message that is not a known event (an f-string, an exception, a word) is not written."""
     stream = io.StringIO()
     observability.configure_logging(stream=stream)
     key = "sk-or-CANARY"
@@ -86,9 +86,11 @@ def test_the_event_is_a_fixed_name_not_free_text():
     LOGGER.error(RuntimeError(f"CANARY-EXC {key}"))
     LOGGER.error("x" * 41)
     LOGGER.error("Turn")
+    # A one-word question logged by mistake is not taken for an event.
+    LOGGER.info("oats")
     LOGGER.info("guard_rejected")
     events = [line["event"] for line in _lines(stream)]
-    assert events == ["unnamed_event"] * 4 + ["guard_rejected"]
+    assert events == ["unnamed_event"] * 5 + ["guard_rejected"]
     assert "CANARY" not in stream.getvalue()
 
 
@@ -100,8 +102,50 @@ def test_a_record_that_cannot_be_written_leaves_a_fixed_line_and_nothing_on_stde
     LOGGER.info("turn", extra={"turn_id": "after"})
     assert capsys.readouterr().err == ""
     first, second = _lines(stream)
-    assert first == {"event": "log_failed"}
+    assert set(first) == {"ts", "level", "logger", "event"}
+    assert (first["event"], first["level"], first["logger"]) == ("log_failed", "INFO", LOGGER.name)
     assert second["turn_id"] == "after"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [RuntimeError("CANARY-EXC"), {"weight": "CANARY-DICT"}, [["CANARY-NESTED"]], object()],
+    ids=["exception", "dict", "nested_list", "object"],
+)
+def test_a_value_that_is_not_plain_is_never_turned_into_text(capsys, value):
+    """An exception or other object under an allowed field gives log_failed, never its str()."""
+    stream = io.StringIO()
+    observability.configure_logging(stream=stream)
+    LOGGER.error("turn_error", extra={"diagnostic": value})
+    [line] = _lines(stream)
+    assert line["event"] == "log_failed"
+    assert "CANARY" not in stream.getvalue() + capsys.readouterr().err
+
+
+def test_plain_values_and_flat_lists_are_written():
+    """Text, numbers, booleans, None and flat lists of them are written as they are."""
+    stream = io.StringIO()
+    observability.configure_logging(stream=stream)
+    extra = {"tools": ["calculate_tdee", None], "chunks": 3, "cost_usd": None, "profile_sent": True}
+    LOGGER.info("turn", extra=extra)
+    [line] = _lines(stream)
+    assert {name: line[name] for name in extra} == extra
+
+
+def test_every_event_the_app_writes_is_known():
+    """Each event name used in src/ is in EVENTS, so none is written as unnamed_event."""
+    used = set()
+    for path in (ROOT / "src").rglob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and ast.unparse(node.func.value) == "logger"
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+            ):
+                used.add(node.args[0].value)
+    assert used and used <= observability.EVENTS
 
 
 def test_a_handler_found_by_its_marker_is_reused():

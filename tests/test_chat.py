@@ -1615,7 +1615,11 @@ def test_every_ending_writes_exactly_one_turn_record(index, caplog, ending):
     assert record["language"] == "en"
     assert record["turn_id"] == result.turn_id
     assert isinstance(record["duration_ms"], int) and record["duration_ms"] >= 0
-    assert record["profile_sent"] is result.profile_sent
+    if ending == "error":
+        # The failed answer request carried <profile>; the error result cannot say so (PR #121).
+        assert record["profile_sent"] is True and result.profile_sent is False
+    else:
+        assert record["profile_sent"] is result.profile_sent
 
 
 def test_the_turn_id_is_a_new_uuid4_for_each_turn(index):
@@ -1821,3 +1825,67 @@ def test_a_tool_the_model_made_up_is_logged_without_its_name(index, caplog):
     assert (record.tool, record.status) == (None, "invalid")
     assert _turn_record(caplog)["tools"] == [None]
     assert "CANARY-TOOL-NAME" not in caplog.text
+
+
+# --- A turn that fails after a tool ran still logs it (T8.2, PR #121 review) --------------------
+
+
+class _FailsAfterFirstReply(ScriptedChatModel):
+    """A scripted model whose second and later calls raise the error, as a 429 mid-turn would."""
+
+    def _stream(self, messages, stop=None, run_manager=None, **kwargs):
+        """Give the first scripted reply, then raise the error on every later call."""
+        if self.calls:
+            self.calls.append(list(messages))
+            raise self.later_error
+        yield from super()._stream(messages, stop, run_manager, **kwargs)
+
+    later_error: Exception = llm.RateLimitedError(429, diagnostic="RateLimitError in x")
+
+
+def _missing_foods(monkeypatch, tmp_path):
+    """Point the foods table at a missing file, so the food lookup returns status "error"."""
+    monkeypatch.setattr(config, "USDA_FOODS_PATH", tmp_path / "missing.csv")
+
+
+def test_a_tool_failure_before_a_model_error_is_still_logged(index, caplog, monkeypatch, tmp_path):
+    """A food lookup fails, then the next answer call gets a 429: the tool is in the log."""
+    caplog.set_level(logging.DEBUG)
+    _missing_foods(monkeypatch, tmp_path)
+    model = _FailsAfterFirstReply(
+        replies=[tool_reply((registry.FOOD_TOOL, {"food": "rolled oats", "grams": 80}))]
+    )
+    result = _turn(QUESTION, index, model)
+    assert (result.kind, result.code, result.tool_runs) == ("error", "llm.rate_limited", ())
+    [warning] = _logged(caplog, "tool_failed")
+    assert (warning.tool, warning.status, warning.turn_id) == (
+        registry.FOOD_TOOL,
+        "error",
+        result.turn_id,
+    )
+    record = _turn_record(caplog)
+    assert record["tools"] == [registry.FOOD_TOOL]
+    assert record["tool_statuses"] == ["error"]
+    assert record["profile_sent"] is True
+
+
+def test_a_tool_loop_error_logs_every_round_s_tool_runs(index, caplog, monkeypatch, tmp_path):
+    """The model calls a failing tool in every round until ToolLoopError: each run is logged."""
+    caplog.set_level(logging.DEBUG)
+    _missing_foods(monkeypatch, tmp_path)
+    call = (registry.FOOD_TOOL, {"food": "rolled oats", "grams": 80})
+    model = ScriptedChatModel(replies=[tool_reply(call)] * (config.MAX_TOOL_ROUNDS + 1))
+    result = _turn(QUESTION, index, model)
+    assert (result.kind, result.code) == ("error", chat.ToolLoopError.code)
+    assert len(_logged(caplog, "tool_failed")) == config.MAX_TOOL_ROUNDS
+    assert _turn_record(caplog)["tool_statuses"] == ["error"] * config.MAX_TOOL_ROUNDS
+
+
+def test_a_turn_whose_plan_leaves_out_the_profile_logs_it_was_not_sent(index, caplog):
+    """With needs_profile false no request carries <profile>, and the record says so."""
+    caplog.set_level(logging.DEBUG)
+    translator = ScriptedTranslator(plans=[plan_json([QUESTION] * 3, needs_profile=False)])
+    model = _model()
+    model.error = llm.RateLimitedError(429)
+    _turn(QUESTION, index, model, translator=translator)
+    assert _turn_record(caplog)["profile_sent"] is False
