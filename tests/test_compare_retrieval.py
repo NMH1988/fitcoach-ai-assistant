@@ -64,6 +64,24 @@ def test_the_report_gives_each_methods_first_hit_and_hit_rate(tmp_path, capsys):
     assert "hybrid   2 of 2 (100%)" in rates
 
 
+def test_the_hybrid_row_is_capped_per_source_but_the_vector_row_is_not(
+    tmp_path, capsys, monkeypatch
+):
+    """Hybrid search puts source 6 fourth behind three chunks of source 7; vector search last."""
+    chunks = [chunk("7", n, f"Protein note {n}: training.") for n in range(5)]
+    # "Proteins" counts for the keyword embeddings but is not the search word "protein".
+    chunks.append(chunk("6", 0, "Proteins and sleep."))
+    index_path = build_fixture_index(tmp_path / "chroma", chunks)
+    monkeypatch.setattr(store, "open_index", lambda: open_fixture_index(index_path))
+    path = _questions(tmp_path, [{"id": "cap", "question": "Protein?", "expected_sources": ["6"]}])
+    assert compare_retrieval.main([path]) == 0
+    out = capsys.readouterr().out
+    assert "vector   first hit  6  #7 #7 #7 #7 #7 #6\n" in out
+    assert "hybrid   first hit  4  #7 #7 #7 #6 #7 #7\n" in out
+    # The report says which cap made the hybrid row, so a pasted run shows its code.
+    assert out.rstrip().endswith("Hybrid row: at most 3 chunks per source come first")
+
+
 def test_a_question_with_no_expected_source_is_shown_but_not_scored(tmp_path, capsys, monkeypatch):
     """An off-topic question is listed with what each method found, outside the hit rate."""
     # The test chunks only: none is close to a question with none of the five keywords.

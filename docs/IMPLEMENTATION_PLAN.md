@@ -99,7 +99,7 @@ Deadline: **2026-11-02** (Sprint 2). Target dates leave 1-2 days of buffer.
 | **Epic 8: Sprint 2 review follow-ups** | | | | | | |
 | T8.1 | #90 | Split `app.py` into a `views/` package, no behaviour change | L | - | 10-25 | done |
 | T8.2 | #91 | Structured turn logging with no personal data | M | T1.8, T8.1 | 10-27 | todo |
-| T8.3 | #92 | At most three chunks per source in the fused list | S | T8.1, O13 | 10-27 | todo |
+| T8.3 | #92 | At most three chunks per source in the fused list | S | T8.1, O13 | 10-27 | in review |
 | T8.4 | #93 | Evaluation results as JSON and a committed baseline | M | T8.3, O13 | 10-28 | todo |
 | T8.5 | #94 | An offline retrieval regression suite in CI (extra) | M | T8.4 | 11-15 | todo |
 | T8.6 | #95 | A manually started live evaluation workflow (extra) | S | T8.4, O11 | 11-15 | todo |
@@ -621,15 +621,15 @@ Added by the owner on 2026-10-25 from the reviewer's feedback on the Sprint 2 pr
 - [ ] `ruff check .`, `ruff format --check .` and `python -m pytest -q` pass - CI.
 **Notes:** source IDs and tool names are not personal data; tool arguments can be (a weight, a food name typed by the user), so they are never logged. T9.8 reuses `turn_id` to tie a log line to a trace.
 
-### T8.3 At most three chunks per source in the fused list (S) · status: todo · issue #92
-**Serves:** Sprint 2 review point 4; supports Sprint 2 Hard 1 (hybrid search) and core 1.
+### T8.3 At most three chunks per source in the fused list (S) · status: in review · issue #92
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): the Sprint 2 review, point 4 (one article can fill all six retrieved places; the brief names T8.3 for it). Sprint 2 (`docs/BRIEF.md`): Hard 1 (hybrid search) and core 1 (RAG: standard retrieval, similarity search), which it improves.
 **Depends on:** T8.1 (order agreed with the owner), O13
 **Acceptance criteria**
-- [ ] `config.MAX_CHUNKS_PER_SOURCE = 3`; the fusion ranks every candidate first, then keeps at most that many chunks per source, then cuts to `RETRIEVAL_TOP_K`; when too few other sources are left to fill the places, the skipped chunks fill them in fused order (the owner may change this in the Q phase) - unit tests in `tests/test_hybrid.py` (six chunks of A and two of B give 3 A, 2 B, then 1 A; a single-source list still gives six; ties keep their order).
-- [ ] The `[S#]` order is the fused order and each chunk keeps its smallest distance; the coverage gate (the question's own vector list against `RETRIEVAL_MAX_DISTANCE`) is unchanged; the HMB test (AC-4) passes - existing and new tests.
-- [ ] `scripts/compare_retrieval.py` uses the same capped list, and its hit rates are not lower than T3.6's recorded run - owner live check (O13), recorded in `docs/TESTING.md`.
-- [ ] `scripts/run_evaluation.py --repeat 3` records whether q5 now finds #12 and q10 finds #8, and that no expected source is lost - owner live check (O13), recorded in `docs/TESTING.md` next to T6.1's results.
-**Notes:** MMR was the reviewer's other option; it needs every candidate's vector and a tuning value, so the cap comes first and MMR only if the cap fails the hit-rate check.
+- [x] `config.MAX_CHUNKS_PER_SOURCE = 3`; the fusion ranks every candidate first, then keeps at most that many chunks per source, then cuts to `RETRIEVAL_TOP_K`; when too few other sources are left to fill the places, the skipped chunks fill them in fused order (the owner may change this in the Q phase) - unit tests in `tests/test_hybrid.py` (six chunks of A and two of B give 3 A, 2 B, then 1 A; a single-source list still gives six; ties keep their order). Done: `MAX_CHUNKS_PER_SOURCE` in `src/config.py`; `rrf(..., max_per_source=None)` in `src/rag/hybrid.py`; `tests/test_hybrid.py::test_rrf_keeps_at_most_three_chunks_of_a_source_then_fills_with_the_skipped_ones`, `test_rrf_with_enough_other_sources_leaves_the_skipped_chunks_out`, `test_rrf_with_one_source_still_gives_six_chunks`, `test_rrf_cap_keeps_the_order_of_equal_scores`, `test_rrf_cap_can_be_set_per_call`. The skipped chunks come after the kept ones (the ticket's "3 A, 2 B, then 1 A"); owner approved on 2026-10-26.
+- [x] The `[S#]` order is the fused order and each chunk keeps its smallest distance; the coverage gate (the question's own vector list against `RETRIEVAL_MAX_DISTANCE`) is unchanged; the HMB test (AC-4) passes - existing and new tests. Done: `test_rrf_cap_keeps_the_smallest_distance_of_each_chunk`, `test_hybrid_search_lets_a_second_source_in_before_a_fourth_chunk_of_the_first`; the gate in `hybrid_search` is untouched, and the existing `test_hybrid.py`, `test_chat.py` (the HMB test) and `test_compare_retrieval.py` tests pass unchanged.
+- [x] `scripts/compare_retrieval.py` uses the same capped list, and its hit rates are not lower than T3.6's recorded run - owner live check (O13), recorded in `docs/TESTING.md`. Code done: the script's hybrid row calls `hybrid_search`, so it is capped (`tests/test_compare_retrieval.py::test_the_hybrid_row_is_capped_per_source_but_the_vector_row_is_not`); owner's run on 2026-10-26: hybrid 10 of 10, as T3.6 (`docs/TESTING.md`, "Per-source cap results (T8.3)").
+- [x] `scripts/run_evaluation.py --repeat 3` records whether q5 now finds #12 and q10 finds #8, and that no expected source is lost - owner live check (O13), recorded in `docs/TESTING.md` next to T6.1's results. Done by the owner on 2026-10-26 (51 runs, $0.0854): recorded in `docs/TESTING.md`: q5 does **not** find #12 and q10 does **not** find #8 (0 of 3 runs each, as in T6.1); no expected source T6.1 found is lost. The criterion is to record the outcome, so it is met; the goal behind it is not reached for these two questions, and widening the candidate lists is the open decision.
+**Notes:** the candidate lists are as long as before (`RETRIEVAL_TOP_K` each), so a second source that no list ranks in its top six cannot get in; owner's decision (2026-10-26): keep them, and widen them or try MMR only if the live check fails. MMR was the reviewer's other option; it needs every candidate's vector and a tuning value, so the cap comes first and MMR only if the cap fails the hit-rate check.
 
 ### T8.4 Evaluation results as JSON and a committed baseline (M) · status: todo · issue #93
 **Serves:** Sprint 2 review point 5; groundwork for Sprint 3 Hard 3 (T9.10).

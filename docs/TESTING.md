@@ -163,6 +163,36 @@ What the run shows, and follow-ups for T6.1's reflection:
 5. **German questions searched as written:** keyword search found nothing for de2 and little that matched elsewhere, as the index is English; vector search (a multilingual embedding model) still found every expected source. In the app the query translation step (T3.2) rewrites every question into English first, so these numbers are not the app's German retrieval; T7.2 measures that. de4 (oats) shows the keyword-only effect most: one vector hit passed the limit and five keyword-only chunks filled the list.
 6. **The lists move a little between runs.** In the second run, questions that did not change came back with a slightly different order or set of chunks (the vector lists of q11, q12 and q13; the last hybrid chunk of q7), while the rank of every expected source stayed the same. The index and the code were the same, so the likeliest cause is that the embedding API returns slightly different vectors for the same text on different calls, which moves chunks near the distance limit or at the bottom of the top 6. For T6.1: compare answers by whether they cite the right sources, not by the exact chunk list, and do not read a one-run difference of one chunk as a regression.
 
+### Per-source cap results (T8.3)
+
+Offline (in CI): `tests/test_hybrid.py` (six chunks of A and two of B give 3 A, 2 B, then 1 A; a single source still gives six; ties and each chunk's smallest distance kept; `hybrid_search` on a fixture index puts a second source fourth, not last) and `tests/test_compare_retrieval.py` (the hybrid row is capped, the vector row is not).
+
+Live check 1, retrieval comparison (owner, O13, 2026-10-26): `python -m scripts.compare_retrieval` from the T8.3 worktree on the real index (the report ends with "Hybrid row: at most 3 chunks per source come first"; the script is run with `-m` from the worktree because `python scripts/compare_retrieval.py` imports `src` from the main checkout through the editable install, which is how two earlier runs the same day came back without the cap).
+
+| File | Scored questions | Vector | Keyword (BM25) | Hybrid (RRF), capped | Hybrid chunks found by keyword only |
+|---|---|---|---|---|---|
+| `data/eval_questions.json` | 10 of 16 | 10 (100%) | 9 (90%) | 10 (100%) | 33 of 84 |
+
+The hybrid hit rate is not lower than T3.6's (10 of 10), and every expected source's first rank is as before (hybrid: q1 rank 2, the other nine rank 1). What the cap changed in the hybrid lists (the same questions searched without the cap came back with these as their fourth chunk of one article):
+
+- q2 (#13 expected): was `#13 #13 #8* #13 #13* #12*`, now `#13 #13 #8* #13 #12* #5*`; q3 (#14): was `#14 #14 #14 #8* #14 #8*`, now `#14 #14 #14 #8* #8* #8*`. Other sources now get the places a fourth chunk of the same article took.
+- q4, q6 and q7 hold three chunks of their main article and keep a second or third source; q1, q5 and q13 were already below the cap.
+- **q8, q9 and q10 still hold six chunks of one or two articles, and that is the fill rule, not a failure of the cap:** every vector and keyword list of those questions holds only chunks of that source (q10: `#5` in all three rows), so no other source is among the candidates and the skipped chunks fill the list. This is the limit written in `docs/ARCHITECTURE.md`: the cap reorders what the lists already hold. q10's second expected source (#8) is in none of them (the question is searched alone here, with no rewrites, as in T3.6); the evaluation run below, which searches the question's rewrites too, says whether #8 reaches the answer step in the app.
+
+Live check 2 (owner, O13, 2026-10-26): `python -m scripts.run_evaluation --repeat 3` from the T8.3 worktree, the real index, the app's models. **51 runs, none ended in an error, 568,730 tokens, $0.0854** (about $0.0017 a run, as in T6.1's $0.0016; 11,200 tokens a run against 10,700). Compared with T6.1's two runs per question (first and second run above):
+
+| What the criterion asks | Result |
+|---|---|
+| q5 now finds #12 | **No**, in 0 of 3 runs (T6.1: 0 of 2). q5 finds #1 and #9 in all three and a #7 chunk in two (T6.1: #1 and #9 only). |
+| q10 now finds #8 | **No**, in 0 of 3 runs (T6.1: 0 of 2). q10 finds #5 in all three; the other three places went from #5 chunks to #7, #11 and #12 (T6.1: `#5 ×6`). |
+| No expected source is lost | **None lost by the cap.** Every expected source T6.1 found in both runs is found in all three runs here and cited. Two differences from T6.1 are not the cap's: q1's #15 (found in 1 of T6.1's 2 runs, now 0 of 3; q1's lists hold at most two chunks of any article, so the cap did not touch them) and q9's #4 (T6.1: 0 of 2, because the plan set `evidence_tier` 2; now 3 of 3 and cited, because the plan set only `topics`; the cap does not touch filters). |
+
+What the cap did, in the runs' own lists: q2 and q3 no longer hold five or six chunks of one article (q2: three #13 and then #12, #5, #11, #15, #8 or #1; q3: three #14 and then #8, #11 or #13); q7 holds three #10 and brings #19, #12 or #17; q8 and q9 keep three chunks of their main article and add #11 and #12 (q9 also #20 and #16). Per-source counts never exceed three except where the lists hold nothing else.
+
+**Not judged here:** the citations. The cap puts more chunks of other articles in front of the answer model, and q11 now cites something in two of three runs (#8, #10; T6.1's second run cited nothing, its first cited #12 and #8) and q12 cites #4 and #2; whether each `[S#]` matches its chunk needs the full report (`data/eval_runs/`, gitignored, run `run-20261026-092912`) read against the articles, as for T6.1.
+
+**Why #12 and #8 still do not arrive:** the plan's topic filters allow both (#12 shares `protein` and `energy_balance` with q5's filter, #8 shares `protein` with q10's), so the likeliest cause is the one in `docs/ARCHITECTURE.md`: neither is in the top six of any of the question's or its rewrites' lists, so the cap has nothing to bring in. This is a reading of the lists, not something the runs prove. The next step is longer candidate lists (a new config value for the length of each list, so the lists can be longer than the six that reach the answer) or MMR, decided with the owner and measured with this same pair of runs.
+
 ## Live checks
 
 Record only what was actually run and observed: date, model, what was checked, result.

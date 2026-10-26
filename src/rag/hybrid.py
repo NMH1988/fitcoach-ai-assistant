@@ -139,9 +139,14 @@ def rrf_scores(lists: Sequence[Sequence[RetrievedChunk]]) -> dict[str, float]:
     return {key: math.fsum(values) for key, values in terms.items()}
 
 
-def rrf(lists: Sequence[Sequence[RetrievedChunk]], k: int | None = None) -> list[RetrievedChunk]:
-    """Merge ranked lists with Reciprocal Rank Fusion; return the k best distinct chunks."""
+def rrf(
+    lists: Sequence[Sequence[RetrievedChunk]],
+    k: int | None = None,
+    max_per_source: int | None = None,
+) -> list[RetrievedChunk]:
+    """Merge ranked lists with RRF; return k chunks, a source's extras over the cap come last."""
     k = config.RETRIEVAL_TOP_K if k is None else k
+    max_per_source = config.MAX_CHUNKS_PER_SOURCE if max_per_source is None else max_per_source
     scores = rrf_scores(lists)
     best: dict[str, RetrievedChunk] = {}
     for ranked in lists:
@@ -153,4 +158,17 @@ def rrf(lists: Sequence[Sequence[RetrievedChunk]], k: int | None = None) -> list
     # Highest score first; ties go to the nearer chunk, then to the first found (dicts keep order).
     order = {key: number for number, key in enumerate(scores)}
     keys = sorted(scores, key=lambda key: (-scores[key], _distance_order(best[key]), order[key]))
-    return [best[key] for key in keys[:k]]
+    # Every candidate is ranked first; then a source keeps its best max_per_source chunks, so one
+    # article cannot fill the list (T8.3). The chunks over the cap wait in fused order and fill the
+    # places only when the other sources run out, so a single-source list is still k long.
+    kept: list[str] = []
+    skipped: list[str] = []
+    per_source: dict[str, int] = {}
+    for key in keys:
+        source = str(best[key].metadata.get("source_id"))
+        if per_source.get(source, 0) < max_per_source:
+            per_source[source] = per_source.get(source, 0) + 1
+            kept.append(key)
+        else:
+            skipped.append(key)
+    return [best[key] for key in [*kept[:k], *skipped][:k]]

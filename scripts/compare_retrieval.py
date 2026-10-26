@@ -9,12 +9,13 @@ The file is the owner's evaluation questions (O2): a JSON list of objects with a
 fields, such as "good_answer" for T6.1, are ignored here. Each question goes through the input
 guard, then one embedding call. Each method gets the question alone, with no rewrites and no
 filter, so only the way of searching differs: vector search with the distance limit, BM25, and
-the app's hybrid search (BM25 joins only when a vector hit passes the limit). For each question
-the script prints the rank of the first expected source in each method's top RETRIEVAL_TOP_K,
-then each method's hit rate and how many hybrid chunks were found by keyword only (marked "*"
-in the hybrid row). A question with no expected source (one the sources should not cover) is
-shown but not scored. It costs a fraction of a cent and never prints the key. Record
-the output in docs/TESTING.md.
+the app's hybrid search (BM25 joins only when a vector hit passes the limit; at most
+MAX_CHUNKS_PER_SOURCE chunks of one source come first, T8.3, so only the hybrid row is capped).
+For each question the script prints the rank of the first expected source in each method's top
+RETRIEVAL_TOP_K, then each method's hit rate and how many hybrid chunks were found by keyword
+only (marked "*" in the hybrid row). A question with no expected source (one the sources
+should not cover) is shown but not scored. It costs a fraction of a cent and never prints the
+key. Record the output in docs/TESTING.md.
 """
 
 import sys
@@ -101,6 +102,8 @@ def compare(questions: Sequence[EvalQuestion], index, limiter: guard.RateLimiter
         f"Hybrid chunks found by keyword only (* above): {keyword_only} of {hybrid_chunks}, "
         "over all questions searched"
     )
+    # So a recorded run shows which code made it (T8.3): a run on code without the cap has no line.
+    lines.append(f"Hybrid row: at most {config.MAX_CHUNKS_PER_SOURCE} chunks per source come first")
     return lines
 
 
