@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-26 · T8.4 Evaluation results as JSON and a committed baseline · PR to come (closes NMH1988/fitcoach-ai-assistant#2; the copy of #93)
+## 2026-10-26 · T8.4 Evaluation results as JSON and a committed baseline · NMH1988/fitcoach-ai-assistant#33 (closes NMH1988/fitcoach-ai-assistant#2; the copy of #93)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): the Sprint 2 review, point 5 (evaluation is manual and not part of the development loop; the brief names T8.4 for it); groundwork for Hard 3 (T9.10). Sprint 2 (`docs/BRIEF.md`): Hard 7 (RAG evaluation).
 - **What:**
   - `src/eval_results.py` (new): `RunRecord` (IDs and counts only), `results_document()`, `write_results()`, `summarise()` (found and cited rate per run and averaged), `git_state()`, `load_results()` and `compare()` (the check's logic; `ResultsFileError`).
