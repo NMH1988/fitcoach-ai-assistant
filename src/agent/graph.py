@@ -321,8 +321,11 @@ def run_checked_call(request: ToolCallRequest, execute: Callable[..., Any]) -> C
     call = request.tool_call
     calls = _last_reply(request.state["messages"]).tool_calls
     # ToolNode passes the reply's own call objects, so the call's place in the round is found by
-    # identity (two calls may share an id).
-    position = next(number for number, other in enumerate(calls) if other is call)
+    # identity (two calls may share an id). A call not found there (a ToolNode that passed a copy)
+    # is a bug the turn's catch-all reports, named here rather than as a StopIteration.
+    position = next((number for number, other in enumerate(calls) if other is call), None)
+    if position is None:
+        raise RuntimeError("The tool call is not in the model's last reply.")
     refusal = round_refusal(calls, position)
     if refusal is not None:
         # OpenAI models always send call ids; a call without one gets "", which the API would

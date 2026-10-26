@@ -5,11 +5,12 @@ settings and would get around the model allowlist and the `max_tokens` cap that
 `build_chat_model()` checks, and so would changing a built client. This scan reads the app's
 source (`src/`, `views/`, `app.py`, `scripts/`) with `ast` and fails on any such call.
 
-What it cannot see: a method reached at run time (`getattr(model, "bind")(...)`), a method kept
-in a variable and called later, a client class reached through a module alias, and
-`setattr(client, ...)`. Review still checks those. It is strict the other way: assigning
-`.model`, `.base_url` or another setting's name on any object is refused, even on an object that
-is not a model client; rename such a field.
+What it cannot see: a method or a client class reached at run time (`getattr(model, "bind")(...)`,
+`getattr(langchain_openai, "ChatOpenAI")`), a method or class kept in a variable and called later
+(`Chat = ChatOpenAI; Chat(...)`), and `setattr(client, ...)`. Review still checks those. A class
+reached through a module (`lo.ChatOpenAI(...)`) or an import alias is caught. It is strict the
+other way: assigning `.model`, `.base_url` or another setting's name on any object is refused, even
+on an object that is not a model client; rename such a field.
 """
 
 import ast

@@ -350,6 +350,18 @@ def test_round_refusal_keeps_the_limits_per_round():
     ]
 
 
+def test_a_call_that_is_not_in_its_reply_is_reported_by_name():
+    """A copy of the call (not the reply's own object) raises a named error, not StopIteration."""
+    reply = tool_reply((TDEE_TOOL, {}))
+    request = SimpleNamespace(
+        tool_call=dict(reply.tool_calls[0]),
+        state={"messages": [*_request(), reply]},
+        runtime=_runtime(_context()),
+    )
+    with pytest.raises(RuntimeError, match="not in the model's last reply"):
+        graph.run_checked_call(request, execute=None)
+
+
 def test_end_round_answers_broken_calls_and_counts_the_round():
     """Calls that are not JSON get the fixed message after the round's results."""
     steps, runs = [], []

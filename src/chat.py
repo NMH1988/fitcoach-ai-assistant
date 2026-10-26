@@ -1,8 +1,10 @@
 """One chat turn: guard -> query translation -> retrieval -> answer with tools and [S#] citations.
 
-The user's question goes only inside <user_input>, the retrieved chunks only inside <sources> and
-the profile only inside <profile> (sent only when the query plan says the answer needs the user's
-numbers, T3.5), all in the user message; none is ever put into the system prompt
+`run_turn()` runs the turn as the LangGraph graph in `src/agent/graph.py` (T9.2), whose nodes use
+this module's helpers, and turns its errors into fixed messages. The user's question goes only
+inside <user_input>, the retrieved chunks only inside <sources> and the profile only inside
+<profile> (sent only when the query plan says the answer needs the user's numbers, T3.5), all in
+the user message; none is ever put into the system prompt
 (.claude/rules/security-privacy.md). All three are escaped first (`src/prompt_data.py`), so no text
 can close or open a block (T3.4). The rewrites from query translation are used only for the search
 and shown in the app; the answer model gets the user's own question. Tool results reach the model
