@@ -679,7 +679,7 @@ Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this 
 **Notes:** docs only; the owner approves before T9.2 starts. The owner's 12-week product plan ("PRD v1.0", kept by the owner, not in the repo) was cut into this scope through a draft, `docs/PRD_V1.1_SPRINT3_DRAFT.md`, which was never committed and is deleted by this ticket.
 
 ### T9.2 The chat turn as a LangGraph `StateGraph`, same behaviour (L) · status: in review · issue NMH1988/fitcoach-ai-assistant#5 (the copy of #97)
-**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 2 and 4, evaluation (how agents and function calling work); Sprint 2 (`docs/BRIEF.md`): core 2 (tool calling), evaluation: core concepts (how tool calling is implemented, code organisation).
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 2 and 4, evaluation: core concepts (how agents and function calling work); Sprint 2 (`docs/BRIEF.md`): core 2 (tool calling), evaluation: core concepts (how tool calling is implemented, code organisation).
 **Depends on:** T9.1, T8.1, T8.2, T8.4 (the baseline its last criterion checks against)
 **Acceptance criteria**
 - [x] `langgraph` is pinned in `pyproject.toml` after its licence is checked (copyright policy rule 9) and listed in `docs/ARCHITECTURE.md` section 12 - review, CI install. Done: `langgraph==1.2.17` (already installed with langchain 1.4.6) and `langgraph-prebuilt==1.1.1` (it holds `ToolNode`, which we import), both MIT, read in each package's own LICENSE file on 2026-10-26; `pip-audit` with CI's flags finds nothing new.
