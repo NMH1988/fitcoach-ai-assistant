@@ -10,8 +10,9 @@ two JSON files and calls nothing: no key, no index, no network. It prints the fo
 cited rate (the share of the expected sources found among the chunks the answer model got, and
 cited by its answer) with the baseline's and the lowest rate allowed, `config.EVAL_TOLERANCE`
 below the baseline's. Exit code 0: neither rate is below its limit. 1: a rate is below. 2: a file
-is missing or broken, or the run cannot be compared (another language, schema, scored
-questions or expected sources: a new owner run is needed to make a new baseline).
+is missing or broken, or the run cannot be compared: a scored run ended in an error (no
+credit, an outage: rerun), or another language, schema, scored questions or expected
+sources (a new owner run is needed to make a new baseline).
 """
 
 import argparse

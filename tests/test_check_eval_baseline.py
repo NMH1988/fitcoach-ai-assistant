@@ -121,23 +121,43 @@ def test_other_models_are_a_note_not_a_failure(tmp_path, capsys):
     assert "note: the models differ from the baseline's" in capsys.readouterr().out
 
 
-def test_runs_that_ended_in_an_error_are_named_next_to_the_verdict(tmp_path, capsys):
-    """Errors (e.g. no credit left) lower the cited rate with no code change; the output says so."""
-    results = _results(found=0.9, cited=0.5)
-    results["runs"] += [
-        {"id": "q11", "run": 2, "expected": [], "kind": "error"},
-        {"id": "q12", "run": 3, "expected": [], "kind": "error"},
+def _with_errors(document, *runs):
+    """Return the document with extra runs that ended in an error: (id, expected sources)."""
+    extra = [
+        {"id": question, "run": 2, "expected": list(expected), "kind": "error"}
+        for question, expected in runs
     ]
-    assert _check(tmp_path, results) == 1
-    out = capsys.readouterr().out
-    assert "note: 2 runs ended in an error" in out
-    assert "cited rate: 0.5000" in out
+    return {**document, "runs": [*document["runs"], *extra]}
 
 
-def test_a_run_with_no_error_has_no_error_note(tmp_path, capsys):
-    """The error note appears only when some run ended in an error."""
-    assert _check(tmp_path, _results()) == 0
-    assert "ended in an error" not in capsys.readouterr().out
+def test_a_scored_run_that_ended_in_an_error_cannot_be_compared(tmp_path, capsys):
+    """An error (e.g. no credit left) lowers the rates with no code change: exit 2, never 1."""
+    results = _with_errors(_results(found=0.5, cited=0.5), ("q1", ["1"]), ("q2", ["1"]))
+    assert _check(tmp_path, results) == 2
+    err = capsys.readouterr().err
+    assert "2 scored runs of the results ended in an error" in err
+    assert "rerun" in err
+
+
+def test_one_scored_error_is_named_in_the_singular(tmp_path, capsys):
+    """The message counts one run as "run", not "runs"."""
+    assert _check(tmp_path, _with_errors(_results(), ("q1", ["1"]))) == 2
+    assert "1 scored run of the results ended in an error" in capsys.readouterr().err
+
+
+def test_a_baseline_with_a_scored_error_cannot_be_compared_either(tmp_path, capsys):
+    """A baseline taken while the API failed is no baseline: exit 2 names the baseline."""
+    baseline = _with_errors(_results(), ("q1", ["1"]))
+    assert _check(tmp_path, _results(), baseline=baseline) == 2
+    assert "of the baseline ended in an error" in capsys.readouterr().err
+
+
+def test_an_error_in_an_unscored_question_changes_nothing(tmp_path, capsys):
+    """q11-q14 expect no source, so their errors cannot move a rate: no message, normal verdict."""
+    results = _with_errors(_results(), ("q11", []), ("q12", []))
+    assert _check(tmp_path, results) == 0
+    out, err = capsys.readouterr()
+    assert "error" not in out and "error" not in err
 
 
 @pytest.mark.parametrize(

@@ -224,6 +224,14 @@ def _scored(document: Mapping) -> dict[str, tuple]:
     }
 
 
+def _scored_errors(document: Mapping) -> int:
+    """Return how many runs of scored questions in a results file ended in an error."""
+    return sum(
+        isinstance(run, dict) and run.get("kind") == "error" and bool(run.get("expected"))
+        for run in document["runs"]
+    )
+
+
 def _code(document: Mapping) -> str:
     """Return a results file's commit in short form, and say when its files had changed."""
     commit = document.get("commit")
@@ -249,18 +257,23 @@ def compare(results: Mapping, baseline: Mapping, tolerance: float) -> Comparison
             "The results and the baseline score different questions or expect different "
             "sources: a new owner run is needed."
         )
+    # An error (no credit left, a provider outage) lowers the rates with no code change, so a
+    # scored run that ended in one makes the rates unfit to compare; unscored questions cannot
+    # move a rate, so their errors are left alone.
+    for name, document in (("results", results), ("baseline", baseline)):
+        errors = _scored_errors(document)
+        if errors:
+            run_word = "run" if errors == 1 else "runs"
+            raise ResultsFileError(
+                f"{errors} scored {run_word} of the {name} ended in an error, so its rates do not "
+                "measure the code: rerun when the API works again."
+            )
     lines = [f"baseline: {_code(baseline)}", f"results: {_code(results)}"]
     if results.get("models") != baseline.get("models"):
         lines.append("note: the models differ from the baseline's")
     if results.get("repeat") != baseline.get("repeat"):
         lines.append(
             f"note: --repeat is {results.get('repeat')}, the baseline's is {baseline.get('repeat')}"
-        )
-    # An error (no credit left, a provider outage) lowers the cited rate with no code change.
-    errors = sum(isinstance(run, dict) and run.get("kind") == "error" for run in results["runs"])
-    if errors:
-        lines.append(
-            f"note: {errors} runs ended in an error: a rate below the baseline may be the errors"
         )
     below = []
     for name, label in (("found_rate", "found rate"), ("cited_rate", "cited rate")):
