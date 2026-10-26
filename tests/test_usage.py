@@ -334,6 +334,25 @@ def test_a_failed_daily_refresh_gives_unknown_then_retries():
     assert len(calls) == 3
 
 
+def test_peek_gives_the_prices_already_read_and_never_reads_them():
+    """peek() is None before the first read, then the prices; it never calls the fetch (T8.2)."""
+    fetch, calls = _counting_fetch([PRICES])
+    cache = PriceCache(fetch, _Clock())
+    assert cache.peek() is None
+    assert calls == []
+    assert cache.get() == PRICES
+    assert cache.peek() == PRICES
+    assert len(calls) == 1
+
+
+def test_peek_does_not_wait_for_a_read_in_progress():
+    """A read that holds the cache's lock does not make peek() wait."""
+    cache = PriceCache(_counting_fetch([PRICES])[0], _Clock())
+    cache.get()
+    with cache._lock:
+        assert cache.peek() == PRICES
+
+
 # --- Cost ----------------------------------------------------------------------------------------
 
 

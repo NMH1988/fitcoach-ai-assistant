@@ -59,6 +59,9 @@ MAX_RAW_INPUT_CHARS = 4 * MAX_INPUT_CHARS
 RATE_LIMIT_PER_MINUTE = 10
 RATE_LIMIT_WINDOW_SECONDS = 60
 RATE_LIMIT_PER_SESSION = 50
+# The level of the app's JSON log lines (src/observability.py, T8.2): INFO writes one line per chat
+# turn, WARNING only the guard rejections, model errors and failed tool calls.
+LOG_LEVEL = "INFO"
 
 # Knowledge base sources (docs/SOURCES.md; docs/ARCHITECTURE.md section 4).
 SOURCES_MANIFEST_PATH = PROJECT_ROOT / "data" / "sources.json"

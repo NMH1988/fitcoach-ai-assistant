@@ -19,7 +19,7 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from src import config
+from src import config, observability
 from src.tools.food import TABLE_COLUMNS
 
 ZIP_GLOB = "FoodData_Central_foundation_food_csv_*.zip"
@@ -212,6 +212,7 @@ def write_table(zip_path: Path, target: Path | None = None) -> Summary:
 
 def main(argv: list[str] | None = None) -> int:
     """Write data/usda_foods.csv from the given or the only zip; return 0, or 1 on an error."""
+    observability.configure_logging()
     args = sys.argv[1:] if argv is None else argv
     try:
         zip_path = Path(args[0]) if args else find_zip()

@@ -20,7 +20,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from src import config
+from src import config, observability
 from src.rag.sources import ManifestError, Source, check_article, load_manifest
 
 
@@ -129,6 +129,7 @@ def format_report(report: Report) -> list[str]:
 
 def main() -> int:
     """Download every source in the manifest; return 0 if all were saved, 1 otherwise."""
+    observability.configure_logging()
     try:
         sources = load_manifest()
     except ManifestError as exc:

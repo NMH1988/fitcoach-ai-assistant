@@ -34,7 +34,7 @@ import httpx2
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-from src import chat, config, llm, usage
+from src import chat, config, llm, observability, usage
 
 CHAT_PROMPT = "In one short sentence, what is dietary protein?"
 EMBEDDING_TEXT = "protein intake for muscle gain"
@@ -247,6 +247,7 @@ def build_streaming_model() -> tuple[ChatOpenAI, GenerationIdTransport]:
 
 def main() -> int:
     """Run the live check, print the results or the mapped error, and return the exit code."""
+    observability.configure_logging()
     try:
         chat_model = llm.build_chat_model()
         lines, reply = run_checks(chat_model, llm.build_embeddings())

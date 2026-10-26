@@ -22,7 +22,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from src import config, guard, llm
+from src import config, guard, llm, observability
 from src.eval_questions import EvalQuestion, QuestionsFileError, load_questions
 from src.rag import hybrid, store
 from src.rag.retriever import RetrievedChunk, embed_queries, search
@@ -109,6 +109,7 @@ def compare(questions: Sequence[EvalQuestion], index, limiter: guard.RateLimiter
 
 def main(args: Sequence[str] | None = None) -> int:
     """Compare the three ways of searching on the questions file and return the exit code."""
+    observability.configure_logging()
     args = list(sys.argv[1:] if args is None else args)
     if len(args) > 1:
         print("Give at most one path: the questions file.", file=sys.stderr)
