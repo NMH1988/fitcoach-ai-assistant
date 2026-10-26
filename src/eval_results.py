@@ -204,7 +204,23 @@ def load_results(path: Path) -> dict:
             raise ResultsFileError(f"{path} has a {name} that is not a number from 0 to 1.")
     if not isinstance(document.get("runs"), list):
         raise ResultsFileError(f"{path} has no list of runs.")
+    for number, run in enumerate(document["runs"], start=1):
+        if not _is_run(run):
+            raise ResultsFileError(
+                f"{path} has a run (number {number} in the list) without a text `id` and a list "
+                "of text `expected` sources, or with a `kind` that is not text."
+            )
     return document
+
+
+def _is_run(run: object) -> bool:
+    """Return True for a run entry the comparison can read: a text id and text expected sources."""
+    if not isinstance(run, dict) or not isinstance(run.get("id"), str):
+        return False
+    expected = run.get("expected")
+    if not isinstance(expected, list) or not all(isinstance(item, str) for item in expected):
+        return False
+    return run.get("kind") is None or isinstance(run["kind"], str)
 
 
 @dataclass(frozen=True)
@@ -260,14 +276,22 @@ def compare(results: Mapping, baseline: Mapping, tolerance: float) -> Comparison
     # An error (no credit left, a provider outage) lowers the rates with no code change, so a
     # scored run that ended in one makes the rates unfit to compare; unscored questions cannot
     # move a rate, so their errors are left alone.
+    # Each file gets its own fix: new results are rerun; a broken baseline needs a new owner run.
+    fixes = {
+        "results": "rerun when the API works again",
+        "baseline": "take a new baseline with `python -m scripts.run_evaluation --repeat 3` (O13)",
+    }
+    problems = []
     for name, document in (("results", results), ("baseline", baseline)):
         errors = _scored_errors(document)
         if errors:
             run_word = "run" if errors == 1 else "runs"
-            raise ResultsFileError(
+            problems.append(
                 f"{errors} scored {run_word} of the {name} ended in an error, so its rates do not "
-                "measure the code: rerun when the API works again."
+                f"measure the code: {fixes[name]}."
             )
+    if problems:
+        raise ResultsFileError(" ".join(problems))
     lines = [f"baseline: {_code(baseline)}", f"results: {_code(results)}"]
     if results.get("models") != baseline.get("models"):
         lines.append("note: the models differ from the baseline's")

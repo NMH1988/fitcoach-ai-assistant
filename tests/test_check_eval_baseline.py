@@ -149,7 +149,53 @@ def test_a_baseline_with_a_scored_error_cannot_be_compared_either(tmp_path, caps
     """A baseline taken while the API failed is no baseline: exit 2 names the baseline."""
     baseline = _with_errors(_results(), ("q1", ["1"]))
     assert _check(tmp_path, _results(), baseline=baseline) == 2
-    assert "of the baseline ended in an error" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "of the baseline ended in an error" in err
+    # A broken baseline needs a new owner run, not a rerun of the results.
+    assert "run_evaluation --repeat 3" in err
+    assert "rerun when the API works again" not in err
+
+
+def test_errors_in_both_files_are_both_named(tmp_path, capsys):
+    """With scored errors in the results and the baseline, the message names each with its fix."""
+    results = _with_errors(_results(), ("q1", ["1"]), ("q2", ["1"]))
+    baseline = _with_errors(_results(), ("q1", ["1"]))
+    assert _check(tmp_path, results, baseline=baseline) == 2
+    err = capsys.readouterr().err
+    assert "2 scored runs of the results ended in an error" in err
+    assert "rerun when the API works again" in err
+    assert "1 scored run of the baseline ended in an error" in err
+
+
+@pytest.mark.parametrize(
+    "run",
+    [
+        "q1",
+        {"id": "q1", "run": 1, "expected": 1},
+        {"id": "q1", "run": 1},
+        {"id": "q1", "run": 1, "expected": [1]},
+        {"id": 1, "run": 1, "expected": ["1"]},
+        {"id": "q1", "run": 1, "expected": ["1"], "kind": 5},
+    ],
+    ids=[
+        "not an object",
+        "expected not a list",
+        "no expected",
+        "expected not text",
+        "id not text",
+        "kind not text",
+    ],
+)
+def test_a_hand_edited_run_entry_is_a_broken_file_with_exit_2(tmp_path, capsys, run):
+    """A malformed run is refused when the file is read (exit 2), never a traceback with exit 1."""
+    broken = {**_results(), "runs": [*_results()["runs"], run]}
+    path = tmp_path / "broken.json"
+    path.write_text(json.dumps(broken), encoding="utf-8")
+    with pytest.raises(ResultsFileError, match="run"):
+        eval_results.load_results(path)
+    baseline = _write(tmp_path, "baseline.json", _results())
+    assert check_eval_baseline.main([str(path), "--baseline", baseline]) == 2
+    assert capsys.readouterr().err
 
 
 def test_an_error_in_an_unscored_question_changes_nothing(tmp_path, capsys):

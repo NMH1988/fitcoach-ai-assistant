@@ -94,7 +94,7 @@ scripts/
   live_check_retrieval.py   owner's live check: distances of the nearest chunks, to set the limit
   compare_retrieval.py      owner's live check: vector-only, keyword-only and hybrid hit rates (T3.3; run in T3.6)
   run_evaluation.py         owner's live check: the evaluation questions through the app's whole chat turn (T6.1); also writes the results file (T8.4)
-  check_eval_baseline.py    compares a results file with data/eval_baseline.json; exit 1 below the baseline minus the tolerance (T8.4; needs no key)
+  check_eval_baseline.py    compares a results file with data/eval_baseline.json; exit 1 below the baseline minus the tolerance, 2 when it cannot compare (T8.4; needs no key)
 data/
   sources.json              manifest of approved sources (committed)
   usda_foods.csv            trimmed USDA table (committed, CC0)
