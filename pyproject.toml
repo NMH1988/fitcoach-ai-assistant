@@ -39,7 +39,7 @@ dev = [
     "pypdf==6.21.1",
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
-    "ruff==0.17.1",
+    "ruff==0.17.2",
 ]
 
 [tool.setuptools.packages.find]
