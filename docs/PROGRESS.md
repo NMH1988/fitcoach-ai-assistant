@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-26 · T9.2 The chat turn as a LangGraph `StateGraph`, same behaviour · NMH1988/fitcoach-ai-assistant#<PR> (closes NMH1988/fitcoach-ai-assistant#5; the copy of #97)
+## 2026-10-26 · T9.2 The chat turn as a LangGraph `StateGraph`, same behaviour · NMH1988/fitcoach-ai-assistant#34 (closes NMH1988/fitcoach-ai-assistant#5; the copy of #97)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 2 and 4, evaluation: core concepts (how agents and function calling work). Sprint 2 (`docs/BRIEF.md`): core 2 (tool calling).
 - **What:**
   - `src/agent/graph.py` (new): the turn as a `StateGraph` (`TurnInput` text and profile, `TurnOutput` the result, the rest private), `TurnContext` (LangGraph's `context_schema`: the factories, tools, limiter, callbacks, manifest, language, usage recorder, turn ID), the nodes `guard`, `prepare`, `translate`, `retrieve`, `agent`, `tools` (a `ToolNode` whose `wrap_tool_call` is `run_checked_call()`), `end_round` and `finish`, the edge functions, `chat_graph()`, `answer_loop_graph()`, `MAX_STEPS`, `run_config()` and `mermaid()`.
