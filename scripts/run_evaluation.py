@@ -23,10 +23,17 @@ nothing), the tools called and the tokens and cost. Then the run's totals. It wr
 report, with each answer, its tool results and the text of every chunk found, to a gitignored
 file in data/eval_runs/ for judging the citations against the good answers. It costs a few US
 cents and never prints or writes the key. Record the results in docs/TESTING.md.
+
+Next to the report it writes a results file with the same name and a .json ending (T8.4): the run's
+commit, models, language and date, and for each run only IDs and counts (how it ended, the expected
+sources found and cited, the sources cited that were not expected, the tools, tokens and cost). It
+holds no answer, question or chunk text, so one run can be committed as data/eval_baseline.json;
+scripts/check_eval_baseline.py compares a later run with it.
 """
 
 import argparse
 import sys
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -35,7 +42,7 @@ from pathlib import Path
 from langchain_chroma import Chroma
 from langchain_core.language_models import BaseChatModel
 
-from src import chat, config, guard, i18n, llm, observability, usage
+from src import chat, config, eval_results, guard, i18n, llm, observability, usage
 from src.eval_questions import EvalItem, QuestionsFileError, load_eval_items
 from src.rag import hybrid, store
 from src.rag.retriever import RetrievedChunk
@@ -54,6 +61,8 @@ class EvalRun:
     # The chunks the answer model got, in [S#] order; empty when the turn ended before the search.
     chunks: tuple[RetrievedChunk, ...]
     cost: TurnUsage
+    # Which asking of this question and profile variant this is, from 1 to --repeat (T8.4).
+    number: int = 1
 
 
 def planned_runs(items: Sequence[EvalItem], repeat: int) -> list[tuple[str, EvalItem, bool]]:
@@ -87,7 +96,9 @@ def evaluate(
     limiter = guard.RateLimiter(per_window=len(runs), per_session=len(runs))
     keywords = hybrid.build_keyword_index(index)
     done = []
+    asked: Counter[tuple[str, bool]] = Counter()
     for label, item, with_profile in runs:
+        asked[item.id, with_profile] += 1
         seen: list[Sequence[RetrievedChunk]] = []
         result = chat.run_turn(
             item.question,
@@ -105,7 +116,13 @@ def evaluate(
         chunks = tuple(seen[0]) if seen else ()
         done.append(
             EvalRun(
-                label, item, with_profile, result, chunks, usage.price_turn(result.usage, prices)
+                label,
+                item,
+                with_profile,
+                result,
+                chunks,
+                usage.price_turn(result.usage, prices),
+                asked[item.id, with_profile],
             )
         )
     return done
@@ -135,17 +152,40 @@ def _ids(source_ids: Sequence[str]) -> str:
     return " ".join(f"#{source_id}" for source_id in source_ids) or "none"
 
 
-def expectation_line(run: EvalRun) -> str:
-    """Return whether the expected sources were found and cited, or whether nothing was cited."""
+@dataclass(frozen=True)
+class Expectation:
+    """How a run met its question's expected sources (the data behind the summary line, T8.4)."""
+
+    expected: tuple[str, ...]
+    # The expected sources among the chunks the answer model got, and those the answer cites.
+    found: tuple[str, ...]
+    cited: tuple[str, ...]
+    # The sources cited that are not expected: all of them when the question expects none.
+    unexpected: tuple[str, ...]
+
+
+def expectation(run: EvalRun) -> Expectation:
+    """Return which expected sources the run found and cited, and which others it cited."""
     cited = [card.source_id for card in run.result.sources]
     expected = run.item.expected_sources
-    if not expected:
-        verdict = "cites nothing" if not cited else f"cites {_ids(cited)}: check them"
-        return f"expected none: {verdict}"
     found_ids = {str(chunk.metadata.get("source_id")) for chunk in run.chunks}
-    found = [source_id for source_id in expected if source_id in found_ids]
-    cited_expected = [source_id for source_id in expected if source_id in cited]
-    return f"expected {_ids(expected)}: found {_ids(found)}, cited {_ids(cited_expected)}"
+    return Expectation(
+        expected=tuple(expected),
+        found=tuple(source_id for source_id in expected if source_id in found_ids),
+        cited=tuple(source_id for source_id in expected if source_id in cited),
+        unexpected=tuple(source_id for source_id in cited if source_id not in expected),
+    )
+
+
+def expectation_line(run: EvalRun) -> str:
+    """Return whether the expected sources were found and cited, or whether nothing was cited."""
+    met = expectation(run)
+    if not met.expected:
+        verdict = (
+            "cites nothing" if not met.unexpected else f"cites {_ids(met.unexpected)}: check them"
+        )
+        return f"expected none: {verdict}"
+    return f"expected {_ids(met.expected)}: found {_ids(met.found)}, cited {_ids(met.cited)}"
 
 
 def _flag(value: bool | None) -> str:
@@ -200,6 +240,31 @@ def summary_lines(runs: Sequence[EvalRun]) -> list[str]:
         f"{len(runs)} runs, {errors} ended with an error · {usage.format_session(session)}"
     )
     return lines
+
+
+def run_records(runs: Sequence[EvalRun]) -> list[eval_results.RunRecord]:
+    """Return each run as a results-file record: IDs and counts only, never any text (T8.4)."""
+    records = []
+    for run in runs:
+        met = expectation(run)
+        records.append(
+            eval_results.RunRecord(
+                id=run.item.id,
+                run=run.number,
+                with_profile=run.with_profile,
+                kind=run.result.kind,
+                code=run.result.code,
+                expected=met.expected,
+                expected_found=met.found,
+                expected_cited=met.cited,
+                unexpected_citations=met.unexpected,
+                # A tool name the model made up is None here; it is never written (T8.2's rule).
+                tools=tuple((tool.name or "unknown", tool.status) for tool in run.result.tool_runs),
+                tokens=run.cost.tokens,
+                cost_usd=eval_results.cost_text(run.cost.cost),
+            )
+        )
+    return records
 
 
 def _fence(text: str) -> str:
@@ -331,6 +396,25 @@ def main(args: Sequence[str] | None = None) -> int:
     print("\n".join(summary_lines(runs)))
     report = write_report(runs, started, config.EVAL_RUNS_DIR, options.language)
     print(f"Full report: {report}")
+    results = eval_results.write_results(
+        eval_results.results_document(
+            run_records(runs),
+            # The commit of the code that ran: `src` is read from the project folder, which is not
+            # always the folder the command was started in (T8.3's two wrong runs).
+            git=eval_results.git_state(config.PROJECT_ROOT),
+            models={
+                "answer": usage.model_name(chat_model),
+                "query_translation": usage.model_name(translation_model),
+                "embedding": config.EMBEDDING_MODEL,
+            },
+            language=options.language,
+            repeat=options.repeat,
+            started=started,
+            questions_file=options.path.name,
+        ),
+        report.with_suffix(".json"),
+    )
+    print(f"Results file: {results}")
     return 1 if any(run.result.kind == "error" for run in runs) else 0
 
 

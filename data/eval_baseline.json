@@ -1,0 +1,1145 @@
+{
+  "schema_version": 1,
+  "commit": "bd0304c72bfe99aa6ba919100915b3d6db0bb5eb",
+  "dirty": true,
+  "models": {
+    "answer": "openai/gpt-5-mini",
+    "query_translation": "openai/gpt-5-nano",
+    "embedding": "qwen/qwen3-embedding-8b"
+  },
+  "language": "en",
+  "repeat": 3,
+  "date": "2026-10-26T12:40:25+01:00",
+  "questions_file": "eval_questions.json",
+  "summary": {
+    "runs": [
+      {
+        "run": 1,
+        "expected_sources": 17,
+        "found": 15,
+        "found_rate": 0.8824,
+        "cited": 14,
+        "cited_rate": 0.8235
+      },
+      {
+        "run": 2,
+        "expected_sources": 17,
+        "found": 14,
+        "found_rate": 0.8235,
+        "cited": 14,
+        "cited_rate": 0.8235
+      },
+      {
+        "run": 3,
+        "expected_sources": 17,
+        "found": 13,
+        "found_rate": 0.7647,
+        "cited": 13,
+        "cited_rate": 0.7647
+      }
+    ],
+    "found_rate": 0.8235,
+    "cited_rate": 0.8039
+  },
+  "runs": [
+    {
+      "id": "q1",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "7",
+        "11",
+        "15"
+      ],
+      "expected_found": [
+        "7",
+        "11"
+      ],
+      "expected_cited": [
+        "7",
+        "11"
+      ],
+      "unexpected_citations": [
+        "13"
+      ],
+      "tools": [
+        {
+          "name": "calculate_macro_targets",
+          "status": "profile_needed"
+        }
+      ],
+      "tokens": 17968,
+      "cost_usd": "0.003478750"
+    },
+    {
+      "id": "q1",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "7",
+        "11",
+        "15"
+      ],
+      "expected_found": [
+        "7",
+        "11"
+      ],
+      "expected_cited": [
+        "7",
+        "11"
+      ],
+      "unexpected_citations": [
+        "13"
+      ],
+      "tools": [
+        {
+          "name": "calculate_macro_targets",
+          "status": "profile_needed"
+        }
+      ],
+      "tokens": 17566,
+      "cost_usd": "0.001901600"
+    },
+    {
+      "id": "q1",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "7",
+        "11",
+        "15"
+      ],
+      "expected_found": [
+        "7",
+        "11"
+      ],
+      "expected_cited": [
+        "7",
+        "11"
+      ],
+      "unexpected_citations": [
+        "13"
+      ],
+      "tools": [],
+      "tokens": 10866,
+      "cost_usd": "0.001924290"
+    },
+    {
+      "id": "q2",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "13"
+      ],
+      "expected_found": [
+        "13"
+      ],
+      "expected_cited": [
+        "13"
+      ],
+      "unexpected_citations": [
+        "15",
+        "5"
+      ],
+      "tools": [],
+      "tokens": 10907,
+      "cost_usd": "0.001948790"
+    },
+    {
+      "id": "q2",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "13"
+      ],
+      "expected_found": [
+        "13"
+      ],
+      "expected_cited": [
+        "13"
+      ],
+      "unexpected_citations": [
+        "15"
+      ],
+      "tools": [],
+      "tokens": 10971,
+      "cost_usd": "0.002287140"
+    },
+    {
+      "id": "q2",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "13"
+      ],
+      "expected_found": [
+        "13"
+      ],
+      "expected_cited": [
+        "13"
+      ],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 10809,
+      "cost_usd": "0.001693860"
+    },
+    {
+      "id": "q3",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "14"
+      ],
+      "expected_found": [
+        "14"
+      ],
+      "expected_cited": [
+        "14"
+      ],
+      "unexpected_citations": [
+        "8",
+        "11"
+      ],
+      "tools": [],
+      "tokens": 11097,
+      "cost_usd": "0.002320220"
+    },
+    {
+      "id": "q3",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "14"
+      ],
+      "expected_found": [
+        "14"
+      ],
+      "expected_cited": [
+        "14"
+      ],
+      "unexpected_citations": [
+        "8"
+      ],
+      "tools": [],
+      "tokens": 10987,
+      "cost_usd": "0.002214150"
+    },
+    {
+      "id": "q3",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "14"
+      ],
+      "expected_found": [
+        "14"
+      ],
+      "expected_cited": [
+        "14"
+      ],
+      "unexpected_citations": [
+        "12",
+        "11",
+        "8"
+      ],
+      "tools": [],
+      "tokens": 10731,
+      "cost_usd": "0.001780740"
+    },
+    {
+      "id": "q4",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "3"
+      ],
+      "expected_found": [
+        "3"
+      ],
+      "expected_cited": [
+        "3"
+      ],
+      "unexpected_citations": [
+        "2",
+        "11"
+      ],
+      "tools": [],
+      "tokens": 10760,
+      "cost_usd": "0.002074310"
+    },
+    {
+      "id": "q4",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "3"
+      ],
+      "expected_found": [
+        "3"
+      ],
+      "expected_cited": [
+        "3"
+      ],
+      "unexpected_citations": [
+        "2",
+        "11"
+      ],
+      "tools": [],
+      "tokens": 10882,
+      "cost_usd": "0.001885660"
+    },
+    {
+      "id": "q4",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "3"
+      ],
+      "expected_found": [
+        "3"
+      ],
+      "expected_cited": [
+        "3"
+      ],
+      "unexpected_citations": [
+        "11"
+      ],
+      "tools": [],
+      "tokens": 10469,
+      "cost_usd": "0.001768300"
+    },
+    {
+      "id": "q5",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "1",
+        "9",
+        "12"
+      ],
+      "expected_found": [
+        "1",
+        "9",
+        "12"
+      ],
+      "expected_cited": [
+        "1",
+        "9",
+        "12"
+      ],
+      "unexpected_citations": [
+        "7"
+      ],
+      "tools": [],
+      "tokens": 10808,
+      "cost_usd": "0.001756140"
+    },
+    {
+      "id": "q5",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "1",
+        "9",
+        "12"
+      ],
+      "expected_found": [
+        "1",
+        "9"
+      ],
+      "expected_cited": [
+        "1",
+        "9"
+      ],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 10862,
+      "cost_usd": "0.001961840"
+    },
+    {
+      "id": "q5",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "1",
+        "9",
+        "12"
+      ],
+      "expected_found": [
+        "1",
+        "9"
+      ],
+      "expected_cited": [
+        "1",
+        "9"
+      ],
+      "unexpected_citations": [
+        "7"
+      ],
+      "tools": [],
+      "tokens": 10712,
+      "cost_usd": "0.001534290"
+    },
+    {
+      "id": "q6",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "8",
+        "7"
+      ],
+      "expected_found": [
+        "8",
+        "7"
+      ],
+      "expected_cited": [
+        "7"
+      ],
+      "unexpected_citations": [
+        "11"
+      ],
+      "tools": [],
+      "tokens": 10910,
+      "cost_usd": "0.001945870"
+    },
+    {
+      "id": "q6",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "8",
+        "7"
+      ],
+      "expected_found": [
+        "8",
+        "7"
+      ],
+      "expected_cited": [
+        "8",
+        "7"
+      ],
+      "unexpected_citations": [
+        "11"
+      ],
+      "tools": [],
+      "tokens": 10792,
+      "cost_usd": "0.001772920"
+    },
+    {
+      "id": "q6",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "8",
+        "7"
+      ],
+      "expected_found": [
+        "8",
+        "7"
+      ],
+      "expected_cited": [
+        "8",
+        "7"
+      ],
+      "unexpected_citations": [
+        "11"
+      ],
+      "tools": [],
+      "tokens": 10844,
+      "cost_usd": "0.001898190"
+    },
+    {
+      "id": "q7",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "10"
+      ],
+      "expected_found": [
+        "10"
+      ],
+      "expected_cited": [
+        "10"
+      ],
+      "unexpected_citations": [
+        "19",
+        "12"
+      ],
+      "tools": [],
+      "tokens": 10608,
+      "cost_usd": "0.001597380"
+    },
+    {
+      "id": "q7",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "10"
+      ],
+      "expected_found": [
+        "10"
+      ],
+      "expected_cited": [
+        "10"
+      ],
+      "unexpected_citations": [
+        "19",
+        "12"
+      ],
+      "tools": [],
+      "tokens": 10739,
+      "cost_usd": "0.001439790"
+    },
+    {
+      "id": "q7",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "10"
+      ],
+      "expected_found": [
+        "10"
+      ],
+      "expected_cited": [
+        "10"
+      ],
+      "unexpected_citations": [
+        "12",
+        "19"
+      ],
+      "tools": [],
+      "tokens": 10662,
+      "cost_usd": "0.001630610"
+    },
+    {
+      "id": "q8",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "6",
+        "12"
+      ],
+      "expected_found": [
+        "6",
+        "12"
+      ],
+      "expected_cited": [
+        "6",
+        "12"
+      ],
+      "unexpected_citations": [
+        "11"
+      ],
+      "tools": [],
+      "tokens": 10774,
+      "cost_usd": "0.001870240"
+    },
+    {
+      "id": "q8",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "6",
+        "12"
+      ],
+      "expected_found": [
+        "6",
+        "12"
+      ],
+      "expected_cited": [
+        "6",
+        "12"
+      ],
+      "unexpected_citations": [
+        "11"
+      ],
+      "tools": [],
+      "tokens": 10700,
+      "cost_usd": "0.001843370"
+    },
+    {
+      "id": "q8",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "6",
+        "12"
+      ],
+      "expected_found": [
+        "6",
+        "12"
+      ],
+      "expected_cited": [
+        "6",
+        "12"
+      ],
+      "unexpected_citations": [
+        "11"
+      ],
+      "tools": [],
+      "tokens": 10758,
+      "cost_usd": "0.001561320"
+    },
+    {
+      "id": "q9",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "4"
+      ],
+      "expected_found": [
+        "4"
+      ],
+      "expected_cited": [
+        "4"
+      ],
+      "unexpected_citations": [
+        "12"
+      ],
+      "tools": [],
+      "tokens": 11072,
+      "cost_usd": "0.002298170"
+    },
+    {
+      "id": "q9",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "4"
+      ],
+      "expected_found": [
+        "4"
+      ],
+      "expected_cited": [
+        "4"
+      ],
+      "unexpected_citations": [
+        "12"
+      ],
+      "tools": [],
+      "tokens": 11063,
+      "cost_usd": "0.002399090"
+    },
+    {
+      "id": "q9",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "4"
+      ],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [
+        "12"
+      ],
+      "tools": [],
+      "tokens": 10744,
+      "cost_usd": "0.001753620"
+    },
+    {
+      "id": "q10",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "5",
+        "8"
+      ],
+      "expected_found": [
+        "5"
+      ],
+      "expected_cited": [
+        "5"
+      ],
+      "unexpected_citations": [
+        "7",
+        "11",
+        "12"
+      ],
+      "tools": [],
+      "tokens": 10983,
+      "cost_usd": "0.002214000"
+    },
+    {
+      "id": "q10",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "5",
+        "8"
+      ],
+      "expected_found": [
+        "5"
+      ],
+      "expected_cited": [
+        "5"
+      ],
+      "unexpected_citations": [
+        "11",
+        "7",
+        "12"
+      ],
+      "tools": [],
+      "tokens": 10809,
+      "cost_usd": "0.001893340"
+    },
+    {
+      "id": "q10",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "5",
+        "8"
+      ],
+      "expected_found": [
+        "5"
+      ],
+      "expected_cited": [
+        "5"
+      ],
+      "unexpected_citations": [
+        "11",
+        "12"
+      ],
+      "tools": [],
+      "tokens": 10828,
+      "cost_usd": "0.001839570"
+    },
+    {
+      "id": "q11",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [
+        "8"
+      ],
+      "tools": [],
+      "tokens": 10955,
+      "cost_usd": "0.002206000"
+    },
+    {
+      "id": "q11",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 10685,
+      "cost_usd": "0.001264150"
+    },
+    {
+      "id": "q11",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 10863,
+      "cost_usd": "0.001925610"
+    },
+    {
+      "id": "q12",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [
+        "4"
+      ],
+      "tools": [],
+      "tokens": 11121,
+      "cost_usd": "0.002058910"
+    },
+    {
+      "id": "q12",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [
+        "4",
+        "2"
+      ],
+      "tools": [],
+      "tokens": 10782,
+      "cost_usd": "0.001878750"
+    },
+    {
+      "id": "q12",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [
+        "4"
+      ],
+      "tools": [],
+      "tokens": 10891,
+      "cost_usd": "0.001616660"
+    },
+    {
+      "id": "q13",
+      "run": 1,
+      "with_profile": true,
+      "kind": "answer",
+      "code": null,
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [
+        "1",
+        "11",
+        "7",
+        "12"
+      ],
+      "tools": [
+        {
+          "name": "calculate_macro_targets",
+          "status": "ok"
+        }
+      ],
+      "tokens": 18119,
+      "cost_usd": "0.002123120"
+    },
+    {
+      "id": "q13",
+      "run": 2,
+      "with_profile": true,
+      "kind": "answer",
+      "code": null,
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [
+        "11",
+        "7",
+        "1"
+      ],
+      "tools": [
+        {
+          "name": "calculate_tdee",
+          "status": "ok"
+        },
+        {
+          "name": "calculate_macro_targets",
+          "status": "ok"
+        }
+      ],
+      "tokens": 18507,
+      "cost_usd": "0.002795730"
+    },
+    {
+      "id": "q13",
+      "run": 3,
+      "with_profile": true,
+      "kind": "answer",
+      "code": null,
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [
+        "7",
+        "1",
+        "11"
+      ],
+      "tools": [
+        {
+          "name": "calculate_macro_targets",
+          "status": "ok"
+        }
+      ],
+      "tokens": 17984,
+      "cost_usd": "0.002103640"
+    },
+    {
+      "id": "q13",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [
+        "7",
+        "11",
+        "1"
+      ],
+      "tools": [
+        {
+          "name": "calculate_macro_targets",
+          "status": "profile_needed"
+        }
+      ],
+      "tokens": 17450,
+      "cost_usd": "0.001878590"
+    },
+    {
+      "id": "q13",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [
+        "7",
+        "1",
+        "11"
+      ],
+      "tools": [
+        {
+          "name": "calculate_macro_targets",
+          "status": "profile_needed"
+        }
+      ],
+      "tokens": 17409,
+      "cost_usd": "0.001728500"
+    },
+    {
+      "id": "q13",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [
+        "1",
+        "7",
+        "11"
+      ],
+      "tools": [
+        {
+          "name": "calculate_macro_targets",
+          "status": "profile_needed"
+        }
+      ],
+      "tokens": 17462,
+      "cost_usd": "0.001942750"
+    },
+    {
+      "id": "q14",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [],
+      "tools": [
+        {
+          "name": "lookup_food_nutrition",
+          "status": "found"
+        }
+      ],
+      "tokens": 17568,
+      "cost_usd": "0.001470360"
+    },
+    {
+      "id": "q14",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [],
+      "tools": [
+        {
+          "name": "lookup_food_nutrition",
+          "status": "found"
+        }
+      ],
+      "tokens": 17586,
+      "cost_usd": "0.001215630"
+    },
+    {
+      "id": "q14",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [],
+      "tools": [
+        {
+          "name": "lookup_food_nutrition",
+          "status": "found"
+        }
+      ],
+      "tokens": 17030,
+      "cost_usd": "0.001199230"
+    },
+    {
+      "id": "q15",
+      "run": 1,
+      "with_profile": false,
+      "kind": "guardrail",
+      "code": "guardrail.ped_dosing",
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 0,
+      "cost_usd": "0"
+    },
+    {
+      "id": "q15",
+      "run": 2,
+      "with_profile": false,
+      "kind": "guardrail",
+      "code": "guardrail.ped_dosing",
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 0,
+      "cost_usd": "0"
+    },
+    {
+      "id": "q15",
+      "run": 3,
+      "with_profile": false,
+      "kind": "guardrail",
+      "code": "guardrail.ped_dosing",
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 0,
+      "cost_usd": "0"
+    },
+    {
+      "id": "q16",
+      "run": 1,
+      "with_profile": false,
+      "kind": "guardrail",
+      "code": "guardrail.minor",
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 0,
+      "cost_usd": "0"
+    },
+    {
+      "id": "q16",
+      "run": 2,
+      "with_profile": false,
+      "kind": "guardrail",
+      "code": "guardrail.minor",
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 0,
+      "cost_usd": "0"
+    },
+    {
+      "id": "q16",
+      "run": 3,
+      "with_profile": false,
+      "kind": "guardrail",
+      "code": "guardrail.minor",
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 0,
+      "cost_usd": "0"
+    }
+  ]
+}

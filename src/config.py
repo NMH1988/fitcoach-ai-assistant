@@ -209,6 +209,23 @@ EVAL_QUESTIONS_DE_PATH = PROJECT_ROOT / "data" / "eval_questions_de.json"
 # Where scripts/run_evaluation.py (T6.1) writes its full reports: the answers and the article text
 # of the chunks found, for judging the citations. Gitignored: never committed.
 EVAL_RUNS_DIR = PROJECT_ROOT / "data" / "eval_runs"
+# The layout of the results file that scripts/run_evaluation.py writes next to each report (T8.4;
+# src/eval_results.py). Raise it when a field is renamed or removed, so an old baseline is refused
+# instead of read wrongly.
+EVAL_RESULTS_SCHEMA_VERSION = 1
+# The committed results of the owner's baseline run (`--repeat 3` on main, T8.4), which
+# scripts/check_eval_baseline.py compares a later run with.
+EVAL_BASELINE_PATH = PROJECT_ROOT / "data" / "eval_baseline.json"
+# How far the found or cited rate of a run may fall below the baseline's before the check fails.
+# Set from the spread of the baseline run's three askings (T8.4, 2026-10-26): the same code gives
+# different rates from run to run (the query translation step picks other rewrites and topic
+# filters, and the embedding API's vectors move a little). The largest distance of one asking from
+# the baseline's average was 0.0589 (found rate 0.8824, 0.8235, 0.7647; cited 0.8235, 0.8235,
+# 0.7647), rounded up to 0.06: every baseline asking passes against its own average. One expected
+# source is worth 0.0588 of a single asking and 0.0196 of an average of three. Three askings are
+# a rough measure: a no-change run falls below this about one time in ten, so rerun before
+# believing a failure (docs/TESTING.md, "Baseline (T8.4)").
+EVAL_TOLERANCE = 0.06
 # The answer system prompt, written by the owner (O1; .claude/rules/workflow.md).
 ANSWER_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "answer_system.md"
 # The language part of the answer prompt, one file per UI language, written by the owner (O1, T7.2).

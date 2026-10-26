@@ -1,0 +1,274 @@
+"""The results file of an evaluation run (T8.4): what each question gave, with no text in it.
+
+Written by scripts/run_evaluation.py next to its Markdown report and read by
+scripts/check_eval_baseline.py. The report holds the answers and the article text, so it is never
+committed; this file holds only IDs, labels, counts and the run's details, so the owner can commit
+one run as the baseline (data/eval_baseline.json).
+"""
+
+import json
+import subprocess
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
+from pathlib import Path
+
+from src import config
+
+# How long git may take to answer; it only reads the repository's own state.
+GIT_TIMEOUT_SECONDS = 10
+
+
+@dataclass(frozen=True)
+class RunRecord:
+    """One question asked once, as the results file records it (IDs and counts, no text)."""
+
+    # The question's ID (e.g. q13) and which asking of it this was, from 1 to --repeat.
+    id: str
+    run: int
+    with_profile: bool
+    # How the turn ended and its fixed message's code (chat.TurnResult.kind and .code).
+    kind: str
+    code: str | None
+    # The sources the question should find, those of them found among the chunks the answer model
+    # got, those of them the answer cites, and the cited sources that are not expected at all.
+    expected: tuple[str, ...]
+    expected_found: tuple[str, ...]
+    expected_cited: tuple[str, ...]
+    unexpected_citations: tuple[str, ...]
+    # The tools the model called, as (name, status); a name that is not a real tool is "unknown".
+    tools: tuple[tuple[str, str], ...]
+    tokens: int
+    # The cost in dollars as plain text, or None when a price was unknown.
+    cost_usd: str | None
+
+    def as_dict(self) -> dict:
+        """Return the record as the plain dict that is written to the file."""
+        return {
+            "id": self.id,
+            "run": self.run,
+            "with_profile": self.with_profile,
+            "kind": self.kind,
+            "code": self.code,
+            "expected": list(self.expected),
+            "expected_found": list(self.expected_found),
+            "expected_cited": list(self.expected_cited),
+            "unexpected_citations": list(self.unexpected_citations),
+            "tools": [{"name": name, "status": status} for name, status in self.tools],
+            "tokens": self.tokens,
+            "cost_usd": self.cost_usd,
+        }
+
+
+@dataclass(frozen=True)
+class GitState:
+    """The code an evaluation ran on: its commit and whether tracked files differ from it."""
+
+    # Both None when git could not say (no git, not a repository).
+    commit: str | None
+    dirty: bool | None
+
+
+def cost_text(cost: Decimal | None) -> str | None:
+    """Return a cost as plain decimal text (no exponent), or None when the price was unknown."""
+    return None if cost is None else format(cost, "f")
+
+
+def git_state(
+    folder: Path, run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run
+) -> GitState:
+    """Return the HEAD commit of the repository at `folder` and whether tracked files changed."""
+    try:
+        head = _git(run, folder, "rev-parse", "HEAD")
+        status = _git(run, folder, "status", "--porcelain", "--untracked-files=no")
+    except OSError, subprocess.SubprocessError:
+        return GitState(None, None)
+    commit = head.strip()
+    if len(commit) != 40 or any(char not in "0123456789abcdef" for char in commit):
+        return GitState(None, None)
+    return GitState(commit, bool(status.strip()))
+
+
+def _git(run: Callable[..., subprocess.CompletedProcess[str]], folder: Path, *args: str) -> str:
+    """Return a git command's output for the repository at `folder`; raise if it fails."""
+    done = run(
+        ["git", "-C", str(folder), *args],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=GIT_TIMEOUT_SECONDS,
+        check=False,
+    )
+    if done.returncode != 0:
+        raise subprocess.CalledProcessError(done.returncode, done.args)
+    return done.stdout
+
+
+def _rate(part: int, whole: int) -> float:
+    """Return part / whole to four decimals, so the file is short and a rate reads back the same."""
+    return round(part / whole, 4)
+
+
+def summarise(records: Sequence[RunRecord]) -> dict:
+    """Return the found and cited rate of each run and their averages, over the scored questions."""
+    # A question is scored when it has expected sources. A rate counts expected sources, not
+    # questions: of all the sources the scored questions expect in a run, the share found among
+    # the chunks the answer model got, and the share the answer cites. A run that ended in an
+    # error found and cited nothing, so it counts as missed. `run` is the asking's number.
+    runs = []
+    found_rates, cited_rates = [], []
+    for number in sorted({record.run for record in records if record.expected}):
+        scored = [record for record in records if record.run == number and record.expected]
+        expected = sum(len(record.expected) for record in scored)
+        found = sum(len(record.expected_found) for record in scored)
+        cited = sum(len(record.expected_cited) for record in scored)
+        found_rates.append(found / expected)
+        cited_rates.append(cited / expected)
+        runs.append(
+            {
+                "run": number,
+                "expected_sources": expected,
+                "found": found,
+                "found_rate": _rate(found, expected),
+                "cited": cited,
+                "cited_rate": _rate(cited, expected),
+            }
+        )
+    if not runs:
+        return {"runs": [], "found_rate": None, "cited_rate": None}
+    return {
+        "runs": runs,
+        # Averaged from the exact rates, not the rounded ones in the rows.
+        "found_rate": _rate(sum(found_rates), len(runs)),
+        "cited_rate": _rate(sum(cited_rates), len(runs)),
+    }
+
+
+def results_document(
+    records: Sequence[RunRecord],
+    *,
+    git: GitState,
+    models: Mapping[str, str],
+    language: str,
+    repeat: int,
+    started: datetime,
+    questions_file: str,
+) -> dict:
+    """Return the whole results file: the run's details, then every run's record."""
+    return {
+        "schema_version": config.EVAL_RESULTS_SCHEMA_VERSION,
+        "commit": git.commit,
+        "dirty": git.dirty,
+        "models": dict(models),
+        "language": language,
+        "repeat": repeat,
+        "date": started.astimezone().isoformat(timespec="seconds"),
+        "questions_file": questions_file,
+        "summary": summarise(records),
+        "runs": [record.as_dict() for record in records],
+    }
+
+
+def write_results(document: Mapping, path: Path) -> Path:
+    """Write the results document as JSON at `path` (its folder is made) and return the path."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+class ResultsFileError(ValueError):
+    """A results file is missing, broken or cannot be compared; `str()` says which."""
+
+
+def _is_rate(value: object) -> bool:
+    """Return True for a number from 0 to 1 (a bool and NaN are not)."""
+    return isinstance(value, int | float) and not isinstance(value, bool) and 0 <= value <= 1
+
+
+def load_results(path: Path) -> dict:
+    """Read a results file and check the parts the comparison needs; raise ResultsFileError."""
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        hint = " Take one with `python -m scripts.run_evaluation --repeat 3`."
+        raise ResultsFileError(f"No results file at {path}.{hint}") from None
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ResultsFileError(f"Could not read {path}: {exc}") from None
+    if not isinstance(document, dict):
+        raise ResultsFileError(f"{path} must hold a JSON object.")
+    summary = document.get("summary")
+    if not isinstance(summary, dict):
+        raise ResultsFileError(f"{path} has no summary.")
+    for name in ("found_rate", "cited_rate"):
+        rate = summary.get(name)
+        if rate is not None and not _is_rate(rate):
+            raise ResultsFileError(f"{path} has a {name} that is not a number from 0 to 1.")
+    if not isinstance(document.get("runs"), list):
+        raise ResultsFileError(f"{path} has no list of runs.")
+    return document
+
+
+@dataclass(frozen=True)
+class Comparison:
+    """What the check found: the lines to print and which rates fell below their limit."""
+
+    lines: tuple[str, ...]
+    below: tuple[str, ...]
+
+
+def _scored(document: Mapping) -> dict[str, tuple]:
+    """Return each scored question's ID with its expected sources, from a results file's runs."""
+    return {
+        str(run.get("id")): tuple(run["expected"])
+        for run in document["runs"]
+        if isinstance(run, dict) and run.get("expected")
+    }
+
+
+def _code(document: Mapping) -> str:
+    """Return a results file's commit in short form, and say when its files had changed."""
+    commit = document.get("commit")
+    text = f"commit {commit[:7]}" if isinstance(commit, str) and commit else "commit unknown"
+    return text + (" (files changed since)" if document.get("dirty") else "")
+
+
+def compare(results: Mapping, baseline: Mapping, tolerance: float) -> Comparison:
+    """Compare a run's average rates with the baseline's; raise ResultsFileError if unlike."""
+    # The run and the baseline must have the same schema, the same answer language and the same
+    # scored questions with the same expected sources: a new or changed question changes the
+    # baseline and needs a new owner run (T8.4). A rate fails when it is below the baseline's
+    # minus the tolerance; the limit itself passes.
+    if results.get("schema_version") != baseline.get("schema_version"):
+        raise ResultsFileError("The results and the baseline have a different schema version.")
+    if results.get("language") != baseline.get("language"):
+        raise ResultsFileError(
+            f"The results are in language {results.get('language')!r}, "
+            f"the baseline's in {baseline.get('language')!r}."
+        )
+    if _scored(results) != _scored(baseline):
+        raise ResultsFileError(
+            "The results and the baseline score different questions or expect different "
+            "sources: a new owner run is needed."
+        )
+    lines = [f"baseline: {_code(baseline)}", f"results: {_code(results)}"]
+    if results.get("models") != baseline.get("models"):
+        lines.append("note: the models differ from the baseline's")
+    if results.get("repeat") != baseline.get("repeat"):
+        lines.append(
+            f"note: --repeat is {results.get('repeat')}, the baseline's is {baseline.get('repeat')}"
+        )
+    below = []
+    for name, label in (("found_rate", "found rate"), ("cited_rate", "cited rate")):
+        rate, base = results["summary"].get(name), baseline["summary"].get(name)
+        if rate is None or base is None:
+            raise ResultsFileError("A file has no scored question, so it has no rate to compare.")
+        lowest = max(round(base - tolerance, 6), 0)
+        ok = round(rate, 6) >= lowest
+        lines.append(
+            f"{label}: {rate:.4f} (baseline {base:.4f}, lowest allowed {lowest:.4f}): "
+            + ("ok" if ok else "BELOW")
+        )
+        if not ok:
+            below.append(label)
+    return Comparison(tuple(lines), tuple(below))

@@ -72,6 +72,7 @@ src/
   observability.py          the JSON log lines: formatter with an allowlist of fields, configure_logging() (T8.2)
   export_pdf.py             session summary PDF, built in memory
   eval_questions.py         the evaluation questions' format and loader (T3.6, T6.1)
+  eval_results.py           the evaluation's results file: records with IDs and counts only, found and cited rates, the comparison with the baseline (T8.4)
   rag/
     sources.py              manifest model, licence and DOI check on article XML, ATTRIBUTION.md text
     ingest.py               JATS XML -> text sections -> chunks with metadata
@@ -92,12 +93,14 @@ scripts/
   live_check_llm.py         owner's live check: one real chat and one real embedding call
   live_check_retrieval.py   owner's live check: distances of the nearest chunks, to set the limit
   compare_retrieval.py      owner's live check: vector-only, keyword-only and hybrid hit rates (T3.3; run in T3.6)
-  run_evaluation.py         owner's live check: the evaluation questions through the app's whole chat turn (T6.1)
+  run_evaluation.py         owner's live check: the evaluation questions through the app's whole chat turn (T6.1); also writes the results file (T8.4)
+  check_eval_baseline.py    compares a results file with data/eval_baseline.json; exit 1 below the baseline minus the tolerance (T8.4; needs no key)
 data/
   sources.json              manifest of approved sources (committed)
   usda_foods.csv            trimmed USDA table (committed, CC0)
   eval_questions.json       the owner's evaluation questions and expected sources (O2; T3.6, T6.1; loaded by src/eval_questions.py)
-  eval_runs/                full reports of the evaluation run (gitignored, T6.1)
+  eval_runs/                full reports of the evaluation run, each with its results .json beside it (gitignored: the report holds article text, T6.1)
+  eval_baseline.json        the results of the owner's baseline run, committed: IDs and counts only (T8.4)
   raw/                      downloaded article XML (gitignored)
 chroma/                     vector index (gitignored, rebuilt by the script)
 assets/fonts/               DejaVu Sans for the summary PDF, with its LICENSE and a README (T5.2)
@@ -129,7 +132,7 @@ tests/
 
 - **Why:** users ask short or vague questions ("bulk diet?"). Several rewrites ("energy surplus for muscle gain", "protein intake during a bulking phase", ...) find chunks that one phrasing would miss. They widen the search for a question the sources cover, but do not decide whether they cover it: that is the question's own nearest chunk (T3.8), as one rewrite of an off-topic question can drift into the domain.
 - **How:** one structured-output call returns `{"queries": [3 strings], "topics": [...], "min_year": int | null, "evidence_tier": 1 | 2 | null}`. The filters are the brief's "structured retrieval": Chroma's `where` filter and the same filter on the BM25 candidate set.
-- **Hybrid search (Hard 1):** vectors catch meaning, BM25 catches exact terms (food names, "HMB", "creatine monohydrate"). RRF merges the ranked lists without needing comparable scores: each chunk scores the sum of `1 / (60 + rank)` over the lists it appears in. **Per-source cap (T8.3):** after ranking, a source keeps its best `MAX_CHUNKS_PER_SOURCE` (3) chunks before the cut to `RETRIEVAL_TOP_K` (6), so one article cannot fill every place (the Sprint 2 review's point 4); chunks over the cap fill the list in fused order only when too few other sources are left, after the kept chunks. The candidate lists are not longer than before (`RETRIEVAL_TOP_K` each), so a source that no list ranks in its top six still cannot get in. In the live check of 2026-10-26 q5 and q10 still missed their second source (#12, #8), probably for this reason (a reading of the lists, not proven by the runs); whether to use longer lists or MMR is open, for the owner to decide before T8.4's baseline (`docs/TESTING.md`, "Per-source cap results (T8.3)").
+- **Hybrid search (Hard 1):** vectors catch meaning, BM25 catches exact terms (food names, "HMB", "creatine monohydrate"). RRF merges the ranked lists without needing comparable scores: each chunk scores the sum of `1 / (60 + rank)` over the lists it appears in. **Per-source cap (T8.3):** after ranking, a source keeps its best `MAX_CHUNKS_PER_SOURCE` (3) chunks before the cut to `RETRIEVAL_TOP_K` (6), so one article cannot fill every place (the Sprint 2 review's point 4); chunks over the cap fill the list in fused order only when too few other sources are left, after the kept chunks. The candidate lists are not longer than before (`RETRIEVAL_TOP_K` each), so a source that no list ranks in its top six still cannot get in. In the live check of 2026-10-26 q5 and q10 still missed their second source (#12, #8) in the app. The owner's depth measurement the same day (O13: the question searched alone, lists up to 30 long) shows two different causes. For q10, #8 is in neither the 30 nearest vector chunks nor the top 30 by keyword, so no longer list brings it in. For q5, #12 is already in the fused top 6 at the current list length, so its miss in the app comes from what the app adds to the search, the query translation step's rewrites and topic filters, which change from run to run (in the T8.4 baseline run q5 found #12 once in three askings, with the narrower topic filter; no tier filter was set in any of them). Applying the rule the owner approved on 2026-10-26 (lengthen the lists only if both sources reach the top 15-20), the lists stay `RETRIEVAL_TOP_K` long and T8.4's baseline is taken on this retrieval (`docs/TESTING.md`, "Candidate depth (T8.3 follow-up)").
 
 ## 6. Tools
 
