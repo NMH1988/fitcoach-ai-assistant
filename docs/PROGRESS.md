@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-26 · T8.3 At most three chunks per source in the fused list · #<PR> (closes #92)
+## 2026-10-26 · T8.3 At most three chunks per source in the fused list · #122 (closes #92)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): the Sprint 2 review, point 4 (one article can fill all six retrieved places). Sprint 2 (`docs/BRIEF.md`): Hard 1 (hybrid search) and core 1 (RAG), which it improves.
 - **What:**
   - `src/config.py`: `MAX_CHUNKS_PER_SOURCE = 3`.
