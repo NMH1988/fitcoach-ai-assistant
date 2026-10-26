@@ -36,7 +36,7 @@ dev = [
     "httpx2==2.14.0",
     "pip-audit==2.10.1",
     # Reads the session summary PDF's text back in the tests (T5.2).
-    "pypdf==6.21.1",
+    "pypdf==6.21.2",
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
     "ruff==0.17.1",
