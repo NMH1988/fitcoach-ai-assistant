@@ -8,6 +8,7 @@ from src.rag import hybrid
 from src.rag.retriever import RetrievedChunk, chunk_key
 from src.rag.store import IndexNotReadyError
 from tests.fakes import build_fixture_index, open_fixture_index
+from tests.fakes import chunk as fixture_chunk
 
 
 def _chunk(source_id: str, index: int = 0, distance: float | None = None) -> RetrievedChunk:
@@ -85,6 +86,85 @@ def test_rrf_keeps_the_vector_distance_of_a_chunk_also_found_by_keyword():
     """A chunk found by both searches keeps its cosine distance, not the keyword list's None."""
     by_keyword, by_vector = _chunk("1"), _chunk("1", distance=0.3)
     assert hybrid.rrf([[by_keyword], [by_vector]])[0].distance == 0.3
+
+
+def _sources_of(chunks: list[RetrievedChunk]) -> list[str]:
+    """Return the chunks' source IDs, in order."""
+    return [str(chunk.metadata["source_id"]) for chunk in chunks]
+
+
+def test_the_cap_is_three_chunks_per_source():
+    """The configured cap is three, and the list is still six long."""
+    assert config.MAX_CHUNKS_PER_SOURCE == 3
+    assert config.RETRIEVAL_TOP_K == 6
+
+
+def test_rrf_keeps_at_most_three_chunks_of_a_source_then_fills_with_the_skipped_ones():
+    """Six chunks of A and two of B give 3 A, 2 B, then the first skipped A to fill the place."""
+    a_chunks = [_chunk("A", n) for n in range(6)]
+    b_chunks = [_chunk("B", n) for n in range(2)]
+    fused = hybrid.rrf([[*a_chunks, *b_chunks]])
+    assert _sources_of(fused) == ["A", "A", "A", "B", "B", "A"]
+    assert [chunk_key(chunk) for chunk in fused] == ["A-0", "A-1", "A-2", "B-0", "B-1", "A-3"]
+
+
+def test_rrf_with_enough_other_sources_leaves_the_skipped_chunks_out():
+    """When other sources fill the places, no chunk over the cap is added."""
+    a_chunks = [_chunk("A", n) for n in range(5)]
+    others = [_chunk("B", 0), _chunk("C", 0), _chunk("D", 0)]
+    fused = hybrid.rrf([[*a_chunks, *others]])
+    assert _sources_of(fused) == ["A", "A", "A", "B", "C", "D"]
+
+
+def test_rrf_with_one_source_still_gives_six_chunks():
+    """A single-source list is not shortened: the skipped chunks fill the places in fused order."""
+    only_a = [_chunk("A", n) for n in range(8)]
+    fused = hybrid.rrf([only_a])
+    assert [chunk_key(chunk) for chunk in fused] == [f"A-{n}" for n in range(6)]
+
+
+def test_rrf_cap_keeps_the_order_of_equal_scores():
+    """With equal scores the nearer chunk comes first, then the first found, capped or not."""
+    a_near, a_next = _chunk("A", 0, distance=0.1), _chunk("A", 1, distance=0.15)
+    b_near, b_far = _chunk("B", 0, distance=0.2), _chunk("B", 1, distance=0.3)
+    # Four lists of one chunk each: equal scores, so the distance decides. The cap drops A's second.
+    lists = [[b_far], [a_next], [b_near], [a_near]]
+    assert hybrid.rrf(lists, k=2, max_per_source=2) == [a_near, a_next]
+    assert hybrid.rrf(lists, k=2, max_per_source=1) == [a_near, b_near]
+    # No distances at all: the order found decides, and the fill follows it.
+    found = [_chunk("A", 0), _chunk("A", 1), _chunk("B", 0), _chunk("B", 1)]
+    fused = hybrid.rrf([[chunk] for chunk in found], k=3, max_per_source=1)
+    assert [chunk_key(chunk) for chunk in fused] == ["A-0", "B-0", "A-1"]
+
+
+def test_rrf_cap_keeps_the_smallest_distance_of_each_chunk():
+    """A kept chunk found by keyword and by vector keeps its vector distance."""
+    by_keyword, by_vector = _chunk("A", 0), _chunk("A", 0, distance=0.3)
+    other = [_chunk("A", n) for n in range(1, 5)]
+    fused = hybrid.rrf([[by_keyword, *other], [by_vector]])
+    assert fused[0].distance == 0.3
+
+
+def test_rrf_cap_can_be_set_per_call():
+    """A cap of one gives one chunk per source first, then the fill."""
+    fused = hybrid.rrf(
+        [[_chunk("A", 0), _chunk("A", 1), _chunk("B", 0), _chunk("A", 2)]], max_per_source=1
+    )
+    assert [chunk_key(chunk) for chunk in fused] == ["A-0", "B-0", "A-1", "A-2"]
+
+
+def test_hybrid_search_lets_a_second_source_in_before_a_fourth_chunk_of_the_first(tmp_path):
+    """Five chunks of source 7 sit nearer than source 6's, which still comes fourth, not last."""
+    chunks = [fixture_chunk("7", n, f"Protein note {n}: training.") for n in range(5)]
+    # "Proteins" counts for the keyword embeddings but is not the search word "protein".
+    chunks.append(fixture_chunk("6", 0, "Proteins and sleep."))
+    index = open_fixture_index(build_fixture_index(tmp_path / "chroma", chunks))
+    vectors = index.embeddings.embed_documents(["protein"])
+    fused = hybrid.hybrid_search(
+        index, ["protein"], vectors, None, lambda built: hybrid.build_keyword_index(built)
+    )
+    assert _sources_of(fused) == ["7", "7", "7", "6", "7", "7"]
+    assert fused[3].distance is not None and fused[3].distance > fused[2].distance
 
 
 def test_rrf_of_no_lists_is_empty():

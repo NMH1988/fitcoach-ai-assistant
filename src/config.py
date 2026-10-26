@@ -196,6 +196,10 @@ RETRIEVAL_MAX_DISTANCE = 0.62
 # ranked lists it is in (rank 1 is the top). 60 is the constant of the original RRF paper; it
 # keeps one list's top rank from outweighing a chunk that several lists rank a little lower.
 RRF_K = 60
+# The most chunks of one source that come first in the fused list (T8.3): without a cap one article
+# filled all six places (q2, q3, q10) and a second source never reached the answer model. Chunks
+# over the cap are only used, in fused order, when too few other sources are left to fill the list.
+MAX_CHUNKS_PER_SOURCE = 3
 # The owner's evaluation questions (O2), each with the sources it should find; read by
 # scripts/compare_retrieval.py (T3.3) and the evaluation run (T6.1).
 EVAL_QUESTIONS_PATH = PROJECT_ROOT / "data" / "eval_questions.json"
