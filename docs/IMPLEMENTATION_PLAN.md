@@ -733,7 +733,7 @@ Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this 
 **Notes:** no UI here: T9.5 adds the first screens. Was "Long-term memory: the store and the My data view"; reworked by T9.1 for the coach-first scope, and moved before T9.5 so sign-in has a store to write to. PostgreSQL replaces this module in the Capstone.
 
 ### T9.5 Sign in with Google, roles, guest and demo mode, My data (L) · status: todo · issue #100
-**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Medium 4 (authentication and personalisation), core 3; Sprint 2 (`docs/BRIEF.md`): Medium 4.
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Medium 4 (authentication and personalisation), core 3; Sprint 2 (`docs/BRIEF.md`): Medium 4, Medium 7 (the "My data" export as JSON, through T9.6's `export_user_data()`; owner's choice, 2026-10-27).
 **Depends on:** T9.6, T8.1, O9
 **Acceptance criteria**
 - [ ] `streamlit[auth]` (Authlib) is pinned after its licence is checked (rule 9) - review, CI install.

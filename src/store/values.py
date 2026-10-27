@@ -89,6 +89,13 @@ def whole_number(value: object, field: str, *, minimum: int = 0, maximum: int | 
     return value
 
 
+def is_row_id(value: object) -> bool:
+    """Return True for an integer that can be a row ID (1 to SQLite's largest INTEGER)."""
+    return (
+        isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= SQLITE_INTEGER_MAX
+    )
+
+
 def in_range(value: object, field: str, bounds: tuple[float, float]) -> float:
     """Return a finite number from bounds[0] to bounds[1], both included."""
     number_ = number(value, field)

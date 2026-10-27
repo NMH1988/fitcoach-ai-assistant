@@ -175,7 +175,7 @@ def test_a_review_is_decided_once(store_conn, relationships):
     """A decided review, or a review ID that does not exist, gives NotFound."""
     review_id = _save(store_conn)
     reviews.decide_review(store_conn, world.COACH_A, review_id, "approve")
-    for target in (review_id, 999, None, "1"):
+    for target in (review_id, 999, None, "1", 0, 2**64):
         with pytest.raises(access.NotFound):
             reviews.decide_review(store_conn, world.COACH_A, target, "reject")
     assert len(_audit_rows(store_conn)) == 1
@@ -232,6 +232,8 @@ def test_a_coachs_own_list_and_export_hide_a_client_no_longer_sharing(
     document = json.loads(my_data.export_user_data(store_conn, world.COACH_A))
     assert document["ai_reviews"] == [] and document["ai_evidence_refs"] == []
     assert "CANARY-DRAFT" not in json.dumps(document)
+    # The export read nothing about the client, so it audited nothing either.
+    assert _audit_rows(store_conn) == []
 
 
 def test_an_edited_draft_never_reaches_the_gymer(store_conn, relationships):

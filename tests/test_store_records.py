@@ -330,26 +330,38 @@ def test_a_target_cannot_claim_to_be_set_by_a_coach(gymers):
         )
 
 
-@pytest.mark.parametrize("field", ["fdc_id", "grams"])
-def test_a_number_too_large_for_sqlite_is_a_store_value_error(gymers, field):
-    """10**30 is refused with the field's name, not an OverflowError from sqlite3."""
-    item = {
-        "consumed_on": DAY,
-        "meal": "lunch",
-        "fdc_id": 1,
-        "food_name": "Oats",
-        "grams": 100.0,
-        "kcal": 381.0,
-        "protein_g": 13.3,
-        "carbohydrate_g": 67.6,
-        "fat_g": 6.5,
-        "fiber_g": None,
-    }
-    if field == "fdc_id":
-        with pytest.raises(values.StoreValueError, match="fdc_id"):
-            records.add_meal_item(gymers, GYMER, **{**item, "fdc_id": 10**30})
-    else:
-        records.add_meal_item(gymers, GYMER, **{**item, "grams": 10**30})  # a REAL holds it
+MEAL = {
+    "consumed_on": DAY,
+    "meal": "lunch",
+    "fdc_id": 1,
+    "food_name": "Oats",
+    "grams": 100.0,
+    "kcal": 381.0,
+    "protein_g": 13.3,
+    "carbohydrate_g": 67.6,
+    "fat_g": 6.5,
+    "fiber_g": None,
+}
+
+
+def test_an_integer_too_large_for_sqlite_is_a_store_value_error(gymers):
+    """An fdc_id of 10**30 is refused with the field's name, not an OverflowError from sqlite3."""
+    with pytest.raises(values.StoreValueError, match="fdc_id"):
+        records.add_meal_item(gymers, GYMER, **{**MEAL, "fdc_id": 10**30})
+
+
+def test_a_large_real_number_fits_in_sqlite(gymers):
+    """10**30 grams fits in a REAL, so the store keeps it (T9.13's form sets the grams' range)."""
+    records.add_meal_item(gymers, GYMER, **{**MEAL, "grams": 10**30})
+    [meal] = records.list_meal_items(gymers, GYMER, GYMER)
+    assert meal["grams"] == 1e30
+
+
+@pytest.mark.parametrize("record_id", [0, -1, 2**64])
+def test_a_record_id_that_cannot_exist_is_not_found(gymers, record_id):
+    """An ID below 1 or beyond SQLite's INTEGER is NotFound, like any unknown ID."""
+    with pytest.raises(access.NotFound):
+        records.delete_record(gymers, GYMER, "preferences", record_id)
 
 
 @pytest.mark.parametrize(

@@ -6,8 +6,10 @@ other case raises the same `NotFound` and writes no audit row. A coach's allowed
 audit row with no values.
 """
 
+import ast
 import importlib
 import inspect
+import re
 from pathlib import Path
 
 import pytest
@@ -89,19 +91,55 @@ INTERNALS = {
     "access.authorise_read",
     "access.authorised_read",
     "access.role_of",
-    *(f"values.{name}" for name in ("choice", "date_text", "in_range", "number", "text")),
-    *(f"values.{name}" for name in ("user_id", "utc_text", "whole_number")),
+    *(f"values.{name}" for name in ("choice", "date_text", "in_range", "is_row_id", "number")),
+    *(f"values.{name}" for name in ("text", "user_id", "utc_text", "whole_number")),
 }
 
 
-def test_the_sharing_rule_is_written_once():
-    """Only the open_shares view tests a relationship's status; every query reads the view."""
+# SQL that filters on a relationship being active, however it is spelt: any alias, spacing,
+# case, a comparison or IN. Writing 'active' as a value (INSERT ... VALUES) is not a filter.
+ACTIVE_FILTER = re.compile(r"status\s*(=|==|<>|!=|\bIN\b)\s*\(?\s*'active'", re.IGNORECASE)
+
+
+def _sql_texts(path: Path) -> list[str]:
+    """Return every string literal in a module (its SQL constants among them)."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    return [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    ]
+
+
+def test_only_the_view_filters_on_an_active_relationship():
+    """No SQL outside schema.py filters on status 'active': sharing is read from open_shares."""
     for path in sorted(STORE.rglob("*.py")):
-        text = path.read_text(encoding="utf-8")
-        if path.name != "schema.py":
-            assert "status = 'active'" not in text and "relationship.status" not in text, path
+        if path.name == "schema.py":
+            continue
+        for text in _sql_texts(path):
+            assert not ACTIVE_FILTER.search(text), (path, text)
     for path in ("access.py", "reviews.py", "my_data.py"):
         assert "open_shares" in (STORE / path).read_text(encoding="utf-8"), path
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "WHERE relationship.status = 'active'",
+        "WHERE cc.status='active'",
+        "where CC.STATUS\n   =  'Active'",
+        "AND status IN ('active')",
+        "AND status <> 'active'",
+    ],
+)
+def test_the_active_filter_check_catches_each_spelling(sql):
+    """The check above finds the filter under an alias, other spacing, case or operator."""
+    assert ACTIVE_FILTER.search(sql)
+
+
+def test_the_active_filter_check_lets_an_insert_pass():
+    """Writing 'active' as a new relationship's value is not a filter."""
+    assert not ACTIVE_FILTER.search("INSERT INTO coach_clients (status) VALUES ('active')")
 
 
 def test_every_public_store_function_is_classified():
@@ -240,7 +278,7 @@ def test_only_the_client_sets_their_scopes(store_conn, relationships):
         records.list_body_measurements(store_conn, world.COACH_A, world.UNSHARED)
 
 
-@pytest.mark.parametrize("relationship_id", [999, None, "1", True])
+@pytest.mark.parametrize("relationship_id", [999, None, "1", True, 0, -1, 2**64])
 def test_a_missing_relationship_is_not_found(store_conn, relationships, relationship_id):
     """Setting a scope on, or ending, a relationship that does not exist gives NotFound."""
     with pytest.raises(access.NotFound):

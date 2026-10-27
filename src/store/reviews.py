@@ -154,7 +154,7 @@ def decide_review(
     if (decision == "edit") != (final is not None):
         raise values.StoreValueError("final", "is given with an edit and only then")
     edited = None if final is None else _json_text(final, "final")
-    if isinstance(review_id, bool) or not isinstance(review_id, int):
+    if not values.is_row_id(review_id):
         raise NotFound
     status, action = _OUTCOMES[decision]
     with transaction(conn):

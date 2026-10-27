@@ -1,9 +1,11 @@
 """Accounts, coach-client relationships and the scopes a client shares (T9.6; D14-D16).
 
-The functions take the acting user and check that the change is theirs to make: a client turns
-their own scopes on or off, and either side ends a relationship. `start_relationship()` is the
-low-level step T9.12 runs once a valid invitation code is accepted; it checks the two roles but not
-the code.
+The functions that change shared data take the acting user and check that the change is theirs
+to make: a client turns their own scopes on or off, and either side ends a relationship. Two take
+no acting user, so only their callers may decide when they run: `create_user()` (T9.5, at the
+first sign-in) and `start_relationship()`, the low-level step T9.12 runs once a valid invitation
+code is accepted (it checks the two roles but not the code). `find_user()` checks no access and
+must get only the signed-in user's own ID.
 """
 
 import sqlite3
@@ -61,7 +63,7 @@ def start_relationship(conn: sqlite3.Connection, coach_id: str, client_id: str) 
 
 def _relationship(conn: sqlite3.Connection, relationship_id: object) -> sqlite3.Row:
     """Return an active relationship's row, or raise NotFound."""
-    if isinstance(relationship_id, bool) or not isinstance(relationship_id, int):
+    if not values.is_row_id(relationship_id):
         raise NotFound
     row = conn.execute(_RELATIONSHIP, (relationship_id,)).fetchone()
     if row is None or row["status"] != "active":

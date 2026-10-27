@@ -349,7 +349,7 @@ def list_preferences(conn: sqlite3.Connection, actor_id: str, subject_id: str) -
 def delete_record(conn: sqlite3.Connection, user_id: str, kind: RecordKind, record_id: int) -> None:
     """Delete one of the user's own records (a workout with its sets); NotFound if not theirs."""
     values.choice(kind, "kind", RECORD_KINDS)
-    if isinstance(record_id, bool) or not isinstance(record_id, int):
+    if not values.is_row_id(record_id):
         raise NotFound
     params = (record_id, values.user_id(user_id))
     with transaction(conn):

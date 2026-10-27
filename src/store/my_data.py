@@ -108,7 +108,7 @@ def _review(row: sqlite3.Row) -> dict:
 
 
 def export_user_data(conn: sqlite3.Connection, user_id: str) -> str:
-    """Return every row the store holds for the user as one JSON document."""
+    """Return the user's rows as one JSON document, auditing a coach's read of client reviews."""
     user_id = values.user_id(user_id)
     one = (user_id,)
     both = (user_id, user_id)
