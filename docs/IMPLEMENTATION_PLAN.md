@@ -72,7 +72,7 @@ Deadline: **2026-11-02** (Sprint 2). Target dates leave 1-2 days of buffer.
 | T1.7 | #81 | Streamlit runs on localhost only, without telemetry or error details (owner's request after the 2026-10-22 security audit) | S | T1.1 | 10-22 | done |
 | T1.8 | #82 | A fixed message for unexpected errors in a chat turn (split from T1.7) | S | T1.7 | 10-26 (before T8.2; Epic 8 order, owner, 2026-10-25) | done |
 | T1.9 | #110 | Workflow files: read and check both briefs for every ticket (owner's request after PR #109) | S | - | 10-25 | done |
-| T1.10 | NMH1988/fitcoach-ai-assistant#36 | Compliance reviewer agent: copyright, data protection, legal (owner's request) | S | T1.4 | 10-27 | in review |
+| T1.10 | NMH1988/fitcoach-ai-assistant#36 | Compliance reviewer agent: copyright, data protection, legal (owner's request) | S | T1.4 | 10-27 | done |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1, O7 | 10-26 | done |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2 | 10-27 | done |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | done |
@@ -243,7 +243,7 @@ Deadline: **2026-11-02** (Sprint 2). Target dates leave 1-2 days of buffer.
 - [x] A PROGRESS entry and T1.9 in this plan - review.
 **Notes:** owner's choice (2026-10-25): both briefs for every ticket, not only Epic 8 and 9, so `CLAUDE.md`, `.claude/rules/workflow.md`, "Using this file" in `docs/BRIEF.md` and `docs/BRIEF_SPRINT3.md` (and the latter's "Read this before...") and this plan's ticket format say the same as the skill and the agent. Prompted by PR #109 (T8.1), whose description said "beyond the Sprint 2 brief" although both briefs list good code organisation, named no Sprint 3 item by number, and whose reviews did not check the briefs.
 
-### T1.10 Compliance reviewer agent (S) · status: in review · issue NMH1988/fitcoach-ai-assistant#36
+### T1.10 Compliance reviewer agent (S) · status: done · issue NMH1988/fitcoach-ai-assistant#36
 **Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): none directly; supports the technical evaluation item (appropriate security). Sprint 2 (`docs/BRIEF.md`): none directly; supports core 3 (security measures relevant to the domain) and the technical evaluation item (appropriate security). Beyond the brief (owner's request).
 **Depends on:** T1.4
 **Acceptance criteria** (approved by the owner, 2026-10-27)
