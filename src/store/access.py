@@ -22,14 +22,8 @@ SCOPES: tuple[str, ...] = get_args(Scope)
 Action = Literal["read", "review_approved", "review_edited", "review_rejected"]
 
 _ROLE = "SELECT role FROM users WHERE id = ?"
-_SHARED = """
-SELECT 1
-FROM coach_clients AS relationship
-JOIN consents AS consent ON consent.relationship_id = relationship.id
-WHERE relationship.coach_id = ? AND relationship.client_id = ?
-  AND relationship.status = 'active'
-  AND consent.scope = ? AND consent.revoked_at IS NULL
-"""
+# The sharing rule itself is the open_shares view (schema.py), so it is written once.
+_SHARED = "SELECT 1 FROM open_shares WHERE coach_id = ? AND client_id = ? AND scope = ?"
 _AUDIT = """
 INSERT INTO audit_log (actor_id, subject_id, action, resource_type, resource_id, created_at)
 VALUES (?, ?, ?, ?, ?, ?)

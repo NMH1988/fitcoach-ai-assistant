@@ -259,18 +259,97 @@ def test_a_workout_with_one_bad_set_writes_nothing(gymers):
     assert _count(gymers, "workout_sessions") == _count(gymers, "exercise_sets") == 0
 
 
+# One valid call of every add_* function, for a given owner.
+ADDS = {
+    "add_profile_entry": lambda conn, owner: records.add_profile_entry(
+        conn, owner, height_cm=180, age=30, sex="male", activity="light", goal="maintain"
+    ),
+    "add_body_measurement": lambda conn, owner: records.add_body_measurement(
+        conn, owner, weight_kg=80.0, measured_on=DAY
+    ),
+    "add_target": lambda conn, owner: records.add_target(
+        conn,
+        owner,
+        kcal=2500,
+        protein_g=150,
+        carbs_g=250,
+        fat_g=70,
+        set_by="system",
+        effective_from=DAY,
+    ),
+    "add_meal_item": lambda conn, owner: records.add_meal_item(
+        conn,
+        owner,
+        consumed_on=DAY,
+        meal="lunch",
+        fdc_id=1,
+        food_name="Oats",
+        grams=100.0,
+        kcal=381.0,
+        protein_g=13.3,
+        carbohydrate_g=67.6,
+        fat_g=6.5,
+        fiber_g=None,
+    ),
+    "add_workout_session": lambda conn, owner: records.add_workout_session(
+        conn, owner, performed_on=DAY, sets=[]
+    ),
+    "add_preference": lambda conn, owner: records.add_preference(conn, owner, "vegetarian"),
+}
+
+
+def test_every_add_function_is_in_the_gymer_only_test():
+    """ADDS lists every add_* function of records, so none escapes the test below."""
+    assert {name for name in dir(records) if name.startswith("add_")} == set(ADDS)
+
+
+@pytest.mark.parametrize("add", ADDS)
 @pytest.mark.parametrize("owner", [world.MISSING, "a-coach"])
-def test_only_a_gymer_keeps_records(gymers, owner):
-    """A missing user or a coach gets NotFound for every kind of record, and nothing is written."""
+def test_only_a_gymer_keeps_records(gymers, owner, add):
+    """A missing user or a coach gets NotFound from every add_* function, and nothing is written."""
     users.create_user(gymers, "a-coach", "coach", "Coach")
     with pytest.raises(access.NotFound):
-        records.add_preference(gymers, owner, "vegetarian")
-    with pytest.raises(access.NotFound):
-        records.add_body_measurement(gymers, owner, weight_kg=80.0, measured_on=DAY)
-    with pytest.raises(access.NotFound):
-        records.add_workout_session(gymers, owner, performed_on=DAY, sets=[])
+        ADDS[add](gymers, owner)
     total = sum(_count(gymers, t) for t in records.RECORD_KINDS)
     assert total == 0
+    ADDS[add](gymers, GYMER)  # the same call works for a gymer
+
+
+def test_a_target_cannot_claim_to_be_set_by_a_coach(gymers):
+    """Until T9.17 adds the coach's path, a gymer's own target is set by the system or the user."""
+    with pytest.raises(values.StoreValueError, match="set_by"):
+        records.add_target(
+            gymers,
+            GYMER,
+            kcal=2500,
+            protein_g=150,
+            carbs_g=250,
+            fat_g=70,
+            set_by="coach",
+            effective_from=DAY,
+        )
+
+
+@pytest.mark.parametrize("field", ["fdc_id", "grams"])
+def test_a_number_too_large_for_sqlite_is_a_store_value_error(gymers, field):
+    """10**30 is refused with the field's name, not an OverflowError from sqlite3."""
+    item = {
+        "consumed_on": DAY,
+        "meal": "lunch",
+        "fdc_id": 1,
+        "food_name": "Oats",
+        "grams": 100.0,
+        "kcal": 381.0,
+        "protein_g": 13.3,
+        "carbohydrate_g": 67.6,
+        "fat_g": 6.5,
+        "fiber_g": None,
+    }
+    if field == "fdc_id":
+        with pytest.raises(values.StoreValueError, match="fdc_id"):
+            records.add_meal_item(gymers, GYMER, **{**item, "fdc_id": 10**30})
+    else:
+        records.add_meal_item(gymers, GYMER, **{**item, "grams": 10**30})  # a REAL holds it
 
 
 @pytest.mark.parametrize(
@@ -297,7 +376,7 @@ def test_only_a_gymer_keeps_records(gymers, owner):
                 "protein_g": 1,
                 "carbs_g": 1,
                 "fat_g": 1,
-                "set_by": "coach",
+                "set_by": "user",
                 "effective_from": DAY,
             },
         ),

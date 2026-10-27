@@ -129,6 +129,27 @@ def test_a_coachs_export_holds_their_relationships_reviews_and_invitations(full_
     assert document["meal_items"] == []
 
 
+def _read_rows(conn):
+    """Return (actor, subject, resource type) of every read in the audit log."""
+    query = "SELECT actor_id, subject_id, resource_type FROM audit_log WHERE action = 'read'"
+    return [tuple(row) for row in conn.execute(query)]
+
+
+def test_a_coachs_export_audits_one_read_per_client_in_it(full_world):
+    """The coach's export reads clients' reviews, so it writes a read row for each client."""
+    before = _read_rows(full_world)
+    my_data.export_user_data(full_world, world.COACH_A)
+    added = _read_rows(full_world)[len(before) :]
+    assert added == [(world.COACH_A, world.SHARED, "ai_reviews")]
+
+
+def test_a_gymers_export_writes_no_audit_row(full_world):
+    """Reading one's own data is not audited."""
+    before = _read_rows(full_world)
+    my_data.export_user_data(full_world, world.SHARED)
+    assert _read_rows(full_world) == before
+
+
 def test_an_export_holds_no_other_users_records(full_world):
     """Another gymer's records and coach B's rows are not in the gymer's export."""
     text = my_data.export_user_data(full_world, world.SHARED)

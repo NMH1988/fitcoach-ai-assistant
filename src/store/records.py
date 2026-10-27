@@ -24,7 +24,7 @@ from src.store.access import NotFound, authorised_read, role_of
 from src.store.db import transaction
 
 Meal = Literal["breakfast", "lunch", "dinner", "snack"]
-TargetSource = Literal["system", "user", "coach"]
+TargetSource = Literal["system", "user"]
 RecordKind = Literal[
     "profile_entries",
     "body_measurements",

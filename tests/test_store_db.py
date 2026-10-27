@@ -515,6 +515,7 @@ def test_a_failed_commit_leaves_no_open_transaction(tmp_path):
         ("body_measurements", "measured_on", "2026-13-45"),
         ("body_measurements", "recorded_at", "2026-99-99T+00:00"),
         ("body_measurements", "recorded_at", "2026-10-27T25:00:00+00:00"),
+        ("body_measurements", "recorded_at", "2026-02-30T10:00:00+00:00"),
     ],
 )
 def test_a_day_or_time_that_does_not_exist_is_refused(store_conn, table, column, bad):

@@ -74,12 +74,9 @@ SELECT review.id, review.client_id, review.coach_id, review.period_start, review
      FROM ai_evidence_refs AS ref WHERE ref.review_id = review.id) AS evidence_refs
 FROM ai_reviews AS review
 WHERE review.coach_id = ? AND EXISTS (
-    SELECT 1
-    FROM coach_clients AS relationship
-    JOIN consents AS consent ON consent.relationship_id = relationship.id
-    WHERE relationship.coach_id = review.coach_id AND relationship.client_id = review.client_id
-      AND relationship.status = 'active'
-      AND consent.scope = 'nutrition' AND consent.revoked_at IS NULL
+    SELECT 1 FROM open_shares AS share
+    WHERE share.coach_id = review.coach_id AND share.client_id = review.client_id
+      AND share.scope = 'nutrition'
 )
 ORDER BY review.period_start, review.id
 """

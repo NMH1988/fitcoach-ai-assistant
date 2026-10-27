@@ -26,7 +26,7 @@ CREATE TABLE users (
     display_name TEXT NOT NULL CHECK (length(display_name) > 0),
     created_at TEXT NOT NULL
         CHECK (created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
-            AND datetime(created_at) IS NOT NULL)
+            AND date(created_at) IS substr(created_at, 1, 10))
 ) STRICT;
 
 CREATE TABLE invitations (
@@ -35,13 +35,13 @@ CREATE TABLE invitations (
     code_hash TEXT NOT NULL UNIQUE CHECK (length(code_hash) > 0),
     created_at TEXT NOT NULL
         CHECK (created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
-            AND datetime(created_at) IS NOT NULL),
+            AND date(created_at) IS substr(created_at, 1, 10)),
     expires_at TEXT NOT NULL
         CHECK (expires_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
-            AND datetime(expires_at) IS NOT NULL),
+            AND date(expires_at) IS substr(expires_at, 1, 10)),
     used_at TEXT CHECK (
         used_at IS NULL OR used_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
-            AND datetime(used_at) IS NOT NULL
+            AND date(used_at) IS substr(used_at, 1, 10)
     )
 ) STRICT;
 
@@ -52,10 +52,10 @@ CREATE TABLE coach_clients (
     status TEXT NOT NULL CHECK (status IN ('active', 'ended')),
     accepted_at TEXT NOT NULL
         CHECK (accepted_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
-            AND datetime(accepted_at) IS NOT NULL),
+            AND date(accepted_at) IS substr(accepted_at, 1, 10)),
     ended_at TEXT CHECK (
         ended_at IS NULL OR ended_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
-            AND datetime(ended_at) IS NOT NULL
+            AND date(ended_at) IS substr(ended_at, 1, 10)
     ),
     CHECK (coach_id <> client_id),
     CHECK ((status = 'active') = (ended_at IS NULL))
@@ -70,14 +70,23 @@ CREATE TABLE consents (
     scope TEXT NOT NULL CHECK (scope IN ('nutrition', 'training', 'body')),
     granted_at TEXT NOT NULL
         CHECK (granted_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
-            AND datetime(granted_at) IS NOT NULL),
+            AND date(granted_at) IS substr(granted_at, 1, 10)),
     revoked_at TEXT CHECK (
         revoked_at IS NULL OR revoked_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
-            AND datetime(revoked_at) IS NOT NULL
+            AND date(revoked_at) IS substr(revoked_at, 1, 10)
     )
 ) STRICT;
 CREATE UNIQUE INDEX consents_one_open ON consents (relationship_id, scope)
     WHERE revoked_at IS NULL;
+
+-- The one place the sharing rule lives (D16): a coach may read a client's scope while their
+-- relationship is active and the client's consent for it is open. access.authorise_read() and
+-- every query that filters by sharing read this view.
+CREATE VIEW open_shares AS
+SELECT relationship.coach_id, relationship.client_id, consent.scope
+FROM coach_clients AS relationship
+JOIN consents AS consent ON consent.relationship_id = relationship.id
+WHERE relationship.status = 'active' AND consent.revoked_at IS NULL;
 
 CREATE TABLE profile_entries (
     id INTEGER PRIMARY KEY,
@@ -90,7 +99,7 @@ CREATE TABLE profile_entries (
     goal TEXT NOT NULL CHECK (goal IN ('build_muscle', 'lose_fat', 'maintain')),
     recorded_at TEXT NOT NULL
         CHECK (recorded_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
-            AND datetime(recorded_at) IS NOT NULL)
+            AND date(recorded_at) IS substr(recorded_at, 1, 10))
 ) STRICT;
 CREATE INDEX profile_entries_user ON profile_entries (user_id);
 
@@ -102,7 +111,7 @@ CREATE TABLE body_measurements (
         AND date(measured_on) IS measured_on),
     recorded_at TEXT NOT NULL
         CHECK (recorded_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
-            AND datetime(recorded_at) IS NOT NULL)
+            AND date(recorded_at) IS substr(recorded_at, 1, 10))
 ) STRICT;
 CREATE INDEX body_measurements_user ON body_measurements (user_id);
 
@@ -120,7 +129,7 @@ CREATE TABLE nutrition_targets (
             AND date(effective_from) IS effective_from),
     created_at TEXT NOT NULL
         CHECK (created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
-            AND datetime(created_at) IS NOT NULL)
+            AND date(created_at) IS substr(created_at, 1, 10))
 ) STRICT;
 CREATE INDEX nutrition_targets_user ON nutrition_targets (user_id);
 
@@ -140,7 +149,7 @@ CREATE TABLE meal_items (
     fiber_g REAL CHECK (fiber_g IS NULL OR fiber_g >= 0),
     recorded_at TEXT NOT NULL
         CHECK (recorded_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
-            AND datetime(recorded_at) IS NOT NULL)
+            AND date(recorded_at) IS substr(recorded_at, 1, 10))
 ) STRICT;
 CREATE INDEX meal_items_user_day ON meal_items (user_id, consumed_on);
 
@@ -152,7 +161,7 @@ CREATE TABLE workout_sessions (
             AND date(performed_on) IS performed_on),
     recorded_at TEXT NOT NULL
         CHECK (recorded_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
-            AND datetime(recorded_at) IS NOT NULL)
+            AND date(recorded_at) IS substr(recorded_at, 1, 10))
 ) STRICT;
 CREATE INDEX workout_sessions_user_day ON workout_sessions (user_id, performed_on);
 
@@ -173,7 +182,7 @@ CREATE TABLE preferences (
     text TEXT NOT NULL CHECK (length(text) > 0),
     created_at TEXT NOT NULL
         CHECK (created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
-            AND datetime(created_at) IS NOT NULL)
+            AND date(created_at) IS substr(created_at, 1, 10))
 ) STRICT;
 CREATE INDEX preferences_user ON preferences (user_id);
 
@@ -193,11 +202,11 @@ CREATE TABLE ai_reviews (
     model_version TEXT NOT NULL CHECK (length(model_version) > 0),
     created_at TEXT NOT NULL
         CHECK (created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
-            AND datetime(created_at) IS NOT NULL),
+            AND date(created_at) IS substr(created_at, 1, 10)),
     reviewed_by TEXT REFERENCES users (id),
     reviewed_at TEXT CHECK (
         reviewed_at IS NULL OR reviewed_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
-            AND datetime(reviewed_at) IS NOT NULL
+            AND date(reviewed_at) IS substr(reviewed_at, 1, 10)
     ),
     CHECK ((status = 'PENDING_REVIEW') = (reviewed_by IS NULL AND reviewed_at IS NULL)),
     CHECK ((status = 'APPROVED') = (final IS NOT NULL)),
@@ -224,7 +233,7 @@ CREATE TABLE audit_log (
     resource_id INTEGER,
     created_at TEXT NOT NULL
         CHECK (created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
-            AND datetime(created_at) IS NOT NULL)
+            AND date(created_at) IS substr(created_at, 1, 10))
 ) STRICT;
 CREATE INDEX audit_log_actor ON audit_log (actor_id);
 CREATE INDEX audit_log_subject ON audit_log (subject_id);

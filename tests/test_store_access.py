@@ -63,7 +63,9 @@ OWN_ONLY = {
     "my_data.delete_user_data",
 }
 WRITES = {
-    # Each checks that the change is the acting user's to make (tested in this file and beside it).
+    # Each takes the user it writes for; the ones that change shared data check that it is the
+    # acting user's to make. create_user (T9.5, at the first sign-in) and start_relationship
+    # (T9.12, after a valid code) take no acting user: only their callers may decide.
     "users.create_user",
     "users.start_relationship",
     "users.set_consent",
@@ -90,6 +92,16 @@ INTERNALS = {
     *(f"values.{name}" for name in ("choice", "date_text", "in_range", "number", "text")),
     *(f"values.{name}" for name in ("user_id", "utc_text", "whole_number")),
 }
+
+
+def test_the_sharing_rule_is_written_once():
+    """Only the open_shares view tests a relationship's status; every query reads the view."""
+    for path in sorted(STORE.rglob("*.py")):
+        text = path.read_text(encoding="utf-8")
+        if path.name != "schema.py":
+            assert "status = 'active'" not in text and "relationship.status" not in text, path
+    for path in ("access.py", "reviews.py", "my_data.py"):
+        assert "open_shares" in (STORE / path).read_text(encoding="utf-8"), path
 
 
 def test_every_public_store_function_is_classified():

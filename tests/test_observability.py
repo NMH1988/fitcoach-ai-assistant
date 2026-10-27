@@ -539,6 +539,7 @@ def _store_scenario(conn) -> list[Exception]:
         except (values.StoreValueError, access.NotFound) as error:
             errors.append(error)
     my_data.export_user_data(conn, "CANARY-GYM")
+    my_data.export_user_data(conn, "CANARY-COACH")
     my_data.delete_user_data(conn, "CANARY-COACH")
     my_data.delete_user_data(conn, "CANARY-GYM")
     return errors

@@ -10,6 +10,9 @@ from datetime import UTC, date, datetime
 
 from src import config
 
+# SQLite's largest INTEGER; a larger Python int would raise OverflowError when bound.
+SQLITE_INTEGER_MAX = 2**63 - 1
+
 
 class StoreValueError(ValueError):
     """Raised when a value cannot be stored; the message names the field, never the value."""
@@ -78,10 +81,10 @@ def number(value: object, field: str, *, positive: bool = False) -> float:
 
 
 def whole_number(value: object, field: str, *, minimum: int = 0, maximum: int | None = None) -> int:
-    """Return an integer from `minimum` to `maximum` (no upper limit when it is None)."""
+    """Return an integer from `minimum` to `maximum` (SQLite's largest when it is None)."""
     if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
         raise StoreValueError(field, "must be a whole number within its range")
-    if maximum is not None and value > maximum:
+    if value > (SQLITE_INTEGER_MAX if maximum is None else maximum):
         raise StoreValueError(field, "must be a whole number within its range")
     return value
 

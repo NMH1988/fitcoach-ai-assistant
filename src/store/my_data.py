@@ -15,7 +15,7 @@ import json
 import sqlite3
 
 from src.store import values
-from src.store.access import NotFound, role_of
+from src.store.access import NotFound, audit, role_of
 from src.store.db import transaction
 
 _USER = "SELECT * FROM users WHERE id = ?"
@@ -51,12 +51,9 @@ FROM ai_reviews WHERE client_id = ? AND status = 'APPROVED' ORDER BY id
 _WRITTEN_FOR_SHARED = """
 SELECT review.* FROM ai_reviews AS review
 WHERE review.coach_id = ? AND EXISTS (
-    SELECT 1
-    FROM coach_clients AS relationship
-    JOIN consents AS consent ON consent.relationship_id = relationship.id
-    WHERE relationship.coach_id = review.coach_id AND relationship.client_id = review.client_id
-      AND relationship.status = 'active'
-      AND consent.scope = 'nutrition' AND consent.revoked_at IS NULL
+    SELECT 1 FROM open_shares AS share
+    WHERE share.coach_id = review.coach_id AND share.client_id = review.client_id
+      AND share.scope = 'nutrition'
 )
 ORDER BY review.id
 """
@@ -65,12 +62,9 @@ SELECT ref.* FROM ai_evidence_refs AS ref
 JOIN ai_reviews AS review ON review.id = ref.review_id
 WHERE (review.client_id = ? AND review.status = 'APPROVED')
     OR (review.coach_id = ? AND EXISTS (
-    SELECT 1
-    FROM coach_clients AS relationship
-    JOIN consents AS consent ON consent.relationship_id = relationship.id
-    WHERE relationship.coach_id = review.coach_id AND relationship.client_id = review.client_id
-      AND relationship.status = 'active'
-      AND consent.scope = 'nutrition' AND consent.revoked_at IS NULL
+    SELECT 1 FROM open_shares AS share
+    WHERE share.coach_id = review.coach_id AND share.client_id = review.client_id
+      AND share.scope = 'nutrition'
 ))
 ORDER BY ref.id
 """
@@ -121,6 +115,10 @@ def export_user_data(conn: sqlite3.Connection, user_id: str) -> str:
     with transaction(conn):
         if role_of(conn, user_id) is None:
             raise NotFound
+        written = conn.execute(_WRITTEN_FOR_SHARED, one).fetchall()
+        # A coach's export reads clients' review data: audited per client, as list_reviews() is.
+        for client_id in dict.fromkeys(row["client_id"] for row in written):
+            audit(conn, user_id, "read", "ai_reviews", subject_id=client_id)
         document = {
             "user": dict(conn.execute(_USER, one).fetchone()),
             "profile_entries": [dict(r) for r in conn.execute(_PROFILES, one)],
@@ -136,7 +134,7 @@ def export_user_data(conn: sqlite3.Connection, user_id: str) -> str:
             "consents": [dict(r) for r in conn.execute(_CONSENTS, both)],
             "ai_reviews": [
                 *(_review(r) for r in conn.execute(_APPROVED_ABOUT, one)),
-                *(_review(r) for r in conn.execute(_WRITTEN_FOR_SHARED, one)),
+                *(_review(r) for r in written),
             ],
             "ai_evidence_refs": [dict(r) for r in conn.execute(_EVIDENCE, both)],
             "audit_log": [dict(r) for r in conn.execute(_AUDIT, both)],
