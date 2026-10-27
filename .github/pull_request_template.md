@@ -16,6 +16,7 @@ Closes #
 ## Testing
 - `ruff check .` / `ruff format --check .` / `python -m pytest -q`:
 - Manual checks:
+- `compliance-reviewer` (`.claude/rules/workflow.md`): <run on SHA: verdict, what each finding led to> | not needed: <reason>
 
 ## Sources and copyright
 - [ ] No new content, or every new source is an Approved row in `docs/SOURCES.md` and `ATTRIBUTION.md` is updated
