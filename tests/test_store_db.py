@@ -1,6 +1,8 @@
 """The store's file, schema and migrations (T9.6): tables, foreign keys, checks, UTC, no updates."""
 
+import os
 import sqlite3
+import stat
 from datetime import UTC, date, datetime, timedelta, timezone
 from typing import get_args
 
@@ -227,6 +229,32 @@ def test_foreign_keys_are_on_in_every_connection(store_conn):
     assert store_conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
     with pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY"):
         _insert(store_conn, "preferences", VALID_ROWS["preferences"])
+
+
+def test_temporary_data_stays_in_memory(store_conn):
+    """temp_store is MEMORY, so SQLite writes no temporary file with stored values."""
+    assert store_conn.execute("PRAGMA temp_store").fetchone()[0] == 2
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permissions; Windows uses profile ACLs")
+def test_the_store_folder_and_file_are_owner_only():
+    """The app's folder is 0700 and the file 0600, also when the folder already existed."""
+    config.STORE_DIR.mkdir(mode=0o755, parents=True)
+    os.chmod(config.STORE_DIR, 0o755)
+    with db.connect():
+        pass
+    assert stat.S_IMODE(config.STORE_DIR.stat().st_mode) == 0o700
+    assert stat.S_IMODE(config.STORE_PATH.stat().st_mode) == 0o600
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permissions; Windows uses profile ACLs")
+def test_a_folder_a_caller_passes_keeps_its_permissions(tmp_path):
+    """connect(path) makes the file owner-only but leaves an existing folder as it was."""
+    os.chmod(tmp_path, 0o755)
+    with db.connect(tmp_path / "s.sqlite3"):
+        pass
+    assert stat.S_IMODE(tmp_path.stat().st_mode) == 0o755
+    assert stat.S_IMODE((tmp_path / "s.sqlite3").stat().st_mode) == 0o600
 
 
 def test_deleted_rows_are_overwritten_in_the_file(tmp_path):

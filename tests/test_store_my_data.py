@@ -6,7 +6,7 @@ from datetime import date
 
 import pytest
 
-from src.store import access, my_data, records, reviews
+from src.store import access, db, my_data, records, reviews
 from tests import store_world as world
 
 NOW = "2026-10-27T10:00:00+00:00"
@@ -197,6 +197,35 @@ def test_deleting_a_coach_removes_the_reviews_they_wrote_and_keeps_the_clients_r
     assert coaches == [world.COACH_B]
     assert full_world.execute("SELECT count(*) FROM consents").fetchone()[0] == 3  # coach B's
     assert records.list_meal_items(full_world, world.SHARED, world.SHARED)
+
+
+def test_deleted_values_are_gone_from_the_files_bytes(tmp_path):
+    """After delete_user_data(), the deleted text is nowhere in the database file."""
+    path = tmp_path / "s.sqlite3"
+    with db.connect(path) as conn:
+        world.build(conn)
+        records.add_preference(conn, world.SHARED, "CANARY-PREF-DELETED")
+        records.add_meal_item(
+            conn,
+            world.SHARED,
+            consumed_on=date(2026, 10, 27),
+            meal="dinner",
+            fdc_id=7,
+            food_name="CANARY-FOOD-DELETED",
+            grams=100.0,
+            kcal=100.0,
+            protein_g=1.0,
+            carbohydrate_g=1.0,
+            fat_g=1.0,
+            fiber_g=None,
+        )
+        assert b"CANARY-FOOD-DELETED" in path.read_bytes()  # the check below can fail
+        my_data.delete_user_data(conn, world.SHARED)
+        # Other users' rows are still there, so the pages were reused, not dropped.
+        assert records.list_preferences(conn, world.OTHERS, world.OTHERS)
+    data = path.read_bytes()
+    assert b"CANARY-PREF-DELETED" not in data and b"CANARY-FOOD-DELETED" not in data
+    assert not (tmp_path / "s.sqlite3-journal").exists()
 
 
 def test_a_table_the_delete_forgets_makes_it_fail_and_change_nothing(full_world):

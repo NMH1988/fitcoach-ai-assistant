@@ -8,6 +8,7 @@ Every transaction takes the write lock (`BEGIN IMMEDIATE`), reads included, so s
 file one at a time: fine for a local app, and it keeps a read and its audit row together.
 """
 
+import os
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -20,6 +21,12 @@ _FOREIGN_KEYS_ON = "PRAGMA foreign_keys = ON"
 # Deleted rows are overwritten with zeros instead of left in the file's free pages, so a deleted
 # entry cannot be read back from a copy of the file (docs/SECURITY.md).
 _SECURE_DELETE_ON = "PRAGMA secure_delete = ON"
+# Temporary tables and indices stay in memory, so no other file holds stored values.
+_TEMP_STORE_MEMORY = "PRAGMA temp_store = MEMORY"
+# Owner-only permissions on POSIX, so other accounts on a shared computer cannot read the
+# store; Windows applies the user profile's access rules instead (docs/SECURITY.md).
+_PRIVATE_FOLDER = 0o700
+_PRIVATE_FILE = 0o600
 _SCHEMA_VERSION = "PRAGMA user_version"
 # IMMEDIATE takes the write lock at once, so two sessions migrating (or writing) at the same time
 # wait for each other (up to the busy timeout) instead of failing halfway.
@@ -69,13 +76,20 @@ def migrate(conn: sqlite3.Connection) -> None:
 def connect(path: Path | None = None) -> Iterator[sqlite3.Connection]:
     """Open the store (config.STORE_PATH by default), migrate it, and close it after the block."""
     target = config.STORE_PATH if path is None else path
-    target.parent.mkdir(parents=True, exist_ok=True)
+    target.parent.mkdir(mode=_PRIVATE_FOLDER, parents=True, exist_ok=True)
     conn = sqlite3.connect(target, timeout=config.STORE_BUSY_TIMEOUT_SECONDS, autocommit=True)
     try:
+        if os.name == "posix":
+            # mkdir's mode is masked by the umask and leaves an existing folder as it was, so set
+            # both; the folder only when it is the app's own, never a folder a caller passed.
+            os.chmod(target, _PRIVATE_FILE)
+            if path is None:
+                os.chmod(target.parent, _PRIVATE_FOLDER)
         conn.row_factory = sqlite3.Row
         # Off by default in SQLite, and set per connection: without it no reference is checked.
         conn.execute(_FOREIGN_KEYS_ON)
         conn.execute(_SECURE_DELETE_ON)
+        conn.execute(_TEMP_STORE_MEMORY)
         migrate(conn)
         yield conn
     finally:
