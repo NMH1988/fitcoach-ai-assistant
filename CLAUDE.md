@@ -28,6 +28,7 @@ The owner writes in Vietnamese: reply in Vietnamese. Everything in the repo is i
 | `.claude/rules/` | Copyright, workflow, security and privacy, testing rules |
 | `.claude/skills/qrspi/`, `.claude/agents/code-reviewer.md` | The coding workflow and the reviewer |
 | `.claude/agents/security-reviewer.md` | Optional attacker-minded security audit (injection, guard before spend, key, personal data); read-only, no API or network calls except GitHub through `git`/`gh` |
+| `.claude/agents/compliance-reviewer.md` | Optional compliance review (copyright and licences, GDPR/BDSG/TDDDG data protection, AI Act transparency, the medical-device boundary); not legal advice; read-only, never opens secrets or `data/store/`, no model API calls; network only GitHub through `git`/`gh` and single official pages on an allowlist (T1.10) |
 
 ## Code conventions
 
