@@ -18,7 +18,7 @@ A chatbot that gives adults who lift weights clear, evidence-based nutrition ans
 1. **Chat with sources.** The user asks a question; the answer cites the approved sources it used (`[S1]`...) and lists them with title, year, evidence tier, licence and link. Serves core 1 and 5, Easy 3.
 2. **Query translation and structured retrieval.** Each question is rewritten into a few variants and filtered by topic, year and evidence tier; the UI shows the rewrites and filters. Serves the brief's advanced RAG requirement (and partly Easy 2).
 3. **Hybrid search.** Vector search plus keyword search, merged. Serves Hard 1.
-4. **Profile.** Weight, height, age, sex, activity level and goal, entered in the sidebar. Kept for the session only, never stored.
+4. **Profile.** Weight, height, age, sex, activity level and goal, entered in the sidebar. For a guest, kept for the session only, never stored. Since Sprint 3 (T9.6), a signed-in gymer's saved profile is kept in the local store as dated entries (the weight as a dated body measurement), with the targets worked out from it; T9.5 adds the sign-in and the Save that writes them. The privacy change below says what is stored and who sees it.
 5. **Tools** (core 2, at least 3):
    1. `calculate_tdee`: daily energy needs from the profile (uses personal data).
    2. `calculate_macro_targets`: protein, carbohydrate and fat targets from the profile, goal and TDEE (uses personal data); enforces the calorie floor.
@@ -117,7 +117,14 @@ One role per account, chosen at the first sign-in; no admin role. Out of scope a
 
 ### The privacy change
 
-Today the profile lives in the session only and is never written to disk (feature 4, `.claude/rules/security-privacy.md`). From T9.6, for signed-in users, the app keeps the profile history, logs, targets, preferences and reviews in a local SQLite file, and shares them with a coach only within the scopes the user turned on. T9.6 updates the rule, feature 4 and `docs/SECURITY.md` in the same PR. Chats stay in memory only; guests are unchanged. The app stays local: a public deployment needs a privacy notice and a GDPR review first (Capstone).
+Until Sprint 3 the profile lived in the session only and was never written to disk. Since T9.6, for signed-in users, the app keeps the profile history, weights, food and workout logs, targets, preferences and reviews in a local SQLite file (`data/store/`, gitignored), and shares them with a coach only within the scopes the user turned on (T9.6 builds the store; T9.5 and later tickets write to it):
+
+- **Who sees what:** a user always sees their own data. A coach sees a gymer's data only while their relationship is active and the gymer shares the scope: **body** (weights and profile entries), **nutrition** (food log, targets and the reviews that coach wrote) or **training** (workouts). Sharing a scope shows all of its data, the days logged while it was off included. Preferences are never shared with a coach. A gymer sees only the approved reviews about them, never the model's draft. Everything else gets the same "not found" (owner's choices, 2026-10-27).
+- **Audit:** every coach read of a client's data and every review decision leaves an audit row with who, what kind of data, about whom and when, never a value.
+- **Export and delete:** a user exports all their rows as JSON and deletes all of them (their records, relationships and scopes, the reviews about them and those they wrote as a coach, and the audit rows by or about them); deleted rows are overwritten in the database file (not in SQLite's temporary journal). The screens come with T9.5 ("My data").
+- **Limits:** the file is not encrypted, so anyone who can read it (a shared computer account, a copy of the file, a backup) reads the data; demos and tests use synthetic data only, and the sidebar will ask not to enter real health data (T9.5).
+
+The rule (`.claude/rules/security-privacy.md`), feature 4 and `docs/SECURITY.md` were updated in the same PR. Chats stay in memory only; guests are unchanged. The app stays local: a public deployment needs a privacy notice and a GDPR review first (Capstone).
 
 ### Acceptance criteria (product level, Sprint 3)
 

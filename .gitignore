@@ -22,6 +22,9 @@ data/usda/
 # Evaluation run reports: model answers and article text (scripts/run_evaluation.py, T6.1)
 data/eval_runs/
 
+# Signed-in users' data: the SQLite store (T9.6); never committed
+data/store/
+
 # Vector store (rebuilt from the sources)
 chroma/
 .chroma/

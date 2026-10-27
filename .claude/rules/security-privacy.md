@@ -24,7 +24,11 @@ Full threat model and controls: `docs/SECURITY.md`.
 
 ## Personal data
 
-- The user's profile (weight, height, age, sex, activity, goal) lives in `st.session_state` only for the session. It is never logged, written to disk, sent anywhere except the LLM call that needs it, or put in the vector store.
+- **Guests:** the profile (weight, height, age, sex, activity, goal) lives in `st.session_state` only for the session. Nothing a guest enters is written to disk.
+- **Signed-in users** (T9.6): the profile history, weights, food and workout logs, targets, preferences and reviews are stored in the local SQLite store (`src/store/`, the file in gitignored `data/store/`), and nowhere else on disk. Chats are never stored.
+- Stored or not, personal data is never logged (`tests/test_observability.py` runs the store with canary values), never sent anywhere except the LLM call that needs it, and never put in the vector store. An error raised by the store names the field, never the value.
+- **The store** (`src/store/`): only the standard library's `sqlite3`, embedded; every query is a constant string with `?` parameters, never SQL built with f-strings, `%`, `.format()`, `+` or `.join()` (`tests/test_store_sql_scan.py`). Every read of another user's data goes through `access.authorised_read()`: a coach, of a gymer, an active relationship and the scope shared (body, nutrition, training; preferences never), else the same `NotFound`; a coach's read and every review decision write an audit row with no values. A new public function in `src/store/` is classified in `tests/test_store_access.py` (a read goes through the refused-cases matrix). The authorisation lives in the store, never only in the UI or the prompt. Records are never updated in place (a new row instead); foreign keys are on and never cascade, so `my_data.delete_user_data()` names every table, and a new table that refers to users must be added to it and to `export_user_data()`.
+- Use synthetic data only in demos and tests; the store file is not encrypted (`docs/SECURITY.md`).
 - The PDF summary is built in memory and downloaded by the user; the server keeps no copy.
 
 ## Chroma: embedded only

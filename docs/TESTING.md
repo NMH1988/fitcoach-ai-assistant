@@ -20,6 +20,7 @@ Browser end-to-end tests (e.g. Playwright) are not planned: AppTest covers the U
 - Guard tests use attack strings and benign strings, so both missed attacks and false positives are caught.
 - Test fixtures use only approved sources or text we wrote ourselves.
 - The model client rules (`.claude/rules/security-privacy.md`) are checked by a source scan, `tests/test_client_rules.py` (T9.2), with cases it must catch and cases it must pass.
+- The store (T9.6) is tested on a real SQLite file in a temporary folder: `tests/conftest.py` points `config.STORE_PATH` there for every test, so no test writes `data/store/`. `tests/test_store_sql_scan.py` fails on SQL built at run time in `src/store/`; `tests/test_store_access.py` runs every read function against every refused case (missing, another coach's client, ended, unshared, wrong role) and expects the same `NotFound`; `tests/store_world.py` is the made-up world they share (two coaches, four gymers); `tests/test_observability.py` runs the store's whole life with canary values and checks every log line and error text.
 
 ## CI
 

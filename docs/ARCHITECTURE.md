@@ -117,6 +117,15 @@ src/
   export_pdf.py             session summary PDF, built in memory
   eval_questions.py         the evaluation questions' format and loader (T3.6, T6.1)
   eval_results.py           the evaluation's results file: records with IDs and counts only, found and cited rates, the comparison with the baseline (T8.4)
+  store/                    signed-in users' data in SQLite, with the authorisation inside it (T9.6, D13, D16)
+    db.py                   connect() (foreign keys and secure_delete on, migrated), transaction()
+    schema.py               the tables as versioned migrations (STRICT tables, CHECKs, no-update triggers)
+    values.py               checks on values before they are written; errors name the field, never the value
+    access.py               who may read whose data: authorised_read(), NotFound, the audit row
+    users.py                accounts, coach-client relationships, the scopes a client shares
+    records.py              profile entries, weights, targets, meal items, workouts, preferences
+    reviews.py              weekly reviews: save as PENDING_REVIEW, decide with an audit row, list
+    my_data.py              export_user_data() as JSON, delete_user_data()
   rag/
     sources.py              manifest model, licence and DOI check on article XML, ATTRIBUTION.md text
     ingest.py               JATS XML -> text sections -> chunks with metadata
@@ -146,6 +155,7 @@ data/
   eval_runs/                full reports of the evaluation run, each with its results .json beside it (gitignored: the report holds article text, T6.1)
   eval_baseline.json        the results of the owner's baseline run, committed: IDs and counts only (T8.4)
   raw/                      downloaded article XML (gitignored)
+  store/                    the SQLite store of signed-in users' data (gitignored, T9.6)
 chroma/                     vector index (gitignored, rebuilt by the script)
 assets/fonts/               DejaVu Sans for the summary PDF, with its LICENSE and a README (T5.2)
 ATTRIBUTION.md              credits for every source and the USDA data, generated
@@ -297,7 +307,7 @@ Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 
 | D10 | **Agentic RAG:** `search_knowledge_base` is a tool the agent calls when it needs to (T9.3) | Always retrieve (D1) | A food or calculator question sends no research passages (the Sprint 2 review, point 3); Hard 1 |
 | D11 | **One graph builder, a tool set per role** (guest, gymer, coach) | A separate agent per role | One guard and one loop to test; a guest is never offered a write tool; every coach tool checks access in the store |
 | D12 | **Checkpointers:** an `InMemorySaver` per browser session for chats; a `SqliteSaver` in a gitignored directory for weekly review threads | A `SqliteSaver` for everything | Chats are never written to disk (the owner's "level 2" rule: a returning user is remembered only through what they saved or approved, never through stored chats); a review waiting for the coach survives a restart and holds metrics, not chat messages |
-| D13 | **The store:** the standard library's `sqlite3` behind `src/store/`, parameterised queries only, authorisation inside the store functions (T9.6) | SQLAlchemy with PostgreSQL now | Taught in the course, no server to run, local only; the Capstone moves to PostgreSQL by replacing one module |
+| D13 | **The store:** the standard library's `sqlite3` behind `src/store/`, parameterised queries only, authorisation inside the store functions (T9.6; as built: every query a module constant, checked by an AST scan; the authorisation in `access.authorised_read()`) | SQLAlchemy with PostgreSQL now | Taught in the course, no server to run, local only; the Capstone moves to PostgreSQL by replacing one module |
 | D14 | **Sign-in:** `st.login` with Google (OIDC); the user is a keyed hash of the issuer and `sub`; a display name the user picks; one role per account (T9.5) | Email and password; a managed auth service | No passwords to store; free; built into Streamlit; the Google name, email and picture are never stored |
 | D15 | **Invitations:** a single-use code with an expiry, stored as a hash and passed on by the coach by hand (T9.12) | Invitation emails | No mail service and no email address to keep |
 | D16 | **Sharing:** three scopes (nutrition, training, body), checked in the store on every read; a missing, foreign or unshared resource gives the same "not found" (T9.6, T9.12) | One all-or-nothing share | The client controls each kind of data, and an answer never reveals whether a client exists |
@@ -382,7 +392,7 @@ flowchart LR
 
 The metrics are computed in Python with no model: logged days, averages over logged days against the active target, the weight trend, sessions and volume, and `data_quality`. The evidence search covers only the topics the metrics raise. `WeeklyReview` holds period, metrics, data_quality, observations, hypotheses, recommendations, evidence_refs and model_version. Validation checks the schema, that every evidence reference is a chunk retrieved in this run, that no intake is below the calorie floor, that there is no diagnosis and no training advice, and that the numbers quoted match the metrics.
 
-**The store (D13, D16).** SQLite in a gitignored directory set in config; UTC timestamps (D21).
+**The store (D13, D16).** Built in T9.6 (`src/store/`): SQLite in a gitignored directory set in config (`data/store/`); UTC timestamps (D21) and ISO dates for the days a user chose, both checked by the tables. The scopes cover: **body** the weights and profile entries, **nutrition** the meal items, targets and the coach's own reviews, **training** the workouts; preferences are never shared; a coach's own list and export of their reviews keep only clients who still share nutrition, and a gymer never gets the model's draft (owner's choices, 2026-10-27). As built, the fields below changed from the plan: `meal_items` stores the day (`consumed_on`), the USDA name and the snapshot `kcal`, `protein_g`, `carbohydrate_g`, `fat_g`, `fiber_g` (as T9.13 needs); `ai_reviews` has `period_start` (the Monday) and `created_at`; `audit_log` has `subject_id` (whose data), so the audit rows about a user can be exported and deleted.
 
 | Table | Main fields |
 |---|---|
@@ -393,13 +403,13 @@ The metrics are computed in Python with no model: logged days, averages over log
 | `profile_entries` | id, user_id, height_cm, age, sex, activity, goal, recorded_at |
 | `body_measurements` | id, user_id, weight_kg, measured_on |
 | `nutrition_targets` | id, user_id, kcal, protein_g, carbs_g, fat_g, set_by, calc_version, effective_from |
-| `meal_items` | id, user_id, consumed_at, meal, fdc_id, grams, the nutrient snapshot |
+| `meal_items` | id, user_id, consumed_on, meal, fdc_id, food_name, grams, the nutrient snapshot (kcal, protein_g, carbohydrate_g, fat_g, fiber_g), recorded_at |
 | `workout_sessions`, `exercise_sets` | id, user_id, performed_on; session_id, exercise_id, set_no, reps, weight_kg, rpe |
 | `preferences` | id, user_id, text, created_at |
-| `ai_reviews`, `ai_evidence_refs` | id, client_id, coach_id, period, metrics, data_quality, draft, final, status, edited_by_coach, model_version, reviewed_by, reviewed_at; review_id, source_id, chunk_id |
-| `audit_log` | id, actor_id, action, resource_type, resource_id, created_at (no values) |
+| `ai_reviews`, `ai_evidence_refs` | id, client_id, coach_id, period_start, metrics, data_quality, draft, final, status, edited_by_coach, model_version, reviewed_by, reviewed_at; review_id, source_id, chunk_id |
+| `audit_log` | id, actor_id, subject_id, action, resource_type, resource_id, created_at (no values) |
 | `invite_attempts` | user_id, day, count (T9.12's daily limit) |
 
-Snapshots and profile entries are never changed in place, and a new target is a new row. Every read of another user's data takes the acting user and checks the role, an active relationship and the scope.
+Snapshots and profile entries are never changed in place, and a new target is a new row; as built, a trigger refuses an UPDATE on every record table and on the audit log, so an edit is a delete and a new row. Every read of another user's data takes the acting user and checks the role, an active relationship and the scope.
 
 **UI (D20).** Guest: today's tabs. Gymer: Today (log food and weight), Workouts, My week, Chat, Coach and sharing, My data. Coach: Clients, a client's week, Reviews, Chat. Demo mode adds a user picker (D18).
