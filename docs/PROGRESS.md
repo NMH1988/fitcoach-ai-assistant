@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-27 · T9.6 The SQLite store and the authorisation layer · NMH1988/fitcoach-ai-assistant#<PR> (closes NMH1988/fitcoach-ai-assistant#9; the copy of #101)
+## 2026-10-27 · T9.6 The SQLite store and the authorisation layer · NMH1988/fitcoach-ai-assistant#35 (closes NMH1988/fitcoach-ai-assistant#9; the copy of #101)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Medium 4 (personalisation; T9.5 adds the authentication), Medium 2 in part (the store T9.7's long-term memory writes to), core 4 (real-world use), evaluation: appropriate security. Sprint 2 (`docs/BRIEF.md`): Medium 4 (personalisation), evaluation: technical (appropriate security). Beyond the brief (owner's request): the coach-client sharing model.
 - **What:**
   - `src/store/` (new): `db.py` (`connect()` with foreign keys and `secure_delete` on, `migrate()` by `user_version`, `transaction()`), `schema.py` (migration 1: 15 STRICT tables of `docs/ARCHITECTURE.md` section 16, CHECKs on quantities, enums, UTC timestamps and ISO days, no-update triggers), `values.py` (checks before writing; `StoreValueError` names the field, never the value), `access.py` (`authorised_read()`, `NotFound`, `audit()`), `users.py` (accounts, relationships, scopes), `records.py` (profile entries, weights, targets, meal items, workouts, preferences, `delete_record()`), `reviews.py` (`save_review()`, `decide_review()`, `list_reviews()`), `my_data.py` (`export_user_data()`, `delete_user_data()`).
