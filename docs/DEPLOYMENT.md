@@ -31,7 +31,7 @@ Either way:
 8. **Costs.** Default model `openai/gpt-5-mini`, `max_tokens` capped, rate limit on; the token and cost display works.
 9. **Legal text on the page.** The "not medical advice" disclaimer and a link to the sources and attribution are visible.
 10. **Server address.** `.streamlit/config.toml` sets `server.address = "localhost"` (T1.7), so a local run is reachable from this machine only. A host may need another address (e.g. `0.0.0.0` in a container); change it only together with option 1 or 2 above, never on its own. Keep `browser.gatherUsageStats = false` and `client.showErrorDetails = "none"`.
-11. **Compliance review.** The `compliance-reviewer` agent has run on the whole repo on `main` with no open Blocker or High finding and no open finding about personal data reaching a third party (such as the LangSmith one in `docs/SECURITY.md` "Compliance reviews"). A privacy notice, explicit consent for health data and a GDPR review with a DPIA are in place first (`docs/PRD.md` "The privacy change"); the owner, or a lawyer, decides how. The other items of the agent's "Before a public deployment" checklist (processors and transfers, records, breach handling, encryption of the store) are done or decided by the owner (`.claude/rules/workflow.md`, T1.10).
+11. **Compliance review.** The `compliance-reviewer` agent has run on the whole repo on `main` with no open Blocker or High finding and no open finding about personal data reaching a third party (such as the LangSmith one in `docs/SECURITY.md` "Compliance reviews"). A privacy notice, explicit consent for health data and a GDPR review with a DPIA are in place first (`docs/PRD.md` "The privacy change"); the owner, or a lawyer, decides how. The other items of the agent's "Before a public deployment" checklist (e.g. processors and transfers, controller roles with coaches, export and delete against GDPR Art. 15, 17 and 20, records, breach handling, encryption of the store) are done or decided by the owner (`.claude/rules/workflow.md`, T1.10).
 
 ## Deploy steps (Streamlit Community Cloud, first time)
 
@@ -61,6 +61,7 @@ Copying (keeps the full history):
 Done on 2026-10-22 (T6.2): the course repository is https://github.com/TuringCollegeSubmissions/mnguye-AE.AFA.updated0209.2.5. It held the course's first commit with its task description (`125.md`), which is kept, so the copy is a merge of that commit (fc25447) and this repo's `main` at 8bcdc74, not a force push; the course repo's `main` is then 8a27496. The reviewers read the files only (O6), so `pr-checks.yml` stays.
 
 Updating the course repository later (allowed before the deadline):
+0. The `compliance-reviewer` agent has run on the whole repo on `origin/main` with no open Blocker or High finding (`.claude/rules/workflow.md`, T1.10); its licence listing also covers the Dependabot bumps merged since the last run.
 1. Merge the change into this repo's `main` first, through its PR as usual.
 2. Merge this repo's `main` into the course repo's `main` (it has its own merge commit, so a fast-forward is not possible and a plain `git push course main` is rejected), never with `--force`, and push it there:
    ```bash
