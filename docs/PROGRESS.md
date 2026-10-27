@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-27 · T1.11 CI: offline licence check of the runtime dependencies · #<PR> (closes NMH1988/fitcoach-ai-assistant#38)
+## 2026-10-27 · T1.11 CI: offline licence check of the runtime dependencies · NMH1988/fitcoach-ai-assistant#39 (closes NMH1988/fitcoach-ai-assistant#38)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): none directly; supports the technical evaluation item (appropriate security), as T1.10 does. Sprint 2 (`docs/BRIEF.md`): none directly; supports the technical evaluation item (appropriate security). Beyond the brief (owner's request): copyright rule 9 checked on every PR.
 - **What:**
   - `tests/test_dependency_licences.py` (new): `check()` walks `[project].dependencies` from `pyproject.toml` through `importlib.metadata` (markers evaluated with `packaging`, extras a package asks for followed, the `dev` extra never), compares each pin with the installed version, reads each licence (`License-Expression`, else the `License ::` classifiers, else the first line of `License`) and fails on one outside `ALLOWED`; `spdx_allowed()` evaluates AND, OR and WITH; `LICENCE_EXCEPTIONS` (empty) holds hand-checked packages. One test runs it on the installed set (125 packages on Windows); the others use fake metadata.
