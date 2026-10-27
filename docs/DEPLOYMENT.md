@@ -31,6 +31,7 @@ Either way:
 8. **Costs.** Default model `openai/gpt-5-mini`, `max_tokens` capped, rate limit on; the token and cost display works.
 9. **Legal text on the page.** The "not medical advice" disclaimer and a link to the sources and attribution are visible.
 10. **Server address.** `.streamlit/config.toml` sets `server.address = "localhost"` (T1.7), so a local run is reachable from this machine only. A host may need another address (e.g. `0.0.0.0` in a container); change it only together with option 1 or 2 above, never on its own. Keep `browser.gatherUsageStats = false` and `client.showErrorDetails = "none"`.
+11. **Compliance review.** The `compliance-reviewer` agent has run on the whole repo on `main` with no open Blocker or High finding and no open finding about personal data reaching a third party (such as the LangSmith one in `docs/SECURITY.md` "Compliance reviews"). A privacy notice, explicit consent for health data and a GDPR review with a DPIA are in place first (`docs/PRD.md` "The privacy change"); the owner, or a lawyer, decides how. The other items of the agent's "Before a public deployment" checklist (e.g. processors and transfers, controller roles with coaches, export and delete against GDPR Art. 15, 17 and 20, records, breach handling, encryption of the store) are done or decided by the owner (`.claude/rules/workflow.md`, T1.10).
 
 ## Deploy steps (Streamlit Community Cloud, first time)
 
@@ -49,6 +50,7 @@ Before copying:
 2. The README explains how to install, download the sources, build the index and run the app, and links the docs.
 3. CI is green on `main`; no secrets in the history (GitHub secret scanning shows no alerts).
 4. Docs refer to tickets by ID (`T1.2`). The `#<n>` issue and PR numbers stay as they are: the README, `docs/IMPLEMENTATION_PLAN.md` and `docs/PROGRESS.md` say they refer to the personal repo, and that a source number is a row in `docs/SOURCES.md` (owner's choice in T6.2, 2026-10-22, instead of rewriting about 400 numbers as full URLs).
+5. The `compliance-reviewer` agent has run on the whole repo on `main` with no open Blocker or High finding (`.claude/rules/workflow.md`, T1.10).
 
 Copying (keeps the full history):
 1. Clone the course repository and check that it is empty, or note what the course put there (e.g. its own README) so nothing of theirs is overwritten without asking.
@@ -60,7 +62,8 @@ Done on 2026-10-22 (T6.2): the course repository is https://github.com/TuringCol
 
 Updating the course repository later (allowed before the deadline):
 1. Merge the change into this repo's `main` first, through its PR as usual.
-2. Merge this repo's `main` into the course repo's `main` (it has its own merge commit, so a fast-forward is not possible and a plain `git push course main` is rejected), never with `--force`, and push it there:
+2. The `compliance-reviewer` agent has run on the whole repo on `origin/main` after that merge, so it checks what step 3 pushes, with no open Blocker or High finding (`.claude/rules/workflow.md`, T1.10); its licence listing also covers the Dependabot bumps merged since the last run.
+3. Merge this repo's `main` into the course repo's `main` (it has its own merge commit, so a fast-forward is not possible and a plain `git push course main` is rejected), never with `--force`, and push it there:
    ```bash
    git fetch origin
    git fetch course
@@ -72,7 +75,7 @@ Updating the course repository later (allowed before the deadline):
    ```
    It merges `origin/main`, not the local `main`, which may not have the PR merged on GitHub yet.
    Never merge `course/main` into this repo's `main`: the course's own commit (`125.md`) would land in the personal repo.
-3. Check that CI passes on the course repo's new `main`.
+4. Check that CI passes on the course repo's new `main`.
 
 ## After each deploy
 
