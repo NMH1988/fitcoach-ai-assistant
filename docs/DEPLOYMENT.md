@@ -61,9 +61,9 @@ Copying (keeps the full history):
 Done on 2026-10-22 (T6.2): the course repository is https://github.com/TuringCollegeSubmissions/mnguye-AE.AFA.updated0209.2.5. It held the course's first commit with its task description (`125.md`), which is kept, so the copy is a merge of that commit (fc25447) and this repo's `main` at 8bcdc74, not a force push; the course repo's `main` is then 8a27496. The reviewers read the files only (O6), so `pr-checks.yml` stays.
 
 Updating the course repository later (allowed before the deadline):
-0. The `compliance-reviewer` agent has run on the whole repo on `origin/main` with no open Blocker or High finding (`.claude/rules/workflow.md`, T1.10); its licence listing also covers the Dependabot bumps merged since the last run.
 1. Merge the change into this repo's `main` first, through its PR as usual.
-2. Merge this repo's `main` into the course repo's `main` (it has its own merge commit, so a fast-forward is not possible and a plain `git push course main` is rejected), never with `--force`, and push it there:
+2. The `compliance-reviewer` agent has run on the whole repo on `origin/main` after that merge, so it checks what step 3 pushes, with no open Blocker or High finding (`.claude/rules/workflow.md`, T1.10); its licence listing also covers the Dependabot bumps merged since the last run.
+3. Merge this repo's `main` into the course repo's `main` (it has its own merge commit, so a fast-forward is not possible and a plain `git push course main` is rejected), never with `--force`, and push it there:
    ```bash
    git fetch origin
    git fetch course
@@ -75,7 +75,7 @@ Updating the course repository later (allowed before the deadline):
    ```
    It merges `origin/main`, not the local `main`, which may not have the PR merged on GitHub yet.
    Never merge `course/main` into this repo's `main`: the course's own commit (`125.md`) would land in the personal repo.
-3. Check that CI passes on the course repo's new `main`.
+4. Check that CI passes on the course repo's new `main`.
 
 ## After each deploy
 
