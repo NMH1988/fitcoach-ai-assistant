@@ -75,6 +75,15 @@ FLAGGED = [
     # "Sore" with a joint (owner's choice, 2026-10-28).
     ("My knee is sore after squats, should I eat more protein?", Concern.INJURY),
     ("Sore knees after running, what should I eat?", Concern.INJURY),
+    # Found in the review of PR #42, round 3: "I've hurt", joint soreness in other forms.
+    ("I've hurt my shoulder, what should I eat to recover?", Concern.INJURY),
+    ("I've hurt myself at the gym.", Concern.INJURY),
+    ("I may have hurt my knee squatting, how much protein?", Concern.INJURY),
+    ("I have knee soreness after running.", Concern.INJURY),
+    ("I have soreness in my knee after squats.", Concern.INJURY),
+    ("My knee has been sore for a week.", Concern.INJURY),
+    ("My knees get sore when I run.", Concern.INJURY),
+    ("My knee's sore after leg day.", Concern.INJURY),
     # Medical conditions (a disease anywhere; a side effect said about the user or a group) and
     # any medication (redirected).
     ("I have type 1 diabetes, how many carbs before training?", Concern.MEDICAL),

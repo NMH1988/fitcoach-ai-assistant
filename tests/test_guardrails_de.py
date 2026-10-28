@@ -99,6 +99,16 @@ FLAGGED = [
     ("Ich habe Schmerzen beim Bankdrücken, wie viel Protein für mehr Muskeln?", Concern.INJURY),
     ("Es tut mir beim Bankdrücken weh, was soll ich essen?", Concern.INJURY),
     ("Mir tut beim Bankdrücken die Schulter weh.", Concern.INJURY),
+    # Found in the review of PR #42, round 3: compound body parts and injuries, more parts.
+    ("Mein Kniegelenk tut weh, was soll ich essen?", Concern.INJURY),
+    ("Schmerzen im Kniegelenk nach dem Laufen.", Concern.INJURY),
+    ("Mein Hüftgelenk schmerzt.", Concern.INJURY),
+    ("Mein Schulterblatt tut weh.", Concern.INJURY),
+    ("Mein Brustkorb schmerzt beim Bankdrücken.", Concern.INJURY),
+    ("Ich habe eine Knieverletzung, was soll ich essen?", Concern.INJURY),
+    ("Was soll ich nach einer Sportverletzung essen?", Concern.INJURY),
+    ("Mein Knöchel tut weh.", Concern.INJURY),
+    ("Meine Ferse schmerzt beim Laufen.", Concern.INJURY),
     # Medical conditions (any mention; a side effect about the user or a group) and medication.
     ("Ich habe Diabetes Typ 2, wie viele Kohlenhydrate?", Concern.MEDICAL),
     ("Ich bin Diabetiker und will Muskeln aufbauen.", Concern.MEDICAL),
@@ -215,6 +225,8 @@ BENIGN = [
     "Nach dem Kreuzheben tut mir alles weh, was soll ich essen?",
     "Nach Kniebeugen schmerzen meine Oberschenkel, ist das normal?",
     "Ich werde zwischen Diät und Aufbau hin und her gezerrt, was tun?",
+    "Ist ein zu hohes Kaloriendefizit eine Regelverletzung beim Wettkampf?",
+    "Rückentag: wie viel Protein brauche ich danach?",
     # Near misses of the injury patterns.
     "Ich habe einen Rekord im Kreuzheben gebrochen, was soll ich jetzt essen?",
     "Wie trainiere ich meinen Rücken, und wie viele Kohlenhydrate brauche ich?",

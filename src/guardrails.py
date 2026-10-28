@@ -270,7 +270,8 @@ _INJURY_PATTERNS = [
     r"|pecs?|biceps?|triceps|quads?|ligaments?|tendons?|acl|mcl|meniscus|labrum|rotator cuff)\b",
     # "I hurt my shoulder", "I hurt myself": the user as the subject, so "does cardio hurt my
     # muscle growth?" and "did I hurt my gains?" pass, and not a lift ("hurt my back squat").
-    r"\bi (?:have |'ve |ve |just |really |badly )?hurt (?:myself\b|my (?:(?:left|right|lower"
+    # "I've hurt", "I may have hurt", "I probably hurt": up to two words between.
+    r"\b(?:i|i've|ive)(?: \w+){0,2}? hurt (?:myself\b|my (?:(?:left|right|lower"
     r"|upper) )?(?:hamstrings?|groin|calf|calves|pecs?|biceps?|triceps|quads?|back|neck"
     r"|shoulders?|knees?|wrists?|elbows?|ankles?|hips?|foot|feet)\b"
     r"(?! (?:squats?|press(?:es)?|day|width|growth|gains|progress)\b))",
@@ -283,7 +284,9 @@ _INJURY_PATTERNS = [
     rf"\b(?:my|both|the) (?:\w+ )?{_BODY_PARTS} (?:hurts?|is hurting|are hurting|aches?"
     r"|is aching|are aching|is swollen|are swollen|keeps? hurting|gives? out|pops?|clicks?)\b",
     rf"\b(?:swollen|painful) {_BODY_PARTS}\b|\bsore {_JOINTS}\b",
-    rf"\b(?:my|both|the) (?:\w+ )?{_JOINTS} (?:is|are|feels?|still) (?:\w+ )?sore\b",
+    rf"\b(?:my|both|the) (?:\w+ )?{_JOINTS}(?:'s| (?:is|are|feels?|still|gets?|has been"
+    r"|have been|keeps? getting)) (?:\w+ )?sore\b",
+    rf"\b{_JOINTS} soreness\b|\bsoreness (?:in|on) (?:my|the|both) (?:\w+ )?{_JOINTS}\b",
     # Pain with a quality ("sharp", "chest"-like severity) counts in any sentence.
     r"\b(?:sharp|stabbing|shooting|sudden|severe|burning|radiating|nerve|chronic) pains?\b",
     # The user's own pain while training ("I get pain when I squat"), not about the muscles.
@@ -541,16 +544,23 @@ _DE_MEDICAL_PATTERNS = [
 # passes).
 _DE_BODY_PARTS = (
     r"(?:gelenk|knie|rücken|kreuz|schulter|ellenbogen|ellbogen|handgelenk|hüft|hüfte|nacken"
-    r"|brust|fuss|fersen|achillessehnen|leisten|wirbelsäulen|sprunggelenk|steissbein)"
+    r"|brust|fuss|fersen?|achillessehnen?|leisten?|wirbelsäulen?|sprunggelenk|steissbein"
+    r"|knöchel)"
 )
-# The endings a body part takes ("Knies", "Rückens", "Schultern", "Hüfte").
-_DE_ENDING = r"(?:s|es|n|en|e)?"
+# The endings a body part takes ("Knies", "Rückens", "Schultern", "Hüfte"), after an optional
+# second part of a compound ("Kniegelenk", "Brustkorb", "Schulterblatt"). Nothing else may
+# follow, so the lifts "Kniebeugen", "Kreuzheben", "Brusttraining" and "Rückentag" are not body
+# parts.
+_DE_ENDING = r"(?:gelenk|korb|bein|blatt|band|bereich)?(?:s|es|n|en|e)?"
 _DE_TRAINING = (
     r"(?:training|trainieren|heben|kniebeugen|bankdrücken|kreuzheben|schulterdrücken|curls"
     r"|rudern|klimmzügen|liegestützen|laufen|joggen|sport|beintag|workout)"
 )
 _DE_INJURY_PATTERNS = [
-    r"\b(?:verletzung(?:en)?|verletzungsbedingt\w*"
+    # A compound injury from a short list ("Knieverletzung", "Sportverletzung"), so
+    # "Regelverletzung" passes.
+    rf"\b(?:(?:{_DE_BODY_PARTS}|sport|muskel|sehnen|band|bänder|trainings)?verletzung(?:en)?"
+    r"|verletzungsbedingt\w*"
     r"|(?:mich|mir|sich|habe|hab|bin|ist) (?:\w+ ){0,4}?verletzt"
     r"|verletzte[nrms]? (?:knie|schulter|rücken|sehne|band|bänder|muskel|fuss|hand|handgelenk"
     r"|ellenbogen|ellbogen))\b",
@@ -569,9 +579,8 @@ _DE_INJURY_PATTERNS = [
     r"|verdrehte[nms]? (?:knie|knöchel|fuss|handgelenk))\b",
     # Joint pain, as in English: "Knieschmerzen", "Schmerzen im Knie", "mein Knie tut weh",
     # "mein Knie schmerzt", "tut mir das Knie weh". A body part is needed: "meine Beine tun nach
-    # dem Beintag weh" and "mir tun die Muskeln weh" are soreness, like "my legs hurt". Only an
-    # ending may follow the body part, so the lifts "Kniebeugen", "Kreuzheben", "Brusttraining"
-    # and "Rückentag" are not body parts.
+    # dem Beintag weh" and "mir tun die Muskeln weh" are soreness, like "my legs hurt"
+    # (_DE_ENDING keeps lifts such as "Kniebeugen" out).
     rf"\b{_DE_BODY_PARTS}schmerz(?:en)?\b",
     rf"\bschmerzen (?:im|in der|in den|am|an der|in meinem|in meiner|in meinen) {_DE_BODY_PARTS}"
     rf"{_DE_ENDING}\b",
