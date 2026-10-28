@@ -241,13 +241,18 @@ _JOINTS = r"(?:joints?|knees?|elbows?|wrists?|hips?|ankles?|heels?|feet|foot|ach
 # a goal does not count (owner's choice, 2026-10-28): "to build muscle", "lean muscle", "muscle
 # growth", "Muskelaufbau", "mehr Muskeln", so "I get pain when I squat to build muscle" is
 # still redirected; a sore muscle always counts ("more muscle pain than usual", "mehr
-# Muskelkater"). No umlaut here: german() would make a lookbehind variable-width.
+# Muskelkater"). Muscle in a nutrition phrase does not count either ("muscle protein
+# synthesis", "for my muscles", "für meine Muskeln", "Muskelproteinsynthese"; owner's choice,
+# 2026-10-28). No umlaut inside a lookbehind: german() would make it variable-width ("für" is
+# matched as "fur" in the guard's accent-free view, and as "fuer" when typed so).
 _MUSCLE_WORDS = (
-    r"(?:muscles? (?:pains?|aches?|aching|soreness|cramps?)|muskel(?:kater|schmerz|krampf)\w*"
+    r"(?:muscles? (?:pains?|aches?|aching|soreness|cramps?)"
+    r"|muskel(?:kater|schmerz|krampf|krämpf)\w*"
     r"|(?<!build )(?<!building )(?<!gain )(?<!gaining )(?<!grow )(?<!growing )(?<!more )"
-    r"(?<!lean )(?<!mehr )(?:muscles?(?! (?:growth|gains?|mass|building|size|hypertrophy)\b)"
+    r"(?<!lean )(?<!mehr )(?<!for )(?<!for my )(?<!fur meine )(?<!fuer meine )"
+    r"(?:muscles?(?! (?:growth|gains?|mass|building|size|hypertrophy|protein|synthesis)\b)"
     # "Muskeln aufbauen", "um Muskeln aufzubauen": the German goal with the verb last.
-    r"|muskel(?!aufbau|wachstum|masse|zuwachs|zuwachses|hypertrophie)\w*"
+    r"|muskel(?!aufbau|wachstum|masse|zuwachs|zuwachses|hypertrophie|protein)\w*"
     r"(?! (?:\w+ ){0,2}?(?:aufbauen|aufzubauen|zulegen)\b))"
     r"|muscular|doms|soreness|muskulatur)"
 )
@@ -572,10 +577,11 @@ _DE_TRAINING = (
     r"|rudern|klimmzügen|liegestützen|laufen|joggen|sport|beintag|workout)"
 )
 _DE_INJURY_PATTERNS = [
-    # Any compound injury ("Knieverletzung", "Wadenverletzung", "Sportverletzung") except the
-    # breaches of a rule, duty, right, data protection or contract ("Regelverletzung").
-    r"\b(?:\w*?(?<!regel)(?<!pflicht)(?<!rechts)(?<!schutz)(?<!vertrags)verletzung(?:en)?"
-    r"|verletzungsbedingt\w*"
+    # Any compound injury ("Knieverletzung", "Wadenverletzung", "Sportverletzung") and "injury
+    # risk" or "injury break" ("Verletzungsrisiko", "Verletzungspause"), as in English, except
+    # the breaches of a rule, duty, right, law, data protection or contract ("Regelverletzung").
+    r"\b(?:\w*?(?<!regel)(?<!pflicht)(?<!rechts)(?<!schutz)(?<!vertrags)(?<!gesetzes)"
+    r"verletzung(?:en|s\w*)?"
     r"|(?:mich|mir|sich|habe|hab|bin|ist) (?:\w+ ){0,4}?verletzt"
     r"|verletzte[nrms]? (?:knie|schulter|rücken|sehne|band|bänder|muskel|fuss|hand|handgelenk"
     r"|ellenbogen|ellbogen))\b",

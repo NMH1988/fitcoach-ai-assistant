@@ -79,6 +79,12 @@ FLAGGED = [
     ("I get pain when I squat to build muscle.", Concern.INJURY),
     ("It hurts when I bench for muscle growth, what should I change?", Concern.INJURY),
     ("I have pain and soreness in my knee.", Concern.INJURY),
+    # Muscle in a nutrition phrase does not hide the pain (owner's choice, 2026-10-28).
+    (
+        "I get pain when I squat, what protein dose maximises muscle protein synthesis?",
+        Concern.INJURY,
+    ),
+    ("It hurts when I bench, how much protein for my muscles?", Concern.INJURY),
     # Found in the review of PR #42, round 3: "I've hurt", joint soreness in other forms.
     ("I've hurt my shoulder, what should I eat to recover?", Concern.INJURY),
     ("I've hurt myself at the gym.", Concern.INJURY),
@@ -411,9 +417,12 @@ def test_injury_comes_first_in_the_enum_and_the_rest_follow_its_order():
         "I'm 16 and my knee hurts when I squat.",
         "Ich bin schwanger und habe plötzliche Brustschmerzen.",
         "Ich bin 16 und mein Knie tut beim Laufen weh.",
+        # Disordered eating and an intake below the floor too (compliance review of PR #42).
+        "I eat 600 kcal a day and my knee hurts.",
+        "Ich esse 600 kcal am Tag und mein Knie tut weh.",
     ],
 )
-def test_pain_wins_over_drug_dosing_minors_and_pregnancy(text, limiter):
+def test_pain_wins_over_every_other_guardrail(text, limiter):
     """Pain said with another guardrail gets the message with 112 (owner's choice, 2026-10-28)."""
     result = guard.check_message(text, limiter)
     assert result.concern is Concern.INJURY
