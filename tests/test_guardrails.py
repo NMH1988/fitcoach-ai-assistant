@@ -69,6 +69,12 @@ FLAGGED = [
     ("I hurt my shoulder benching, how much protein should I eat to recover?", Concern.INJURY),
     ("I hurt myself at the gym, what should I eat?", Concern.INJURY),
     ("What should I eat to heal my torn hamstring?", Concern.INJURY),
+    # Found in the review of PR #42, round 2: pain before a clause about muscle.
+    ("I get pain when I squat, how much protein do I need to build muscle?", Concern.INJURY),
+    ("It hurts when I bench, what should I eat for muscle growth?", Concern.INJURY),
+    # "Sore" with a joint (owner's choice, 2026-10-28).
+    ("My knee is sore after squats, should I eat more protein?", Concern.INJURY),
+    ("Sore knees after running, what should I eat?", Concern.INJURY),
     # Medical conditions (a disease anywhere; a side effect said about the user or a group) and
     # any medication (redirected).
     ("I have type 1 diabetes, how many carbs before training?", Concern.MEDICAL),
@@ -161,6 +167,15 @@ BENIGN = [
     "I pulled back on carbs this week, should I raise fats?",
     "I tweaked my macros back to maintenance, how much protein?",
     "Does lifting tear muscle fibres?",
+    # Found in the review of PR #42, round 2: "hurt" about progress, not the body.
+    "Does cardio hurt my muscle growth?",
+    "Will a calorie deficit hurt my back squat?",
+    "Did I hurt my metabolism by dieting too long?",
+    "Have I hurt my gains by skipping protein?",
+    # "Sore" with a muscle group is soreness (owner's choice, 2026-10-28).
+    "Sore chest after bench day, should I eat more protein?",
+    "My chest is sore after benching, is that normal?",
+    "Sore shoulders after overhead press, what should I eat?",
     # Near misses of the injury patterns.
     "I am torn between cutting and bulking.",
     "Is strained yogurt a good protein source?",

@@ -95,6 +95,10 @@ FLAGGED = [
     ("Ich bin beim Laufen umgeknickt, darf ich trainieren?", Concern.INJURY),
     ("Ich habe mir den Rücken gezerrt.", Concern.INJURY),
     ("Es tut weh, wenn ich die Hantel hebe.", Concern.INJURY),
+    # Found in the review of PR #42, round 2.
+    ("Ich habe Schmerzen beim Bankdrücken, wie viel Protein für mehr Muskeln?", Concern.INJURY),
+    ("Es tut mir beim Bankdrücken weh, was soll ich essen?", Concern.INJURY),
+    ("Mir tut beim Bankdrücken die Schulter weh.", Concern.INJURY),
     # Medical conditions (any mention; a side effect about the user or a group) and medication.
     ("Ich habe Diabetes Typ 2, wie viele Kohlenhydrate?", Concern.MEDICAL),
     ("Ich bin Diabetiker und will Muskeln aufbauen.", Concern.MEDICAL),
@@ -206,6 +210,11 @@ BENIGN = [
     "Ich habe nach dem Training Schmerzen in den Muskeln, ist das normal?",
     "Kreuzheben: wie viel Protein brauche ich?",
     "Brusttraining zweimal pro Woche, wie viele Kalorien?",
+    # Found in the review of PR #42, round 2: a lift named after a body part is not one.
+    "Nach Kniebeugen tun mir die Beine weh, brauche ich mehr Kohlenhydrate?",
+    "Nach dem Kreuzheben tut mir alles weh, was soll ich essen?",
+    "Nach Kniebeugen schmerzen meine Oberschenkel, ist das normal?",
+    "Ich werde zwischen Diät und Aufbau hin und her gezerrt, was tun?",
     # Near misses of the injury patterns.
     "Ich habe einen Rekord im Kreuzheben gebrochen, was soll ich jetzt essen?",
     "Wie trainiere ich meinen Rücken, und wie viele Kohlenhydrate brauche ich?",

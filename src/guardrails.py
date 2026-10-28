@@ -227,22 +227,23 @@ _MEDICAL_PATTERNS = [
 # An injury, rehabilitation or physiotherapy named anywhere (as a disease is), joint pain, and
 # pain the user has during or after training. Muscle soreness is answered: "DOMS", "sore muscles
 # after leg day", "muscle damage" (a research term) and muscle pain after training pass (owner's
-# choice, 2026-10-28), so the general pain patterns count only in a sentence that names no muscle
-# (_outside_muscle_talk); joint pain and named injuries count in any sentence.
+# choice, 2026-10-28), so the general pain patterns count only in a clause that names no muscle
+# (_outside_muscle_talk); joint pain and named injuries count anywhere. "Sore" counts only with a
+# joint: a sore chest, back or shoulders after a session is soreness (owner's choice, 2026-10-28).
 _BODY_PARTS = (
     r"(?:joints?|knees?|(?:lower |upper )?back|shoulders?|elbows?|wrists?|hips?|ankles?|neck"
     r"|chest|feet|foot|heels?|achilles|spine|groin|rotator cuff)"
 )
-# Muscle words in either language, as the sentence check runs on the same folded text.
-_MUSCLE_WORDS = (
-    r"(?:muscles?|muscular|doms|soreness|muskeln?|muskulatur|muskelkater|muskelschmerz\w*)"
-)
+_JOINTS = r"(?:joints?|knees?|elbows?|wrists?|hips?|ankles?|heels?|feet|foot|achilles)"
+# Muscle words in either language, as the clause check runs on the same folded text.
+_MUSCLE_WORDS = r"(?:muscles?|muscular|doms|soreness|muskel\w*|muskulatur)"
 
 
 def _outside_muscle_talk(pattern: str) -> str:
-    """Return the pattern matched only in a sentence that names no muscle (soreness passes)."""
-    # From a sentence start: no muscle word anywhere in the sentence, then the pattern in it.
-    return rf"(?:^|[.?!;] )(?![^.?!;]*\b{_MUSCLE_WORDS}\b)[^.?!;]*?{pattern}"
+    """Return the pattern matched only in a clause that names no muscle (soreness passes)."""
+    # From a clause start (a comma counts, so "..., how much protein to build muscle?" does not
+    # hide the pain before it): no muscle word in the clause, then the pattern in it.
+    return rf"(?:^|[.?!;,] )(?![^.?!;,]*\b{_MUSCLE_WORDS}\b)[^.?!;,]*?{pattern}"
 
 
 _TRAINING = (
@@ -260,14 +261,19 @@ _INJURY_PATTERNS = [
     r"|dislocat(?:ed|ion|ions)|concussions?|whiplash)\b",
     # A body part after "my", "a" or "an": not "torn between cutting and bulking", "strained
     # yogurt", "pulled back on carbs" or "does lifting tear muscle fibres?".
-    r"\b(?:torn|tore|tear|tearing|ruptured?|pulled|strained|tweaked|hurt) (?:my|a|an)"
+    r"\b(?:torn|tore|tear|tearing|ruptured?|pulled|strained|tweaked) (?:my|a|an)"
     r" (?:(?:left|right|lower|upper) )?(?:muscle|hamstrings?|groin|calf|calves|pecs?|biceps?"
     r"|triceps|quads?|ligaments?|tendons?|acl|mcl|meniscus|labrum|rotator cuff|back|neck"
     r"|shoulders?|knees?|wrists?|elbows?|ankles?|hips?|foot|feet)\b",
     # A torn ligament or tendon named without "my": "heal my torn hamstring", "a torn ACL".
     r"\b(?:torn|ruptured|pulled|strained) (?:(?:left|right) )?(?:hamstrings?|groin|calf"
     r"|pecs?|biceps?|triceps|quads?|ligaments?|tendons?|acl|mcl|meniscus|labrum|rotator cuff)\b",
-    r"\b(?:i|i've|ive|i have) hurt (?:myself|my\w*)\b",
+    # "I hurt my shoulder", "I hurt myself": the user as the subject, so "does cardio hurt my
+    # muscle growth?" and "did I hurt my gains?" pass, and not a lift ("hurt my back squat").
+    r"\bi (?:have |'ve |ve |just |really |badly )?hurt (?:myself\b|my (?:(?:left|right|lower"
+    r"|upper) )?(?:hamstrings?|groin|calf|calves|pecs?|biceps?|triceps|quads?|back|neck"
+    r"|shoulders?|knees?|wrists?|elbows?|ankles?|hips?|foot|feet)\b"
+    r"(?! (?:squats?|press(?:es)?|day|width|growth|gains|progress)\b))",
     r"\b(?:broken|broke (?:my|a)) (?:arm|leg|wrist|ankle|foot|hand|ribs?|bone|fingers?|toes?"
     r"|collarbone)\b",
     # Joint pain, said either way round: "knee pain", "pain in my knee", "my knee hurts".
@@ -276,7 +282,8 @@ _INJURY_PATTERNS = [
     rf" (?:\w+ )?{_BODY_PARTS}\b",
     rf"\b(?:my|both|the) (?:\w+ )?{_BODY_PARTS} (?:hurts?|is hurting|are hurting|aches?"
     r"|is aching|are aching|is swollen|are swollen|keeps? hurting|gives? out|pops?|clicks?)\b",
-    rf"\b(?:swollen|painful|sore) {_BODY_PARTS}\b",
+    rf"\b(?:swollen|painful) {_BODY_PARTS}\b|\bsore {_JOINTS}\b",
+    rf"\b(?:my|both|the) (?:\w+ )?{_JOINTS} (?:is|are|feels?|still) (?:\w+ )?sore\b",
     # Pain with a quality ("sharp", "chest"-like severity) counts in any sentence.
     r"\b(?:sharp|stabbing|shooting|sudden|severe|burning|radiating|nerve|chronic) pains?\b",
     # The user's own pain while training ("I get pain when I squat"), not about the muscles.
@@ -536,6 +543,8 @@ _DE_BODY_PARTS = (
     r"(?:gelenk|knie|rücken|kreuz|schulter|ellenbogen|ellbogen|handgelenk|hüft|hüfte|nacken"
     r"|brust|fuss|fersen|achillessehnen|leisten|wirbelsäulen|sprunggelenk|steissbein)"
 )
+# The endings a body part takes ("Knies", "Rückens", "Schultern", "Hüfte").
+_DE_ENDING = r"(?:s|es|n|en|e)?"
 _DE_TRAINING = (
     r"(?:training|trainieren|heben|kniebeugen|bankdrücken|kreuzheben|schulterdrücken|curls"
     r"|rudern|klimmzügen|liegestützen|laufen|joggen|sport|beintag|workout)"
@@ -554,18 +563,22 @@ _DE_INJURY_PATTERNS = [
     r"|überlastungsschäden|überlastungsschaden|impingement)\b",
     r"\b(?:arm|bein|handgelenk|knöchel|fuss|rippe|finger|zeh|schlüsselbein) (?:\w+ )?gebrochen\b"
     r"|\bgebrochene[nmrs]? (?:arm|bein|handgelenk|knöchel|fuss|rippe|finger|zeh)\b",
-    r"\b(?:umgeknickt|gezerrt|verrenkt|(?:knie|knöchel|fuss|handgelenk|rücken|nacken) verdreht"
+    # Not "hin und her gezerrt" (torn between two choices).
+    r"\b(?:umgeknickt|(?<!her )gezerrt|verrenkt"
+    r"|(?:knie|knöchel|fuss|handgelenk|rücken|nacken) verdreht"
     r"|verdrehte[nms]? (?:knie|knöchel|fuss|handgelenk))\b",
     # Joint pain, as in English: "Knieschmerzen", "Schmerzen im Knie", "mein Knie tut weh",
     # "mein Knie schmerzt", "tut mir das Knie weh". A body part is needed: "meine Beine tun nach
-    # dem Beintag weh" and "mir tun die Muskeln weh" are soreness, like "my legs hurt".
+    # dem Beintag weh" and "mir tun die Muskeln weh" are soreness, like "my legs hurt". Only an
+    # ending may follow the body part, so the lifts "Kniebeugen", "Kreuzheben", "Brusttraining"
+    # and "Rückentag" are not body parts.
     rf"\b{_DE_BODY_PARTS}schmerz(?:en)?\b",
     rf"\bschmerzen (?:im|in der|in den|am|an der|in meinem|in meiner|in meinen) {_DE_BODY_PARTS}"
-    r"\w*\b",
-    rf"\b{_DE_BODY_PARTS}\w* (?:\w+ ){{0,3}}?(?:tut|tun|tat|taten) (?:\w+ ){{0,3}}?weh\b",
-    rf"\b(?:tut|tun|tat|taten) (?:mir )?(?:der|die|das|mein\w*) {_DE_BODY_PARTS}\w*"
-    r" (?:\w+ ){0,3}?weh\b",
-    rf"\b{_DE_BODY_PARTS}\w* (?:\w+ ){{0,2}}?(?:schmerzt|schmerzte|schmerzen)\b",
+    rf"{_DE_ENDING}\b",
+    rf"\b{_DE_BODY_PARTS}{_DE_ENDING} (?:\w+ ){{0,3}}?(?:tut|tun|tat|taten) (?:\w+ ){{0,3}}?weh\b",
+    rf"\b(?:tut|tun|tat|taten) (?:\w+ ){{0,3}}?(?:der|die|das|mein\w*) {_DE_BODY_PARTS}"
+    rf"{_DE_ENDING} (?:\w+ ){{0,3}}?weh\b",
+    rf"\b{_DE_BODY_PARTS}{_DE_ENDING} (?:\w+ ){{0,2}}?(?:schmerzt|schmerzte|schmerzen)\b",
     rf"\bschmerzt (?:mir |mich )?(?:der|die|das|mein\w*) {_DE_BODY_PARTS}",
     r"\b(?:stechende|starke|plötzliche|ziehende|chronische|ausstrahlende)[nr]? schmerzen\b",
     # The user's own pain, or pain while training ("Schmerzen beim Kreuzheben"), not about the
@@ -577,7 +590,7 @@ _DE_INJURY_PATTERNS = [
     _outside_muscle_talk(
         rf"\bschmerzen (?:beim|bei|nach dem|nach|während des|während dem|vom) {_DE_TRAINING}\b"
     ),
-    _outside_muscle_talk(r"\bwehgetan\b|\b(?:es|das) tut (?:mir )?weh,? (?:wenn|beim|nach)\b"),
+    _outside_muscle_talk(r"\bwehgetan\b|\b(?:es|das) tut (?:\w+ ){0,3}?weh\b"),
 ]
 
 # Throwing up counts after eating, not after training ("nach dem Training muss ich kotzen").
