@@ -1,10 +1,10 @@
 # Product requirements (PRD)
 
-What we build, for whom, and how we know it is done. The course requirements are in `docs/BRIEF.md` (Sprint 2) and `docs/BRIEF_SPRINT3.md` (Sprint 3); the technical design is in `docs/ARCHITECTURE.md`. The Sprint 2 decisions below were made by the owner on 2026-10-19; the Sprint 3 decisions ("Sprint 3: the agent (coach-first workspace)") on 2026-10-25.
+What we build, for whom, and how we know it is done. The course requirements are in `docs/BRIEF.md` (Sprint 2) and `docs/BRIEF_SPRINT3.md` (Sprint 3); the technical design is in `docs/ARCHITECTURE.md`. The Sprint 2 decisions below were made by the owner on 2026-10-19; the Sprint 3 decisions ("Sprint 3: the agent (coach-first workspace)") on 2026-10-25, and the training principles (feature 26, T9.19 and T9.20) on 2026-10-26.
 
 ## Goal
 
-A chatbot that gives adults who lift weights clear, evidence-based nutrition answers with their sources, and turns their own numbers into personal targets (energy, macros) and food facts. Sprint 3 turns it into a coach-first workspace: a coach invites gymers, follows their nutrition and training, and approves the weekly reviews an AI agent drafts (section "Sprint 3" below). The Sprint 2 sections that follow describe what Sprint 2 built and stay as its record.
+A chatbot that gives adults who lift weights clear, evidence-based nutrition answers with their sources, and turns their own numbers into personal targets (energy, macros) and food facts. Sprint 3 turns it into a coach-first workspace: a coach invites gymers, follows their nutrition and training, and approves the weekly reviews an AI agent drafts; the agent also explains evidence-based resistance training principles with their sources, but writes no training programs (section "Sprint 3" below). The Sprint 2 sections that follow describe what Sprint 2 built and stay as its record.
 
 ## Users and scope
 
@@ -69,7 +69,7 @@ Each ticket in `docs/IMPLEMENTATION_PLAN.md` refines one or more of these into t
 
 ## Sprint 3: the agent (coach-first workspace)
 
-Decided by the owner on 2026-10-25 for the Sprint 3 project (`docs/BRIEF_SPRINT3.md`), which builds on this app. Submission on **2026-11-23**. It is a coach-first slice of the owner's longer-term product plan; what it leaves out moves to a later Capstone project (below). Technical decisions: `docs/ARCHITECTURE.md` D9-D21; tickets: Epic 9 in `docs/IMPLEMENTATION_PLAN.md`.
+Decided by the owner on 2026-10-25 for the Sprint 3 project (`docs/BRIEF_SPRINT3.md`), which builds on this app. Submission on **2026-11-23**. It is a coach-first slice of the owner's longer-term product plan; what it leaves out moves to a later Capstone project (below). Technical decisions: `docs/ARCHITECTURE.md` D9-D22 (D22, the training principles, added on 2026-10-26); tickets: Epic 9 in `docs/IMPLEMENTATION_PLAN.md`.
 
 ### Problem and why an agent
 
@@ -84,7 +84,7 @@ Decided by the owner on 2026-10-25 for the Sprint 3 project (`docs/BRIEF_SPRINT3
 - **Guest:** no account; the agent's chat (session memory, agentic search, the Sprint 2 tools) with nothing stored.
 - **Demo users:** a synthetic coach and gymers, for a clone with no Google client (`DEMO_MODE`, off unless set, and only without an `[auth]` section).
 
-One role per account, chosen at the first sign-in; no admin role. Out of scope as in Sprint 2, plus real client data (demos and tests use synthetic data only) and any public deployment.
+One role per account, chosen at the first sign-in; no admin role. Out of scope as in Sprint 2, plus real client data (demos and tests use synthetic data only), any public deployment, and for training: personal programs, exercise technique coaching, and pain, injury or rehabilitation (feature 26).
 
 ### Features
 
@@ -101,6 +101,8 @@ One role per account, chosen at the first sign-in; no admin role. Out of scope a
 22. **Long-term memory:** for a signed-in user, the profile history, logs and targets, and preferences ("vegetarian") that the agent proposes with `remember_preference` and the user approves before anything is saved. Serves Sprint 3 Medium 2.
 23. **My data:** export everything as JSON, delete one entry or everything.
 
+**P0, added on 2026-10-26** (numbered after the P1 items, which keep their numbers; beyond the brief, so the first P0 feature cut if time runs short, as the plan says): 26. **Training principles with citations** (owner's decision, 2026-10-26): the agent answers general questions about resistance training for muscle and strength (volume, load and repetition range, proximity to failure, frequency, rest between sets, progression, exercise selection) from a set of approved, openly licensed training sources (`docs/SOURCES.md`, "Training sources"), and cites them. It gives the ranges a source gives, never a program built for the user (no weekly plan, no sets and reps per exercise for the user, no technique coaching). A weekly review may recommend a training change to the coach only with a citation. Pain, injury and rehabilitation questions are redirected before any model or embedding call, and the fixed message also tells the user to call the emergency number (112 in Germany and the EU) for sudden, severe or chest symptoms; the rejected message is not kept in the history a later turn sends to a model. Tickets T9.19 (the sources and the injury guard) and T9.20 (the behaviour in the chat).
+
 **P1, if time allows:** 24. logging by chat ("I had 150 g of oats"), saved only after the gymer approves; 25. a coach assistant (read-only tools over the coach's clients, a follow-up flag, coach-set targets within the calorie floor).
 
 **Should, after P0:** LangSmith tracing with personal data masked (Sprint 3 Hard 2) and a Ragas or DeepEval report (Sprint 3 Hard 3). **Extras:** the USDA FoodData Central API (Sprint 3 Medium 3, Hard 5) and evaluation in CI (the Sprint 2 review, point 5).
@@ -110,8 +112,10 @@ One role per account, chosen at the first sign-in; no admin role. Out of scope a
 ### Guardrails added in Sprint 3
 
 - Every domain guardrail above applies to gymers and coaches alike.
-- **Training is reported as facts only** (sessions, sets, volume, top weights): the knowledge base holds no approved training sources, so the app gives no training advice.
-- A review never recommends an intake below the calorie floor and never makes a diagnosis; a recommendation without a citation is labelled as the model's suggestion, never as evidence.
+- **Training principles only, always cited** (feature 26; replaces the "facts only" rule of 2026-10-25, owner's decision of 2026-10-26): the logs and dashboards still show training as facts (sessions, sets, volume, top weights). The agent explains training principles only from approved training sources and cites them; a training claim it cannot cite is not made, and the agent says the sources do not cover it (stricter than nutrition, where an uncited recommendation in a review is labelled as the model's suggestion). It never writes a program for the user or coaches technique. A range is quoted with the population the source studied, and a recommendation to a named client in a review names a direction and the source's range, leaving the number for this client to the coach.
+- **Pain, injury and rehabilitation** are redirected to a professional (a doctor or physiotherapist) by the input guard, before any model or embedding call, in English and German; the fixed message adds the emergency number (112) for sudden, severe or chest symptoms, and the rejected message is not sent to a model in a later turn through the history.
+- **The answers are AI-generated:** the About text and the disclaimer say so and tell the user to check the sources (owner's decision, 2026-10-28, after the compliance review; the EU AI Act's transparency rules point the same way); the gymer sees a weekly review as an AI draft approved by the coach.
+- A review never recommends an intake below the calorie floor and never makes a diagnosis; a nutrition recommendation without a citation is labelled as the model's suggestion, never as evidence (a training recommendation needs a citation, above).
 - A coach reads a client's data only while the relationship is active and the scope is shared. This is checked in the data layer, not in the prompt or the UI.
 - The model gets aggregates and "the client", never a name; the Google name, email and picture are never stored or logged.
 
@@ -149,28 +153,32 @@ The rule (`.claude/rules/security-privacy.md`), feature 4 and `docs/SECURITY.md`
 | AC-32 | A food question makes no knowledge base search; a research question searches and cites. |
 | AC-33 | No log line or trace holds a question, an answer, a profile value or a logged value (canary tests). |
 | AC-34 | A user exports all their data as JSON and deletes all of it. |
-| AC-35 | A review never recommends an intake below the calorie floor and gives no training advice. |
+| AC-35 | A review never recommends an intake below the calorie floor; a training recommendation in a review cites a training source retrieved for that review, is not a program, and gives the source's range with its population, leaving the number for the client to the coach. |
 | AC-36 | A preference is saved only after the user approves it, and it reaches the model inside a delimited `<memories>` block, never in the system prompt. |
 | AC-37 | (P1) A food or weight typed in the chat is saved only after the gymer approves the proposal. |
+| AC-38 | A training-principle question searches the knowledge base and cites at least one approved training source; a request for a personal program gets the general principles with citations and a sentence that the app does not write programs. |
+| AC-39 | A question about pain, an injury or rehabilitation is redirected to a professional before any model or embedding call, in English and German; ordinary muscle soreness and recovery questions are not redirected; the message also names the emergency number for sudden, severe or chest symptoms, and a rejected message is not sent to a model in a later turn through the history. |
+| AC-40 | Every training chunk comes from a source approved under the training criteria in `docs/SOURCES.md`, carries the `resistance_training` topic, and is credited in `ATTRIBUTION.md`; no nutrition source carries that topic. |
+| AC-41 | The About text and the disclaimer say the answers are generated by an AI model and should be checked against the sources, and a gymer sees a weekly review as an AI draft approved by the coach, in English and German. |
 
 ### Beyond the brief (owner's request)
 
-The coach role, invitations and sharing, the workout log and the dashboards. Neither brief asks for them; they give the agent its users and its problem (Sprint 3 core 1 and 2).
+The coach role, invitations and sharing, the workout log and the dashboards. Neither brief asks for them; they give the agent its users and its problem (Sprint 3 core 1 and 2). The training principles (feature 26) are the owner's request too: the briefs ask for a relevant knowledge base and useful core functions, not for training content.
 
 ### Moved to the Capstone
 
-PostgreSQL (and pgvector instead of Chroma), a REST API, separate nutrition coach and personal trainer roles, accounts with several roles, email invitations, an admin role, asynchronous review jobs, meal plans, workout programs, messaging, recipes and shopping lists, food scanning, health devices, billing, chat summaries in long-term memory, a 375 px phone layout and a WCAG 2.2 AA review, Docker and a staging environment, EU hosting, a GDPR assessment, and interviews and pilot metrics with real coaches. The frontend is open: the Sprint 3 brief allows Streamlit or Next.js, so another framework needs the Capstone brief's approval. Open Food Facts stays excluded at every stage (ODbL, `docs/SOURCES.md`).
+PostgreSQL (and pgvector instead of Chroma), a REST API, separate nutrition coach and personal trainer roles, accounts with several roles, email invitations, an admin role, asynchronous review jobs, meal plans, workout programs (personal training plans; Sprint 3 gives principles only, feature 26), exercise technique instruction, messaging, recipes and shopping lists, food scanning, health devices, billing, chat summaries in long-term memory, a 375 px phone layout and a WCAG 2.2 AA review, Docker and a staging environment, EU hosting, a GDPR assessment, and interviews and pilot metrics with real coaches. The frontend is open: the Sprint 3 brief allows Streamlit or Next.js, so another framework needs the Capstone brief's approval. Open Food Facts stays excluded at every stage (ODbL, `docs/SOURCES.md`).
 
 ## Content ownership
 
-The owner drafts the system prompt(s) and the evaluation questions; Claude reviews them (as in Sprint 1). In Sprint 3 that includes the agent's answer prompt (O8) and the weekly review and coach assistant prompts (O15).
+The owner drafts the system prompt(s) and the evaluation questions; Claude reviews them (as in Sprint 1). In Sprint 3 that includes the agent's answer prompt (O8), the weekly review and coach assistant prompts (O15), and the training evaluation questions (O17); the owner also approves each training source (O16).
 
 ## Beyond the brief (owner's request)
 
 - The repo is the owner's personal, public portfolio project, viewed by recruiters and possibly opened as open source later; it is copied into the course repository for the review.
 - Because of that, a strict copyright policy applies (`.claude/rules/copyright.md`): open licences only (public domain, CC0, CC BY), nothing that needs permission, licence checked on the article itself, text only, attribution, raw documents not committed. The brief only asks for a relevant knowledge base.
 - Light and dark mode (T7.3). German support (T7.1, T7.2) is an optional task in the brief (Hard 4) but goes beyond this PRD's original English-only scope.
-- Sprint 3: the coach role, invitations and sharing, the workout log and the dashboards (section "Sprint 3" above).
+- Sprint 3: the coach role, invitations and sharing, the workout log and the dashboards (section "Sprint 3" above), and the training principles (feature 26).
 
 ## Open items
 
