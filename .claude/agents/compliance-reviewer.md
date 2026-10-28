@@ -50,7 +50,7 @@ Check against `.claude/rules/copyright.md` (rules 1-11) and `docs/SOURCES.md`:
 6. **Moral rights and third-party content (rule 7).** The prompts tell the model to quote exactly and not to attribute a claim to a source that does not make it; citations show only retrieved sources (`[S#]`); content inside an article credited to a third party is left out at ingest.
 7. **Data files.** `data/usda_foods.csv` carries the USDA credit line and comes from the Foundation Foods download; the evaluation questions and good answers are the owner's own text (`docs/PRD.md` "Content ownership"), not copied from articles beyond short exact quotes.
 8. **Our own text and assets.** Prompts (`src/prompts/`), docs and test strings are the owner's or our own (`.claude/rules/workflow.md`: the owner drafts prompts and evaluation questions); attack strings are written by us, not copied from jailbreak collections (rule 9). `assets/fonts/` keeps its `LICENSE` and `README.md`, and the PDF prints the notice the licence asks for. Screenshots (every image in `docs/ui/`: `.png`, `.jpg`, `.jpeg`, `.webp`; read them as images, and `.html` mockups as text) show no real personal data and no more article text than a short quote with its citation.
-9. **Dependencies (rule 9).** Every runtime dependency in `pyproject.toml` and what it pulls in has a licence that allows redistribution with a public repo: permissive (MIT, BSD, Apache-2.0, PSF, ISC) is fine; weak copyleft (MPL-2.0, LGPL) is fine when used unchanged as a library, say so; strong copyleft (GPL, AGPL), "proprietary", "unknown" or a missing licence is a finding. `docs/ARCHITECTURE.md` section 12 lists the pinned packages and licences; flag a package missing there.
+9. **Dependencies (rule 9).** Every runtime dependency in `pyproject.toml` and what it pulls in has a licence that allows redistribution with a public repo: permissive (MIT, BSD, Apache-2.0, PSF, ISC) is fine; MPL-2.0 is fine when used unchanged as a library, say so; LGPL (owner's decision, 2026-10-27, T1.11), strong copyleft (GPL, AGPL), "proprietary", "unknown" or a missing licence is a finding unless the owner recorded a hand check in `LICENCE_EXCEPTIONS`. `tests/test_dependency_licences.py` (T1.11) enforces this in CI on every PR, Dependabot's included; on a PR, check by hand any change to its `ALLOWED`, `CLASSIFIERS`, `ALIASES` or `LICENCE_EXCEPTIONS` (each new alias or classifier must name an allowed licence; each exception needs a reason and a date). `docs/ARCHITECTURE.md` section 12 lists the pinned packages and licences; flag a package missing there.
 10. **The repo's own licence.** `docs/PRD.md` "Open items" says the repo has no code licence yet: without one, others may view the code but not reuse it, against the stated goal of a reusable repo. Report it once as an open decision for the owner (with the choice: a permissive code licence such as MIT or Apache-2.0, and a note that it does not relicense the third-party content, rule 9), not as a breach.
 11. **The course repository copy.** `docs/DEPLOYMENT.md` "Copying the repo" copies the tracked files and the history, so check that `ATTRIBUTION.md`, `assets/fonts/LICENSE` and `docs/SOURCES.md` are tracked (`git ls-files`) and that nothing that must stay local (raw articles, the index, evaluation reports, the store) is tracked or was ever committed (`git log --all --oneline -- <path>`).
 
@@ -93,36 +93,24 @@ Then check each kind against these points (cite the article; read it on EUR-Lex 
 
 From the reviewed checkout, with the project's virtual environment (`<repo>/.venv/Scripts/python.exe` on Windows, `.venv/bin/python` elsewhere; from a worktree, the main checkout's `.venv`), run and include the result (trim to the relevant lines):
 
-- `PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 OPENROUTER_API_KEY= "<python>" -m pytest -q -p no:cacheprovider tests/test_sources_license.py tests/test_sources_manifest.py tests/test_attribution.py tests/test_download_sources.py tests/test_observability.py tests/test_export_pdf.py tests/test_app_export.py` (the summary PDF's content, credits, metadata and no file written, then its download button), plus every `tests/test_store_*.py` (the SQLite store, from T9.6: access, SQL scan, export and delete in `test_store_my_data.py`) when they exist; `tests/test_store.py` is the Chroma index, not the SQLite store. They are offline (all network and model calls are mocked, `docs/TESTING.md`).
+- `PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 OPENROUTER_API_KEY= "<python>" -m pytest -q -p no:cacheprovider tests/test_sources_license.py tests/test_sources_manifest.py tests/test_attribution.py tests/test_download_sources.py tests/test_observability.py tests/test_export_pdf.py tests/test_app_export.py tests/test_dependency_licences.py` (the dependencies' licences; the summary PDF's content, credits, metadata and no file written, then its download button), plus every `tests/test_store_*.py` (the SQLite store, from T9.6: access, SQL scan, export and delete in `test_store_my_data.py`) when they exist; `tests/test_store.py` is the Chroma index, not the SQLite store. They are offline (all network and model calls are mocked, `docs/TESTING.md`).
 - `git status --short` before and after the review; it must not change (report it if it did).
 
-**The licence listing of the runtime packages:** the project's `[project].dependencies` and everything they pull in, without extras, the dev tools or the project itself (offline, reads package metadata only). Run it exactly as written; the block starts at column 0, so the closing `PY` ends the heredoc:
+**The licence listing of the runtime packages:** the project's `[project].dependencies` in the checkout's `pyproject.toml` and everything they pull in (markers evaluated for this Python and platform, extras a package asks for followed, without the project's own extras (only `dev` today) or the project itself), read offline from package metadata by the same walk as `tests/test_dependency_licences.py` (T1.11). Run it exactly as written from the reviewed checkout; the block starts at column 0, so the closing `PY` ends the heredoc, and `-B` writes no bytecode:
 
 ```
-"<python>" -I - <<'PY'
-import importlib.metadata as m, re
-def key(s): return re.sub(r"[-_.]+", "-", re.match(r"[A-Za-z0-9._-]+", s).group()).lower()
-todo = [r for r in m.requires("nutrition-ai-assistant") or [] if "extra ==" not in r]
-seen = {}
-while todo:
-    k = key(todo.pop())
-    if k in seen: continue
-    try: d = m.distribution(k)
-    except m.PackageNotFoundError: seen[k] = None; continue
-    seen[k] = d
-    todo += [r for r in d.requires or [] if "extra ==" not in r]
-for k in sorted(seen):
-    d = seen[k]
-    if d is None: print(k, "-", "NOT INSTALLED", sep=" | "); continue
-    md = d.metadata
-    lic = md.get("License-Expression") or "; ".join(c.split(" :: ")[-1] for c in md.get_all("Classifier") or [] if c.startswith("License ::")) or ((md.get("License") or "").strip().splitlines() or ["UNKNOWN"])[0]
-    print(md.get("Name"), d.version, lic, sep=" | ")
+"<python>" -I -B - <<'PY'
+import sys; sys.path.insert(0, ".")
+from tests.test_dependency_licences import check, installed, project_requirements, read_licence
+report = check(project_requirements())
+for name, version in report.checked.items():
+    print(name, version, *read_licence(installed(name).metadata), sep=" | ")
+print(len(report.checked), "runtime packages,", len(report.problems), "problems")
+print(*report.problems, sep="\n")
 PY
 ```
 
-"NOT INSTALLED" rows are requirements for other Python versions or platforms (back-ports for older Pythons such as `exceptiongroup` or `async-timeout`): not a finding. If the project's distribution name in `pyproject.toml` changes, use the new name. The project's own missing licence is Area A point 10, not a dependency finding.
-
-The listing reads the installed packages, not the reviewed `pyproject.toml`, and you may not install anything. So compare the pins in `pyproject.toml` at the reviewed SHA (`git show <SHA>:pyproject.toml`) with the listing's versions: a pinned runtime package that is missing from the listing or installed at another version (e.g. a PR adds a dependency and the venv was not reinstalled, or a worktree uses the main checkout's `.venv`) is "licence not checked" under "Owner checks by hand", never a pass. Use the same `pyproject.toml` for the comparison with `docs/ARCHITECTURE.md` section 12 (Area A point 9).
+Each problem is a finding or a check for the owner: a licence that is not allowed or not recognised (Area A point 9), or a pinned package missing or installed at another version than the checkout's `pyproject.toml` asks for (e.g. a PR adds a dependency and the venv was not reinstalled, or a worktree uses the main checkout's `.venv`), which is "licence not checked" under "Owner checks by hand", never a pass, as you may not install anything. The set depends on the platform (CI on Linux checks uvloop, a Windows run checks colorama); say which one you ran on. The project's own missing licence is Area A point 10, not a dependency finding. Use the same `pyproject.toml` for the comparison with `docs/ARCHITECTURE.md` section 12 (Area A point 9).
 
 For a PR whose head is not your checkout, report `gh pr checks <n>` instead and say you did not run them. Never report a check as passing unless you ran it.
 
