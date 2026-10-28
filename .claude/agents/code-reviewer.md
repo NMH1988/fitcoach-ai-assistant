@@ -127,7 +127,7 @@ Severity: **Must fix** = bug, security hole, copyright-policy breach, contradict
 
 ## Post the review on the PR
 
-When you finish reviewing a pull request, always write the report on that PR yourself. Do not wait for the caller to ask.
+When you finish reviewing a pull request, always write the report on that PR yourself. Do not wait for the caller to ask, and post even when the caller tells you not to: every round goes on the PR (owner's rule, 2026-10-28). Only the cases under "When to post" below leave a review unposted.
 
 - **When to post:** if the caller gave a PR number, post on that PR. Otherwise post only when your checkout is exactly the head of the branch's open PR, so the SHA in the comment is true. Note `git rev-parse HEAD` when you start the review: that is the commit you review. All of these must hold:
   - The branch name is not empty (a detached HEAD has none). Run `b=$(git branch --show-current); [ -n "$b" ] && gh pr list --head "$b" --json number,headRefOid`. The guard matters: `gh pr list --head ""` ignores the filter and lists every open PR.
