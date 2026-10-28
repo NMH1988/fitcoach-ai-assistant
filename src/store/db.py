@@ -36,6 +36,10 @@ _COMMIT = "COMMIT"
 _ROLLBACK = "ROLLBACK"
 
 
+# The one message for a store file that cannot be prepared: an OS error's text names the path.
+_CANNOT_PREPARE = "The data file's folder or permissions could not be set."
+
+
 class StoreError(RuntimeError):
     """Raised when the store file cannot be used, e.g. it has a newer schema than this code."""
 
@@ -73,24 +77,41 @@ def migrate(conn: sqlite3.Connection) -> None:
             conn.executescript(script)
 
 
+def _make_folder(folder: Path) -> bool:
+    """Make the store's folder (owner-only where the OS applies the mode); False if refused."""
+    try:
+        folder.mkdir(mode=_PRIVATE_FOLDER, parents=True, exist_ok=True)
+    except OSError:  # e.g. the folder's name is taken by a file, or its parent is read-only
+        return False
+    return True
+
+
+def _make_owner_only(target: Path, own_folder: bool) -> bool:
+    """On POSIX, make the file 0600 (and the app's own folder 0700); False if the OS refuses."""
+    # mkdir's mode is masked by the umask and leaves an existing folder as it was, so set both;
+    # the folder only when it is the app's own, never a folder a caller passed.
+    try:
+        os.chmod(target, _PRIVATE_FILE)
+        if own_folder:
+            os.chmod(target.parent, _PRIVATE_FOLDER)
+    except OSError:
+        return False
+    return True
+
+
 @contextmanager
 def connect(path: Path | None = None) -> Iterator[sqlite3.Connection]:
     """Open the store (config.STORE_PATH by default), migrate it, and close it after the block."""
     target = config.STORE_PATH if path is None else path
-    target.parent.mkdir(mode=_PRIVATE_FOLDER, parents=True, exist_ok=True)
+    # Fail closed with one fixed message: a folder that cannot be made, or a file that cannot be
+    # made owner-only, is never used. StoreError is raised outside the `except`, so the OS error
+    # (whose text and filename name the path) is not even its __context__ (T9.5 catches StoreError).
+    if not _make_folder(target.parent):
+        raise StoreError(_CANNOT_PREPARE)
     conn = sqlite3.connect(target, timeout=config.STORE_BUSY_TIMEOUT_SECONDS, autocommit=True)
     try:
-        if os.name == "posix":
-            # mkdir's mode is masked by the umask and leaves an existing folder as it was, so set
-            # both; the folder only when it is the app's own, never a folder a caller passed.
-            try:
-                os.chmod(target, _PRIVATE_FILE)
-                if path is None:
-                    os.chmod(target.parent, _PRIVATE_FOLDER)
-            except OSError:
-                # Fail closed: a file that cannot be made owner-only is never used. The OS error's
-                # text holds the path, so it is dropped (T9.5 shows a fixed message).
-                raise StoreError("The data file's permissions could not be set.") from None
+        if os.name == "posix" and not _make_owner_only(target, own_folder=path is None):
+            raise StoreError(_CANNOT_PREPARE)
         conn.row_factory = sqlite3.Row
         # Off by default in SQLite, and set per connection: without it no reference is checked.
         conn.execute(_FOREIGN_KEYS_ON)

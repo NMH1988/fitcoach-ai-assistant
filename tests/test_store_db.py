@@ -4,6 +4,7 @@ import os
 import sqlite3
 import stat
 from datetime import UTC, date, datetime, timedelta, timezone
+from pathlib import Path
 from typing import get_args
 
 import pytest
@@ -267,11 +268,36 @@ def test_a_failed_chmod_closes_the_store(monkeypatch):
         raise PermissionError("not ours")
 
     monkeypatch.setattr(os, "chmod", refuse)
-    with pytest.raises(db.StoreError, match="permissions could not be set") as caught:
+    with pytest.raises(db.StoreError, match="folder or permissions could not be set") as caught:
         with db.connect():
             pytest.fail("the store must not open")
-    # The OS error, whose text names the path, is not chained.
-    assert caught.value.__cause__ is None and caught.value.__suppress_context__
+    # The OS error, whose text names the path, is neither the cause nor the context.
+    assert caught.value.__cause__ is None and caught.value.__context__ is None
+
+
+def test_a_folder_that_cannot_be_made_closes_the_store(monkeypatch):
+    """If mkdir fails (here with a path in its text), connect() raises StoreError, path-free."""
+
+    def refuse(*args, **kwargs):
+        """Fail as mkdir does on a read-only parent, naming the path."""
+        raise PermissionError(13, "Permission denied", "CANARY-PATH/data/store")
+
+    monkeypatch.setattr(Path, "mkdir", refuse)
+    with pytest.raises(db.StoreError) as caught:
+        with db.connect():
+            pytest.fail("the store must not open")
+    assert caught.value.__cause__ is None and caught.value.__context__ is None
+    assert "CANARY-PATH" not in str(caught.value) + repr(caught.value)
+
+
+def test_a_file_where_the_folder_should_be_closes_the_store():
+    """A file named like the store's folder makes connect() raise StoreError, on every OS."""
+    config.STORE_DIR.parent.mkdir(parents=True, exist_ok=True)
+    config.STORE_DIR.write_text("not a folder", encoding="utf-8")
+    with pytest.raises(db.StoreError, match="could not be set") as caught:
+        with db.connect():
+            pytest.fail("the store must not open")
+    assert caught.value.__context__ is None
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX permissions; Windows uses profile ACLs")
