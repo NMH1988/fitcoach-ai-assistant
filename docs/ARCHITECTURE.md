@@ -1,6 +1,6 @@
 # Architecture
 
-**Status:** approved by the owner on 2026-10-19, including decisions **D1-D8** (section 13); the Sprint 3 decisions **D9-D21** approved on 2026-10-25 (section 13) and the planned Sprint 3 design (section 16) take effect as their tickets merge. Inputs: `docs/BRIEF.md` and `docs/BRIEF_SPRINT3.md` (course requirements), `docs/PRD.md` (product decisions), `docs/SOURCES.md` (approved sources), `.claude/rules/` (rules). Sections 1-12 describe the app as it is (section 12 also lists the packages Sprint 3 plans to add).
+**Status:** approved by the owner on 2026-10-19, including decisions **D1-D8** (section 13); the Sprint 3 decisions **D9-D21** approved on 2026-10-25 and **D22** (training principles) on 2026-10-26 (section 13) and the planned Sprint 3 design (section 16) take effect as their tickets merge. Inputs: `docs/BRIEF.md` and `docs/BRIEF_SPRINT3.md` (course requirements), `docs/PRD.md` (product decisions), `docs/SOURCES.md` (approved sources), `.claude/rules/` (rules). Sections 1-12 describe the app as it is (section 12 also lists the packages Sprint 3 plans to add).
 
 **Models** (the Sprint 1 list, reused by choice; the Sprint 2 brief names none): `openai/gpt-5-mini` (default for answers), `openai/gpt-5-nano` (query translation), `openai/gpt-5` (selectable). Embeddings: `qwen/qwen3-embedding-8b`. All through OpenRouter. Checked on OpenRouter's model lists on 2026-10-19: all are listed; the three chat models support tool calling and none supports `temperature`.
 
@@ -281,7 +281,7 @@ Planned for Sprint 3 (section 16), each pinned and its licence checked in its ti
 
 Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 7.1.0 (MIT), ruff 0.17.1 (MIT), pip-audit 2.10.1 (Apache-2.0), httpx2 2.14.0 (BSD-3-Clause; the OpenAI SDK's HTTP library, whose `MockTransport` the T1.2 tests use), and pypdf 6.21.1 (BSD-3-Clause, no dependencies; reads the summary PDF's text back in the T5.2 tests; checked 2026-10-20). Not chosen: fpdf2 (LGPL-3.0, not permissive). Python **3.14** as in Sprint 1; every package above has a wheel or pure-Python build for it.
 
-## 13. Decisions (D1-D8 approved by the owner on 2026-10-19, D9-D21 on 2026-10-25)
+## 13. Decisions (D1-D8 approved by the owner on 2026-10-19, D9-D21 on 2026-10-25, D22 on 2026-10-26)
 
 | # | Decision | Alternative considered | Why |
 |---|---|---|---|
@@ -306,6 +306,7 @@ Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 
 | D19 | **Observability:** local JSON logs (T8.2) plus LangSmith with personal data masked (T9.8) | Logs only | The owner's decision of 2026-10-25; Hard 2 |
 | D20 | **UI:** Streamlit pages per role with `st.navigation`; a guest keeps today's tabs | One page with tabs for every role | Each role sees only its screens; each page maps to a module in `views/` |
 | D21 | **Time:** timestamps stored in UTC; a week is Monday to Sunday in `Europe/Berlin` | The browser's time zone | The market is Germany; one rule for every metric (AC-25) |
+| D22 | **Training principles from the same knowledge base** (owner's decision, 2026-10-26; T9.19, T9.20): approved training sources indexed in the one Chroma collection with the topic `resistance_training`, found by the same `search_knowledge_base` tool; every training claim cited, no programs; pain and injury caught by a new domain guardrail (`Concern.INJURY` in `src/guardrails.py`, which the input guard runs before any model call), built with the training sources so no training chunk reaches the model before it; each review recommendation has a `kind` (nutrition or training), and the validation rejects an uncited training recommendation or a program | Training as facts only (the 2026-10-25 choice); a separate training collection or agent; personal programs (Capstone) | One search path, one coverage gate and one citation check for nutrition and training; the topic filter keeps training and nutrition apart when the question is clear; citing every training claim keeps the agent to what the sources say, and the guard keeps injuries away from the model |
 
 ## 14. Risks and early checks
 
@@ -336,10 +337,10 @@ Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 
 | Brief item | Where |
 |---|---|
 | Core 1 purpose and users; evaluation: problem definition | `docs/PRD.md`, "Sprint 3" |
-| Core 2 core functionality and interactions | section 16; `docs/PRD.md` features 14-23 |
+| Core 2 core functionality and interactions | section 16; `docs/PRD.md` features 14-23 and 26 (training principles, D22) |
 | Core 3 a UI for every function | section 16 (pages per role, D20) |
 | Core 4 tools, error handling, real-world use | D9-D17; section 10; T8.2 |
-| Core 5 documentation | this file (D9-D21), T9.11 |
+| Core 5 documentation | this file (D9-D22), T9.11 |
 | Medium 2 memory | D12, section 16 (memory) |
 | Medium 4 authentication and personalisation | D14, D18 |
 | Hard 1 agentic RAG | D10 |
@@ -380,7 +381,7 @@ flowchart LR
   F -->|reject| H[save as rejected]
 ```
 
-The metrics are computed in Python with no model: logged days, averages over logged days against the active target, the weight trend, sessions and volume, and `data_quality`. The evidence search covers only the topics the metrics raise. `WeeklyReview` holds period, metrics, data_quality, observations, hypotheses, recommendations, evidence_refs and model_version. Validation checks the schema, that every evidence reference is a chunk retrieved in this run, that no intake is below the calorie floor, that there is no diagnosis and no training advice, and that the numbers quoted match the metrics.
+The metrics are computed in Python with no model: logged days, averages over logged days against the active target, the weight trend, sessions and volume, and `data_quality`. The evidence search covers only the topics the metrics raise. `WeeklyReview` holds period, metrics, data_quality, observations, hypotheses, recommendations (each with a `kind`, nutrition or training, D22), evidence_refs and model_version. Validation checks the schema, that every evidence reference is a chunk retrieved in this run, that no intake is below the calorie floor, that there is no diagnosis, that every recommendation of kind training cites a `resistance_training` chunk retrieved in this run and holds no program (D22), and that the numbers quoted match the metrics.
 
 **The store (D13, D16).** SQLite in a gitignored directory set in config; UTC timestamps (D21).
 
