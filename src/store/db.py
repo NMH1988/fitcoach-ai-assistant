@@ -83,9 +83,14 @@ def connect(path: Path | None = None) -> Iterator[sqlite3.Connection]:
         if os.name == "posix":
             # mkdir's mode is masked by the umask and leaves an existing folder as it was, so set
             # both; the folder only when it is the app's own, never a folder a caller passed.
-            os.chmod(target, _PRIVATE_FILE)
-            if path is None:
-                os.chmod(target.parent, _PRIVATE_FOLDER)
+            try:
+                os.chmod(target, _PRIVATE_FILE)
+                if path is None:
+                    os.chmod(target.parent, _PRIVATE_FOLDER)
+            except OSError:
+                # Fail closed: a file that cannot be made owner-only is never used. The OS error's
+                # text holds the path, so it is dropped (T9.5 shows a fixed message).
+                raise StoreError("The data file's permissions could not be set.") from None
         conn.row_factory = sqlite3.Row
         # Off by default in SQLite, and set per connection: without it no reference is checked.
         conn.execute(_FOREIGN_KEYS_ON)

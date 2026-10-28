@@ -5,6 +5,7 @@ from datetime import date
 
 import pytest
 
+from src import config
 from src.store import access, my_data, reviews, users, values
 from tests import store_world as world
 
@@ -214,6 +215,37 @@ def test_review_fields_must_be_json_mappings(store_conn, relationships, bad):
             draft={},
             model_version="m",
         )
+
+
+def _save_metrics(conn, metrics):
+    """Save a review of the test week with the given metrics and return its ID."""
+    return reviews.save_review(
+        conn,
+        world.COACH_A,
+        world.SHARED,
+        period_start=WEEK,
+        metrics=metrics,
+        data_quality={},
+        draft={},
+        model_version="m",
+    )
+
+
+def test_a_review_field_over_the_size_limit_is_refused(store_conn, relationships):
+    """JSON longer than config.STORE_JSON_MAX_CHARS is refused and nothing is saved."""
+    with pytest.raises(values.StoreValueError, match="metrics is too long"):
+        _save_metrics(store_conn, {"x": "a" * config.STORE_JSON_MAX_CHARS})
+    assert store_conn.execute("SELECT count(*) FROM ai_reviews").fetchone()[0] == 0
+
+
+def test_a_review_field_at_the_size_limit_is_saved(store_conn, relationships):
+    """JSON of exactly config.STORE_JSON_MAX_CHARS characters is saved."""
+    # '{"x": "' and '"}' are 9 characters around the value.
+    metrics = {"x": "a" * (config.STORE_JSON_MAX_CHARS - 9)}
+    assert len(json.dumps(metrics)) == config.STORE_JSON_MAX_CHARS
+    _save_metrics(store_conn, metrics)
+    [review] = reviews.list_reviews(store_conn, world.COACH_A, world.SHARED)
+    assert review["metrics"] == metrics
 
 
 @pytest.mark.parametrize("change", ["revoke nutrition", "end the relationship"])

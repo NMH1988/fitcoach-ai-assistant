@@ -118,7 +118,7 @@ src/
   eval_questions.py         the evaluation questions' format and loader (T3.6, T6.1)
   eval_results.py           the evaluation's results file: records with IDs and counts only, found and cited rates, the comparison with the baseline (T8.4)
   store/                    signed-in users' data in SQLite, with the authorisation inside it (T9.6, D13, D16)
-    db.py                   connect() (foreign keys, secure_delete and temp_store on; owner-only folder and file on POSIX; migrated), transaction()
+    db.py                   connect() (foreign keys and secure_delete on, temp_store in memory; owner-only folder and file on POSIX; migrated), transaction()
     schema.py               the tables as versioned migrations (STRICT tables, CHECKs, no-update triggers)
     values.py               checks on values before they are written; errors name the field, never the value
     access.py               who may read whose data: authorised_read(), NotFound, the audit row

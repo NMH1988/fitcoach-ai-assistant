@@ -260,16 +260,18 @@ def test_a_file_made_before_the_permissions_were_set_is_made_owner_only():
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX permissions; Windows uses profile ACLs")
 def test_a_failed_chmod_closes_the_store(monkeypatch):
-    """If the file cannot be made owner-only, connect() raises and nothing is opened."""
+    """If the file cannot be made owner-only, connect() raises StoreError and opens nothing."""
 
     def refuse(*args, **kwargs):
         """Fail as chmod does on a file owned by another account."""
         raise PermissionError("not ours")
 
     monkeypatch.setattr(os, "chmod", refuse)
-    with pytest.raises(PermissionError):
+    with pytest.raises(db.StoreError, match="permissions could not be set") as caught:
         with db.connect():
             pytest.fail("the store must not open")
+    # The OS error, whose text names the path, is not chained.
+    assert caught.value.__cause__ is None and caught.value.__suppress_context__
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX permissions; Windows uses profile ACLs")
