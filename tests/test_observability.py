@@ -4,6 +4,7 @@ import ast
 import io
 import json
 import logging
+from datetime import date
 from pathlib import Path
 
 import httpx2
@@ -397,6 +398,12 @@ CANARY_ENDINGS = {
 }
 
 
+# Fields the canary search leaves out: `ts` is written by the formatter and no log call can
+# set it; `turn_id` is a random UUID that can hold a canary's digits by chance, so the test
+# pins it to the turn's own ID on every line instead.
+GENERATED_FIELDS = frozenset({"ts", "turn_id"})
+
+
 @pytest.mark.turn_error
 @pytest.mark.parametrize("ending", CANARY_ENDINGS)
 def test_no_record_holds_the_question_the_answer_the_profile_or_the_key(index, ending):
@@ -408,8 +415,15 @@ def test_no_record_holds_the_question_the_answer_the_profile_or_the_key(index, e
     # The turn did log (an empty stream would pass the checks below for the wrong reason).
     assert [line["event"] for line in _lines(stream) if line["event"] == "turn"] == ["turn"]
     assert result.turn_id in text
+    # CI once found the TDEE "2834" inside a random turn_id, so turn_id is left out of the search,
+    # and pinned instead: a log call that passed text as turn_id would fail here.
+    assert {line.get("turn_id") for line in _lines(stream)} <= {None, result.turn_id}
+    searched = "\n".join(
+        json.dumps({name: value for name, value in line.items() if name not in GENERATED_FIELDS})
+        for line in _lines(stream)
+    )
     for canary in CANARY_TEXTS:
-        assert canary not in text, (ending, canary)
+        assert canary not in searched, (ending, canary)
     for line in _lines(stream):
         assert set(line) <= {"ts", "level", "logger", "event"} | observability.ALLOWED_FIELDS
 
@@ -460,6 +474,121 @@ def test_a_failing_log_call_does_not_lose_the_turn(index, caplog):
     assert record.turn_id == result.turn_id
     assert "CANARY-PRICES" not in caplog.text
     assert [r for r in caplog.records if r.getMessage() == "turn"] == []
+
+
+# --- No stored value in any record: the canary tests extended to the store (T9.6, AC-33) ---------
+
+STORE_CANARY_TEXTS = (*CANARY_TEXTS, "CANARY-COACH", "CANARY-GYM", "2345.6", "571.9")
+
+
+def _store_scenario(conn) -> list[Exception]:
+    """Write, read, refuse, export and delete canary data through every store function."""
+    from src.store import access, my_data, records, reviews, users, values
+
+    errors: list[Exception] = []
+    users.create_user(conn, "CANARY-COACH", "coach", "CANARY-NAME coach")
+    users.create_user(conn, "CANARY-GYM", "gymer", "CANARY-NAME gymer")
+    users.create_user(conn, "other-gym", "gymer", "CANARY-NAME other")
+    relationship = users.start_relationship(conn, "CANARY-COACH", "CANARY-GYM")
+    for scope in ("nutrition", "training", "body"):
+        users.set_consent(conn, "CANARY-GYM", relationship, scope, True)
+    day = CANARY_PROFILE  # the profile's values, stored as a gymer's records
+    records.add_profile_entry(
+        conn, "CANARY-GYM", height_cm=day.height_cm, age=day.age, sex=day.sex,
+        activity=day.activity, goal=day.goal,
+    )  # fmt: skip
+    records.add_body_measurement(
+        conn, "CANARY-GYM", weight_kg=day.weight_kg, measured_on=date(2026, 10, 26)
+    )
+    records.add_target(
+        conn, "CANARY-GYM", kcal=2345.6, protein_g=160, carbs_g=250, fat_g=70, set_by="system",
+        effective_from=date(2026, 10, 26),
+    )  # fmt: skip
+    records.add_meal_item(
+        conn, "CANARY-GYM", consumed_on=date(2026, 10, 26), meal="lunch", fdc_id=1,
+        food_name="CANARY-FOOD", grams=150, kcal=571.9, protein_g=20, carbohydrate_g=100,
+        fat_g=10, fiber_g=None,
+    )  # fmt: skip
+    records.add_workout_session(
+        conn, "CANARY-GYM", performed_on=date(2026, 10, 26),
+        sets=[records.ExerciseSet("CANARY-EXERCISE", 1, 5, 87.3, 8.0)],
+    )  # fmt: skip
+    records.add_preference(conn, "CANARY-GYM", "CANARY-PREF vegetarian")
+    for read in (
+        records.list_profile_entries,
+        records.list_body_measurements,
+        records.list_targets,
+        records.list_meal_items,
+        records.list_workout_sessions,
+        reviews.list_reviews,
+    ):
+        read(conn, "CANARY-COACH", "CANARY-GYM")
+        read(conn, "CANARY-GYM", "CANARY-GYM")
+        try:
+            read(conn, "other-gym", "CANARY-GYM")
+        except access.NotFound as error:
+            errors.append(error)
+    review = reviews.save_review(
+        conn, "CANARY-COACH", "CANARY-GYM", period_start=date(2026, 10, 19),
+        metrics={"avg_kcal": 2345.6}, data_quality={}, draft={"text": "CANARY-DRAFT"},
+        model_version="m", evidence_refs=[("12", "12-3")],
+    )  # fmt: skip
+    reviews.decide_review(conn, "CANARY-COACH", review, "edit", {"text": "CANARY-EDIT 87.3"})
+    for bad in (
+        lambda: records.add_body_measurement(
+            conn, "CANARY-GYM", weight_kg=-87.3, measured_on=date(2026, 10, 26)
+        ),
+        lambda: records.add_preference(conn, "CANARY-GYM", "CANARY-PREF " * 100),
+        lambda: records.add_profile_entry(
+            conn,
+            "CANARY-GYM",
+            height_cm=181.7,
+            age=37,
+            sex="CANARY-SEX",
+            activity="moderate",
+            goal="build_muscle",
+        ),  # fmt: skip
+        lambda: reviews.save_review(
+            conn,
+            "CANARY-COACH",
+            "CANARY-GYM",
+            period_start=date(2026, 10, 19),
+            metrics={"CANARY": float("nan")},
+            data_quality={},
+            draft={},
+            model_version="m",
+        ),  # fmt: skip
+        lambda: records.delete_record(conn, "other-gym", "preferences", 1),
+    ):
+        try:
+            bad()
+        except (values.StoreValueError, access.NotFound) as error:
+            errors.append(error)
+    my_data.export_user_data(conn, "CANARY-GYM")
+    my_data.export_user_data(conn, "CANARY-COACH")
+    my_data.delete_user_data(conn, "CANARY-COACH")
+    my_data.delete_user_data(conn, "CANARY-GYM")
+    return errors
+
+
+def test_no_record_or_error_holds_a_stored_value(store_conn, caplog):
+    """The store's whole life with canary data leaves no canary in any log line or error text."""
+    caplog.set_level(logging.DEBUG)
+    stream = io.StringIO()
+    observability.configure_logging(level=logging.DEBUG, stream=stream)
+    errors = _store_scenario(store_conn)
+    # Each kind of refusal happened, so their messages were checked.
+    assert len(errors) == 6 + 5
+    texts = [stream.getvalue(), caplog.text, *(str(e) for e in errors), *(repr(e) for e in errors)]
+    for canary in STORE_CANARY_TEXTS:
+        for text in texts:
+            assert canary not in text, canary
+
+
+def test_the_store_canary_check_catches_a_leak():
+    """An error that quoted a stored value would be found by the same check."""
+    leaked = ValueError("weight_kg must be above zero, got -87.3")
+    assert any(canary in str(leaked) for canary in STORE_CANARY_TEXTS)
 
 
 # --- Only the app's own loggers write lines (T8.2) -----------------------------------------------
