@@ -233,9 +233,11 @@ def _save_metrics(conn, metrics):
 
 def test_a_review_field_over_the_size_limit_is_refused(store_conn, relationships):
     """JSON longer than config.STORE_JSON_MAX_CHARS is refused and nothing is saved."""
+    # One character over: the 9 characters around the value plus MAX - 8.
+    metrics = {"x": "a" * (config.STORE_JSON_MAX_CHARS - 8)}
+    assert len(json.dumps(metrics)) == config.STORE_JSON_MAX_CHARS + 1
     with pytest.raises(values.StoreValueError, match="metrics is too long"):
-        # One character over: the 9 characters around the value plus MAX - 8.
-        _save_metrics(store_conn, {"x": "a" * (config.STORE_JSON_MAX_CHARS - 8)})
+        _save_metrics(store_conn, metrics)
     assert store_conn.execute("SELECT count(*) FROM ai_reviews").fetchone()[0] == 0
 
 
