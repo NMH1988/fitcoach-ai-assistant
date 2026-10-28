@@ -99,9 +99,10 @@ INTERNALS = {
 }
 
 
-# SQL that filters on a relationship being active or not ended, however it is spelt: any alias,
-# spacing, case, quote, comparison, IN, LIKE or IS, or on ended_at being NULL. Writing a status as a
-# value (INSERT ... VALUES, SET status = 'ended') is not a filter.
+# SQL that filters on a relationship being active or not ended (a comparison, IN, LIKE, GLOB or
+# IS), or on ended_at being NULL, under any table alias, spacing, case or value quote, with the
+# column written first and unquoted and the value first in an IN list (docs/SECURITY.md lists what
+# needs review). Writing a status as a value (INSERT ... VALUES, SET status = 'ended') is not one.
 ACTIVE_FILTER = re.compile(
     r"status\s*(?:=|==|<>|!=|\bNOT\s+IN\b|\bIN\b|\bNOT\s+LIKE\b|\bLIKE\b|\bGLOB\b"
     r"|\bIS(?:\s+NOT)?\b)\s*\(?\s*['\"]active['\"]"
@@ -165,7 +166,7 @@ def test_the_open_consent_check_lets_a_write_pass(sql):
     assert not OPEN_CONSENT.search(sql)
 
 
-def test_only_the_view_and_the_consent_writes_test_for_an_open_consent():
+def test_only_the_view_and_the_consent_statements_test_for_an_open_consent():
     """revoked_at is tested for NULL outside schema.py only in users' two consent statements."""
     allowed = {users._OPEN_CONSENT, users._REVOKE_ALL}
     for path in sorted(STORE.rglob("*.py")):

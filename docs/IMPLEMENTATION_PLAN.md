@@ -791,6 +791,7 @@ Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this 
 - [ ] Code attempts are limited per user key in the store (`config.INVITE_MAX_ATTEMPTS` a day), so a page reload does not reset them - unit test.
 - [ ] A "Coach and sharing" page lets the gymer change scopes, revoke and end the relationship; the coach's next read is blocked - AppTest and store tests (AC-22).
 - [ ] The coach's client list shows each client's display name and which scopes are on - AppTest.
+- [ ] The gymer's "Coach and sharing" page shows their coach's display name, read through a function that checks the relationship (never `users.find_user()`, which checks no access), so the gymer knows who sees their data (owner's choice, 2026-10-28, from T9.6's code review) - AppTest and a store test that only the two sides of an active or ended relationship get the name.
 - [ ] The owner accepts an invitation with a second Google account - owner live check (O13).
 **Notes:** no email is sent; the coach passes the code on by hand.
 
