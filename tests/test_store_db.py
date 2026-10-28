@@ -233,8 +233,11 @@ def test_foreign_keys_are_on_in_every_connection(store_conn):
 
 
 def test_temporary_data_stays_in_memory(store_conn):
-    """temp_store is MEMORY, so SQLite writes no temporary file with stored values."""
+    """temp_store is MEMORY, and this SQLite build honours it (not compiled with TEMP_STORE=0)."""
     assert store_conn.execute("PRAGMA temp_store").fetchone()[0] == 2
+    options = {row[0] for row in store_conn.execute("PRAGMA compile_options")}
+    # TEMP_STORE=0 always uses files and ignores the pragma; 1 (the default) and 2 honour it.
+    assert "TEMP_STORE=0" not in options
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX permissions; Windows uses profile ACLs")
@@ -298,6 +301,27 @@ def test_a_file_where_the_folder_should_be_closes_the_store():
         with db.connect():
             pytest.fail("the store must not open")
     assert caught.value.__context__ is None
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permissions; Windows uses profile ACLs")
+def test_the_file_is_private_before_sqlite_opens_it(monkeypatch):
+    """With an existing 0755 folder, the folder is 0700 and the file 0600 when SQLite opens it."""
+    config.STORE_DIR.mkdir(mode=0o755, parents=True)
+    os.chmod(config.STORE_DIR, 0o755)
+    seen = []
+    real_connect = sqlite3.connect
+
+    def watching(path, *args, **kwargs):
+        """Record the folder's and the file's modes at the moment SQLite opens the file."""
+        seen.append(
+            (stat.S_IMODE(config.STORE_DIR.stat().st_mode), stat.S_IMODE(Path(path).stat().st_mode))
+        )
+        return real_connect(path, *args, **kwargs)
+
+    monkeypatch.setattr(db.sqlite3, "connect", watching)
+    with db.connect():
+        pass
+    assert seen == [(0o700, 0o600)]
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX permissions; Windows uses profile ACLs")

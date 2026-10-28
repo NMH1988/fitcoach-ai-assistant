@@ -231,6 +231,40 @@ def _save_metrics(conn, metrics):
     )
 
 
+@pytest.mark.parametrize("where", ["draft", "final"])
+def test_a_review_with_a_lone_surrogate_is_a_store_value_error(store_conn, relationships, where):
+    """A draft or an edit's final text that SQLite cannot encode is refused without its text."""
+    bad = {"text": "CANARY-DRAFT " + chr(0xD800)}
+    if where == "draft":
+        call = lambda: reviews.save_review(  # noqa: E731 - one call per case
+            store_conn,
+            world.COACH_A,
+            world.SHARED,
+            period_start=WEEK,
+            metrics={},
+            data_quality={},
+            draft=bad,
+            model_version="m",
+        )
+    else:
+        review_id = _save(store_conn)
+        call = lambda: reviews.decide_review(store_conn, world.COACH_A, review_id, "edit", bad)  # noqa: E731
+    with pytest.raises(values.StoreValueError) as caught:
+        call()
+    assert caught.value.__context__ is None
+    assert "CANARY" not in str(caught.value) + repr(caught.value)
+    statuses = [row[0] for row in store_conn.execute("SELECT status FROM ai_reviews")]
+    assert statuses == ([] if where == "draft" else ["PENDING_REVIEW"])
+
+
+@pytest.mark.parametrize("bad", [{"x": float("nan")}, {"x": object()}])
+def test_a_json_error_is_not_kept_as_the_context(store_conn, relationships, bad):
+    """The error from json, which can quote a value, is neither the cause nor the context."""
+    with pytest.raises(values.StoreValueError) as caught:
+        _save_metrics(store_conn, bad)
+    assert caught.value.__cause__ is None and caught.value.__context__ is None
+
+
 def test_a_review_field_over_the_size_limit_is_refused(store_conn, relationships):
     """JSON longer than config.STORE_JSON_MAX_CHARS is refused and nothing is saved."""
     # One character over: the 9 characters around the value plus MAX - 8.

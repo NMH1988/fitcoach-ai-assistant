@@ -344,6 +344,28 @@ MEAL = {
 }
 
 
+LONE_SURROGATE = "CANARY private note 87.3 kg " + chr(0xD800)
+
+
+@pytest.mark.parametrize("where", ["preference", "food name", "display name", "user ID"])
+def test_text_the_store_cannot_encode_is_a_store_value_error(gymers, where):
+    """A lone surrogate is refused with a fixed message that holds no part of the text."""
+    calls = {
+        "preference": lambda: records.add_preference(gymers, GYMER, LONE_SURROGATE),
+        "food name": lambda: records.add_meal_item(
+            gymers, GYMER, **{**MEAL, "food_name": LONE_SURROGATE}
+        ),
+        "display name": lambda: users.create_user(gymers, "gym-9", "gymer", LONE_SURROGATE),
+        "user ID": lambda: users.create_user(gymers, LONE_SURROGATE, "gymer", "Nine"),
+    }
+    with pytest.raises(values.StoreValueError) as caught:
+        calls[where]()
+    assert caught.value.__context__ is None
+    assert "CANARY" not in str(caught.value) + repr(caught.value)
+    assert sum(_count(gymers, t) for t in records.RECORD_KINDS) == 0
+    assert _count(gymers, "users") == 2
+
+
 def test_an_integer_too_large_for_sqlite_is_a_store_value_error(gymers):
     """An fdc_id of 10**30 is refused with the field's name, not an OverflowError from sqlite3."""
     with pytest.raises(values.StoreValueError, match="fdc_id"):

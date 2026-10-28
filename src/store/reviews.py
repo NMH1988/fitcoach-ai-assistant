@@ -91,7 +91,12 @@ def _json_text(value: object, field: str) -> str:
         # allow_nan=False: NaN and infinities are not JSON and SQLite's json_valid() refuses them.
         text = json.dumps(value, allow_nan=False, ensure_ascii=False, sort_keys=True)
     except TypeError, ValueError:
-        raise values.StoreValueError(field, "must hold JSON values only") from None
+        text = None
+    # Raised outside the `except`, so the error from json (which can quote a value) is not kept.
+    if text is None:
+        raise values.StoreValueError(field, "must hold JSON values only")
+    if not values.is_utf8(text):
+        raise values.StoreValueError(field, "must be text the store can encode")
     if len(text) > config.STORE_JSON_MAX_CHARS:
         raise values.StoreValueError(field, "is too long")
     return text

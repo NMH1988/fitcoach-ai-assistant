@@ -29,14 +29,29 @@ def _is_text(node: ast.AST) -> bool:
     )
 
 
+def _bound_names(node: ast.AST) -> list[str]:
+    """Return the names one node binds: targets, parameters, imports, except, match, def, class."""
+    if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+        return [node.id]
+    if isinstance(node, ast.arg):
+        return [node.arg]
+    if isinstance(node, ast.alias):
+        return [node.asname or node.name.split(".")[0]]
+    if isinstance(node, ast.ExceptHandler | ast.MatchAs | ast.MatchStar) and node.name:
+        return [node.name]
+    if isinstance(node, ast.MatchMapping) and node.rest:
+        return [node.rest]
+    if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+        return [node.name]
+    return []
+
+
 def _bindings(tree: ast.Module) -> dict[str, int]:
-    """Count how often each name is bound anywhere: assignments, loops, with, :=, parameters."""
+    """Count how often each name is bound anywhere in a module, in every way Python binds one."""
     counts: dict[str, int] = {}
     for node in ast.walk(tree):
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
-            counts[node.id] = counts.get(node.id, 0) + 1
-        elif isinstance(node, ast.arg):
-            counts[node.arg] = counts.get(node.arg, 0) + 1
+        for name in _bound_names(node):
+            counts[name] = counts.get(name, 0) + 1
     return counts
 
 
@@ -60,6 +75,15 @@ def _module_constants(tree: ast.Module) -> set[str]:
 def _migration_names(tree: ast.Module) -> set[str]:
     """Return the loop variables, bound nowhere else, that take their values from MIGRATIONS."""
     bound = _bindings(tree)
+    # Only the real migrations count: MIGRATIONS bound once, by importing it from schema.py.
+    imported = any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "src.store.schema"
+        and any(alias.name == "MIGRATIONS" and alias.asname is None for alias in node.names)
+        for node in ast.walk(tree)
+    )
+    if not imported or bound.get("MIGRATIONS") != 1:
+        return set()
     names = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.For) and isinstance(node.target, ast.Name):
@@ -81,6 +105,13 @@ def problems(source: str) -> list[str]:
         return _is_text(node) or (isinstance(node, ast.Name) and node.id in constants)
 
     found = []
+    for node in ast.walk(tree):
+        # A query method named as text reaches execute() without the check below:
+        # operator.methodcaller("execute", q), conn.__getattribute__("execute")(q).
+        if isinstance(node, ast.Call):
+            for arg in [*node.args, *(keyword.value for keyword in node.keywords)]:
+                if isinstance(arg, ast.Constant) and arg.value in QUERY_METHODS:
+                    found.append(f"{node.lineno}: {arg.value} named as text")
     for node in ast.walk(tree):
         line = getattr(node, "lineno", 0)
         if isinstance(node, ast.JoinedStr):
@@ -147,6 +178,25 @@ def test_every_migration_is_a_module_constant():
 
 
 CAUGHT = {
+    "an import alias rebinding a constant": (
+        'Q = "SELECT 1"\nimport os as Q\ndef f(c):\n    c.execute(Q)\n'
+    ),
+    "except ... as rebinding a constant": (
+        'Q = "SELECT 1"\ndef f(c):\n    try:\n        pass\n    except Exception as Q:\n'
+        "        c.execute(Q)\n"
+    ),
+    "a match capture rebinding a constant": (
+        'Q = "SELECT 1"\ndef f(c, x):\n    match x:\n        case Q:\n            c.execute(Q)\n'
+    ),
+    "a def rebinding a constant": (
+        'Q = "SELECT 1"\ndef Q():\n    pass\ndef f(c):\n    c.execute(Q)\n'
+    ),
+    "methodcaller": 'import operator\ndef f(c, q):\n    operator.methodcaller("execute", q)(c)\n',
+    "__getattribute__": 'def f(c, q):\n    c.__getattribute__("execute")(q)\n',
+    "a local MIGRATIONS list": (
+        "MIGRATIONS = ['DROP TABLE users']\ndef f(c):\n    for script in MIGRATIONS:\n"
+        "        c.executescript(script)\n"
+    ),
     "f-string": 'def f(c, t):\n    c.execute(f"SELECT * FROM {t}")\n',
     "percent": 'def f(c, t):\n    c.execute("SELECT * FROM %s" % t)\n',
     "plus": 'def f(c, t):\n    c.execute("SELECT * FROM " + t)\n',
@@ -183,6 +233,7 @@ PASSES = {
     "an annotated constant": 'Q: str = "SELECT 1"\ndef f(c):\n    c.execute(Q)\n',
     "named parameters": 'Q = "SELECT a FROM t WHERE a = :a"\ndef f(c):\n    c.execute(Q, {"a": 1})',
     "a migration": (
+        "from src.store.schema import MIGRATIONS\n"
         "def f(c, v):\n    for script in MIGRATIONS[v:]:\n        c.executescript(script)\n"
     ),
     "a message joined from fixed parts": 'def f(a, b):\n    return " ".join((a, b))\n',

@@ -87,13 +87,16 @@ def _make_folder(folder: Path) -> bool:
 
 
 def _make_owner_only(target: Path, own_folder: bool) -> bool:
-    """On POSIX, make the file 0600 (and the app's own folder 0700); False if the OS refuses."""
-    # mkdir's mode is masked by the umask and leaves an existing folder as it was, so set both;
-    # the folder only when it is the app's own, never a folder a caller passed.
+    """On POSIX, make the folder 0700 and the file 0600 before SQLite opens it; False if refused."""
+    # mkdir's mode is masked by the umask and leaves an existing folder as it was, so the folder
+    # is set first (only the app's own, never a folder a caller passed), then the file is made with
+    # 0600 if it is new, and set to 0600 if it was made by an older version: no other account can
+    # open the file between its creation and the chmod.
     try:
-        os.chmod(target, _PRIVATE_FILE)
         if own_folder:
             os.chmod(target.parent, _PRIVATE_FOLDER)
+        os.close(os.open(target, os.O_CREAT | os.O_WRONLY, _PRIVATE_FILE))
+        os.chmod(target, _PRIVATE_FILE)
     except OSError:
         return False
     return True
@@ -108,10 +111,10 @@ def connect(path: Path | None = None) -> Iterator[sqlite3.Connection]:
     # (whose text and filename name the path) is not even its __context__ (T9.5 catches StoreError).
     if not _make_folder(target.parent):
         raise StoreError(_CANNOT_PREPARE)
+    if os.name == "posix" and not _make_owner_only(target, own_folder=path is None):
+        raise StoreError(_CANNOT_PREPARE)
     conn = sqlite3.connect(target, timeout=config.STORE_BUSY_TIMEOUT_SECONDS, autocommit=True)
     try:
-        if os.name == "posix" and not _make_owner_only(target, own_folder=path is None):
-            raise StoreError(_CANNOT_PREPARE)
         conn.row_factory = sqlite3.Row
         # Off by default in SQLite, and set per connection: without it no reference is checked.
         conn.execute(_FOREIGN_KEYS_ON)

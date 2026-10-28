@@ -45,9 +45,20 @@ def date_text(day: date, field: str) -> str:
     return day.isoformat()
 
 
+def is_utf8(value: str) -> bool:
+    """Return True if the text encodes as UTF-8 (a lone surrogate, e.g. "\\ud800", does not)."""
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError:  # its .object would hold the whole value
+        return False
+    return True
+
+
 def user_id(value: object, field: str = "user_id") -> str:
     """Return a user ID if it is non-empty text within the length limit."""
     if not isinstance(value, str) or not 0 < len(value) <= config.STORE_ID_MAX_CHARS:
+        raise StoreValueError(field, "is not a valid user ID")
+    if not is_utf8(value):
         raise StoreValueError(field, "is not a valid user ID")
     return value
 
@@ -57,6 +68,8 @@ def text(value: object, field: str, max_chars: int | None = None) -> str:
     limit = config.STORE_TEXT_MAX_CHARS if max_chars is None else max_chars
     if not isinstance(value, str) or not value.strip() or len(value) > limit:
         raise StoreValueError(field, "must be non-empty text within the length limit")
+    if not is_utf8(value):
+        raise StoreValueError(field, "must be text the store can encode")
     return value
 
 

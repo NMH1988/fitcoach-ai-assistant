@@ -91,14 +91,27 @@ INTERNALS = {
     "access.authorise_read",
     "access.authorised_read",
     "access.role_of",
-    *(f"values.{name}" for name in ("choice", "date_text", "in_range", "is_row_id", "number")),
+    *(
+        f"values.{name}"
+        for name in ("choice", "date_text", "in_range", "is_row_id", "is_utf8", "number")
+    ),
     *(f"values.{name}" for name in ("text", "user_id", "utc_text", "whole_number")),
 }
 
 
-# SQL that filters on a relationship being active, however it is spelt: any alias, spacing,
-# case, a comparison or IN. Writing 'active' as a value (INSERT ... VALUES) is not a filter.
-ACTIVE_FILTER = re.compile(r"status\s*(=|==|<>|!=|\bIN\b)\s*\(?\s*'active'", re.IGNORECASE)
+# SQL that filters on a relationship being active or not ended, however it is spelt: any alias,
+# spacing, case, quote, comparison, IN, LIKE or IS, or on ended_at being NULL. Writing a status as a
+# value (INSERT ... VALUES, SET status = 'ended') is not a filter.
+ACTIVE_FILTER = re.compile(
+    r"status\s*(?:=|==|<>|!=|\bNOT\s+IN\b|\bIN\b|\bNOT\s+LIKE\b|\bLIKE\b|\bGLOB\b"
+    r"|\bIS(?:\s+NOT)?\b)\s*\(?\s*['\"]active['\"]"
+    r"|status\s*(?:<>|!=|\bNOT\s+IN\b|\bNOT\s+LIKE\b|\bIS\s+NOT\b)\s*\(?\s*['\"]ended['\"]"
+    r"|ended_at\s+IS\s+(?:NOT\s+)?NULL",
+    re.IGNORECASE,
+)
+# The consent half of the rule: only open_shares, and users' two writes that manage consents,
+# may test that a consent is open.
+OPEN_CONSENT = re.compile(r"revoked_at\s+IS\s+NULL", re.IGNORECASE)
 
 
 def _sql_texts(path: Path) -> list[str]:
@@ -122,6 +135,17 @@ def test_only_the_view_filters_on_an_active_relationship():
         assert "open_shares" in (STORE / path).read_text(encoding="utf-8"), path
 
 
+def test_only_the_view_and_the_consent_writes_test_for_an_open_consent():
+    """revoked_at IS NULL appears outside schema.py only in users' two consent statements."""
+    allowed = {users._OPEN_CONSENT, users._REVOKE_ALL}
+    for path in sorted(STORE.rglob("*.py")):
+        if path.name == "schema.py":
+            continue
+        for text in _sql_texts(path):
+            if OPEN_CONSENT.search(text):
+                assert text in allowed, (path, text)
+
+
 @pytest.mark.parametrize(
     "sql",
     [
@@ -130,6 +154,11 @@ def test_only_the_view_filters_on_an_active_relationship():
         "where CC.STATUS\n   =  'Active'",
         "AND status IN ('active')",
         "AND status <> 'active'",
+        "AND r.ended_at IS NULL",
+        "AND status <> 'ended'",
+        "AND status NOT IN ('ended')",
+        'AND status = "active"',
+        "AND status LIKE 'active'",
     ],
 )
 def test_the_active_filter_check_catches_each_spelling(sql):
@@ -137,9 +166,16 @@ def test_the_active_filter_check_catches_each_spelling(sql):
     assert ACTIVE_FILTER.search(sql)
 
 
-def test_the_active_filter_check_lets_an_insert_pass():
-    """Writing 'active' as a new relationship's value is not a filter."""
-    assert not ACTIVE_FILTER.search("INSERT INTO coach_clients (status) VALUES ('active')")
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "INSERT INTO coach_clients (status) VALUES ('active')",
+        "UPDATE coach_clients SET status = 'ended', ended_at = ? WHERE id = ?",
+    ],
+)
+def test_the_active_filter_check_lets_a_write_pass(sql):
+    """Writing a status as a value, or setting a relationship to ended, is not a filter."""
+    assert not ACTIVE_FILTER.search(sql)
 
 
 def test_every_public_store_function_is_classified():
