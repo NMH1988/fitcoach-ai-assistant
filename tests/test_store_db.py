@@ -325,6 +325,53 @@ def test_the_file_is_private_before_sqlite_opens_it(monkeypatch):
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX permissions; Windows uses profile ACLs")
+def test_an_existing_database_is_never_opened_outside_sqlite(monkeypatch):
+    """A second connect() opens no descriptor of the existing file (closing one drops locks)."""
+    with db.connect():
+        pass
+    opened = []
+    real_open = os.open
+
+    def watching(path, *args, **kwargs):
+        """Record every path os.open is asked for."""
+        opened.append(Path(path))
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(db.os, "open", watching)
+    with db.connect():
+        pass
+    assert config.STORE_PATH not in opened
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permissions; Windows uses profile ACLs")
+def test_a_read_only_database_is_made_0600_and_opens():
+    """An existing 0400 file (made read-only by hand) still opens and ends at 0600."""
+    with db.connect():
+        pass
+    os.chmod(config.STORE_PATH, 0o400)
+    with db.connect() as conn:
+        assert db.schema_version(conn) == 1
+    assert stat.S_IMODE(config.STORE_PATH.stat().st_mode) == 0o600
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permissions; Windows uses profile ACLs")
+@pytest.mark.parametrize("refused", ["open", "chmod"])
+def test_a_file_that_cannot_be_made_private_closes_the_store(tmp_path, monkeypatch, refused):
+    """For a caller's path (no folder chmod), a refused os.open or chmod raises StoreError."""
+
+    def refuse(*args, **kwargs):
+        """Fail as the OS does on a file owned by another account."""
+        raise PermissionError(13, "Permission denied", "CANARY-PATH")
+
+    monkeypatch.setattr(db.os, refused, refuse)
+    with pytest.raises(db.StoreError) as caught:
+        with db.connect(tmp_path / "s.sqlite3"):
+            pytest.fail("the store must not open")
+    assert caught.value.__context__ is None
+    assert "CANARY-PATH" not in str(caught.value) + repr(caught.value)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permissions; Windows uses profile ACLs")
 def test_a_folder_a_caller_passes_keeps_its_permissions(tmp_path):
     """connect(path) makes the file owner-only but leaves an existing folder as it was."""
     os.chmod(tmp_path, 0o755)

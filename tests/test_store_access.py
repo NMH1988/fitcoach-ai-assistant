@@ -106,12 +106,14 @@ ACTIVE_FILTER = re.compile(
     r"status\s*(?:=|==|<>|!=|\bNOT\s+IN\b|\bIN\b|\bNOT\s+LIKE\b|\bLIKE\b|\bGLOB\b"
     r"|\bIS(?:\s+NOT)?\b)\s*\(?\s*['\"]active['\"]"
     r"|status\s*(?:<>|!=|\bNOT\s+IN\b|\bNOT\s+LIKE\b|\bIS\s+NOT\b)\s*\(?\s*['\"]ended['\"]"
-    r"|ended_at\s+IS\s+(?:NOT\s+)?NULL",
+    r"|ended_at\s+(?:IS\s+(?:NOT\s+)?NULL|ISNULL|NOTNULL|NOT\s+NULL)",
     re.IGNORECASE,
 )
 # The consent half of the rule: only open_shares, and users' two writes that manage consents,
 # may test that a consent is open.
-OPEN_CONSENT = re.compile(r"revoked_at\s+IS\s+NULL", re.IGNORECASE)
+OPEN_CONSENT = re.compile(
+    r"revoked_at\s+(?:IS\s+(?:NOT\s+)?NULL|ISNULL|NOTNULL|NOT\s+NULL)", re.IGNORECASE
+)
 
 
 def _sql_texts(path: Path) -> list[str]:
@@ -133,6 +135,34 @@ def test_only_the_view_filters_on_an_active_relationship():
             assert not ACTIVE_FILTER.search(text), (path, text)
     for path in ("access.py", "reviews.py", "my_data.py"):
         assert "open_shares" in (STORE / path).read_text(encoding="utf-8"), path
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "AND consent.revoked_at IS NULL",
+        "AND c.REVOKED_AT  is\n null",
+        "AND revoked_at ISNULL",
+        "AND revoked_at NOTNULL",
+        "AND revoked_at IS NOT NULL",
+        "AND revoked_at NOT NULL",
+    ],
+)
+def test_the_open_consent_check_catches_each_spelling(sql):
+    """The consent check finds a NULL test on revoked_at under any spelling SQLite accepts."""
+    assert OPEN_CONSENT.search(sql)
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "UPDATE consents SET revoked_at = ? WHERE id = ?",
+        "INSERT INTO consents (relationship_id, scope, granted_at) VALUES (?, ?, ?)",
+    ],
+)
+def test_the_open_consent_check_lets_a_write_pass(sql):
+    """Setting revoked_at, or adding a consent, is not a test for an open consent."""
+    assert not OPEN_CONSENT.search(sql)
 
 
 def test_only_the_view_and_the_consent_writes_test_for_an_open_consent():
@@ -159,6 +189,9 @@ def test_only_the_view_and_the_consent_writes_test_for_an_open_consent():
         "AND status NOT IN ('ended')",
         'AND status = "active"',
         "AND status LIKE 'active'",
+        "AND r.ended_at ISNULL",
+        "AND r.ended_at NOTNULL",
+        "AND r.ended_at NOT NULL",
     ],
 )
 def test_the_active_filter_check_catches_each_spelling(sql):

@@ -1,15 +1,17 @@
 """Every query in src/store/ is a constant string with `?` parameters (T9.6).
 
-The scan reads `src/store/` (sub-packages included) with `ast` and fails on any string built at
-run time, SQL or not: an f-string, `%` or `+` with a string or a string constant on either side,
+The scan reads `src/store/` (sub-packages included) with `ast` and fails on any string built at run
+time, SQL or not: an f-string, `%` or `+` with a string or a string constant on either side,
 `.format()`, `.join()` on SQL-looking text; on an `execute`, `executemany` or `executescript` whose
-query is not a string literal, a module-level name bound once (anywhere: parameters, loops, `with`
-and `:=` count) to one, or a migration taken from `schema.MIGRATIONS` (a tuple of such names,
-checked below); on one of those methods taken without being called (`run = conn.execute`); and on
-`getattr`. Error messages follow the same rule (`values.StoreValueError` joins its two fixed parts
-with `" ".join`, which is allowed because it takes no SQL). What it cannot see: a query read from a
-file, `setattr` or `globals()` rebinding a constant, a cursor's methods reached through another
-object, and `+` on two names that are not constants; review checks those, and none exists.
+query is not a string literal, a module-level name bound once (anywhere: parameters, type
+parameters, loops, `with`, `:=`, imports, `except ... as`, `case`, `def` and `class` count) to one,
+or a migration taken from `schema.MIGRATIONS` (imported from `src.store.schema` and bound nowhere
+else; a tuple of such names, checked below); on a query method named as text; on one of those
+methods taken without being called (`run = conn.execute`); and on `getattr`. Error messages follow
+the same rule (`values.StoreValueError` joins its two fixed parts with `" ".join`, which is allowed
+because it takes no SQL). What it cannot see: a query read from a file, `setattr`, `globals()` or
+`from ... import *` rebinding a constant, a cursor's methods reached through another object, and `+`
+on two names that are not constants; review checks those, and none exists.
 """
 
 import ast
@@ -38,6 +40,8 @@ def _bound_names(node: ast.AST) -> list[str]:
     if isinstance(node, ast.alias):
         return [node.asname or node.name.split(".")[0]]
     if isinstance(node, ast.ExceptHandler | ast.MatchAs | ast.MatchStar) and node.name:
+        return [node.name]
+    if isinstance(node, ast.TypeVar | ast.ParamSpec | ast.TypeVarTuple):  # def f[Q](...)
         return [node.name]
     if isinstance(node, ast.MatchMapping) and node.rest:
         return [node.rest]
@@ -223,9 +227,19 @@ CAUGHT = {
     ),
     "a constant with %": 'Q = "SELECT * FROM %s"\ndef f(t):\n    return Q % t\n',
     "a migration name bound again": (
+        "from src.store.schema import MIGRATIONS\n"
         "def f(c, v, s):\n    for script in MIGRATIONS[v:]:\n        pass\n"
         "    script = s\n    c.executescript(script)\n"
     ),
+    "MIGRATIONS imported, then bound again": (
+        "from src.store.schema import MIGRATIONS\nMIGRATIONS = ('DROP TABLE users',)\n"
+        "def f(c):\n    for script in MIGRATIONS:\n        c.executescript(script)\n"
+    ),
+    "MIGRATIONS imported from elsewhere": (
+        "from evil import MIGRATIONS\n"
+        "def f(c):\n    for script in MIGRATIONS:\n        c.executescript(script)\n"
+    ),
+    "a type parameter rebinding a constant": ('Q = "SELECT 1"\ndef f[Q](c):\n    c.execute(Q)\n'),
 }
 PASSES = {
     "a literal": 'def f(c, i):\n    c.execute("SELECT * FROM users WHERE id = ?", (i,))\n',
