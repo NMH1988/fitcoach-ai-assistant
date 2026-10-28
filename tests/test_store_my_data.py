@@ -219,7 +219,8 @@ def test_deleted_values_are_gone_from_the_files_bytes(tmp_path):
             fat_g=1.0,
             fiber_g=None,
         )
-        assert b"CANARY-FOOD-DELETED" in path.read_bytes()  # the check below can fail
+        before = path.read_bytes()  # the checks below can fail
+        assert b"CANARY-FOOD-DELETED" in before and b"CANARY-PREF-DELETED" in before
         my_data.delete_user_data(conn, world.SHARED)
         # Other users' rows are still there, so the pages were reused, not dropped.
         assert records.list_preferences(conn, world.OTHERS, world.OTHERS)

@@ -21,7 +21,8 @@ _FOREIGN_KEYS_ON = "PRAGMA foreign_keys = ON"
 # Deleted rows are overwritten with zeros instead of left in the file's free pages, so a deleted
 # entry cannot be read back from a copy of the file (docs/SECURITY.md).
 _SECURE_DELETE_ON = "PRAGMA secure_delete = ON"
-# Temporary tables and indices stay in memory, so no other file holds stored values.
+# Temporary tables and indices stay in memory, so no temporary file holds stored values
+# (the rollback journal of a write in progress still holds old pages).
 _TEMP_STORE_MEMORY = "PRAGMA temp_store = MEMORY"
 # Owner-only permissions on POSIX, so other accounts on a shared computer cannot read the
 # store; Windows applies the user profile's access rules instead (docs/SECURITY.md).

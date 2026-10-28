@@ -248,6 +248,31 @@ def test_the_store_folder_and_file_are_owner_only():
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX permissions; Windows uses profile ACLs")
+def test_a_file_made_before_the_permissions_were_set_is_made_owner_only():
+    """An existing 0644 file (from an older version) is changed to 0600 at the next connect."""
+    with db.connect():
+        pass
+    os.chmod(config.STORE_PATH, 0o644)
+    with db.connect():
+        pass
+    assert stat.S_IMODE(config.STORE_PATH.stat().st_mode) == 0o600
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permissions; Windows uses profile ACLs")
+def test_a_failed_chmod_closes_the_store(monkeypatch):
+    """If the file cannot be made owner-only, connect() raises and nothing is opened."""
+
+    def refuse(*args, **kwargs):
+        """Fail as chmod does on a file owned by another account."""
+        raise PermissionError("not ours")
+
+    monkeypatch.setattr(os, "chmod", refuse)
+    with pytest.raises(PermissionError):
+        with db.connect():
+            pytest.fail("the store must not open")
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permissions; Windows uses profile ACLs")
 def test_a_folder_a_caller_passes_keeps_its_permissions(tmp_path):
     """connect(path) makes the file owner-only but leaves an existing folder as it was."""
     os.chmod(tmp_path, 0o755)
