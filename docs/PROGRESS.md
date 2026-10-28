@@ -30,6 +30,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 - **Compliance review:** not required by `.claude/rules/workflow.md`: the PR adds no dependency and changes no pin, content, personal data, service, medical text, deployment, `.gitignore` or server setting.
 - **CI:** criterion 5 met: the PR's CI passed at dc5087f (run 40547641474: lint, test, security; linked-issue), the licence test included on Linux, where uvloop is checked (3393 passed).
 - **Follow-ups:** none.
+
 ## 2026-10-28 · Plan the training principles (T9.19, T9.20) · NMH1988/fitcoach-ai-assistant#40 (closes NMH1988/fitcoach-ai-assistant#32)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 1 (agent purpose), core 2 (core functionality), core 5 (technical decisions), evaluation: problem definition and technical (a relevant knowledge base). Sprint 2 (`docs/BRIEF.md`): core 1 and core 3 (a focused knowledge base relevant to the domain). Beyond the brief (owner's request): training content; neither brief asks for it.
 - **What:**
