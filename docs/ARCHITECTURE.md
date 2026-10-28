@@ -381,7 +381,7 @@ flowchart LR
   F -->|reject| H[save as rejected]
 ```
 
-The metrics are computed in Python with no model: logged days, averages over logged days against the active target, the weight trend, sessions and volume, and `data_quality`. The evidence search covers only the topics the metrics raise. `WeeklyReview` holds period, metrics, data_quality, observations, hypotheses, recommendations (each with a `kind`, nutrition or training, D22), evidence_refs and model_version. Validation checks the schema, that every evidence reference is a chunk retrieved in this run, that no intake is below the calorie floor, that there is no diagnosis, that every recommendation of kind training cites a `resistance_training` chunk retrieved in this run and holds no program (D22), and that the numbers quoted match the metrics.
+The metrics are computed in Python with no model: logged days, averages over logged days against the active target, the weight trend, sessions and volume, and `data_quality`. The evidence search covers only the topics the metrics raise. `WeeklyReview` holds period, metrics, data_quality, observations, hypotheses, recommendations (each with a `kind`, nutrition or training, D22), evidence_refs and model_version. Validation checks the schema, that every evidence reference is a chunk retrieved in this run, that no intake is below the calorie floor, that there is no diagnosis, that every recommendation of kind training cites a `resistance_training` chunk retrieved in this run, holds no program and gives the source's range with its population, leaving the number for this client to the coach (D22), and that the numbers quoted match the metrics.
 
 **The store (D13, D16).** SQLite in a gitignored directory set in config; UTC timestamps (D21).
 
