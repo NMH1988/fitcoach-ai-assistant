@@ -90,10 +90,14 @@ def _make_owner_only(target: Path, own_folder: bool) -> bool:
     """On POSIX, make the folder 0700 and the file 0600 before SQLite opens it; False if refused."""
     # mkdir's mode is masked by the umask and leaves an existing folder as it was, so the folder
     # is set first (only the app's own, never a folder a caller passed). A new file is created
-    # with 0600 (O_EXCL), so no other account can open it before the chmod; an existing file is
-    # never opened here, as closing any descriptor of a file drops every POSIX lock this process
-    # holds on it, SQLite's included (sqlite.org/howtocorrupt.html, 2.2). The chmod then fixes
-    # a file made by an older version, or one the owner made read-only.
+    # with 0600 (O_EXCL), so no other account can open it before the chmod. An existing file never
+    # gets a descriptor here (O_EXCL refuses it before one exists), as closing any descriptor of a
+    # file drops every POSIX lock this process holds on it, SQLite's included
+    # (sqlite.org/howtocorrupt.html, 2.2). The chmod then fixes a file made by an older version, or
+    # one the owner made read-only. One window is left, accepted as negligible: while one thread
+    # creates the file, another thread of the same process may open it through SQLite and lock it
+    # before the first closes its descriptor, dropping that lock; it only matters if a second
+    # process writes to the brand-new, empty store at that moment.
     try:
         if own_folder:
             os.chmod(target.parent, _PRIVATE_FOLDER)

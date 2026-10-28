@@ -109,8 +109,8 @@ ACTIVE_FILTER = re.compile(
     r"|ended_at\s+(?:IS\s+(?:NOT\s+)?NULL|ISNULL|NOTNULL|NOT\s+NULL)",
     re.IGNORECASE,
 )
-# The consent half of the rule: only open_shares, and users' two writes that manage consents,
-# may test that a consent is open.
+# The consent half of the rule: only open_shares, and users' two statements that manage
+# consents, may test revoked_at for NULL (IS [NOT] NULL, ISNULL, NOTNULL, NOT NULL).
 OPEN_CONSENT = re.compile(
     r"revoked_at\s+(?:IS\s+(?:NOT\s+)?NULL|ISNULL|NOTNULL|NOT\s+NULL)", re.IGNORECASE
 )
@@ -166,7 +166,7 @@ def test_the_open_consent_check_lets_a_write_pass(sql):
 
 
 def test_only_the_view_and_the_consent_writes_test_for_an_open_consent():
-    """revoked_at IS NULL appears outside schema.py only in users' two consent statements."""
+    """revoked_at is tested for NULL outside schema.py only in users' two consent statements."""
     allowed = {users._OPEN_CONSENT, users._REVOKE_ALL}
     for path in sorted(STORE.rglob("*.py")):
         if path.name == "schema.py":
