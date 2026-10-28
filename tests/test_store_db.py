@@ -333,9 +333,10 @@ def test_an_existing_database_is_never_opened_outside_sqlite(monkeypatch):
     real_open = os.open
 
     def watching(path, *args, **kwargs):
-        """Record every path os.open is asked for."""
+        """Record every path os.open returns a descriptor for (a refused O_EXCL opens none)."""
+        descriptor = real_open(path, *args, **kwargs)
         opened.append(Path(path))
-        return real_open(path, *args, **kwargs)
+        return descriptor
 
     monkeypatch.setattr(db.os, "open", watching)
     with db.connect():
