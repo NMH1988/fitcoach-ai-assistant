@@ -216,7 +216,7 @@ EVAL_QUESTIONS_DE_PATH = PROJECT_ROOT / "data" / "eval_questions_de.json"
 EVAL_QUESTIONS_TRAINING_PATH = PROJECT_ROOT / "data" / "eval_questions_training.json"
 EVAL_QUESTIONS_TRAINING_DE_PATH = PROJECT_ROOT / "data" / "eval_questions_training_de.json"
 # Training questions that the pain and injury guard (T9.19a) must catch: their evaluation check is
-# the fixed message and no model or embedding call.
+# the fixed message and no model or embedding call. Read only by tests/test_guardrails.py.
 EVAL_GUARDED_QUESTION_IDS: frozenset[str] = frozenset({"t8"})
 # Where scripts/run_evaluation.py (T6.1) writes its full reports: the answers and the article text
 # of the chunks found, for judging the citations. Gitignored: never committed.

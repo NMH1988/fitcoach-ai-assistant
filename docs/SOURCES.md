@@ -103,7 +103,7 @@ Rows use the columns #, title (short), year, journal, tier, licence (as stated i
 | 32 | Time-efficient training for strength and hypertrophy: a narrative review | 2021 | Sports Medicine | 2 | CC BY 4.0 | Europe PMC XML and link.springer.com, 2026-10-28 | PMC8449772 |
 | 33 | Resistance training technique for muscle hypertrophy: a narrative review | 2023 (vol. 2024) | Journal of Functional Morphology and Kinesiology (MDPI) | 2 | CC BY 4.0 | Europe PMC XML and mdpi.com, 2026-10-28 | PMC10801605 |
 
-Notes (criteria 3-8). No row has a correction or retraction on its Europe PMC record; #32 has two published comments (Sports Med 2022;52:1449-1452), not corrections. Conflicts of interest as the articles state them: #26, two authors earn income as writers and practitioners in the fitness industry; #27, one author was on the scientific advisory board of a fitness equipment maker (Tonal); #33, one author is on the same board and one was employed by a fitness content and products company (STRCNG, Jeff Nippard Fitness) — approved by the owner on 2026-10-28 under criterion 8, as #33 is not written or funded mainly by a seller and is the only openly licensed source on range of motion. #24 and #30 state no funding. #25, #32 and #33 are narrative reviews, the weakest kind in tier 2. Springer and BMC articles (#26, #28, #29, #31, #32) state that third-party material is covered only where no other credit line says so: such material is left out at the spot-check (rule 7). Jump performance in #31 is out of scope.
+Notes (criteria 3-8). No row has a correction or retraction on its Europe PMC record; #32 has two published comments (Sports Med 2022;52:1449-1452), not corrections. Conflicts of interest as the articles state them: #26, two authors earn income as writers and practitioners in the fitness industry; #27, one author was on the scientific advisory board of a fitness equipment maker (Tonal); #33, one author is on the same board and one was employed by a fitness content and products company (STRCNG, Jeff Nippard Fitness) — approved by the owner on 2026-10-28 under criterion 8, as #33 is not written or funded mainly by a seller and is the only openly licensed source on range of motion. #24 and #30 state no funding. #25, #32 and #33 are narrative reviews and #30 a mini-review, the weakest kind in tier 2. Springer and BMC articles (#26, #28, #29, #31, #32) state that third-party material is covered only where no other credit line says so: such material is left out at the spot-check (rule 7). Jump performance in #31 is out of scope.
 
 Gaps (criterion 5): no tier 1 source; no openly licensed dose-response meta-analysis of weekly volume for hypertrophy (volume is covered in words by #24 and #32); rest between sets is covered for hypertrophy (#27, #32) but not by a dedicated review for strength; range of motion only by #33; the optional detraining and deloads have no source (#32 touches maintenance). The agent says the sources do not cover a question in these gaps.
 
@@ -146,6 +146,11 @@ Gaps (criterion 5): no tier 1 source; no openly licensed dose-response meta-anal
 | Deload trials (2024, PMC10809978; 2026) and a deloading survey (2024) | Single trials or a survey, not reviews (criterion 2) (T9.19) |
 | Exercise selection and injuries (2022) | Injury outcome (criterion 4) (T9.19) |
 | Bodybuilders' training programs (2020, PMC7698840) | One competitive sport (criterion 3) (T9.19) |
+
+### Open licence and in scope, not chosen (training alternates, T9.19)
+
+| Source | Reason |
+|---|---|
 | Other CC BY reviews seen as alternates (Lyristakis 2026, Ralston 2017, Cuthbert 2021, Grgic 2017 PeerJ, Huiberts 2024, Nuzzo 2024, Lacio 2021, Rios 2026) | Not needed for criterion 5 or weaker than an approved row (older, untrained or one-sex samples, an equipment seller's former staff among the authors for Nuzzo 2024); may replace a row later with the owner's approval (T9.19) |
 
 ## Attribution template (CC BY)
