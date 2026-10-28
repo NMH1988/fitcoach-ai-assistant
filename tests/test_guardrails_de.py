@@ -111,6 +111,10 @@ FLAGGED = [
     ("Meine Ferse schmerzt beim Laufen.", Concern.INJURY),
     # Muscle as a goal does not hide the pain (owner's choice, 2026-10-28).
     ("Ich habe Schmerzen beim Bankdrücken für den Muskelaufbau.", Concern.INJURY),
+    ("Ich habe Schmerzen beim Bankdrücken, ich will Muskeln aufbauen.", Concern.INJURY),
+    # Any compound injury (found in the review of PR #42, round 4).
+    ("Ich habe eine Wadenverletzung, was soll ich essen?", Concern.INJURY),
+    ("Nach meiner Kreuzbandverletzung: wie viel Protein?", Concern.INJURY),
     # Medical conditions (any mention; a side effect about the user or a group) and medication.
     ("Ich habe Diabetes Typ 2, wie viele Kohlenhydrate?", Concern.MEDICAL),
     ("Ich bin Diabetiker und will Muskeln aufbauen.", Concern.MEDICAL),
@@ -230,6 +234,11 @@ BENIGN = [
     "Ist ein zu hohes Kaloriendefizit eine Regelverletzung beim Wettkampf?",
     "Rückentag: wie viel Protein brauche ich danach?",
     "Ich habe Muskelkater, es tut überall weh. Was soll ich essen?",
+    # Found in the review of PR #42, round 4: "mehr" before a sore muscle; an alternation in a
+    # wrapped pattern stays under the muscle check; breaches of a rule are not injuries.
+    "Ich habe mehr Muskelkater als sonst, es tut überall weh.",
+    "Nach dem Training haben mir die Muskeln wehgetan, was soll ich essen?",
+    "Ist eine Datenschutzverletzung beim Kalorien-Tracking möglich?",
     # Near misses of the injury patterns.
     "Ich habe einen Rekord im Kreuzheben gebrochen, was soll ich jetzt essen?",
     "Wie trainiere ich meinen Rücken, und wie viele Kohlenhydrate brauche ich?",

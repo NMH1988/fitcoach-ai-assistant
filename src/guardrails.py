@@ -240,11 +240,15 @@ _JOINTS = r"(?:joints?|knees?|elbows?|wrists?|hips?|ankles?|heels?|feet|foot|ach
 # Muscle words in either language, as the sentence check runs on the same folded text. Muscle as
 # a goal does not count (owner's choice, 2026-10-28): "to build muscle", "lean muscle", "muscle
 # growth", "Muskelaufbau", "mehr Muskeln", so "I get pain when I squat to build muscle" is
-# still redirected. No umlaut here: german() would make a lookbehind variable-width.
+# still redirected; a sore muscle always counts ("more muscle pain than usual", "mehr
+# Muskelkater"). No umlaut here: german() would make a lookbehind variable-width.
 _MUSCLE_WORDS = (
-    r"(?:(?<!build )(?<!building )(?<!gain )(?<!gaining )(?<!grow )(?<!growing )(?<!more )"
+    r"(?:muscles? (?:pains?|aches?|aching|soreness|cramps?)|muskel(?:kater|schmerz|krampf)\w*"
+    r"|(?<!build )(?<!building )(?<!gain )(?<!gaining )(?<!grow )(?<!growing )(?<!more )"
     r"(?<!lean )(?<!mehr )(?:muscles?(?! (?:growth|gains?|mass|building|size|hypertrophy)\b)"
-    r"|muskel(?!aufbau|wachstum|masse|zuwachs|zuwachses|hypertrophie)\w*|muskeln)"
+    # "Muskeln aufbauen", "um Muskeln aufzubauen": the German goal with the verb last.
+    r"|muskel(?!aufbau|wachstum|masse|zuwachs|zuwachses|hypertrophie)\w*"
+    r"(?! (?:\w+ ){0,2}?(?:aufbauen|aufzubauen|zulegen)\b))"
     r"|muscular|doms|soreness|muskulatur)"
 )
 
@@ -568,9 +572,9 @@ _DE_TRAINING = (
     r"|rudern|klimmzügen|liegestützen|laufen|joggen|sport|beintag|workout)"
 )
 _DE_INJURY_PATTERNS = [
-    # A compound injury from a short list ("Knieverletzung", "Sportverletzung"), so
-    # "Regelverletzung" passes.
-    rf"\b(?:(?:{_DE_BODY_PARTS}|sport|muskel|sehnen|band|bänder|trainings)?verletzung(?:en)?"
+    # Any compound injury ("Knieverletzung", "Wadenverletzung", "Sportverletzung") except the
+    # breaches of a rule, duty, right, data protection or contract ("Regelverletzung").
+    r"\b(?:\w*?(?<!regel)(?<!pflicht)(?<!rechts)(?<!schutz)(?<!vertrags)verletzung(?:en)?"
     r"|verletzungsbedingt\w*"
     r"|(?:mich|mir|sich|habe|hab|bin|ist) (?:\w+ ){0,4}?verletzt"
     r"|verletzte[nrms]? (?:knie|schulter|rücken|sehne|band|bänder|muskel|fuss|hand|handgelenk"

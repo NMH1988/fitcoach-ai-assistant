@@ -182,6 +182,8 @@ BENIGN = [
     "Does lifting tear muscle fibres?",
     # A sore muscle named anywhere in the sentence covers the pain after it.
     "I have DOMS from leg day, it hurts to walk, should I eat more protein?",
+    # Found in the review of PR #42, round 4: "more" before a sore muscle is not a goal.
+    "I have more muscle pain than usual after squats, should I eat more protein?",
     # Found in the review of PR #42, round 2: "hurt" about progress, not the body.
     "Does cardio hurt my muscle growth?",
     "Will a calorie deficit hurt my back squat?",
