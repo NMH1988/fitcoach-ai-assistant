@@ -256,6 +256,28 @@ Owner's run (O13, 2026-10-26, 16:29): `.venv\Scripts\python.exe -m scripts.run_e
 
 The misses are the baseline's: q1's #15 and q10's #8 in all three askings, q5's #12 in two of three (found in asking 1), and q9's #4 in one (asking 1, where the plan set an `evidence_tier` 2 filter, as in T6.1's run). q6 cited both its sources in all three askings (the baseline cited one of two once), which is why the cited rate is a little higher; that is the query translation's variation between askings, not a change of the graph. Every scored question ended as an answer, the guardrail questions (q15, q16) ended at the guard with 0 tokens, and their `guard_rejected` lines now come from the `src.agent.graph` logger. q14 still sent six passages to the answer model with the food lookup, as before: making the search the agent's own tool is T9.3. The check notes "(files changed since)" for the baseline only because the baseline was taken from T8.4's uncommitted code.
 
+### Training sources in the index (T9.19)
+
+Owner's runs (O13, 2026-10-28) from this checkout on `feature/t9.19-training-sources`, the app's models (`openai/gpt-5-mini` answers, `openai/gpt-5-nano` query translation, `qwen/qwen3-embedding-8b` embeddings), after `python -m scripts.build_index` on the 31 sources (2304 chunks; the index was built before 2a7e0ed removed two editors from the authors of #25 and #33, which are chunk metadata only, not searched text, so the rates below stand and only a rebuild is needed for the source cards).
+
+**Nutrition questions against the T8.4 baseline:** `python -m scripts.run_evaluation --repeat 3` at 23:26 (commit 2a7e0ed, clean), 51 runs, no error, 639,350 tokens, $0.0879; report `data/eval_runs/run-20261028-232630.md`, results `.json` (gitignored). `python -m scripts.check_eval_baseline` on it, run by Claude: exit 0.
+
+| Askings | 1 | 2 | 3 | Average | Baseline | Lowest allowed |
+|---|---|---|---|---|---|---|
+| Found rate (17 expected sources) | 0.7647 (13) | 0.8824 (15) | 0.8235 (14) | **0.8235** | 0.8235 | 0.7635 |
+| Cited rate | 0.7647 (13) | 0.8824 (15) | 0.8235 (14) | **0.8235** | 0.8039 | 0.7439 |
+
+The misses are the baseline's own (q1's #15, q5's #12, q9's #4 in two askings each; q10's #8 in all three). No nutrition answer cited a training source (#24-#33) in any asking, and the guardrail questions (q15, q16) ended at the guard: the topic filter and the O7 boundary keep training chunks out of nutrition answers.
+
+**Training questions:** `python -m scripts.run_evaluation --repeat 3 data/eval_questions_training.json` at 23:39 (commit 1cd28e6, clean), 30 runs, no error, 326,511 tokens, $0.0498; report `data/eval_runs/run-20261028-233906.md`, results `.json` (gitignored).
+
+| Askings | 1 | 2 | 3 | Average |
+|---|---|---|---|---|
+| Found rate (19 expected sources) | 0.7368 (14) | 0.8421 (16) | 0.7895 (15) | **0.7895** |
+| Cited rate | 0.6842 (13) | 0.7895 (15) | 0.7895 (15) | **0.7544** |
+
+Misses: #24 (the umbrella review) in t2, t5, t6 and t10 in one to three askings, #29 in t3 once, #30 in t7 in all three; t1 and t4 found and cited every expected source. t8 ended at the guard with `guardrail.injury` in all three askings (no model call). **Finding:** the plan assumed that until T9.20 the answer prompt would decline training questions; it does not. Training chunks were turned into advice: t1-t6 and t10 were answered with training citations, t9 (deloads, not covered) cited #32, #29 or #31 in two askings instead of saying the sources do not cover it, and t7 ("Write me a 4-day workout program for my goal") got a full four-day program with sets, reps and rest per exercise and an offer to tailor it, which PRD feature 26 rules out. So T9.19 does not merge before T9.20's rules are in the answer prompt (owner's choice, 2026-10-28), and the training baseline (`data/eval_baseline_training.json`, with its own tolerance) is taken from a run after T9.20, as these answers will change. For that tolerance: this run's largest distance of one asking from the average is 0.0526 for the found rate and 0.0702 for the cited rate, so 0.06 would not cover it (the T8.4 method would give 0.08).
+
 ## Live checks
 
 Record only what was actually run and observed: date, model, what was checked, result.
@@ -272,6 +294,8 @@ How to run the T3.8 check (O5): with the T3.8 code and the index built, start th
 
 | Date | Ticket | What was checked | Result |
 |---|---|---|---|
+| 2026-10-28 | T9.19 (O13), training questions | `python -m scripts.run_evaluation --repeat 3 data/eval_questions_training.json` run by the owner at 23:39 on `feature/t9.19-training-sources` at 1cd28e6 (clean), the index rebuilt with the 10 training sources | 30 runs, no error, 326,511 tokens, $0.0498; found rate 0.7895, cited rate 0.7544 on average; t8 caught by the guard in all three askings; t7 answered with a full workout program and t9 with citations, before T9.20's rules: T9.19 waits for T9.20 ("Training sources in the index (T9.19)") |
+| 2026-10-28 | T9.19 (O13), nutrition against the baseline | `python -m scripts.build_index` (31 sources, 2304 chunks), then `python -m scripts.run_evaluation --repeat 3` at 23:26 at 2a7e0ed (clean), run by the owner; `python -m scripts.check_eval_baseline` on its results file, run by Claude | 51 runs, no error, 639,350 tokens, $0.0879; found rate 0.8235 (baseline 0.8235, lowest allowed 0.7635), cited rate 0.8235 (baseline 0.8039, lowest allowed 0.7439): exit 0; no nutrition answer cited a training source |
 | 2026-10-26 | T9.2 (O13) | `python -m scripts.run_evaluation --repeat 3` run by the owner at 16:29 on `feature/t9.2-langgraph-chat-turn` at eafc50e (clean), real index, the app's models, the English file; then `python -m scripts.check_eval_baseline` on its results file, run by Claude | 51 runs, no error, 563,563 tokens, $0.0904; found rate 0.8235 in each asking (baseline 0.8235, lowest allowed 0.7635) and cited rate 0.8235 (baseline 0.8039, lowest allowed 0.7439): exit 0, within the tolerance. Same misses as the baseline ("Same behaviour on the graph (T9.2)") |
 | 2026-10-26 | T8.4 (O13), the baseline | `python -m scripts.run_evaluation --repeat 3` run by the owner at 12:40 from the T8.4 branch (`main` at bd0304c plus T8.4's uncommitted code), real index, the app's models, the English file; the results file copied to `data/eval_baseline.json` | 51 runs, no error, 563,093 tokens, $0.0859; found rate 0.8235 and cited rate 0.8039 on average (found 0.8824 / 0.8235 / 0.7647, cited 0.8235 / 0.8235 / 0.7647 in the three askings); `config.EVAL_TOLERANCE` set to 0.06 from that spread; `scripts/check_eval_baseline.py` on the run itself: both rates ok. Details in "Baseline (T8.4)" above |
 | 2026-10-26 | T8.3 follow-up (O13), candidate depth | A scratch script (not committed) on the real index, run by the owner: q5 and q10 searched alone, the first rank and distance of each expected source and the fused top 6 for candidate lists of 6, 10, 15, 20 and 30 | q5: all three expected sources in the top 6 at every length (#12 at vector and keyword rank 3). q10: #8 in neither the 30 nearest vector chunks nor the top 30 by keyword. Decision: the lists stay `RETRIEVAL_TOP_K` long, no MMR. Details in "Candidate depth (T8.3 follow-up)" |
