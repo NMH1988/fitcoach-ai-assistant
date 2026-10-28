@@ -435,6 +435,11 @@ _EN: dict[str, str] = {
         "This assistant is not made for pregnancy, the time after giving birth or breastfeeding. "
         "Please ask your doctor, midwife or a registered dietitian for advice that fits you."
     ),
+    "guardrail.injury": (
+        "This assistant cannot advise on pain, injuries or rehabilitation. Please see a doctor or "
+        "a physiotherapist. If the pain is sudden or severe, or you have chest pain, call the "
+        "emergency number (112 in Germany and the EU)."
+    ),
     "guardrail.medical": (
         "This assistant is made for healthy adults and cannot advise on medical conditions or "
         "medication, as they can change what is safe to eat or take. Please ask your doctor, "
@@ -864,6 +869,12 @@ _DE: dict[str, str] = {
         "Dieser Assistent ist nicht für die Schwangerschaft, die Zeit nach der Geburt oder die "
         "Stillzeit gedacht. Fragen Sie bitte Ihre Ärztin oder Ihren Arzt, Ihre Hebamme oder eine "
         "Ernährungsfachkraft nach einem Rat, der zu Ihnen passt."
+    ),
+    "guardrail.injury": (
+        "Dieser Assistent kann nicht zu Schmerzen, Verletzungen oder Rehabilitation beraten. "
+        "Wenden Sie sich bitte an eine Ärztin oder einen Arzt oder an eine Physiotherapeutin "
+        "oder einen Physiotherapeuten. Bei plötzlichen oder starken Schmerzen oder Schmerzen in "
+        "der Brust rufen Sie den Notruf 112 an."
     ),
     "guardrail.medical": (
         "Dieser Assistent ist für gesunde Erwachsene gedacht und kann nicht zu Erkrankungen oder "

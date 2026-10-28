@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from src import config, guard, guardrails
+from src import config, guard, guardrails, i18n
 from src.guardrails import Concern
 from tests.test_guard_de import BENIGN as GUARD_BENIGN
 
@@ -74,6 +74,20 @@ FLAGGED = [
     ),
     ("Ich habe beim Stillen meines Sohnes Durst, wie viel trinken?", Concern.PREGNANCY),
     ("Beim Stillen des Kindes Appetit auf Süßes, normal?", Concern.PREGNANCY),
+    # Pain, injuries and rehabilitation (redirected; T9.19a, AC-39), with ü/ue/u and ß/ss.
+    ("Mein Knie tut beim Kniebeugen weh.", Concern.INJURY),
+    ("Ich habe Schmerzen im Rücken nach dem Kreuzheben.", Concern.INJURY),
+    ("Ich habe Schmerzen im Ruecken nach dem Kreuzheben.", Concern.INJURY),
+    ("Stechende Schmerzen in der Schulter beim Bankdrücken, was tun?", Concern.INJURY),
+    ("Knieschmerzen beim Laufen, was soll ich essen?", Concern.INJURY),
+    ("Ich habe Schmerzen beim Training.", Concern.INJURY),
+    ("Ich habe mir eine Zerrung zugezogen, wie viel Eiweiß brauche ich?", Concern.INJURY),
+    ("Ich habe mich beim Training verletzt.", Concern.INJURY),
+    ("Ich habe mir beim Kreuzheben die Schulter verletzt.", Concern.INJURY),
+    ("Ich bin in der Reha nach einem Kreuzbandriss, was essen?", Concern.INJURY),
+    ("Hilft Physiotherapie bei einem Tennisarm?", Concern.INJURY),
+    ("Mein Fuss ist gebrochen, darf ich Oberkörper trainieren?", Concern.INJURY),
+    ("Ich habe Brustschmerzen und nehme Betablocker.", Concern.INJURY),
     # Medical conditions (any mention; a side effect about the user or a group) and medication.
     ("Ich habe Diabetes Typ 2, wie viele Kohlenhydrate?", Concern.MEDICAL),
     ("Ich bin Diabetiker und will Muskeln aufbauen.", Concern.MEDICAL),
@@ -174,6 +188,14 @@ FLAGGED = [
 
 # German questions that must pass: the research's supplements and near misses of every pattern.
 BENIGN = [
+    # Muscle soreness and recovery are answered (T9.19a; owner's choice, 2026-10-28).
+    "Ich habe Muskelkater, soll ich trotzdem trainieren?",
+    "Ich habe Muskelschmerzen nach dem Training, ist das normal?",
+    "Meine Muskeln tun nach dem Beintag weh, was soll ich essen?",
+    "Wie wichtig ist die Regeneration nach dem Training?",
+    # Near misses of the injury patterns.
+    "Ich habe einen Rekord im Kreuzheben gebrochen, was soll ich jetzt essen?",
+    "Wie trainiere ich meinen Rücken, und wie viele Kohlenhydrate brauche ich?",
     "Wie viel Eiweiß brauche ich am Tag für den Muskelaufbau?",
     "Wie viel Kreatin sollte ich pro Tag nehmen?",
     "Ist Kreatin sicher für Erwachsene?",
@@ -376,3 +398,10 @@ def test_the_german_guardrails_stay_fast_on_long_input(text, limiter):
     start = time.perf_counter()
     guard.check_message(text, limiter)
     assert time.perf_counter() - start < 1.0
+
+
+def test_the_german_injury_message_names_a_physiotherapist_and_the_emergency_number():
+    """The German pain and injury redirect names who to see and 112 for severe symptoms."""
+    message = i18n.t("guardrail.injury", "de")
+    assert "Arzt" in message and "Physiotherapeut" in message
+    assert "112" in message and "Brust" in message

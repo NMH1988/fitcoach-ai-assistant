@@ -2,10 +2,10 @@
 
 The input guard runs `find_concern()` on each message after its injection checks (AC-12,
 docs/PRD.md "Domain guardrails"). Performance-enhancing drug dosing is refused; minors,
-pregnancy, medical conditions and medication, and signs of disordered eating are redirected to a
-professional. The owner's system prompt holds the same rules as the second line of defence. The
-patterns cover English and German (T7.4) and catch common phrasings, not all of them
-(docs/SECURITY.md).
+pregnancy, pain and injuries (T9.19a, AC-39), medical conditions and medication, and signs of
+disordered eating are redirected to a professional. The owner's system prompt holds the same
+rules as the second line of defence. The patterns cover English and German (T7.4) and catch
+common phrasings, not all of them (docs/SECURITY.md).
 """
 
 import re
@@ -21,6 +21,9 @@ class Concern(StrEnum):
     PED_DOSING = "ped_dosing"
     MINOR = "minor"
     PREGNANCY = "pregnancy"
+    # Before MEDICAL, here and in _REDIRECTS: its message names the emergency number, so "chest
+    # pain on my blood pressure medication" gets it.
+    INJURY = "injury"
     MEDICAL = "medical"
     DISORDERED_EATING = "disordered_eating"
 
@@ -45,6 +48,11 @@ MESSAGES = {
     Concern.PREGNANCY: (
         "This assistant is not made for pregnancy, the time after giving birth or breastfeeding. "
         "Please ask your doctor, midwife or a registered dietitian for advice that fits you."
+    ),
+    Concern.INJURY: (
+        "This assistant cannot advise on pain, injuries or rehabilitation. Please see a doctor or "
+        "a physiotherapist. If the pain is sudden or severe, or you have chest pain, call the "
+        "emergency number (112 in Germany and the EU)."
     ),
     Concern.MEDICAL: (
         "This assistant is made for healthy adults and cannot advise on medical conditions or "
@@ -213,6 +221,52 @@ _MEDICAL_PATTERNS = [
     r"|ozempic|wegovy|semaglutide|mounjaro|zepbound|tirzepatide|saxenda|liraglutide"
     r"|glp-?1 (?:agonists?|medications?|drugs?|injections?|shots?|meds)|on (?:a )?glp-?1|trt"
     r"|testosterone replacement(?: therapy)?|hrt|hormone replacement(?: therapy)?)\b",
+]
+
+# --- Pain, injuries, rehabilitation (T9.19a) ---------------------------------------------------
+# An injury, rehabilitation or physiotherapy named anywhere (as a disease is), joint pain, and
+# pain the user has during or after training. Muscle soreness is answered: "DOMS", "sore muscles
+# after leg day", "muscle damage" (a research term) and muscle pain after training pass (owner's
+# choice, 2026-10-28), so "pain" right after "muscle" does not count.
+_BODY_PARTS = (
+    r"(?:joints?|knees?|(?:lower |upper )?back|shoulders?|elbows?|wrists?|hips?|ankles?|neck"
+    r"|chest|feet|foot|heels?|achilles|spine|groin|rotator cuff)"
+)
+_NOT_MUSCLE = r"(?<!muscle )(?<!muscles )(?<!muscular )"
+_TRAINING = (
+    r"(?:training|lifting|working out|workouts?|squats?|squatting|bench(?:ing)?"
+    r"|bench press(?:ing)?|deadlifts?|deadlifting|overhead press(?:ing)?|curls?|curling|rows?"
+    r"|rowing|pull-?ups?|push-?ups?|running|leg day|the gym)"
+)
+_INJURY_PATTERNS = [
+    # "Injury" and rehabilitation anywhere: "does creatine help an injury heal?" is redirected too.
+    r"\b(?:injur(?:y|ies|ed|ing)|re-?injur\w*|injures?)\b",
+    r"\b(?:rehab(?:ilitation|bing)?|physio(?:therapy|therapists?)?|physical therap(?:y|ists?))\b",
+    r"\b(?:sprain(?:s|ed)?|tendinitis|tendonitis|tendinopathy|tendinosis|bursitis|impingement"
+    r"|herniated (?:disc|disk)|slipped (?:disc|disk)|bulging (?:disc|disk)|sciatica|tennis elbow"
+    r"|golfer'?s elbow|shin splints|plantar fasciitis|stress fractures?|fractured?|fractures"
+    r"|dislocat(?:ed|ion|ions)|concussions?|whiplash)\b",
+    # Not "torn between cutting and bulking" or "strained yogurt": a body part must follow.
+    r"\b(?:torn|tore|tear|tearing|ruptured?|pulled|strained|tweaked) (?:my |a |an )?(?:\w+ )?"
+    r"(?:muscle|hamstrings?|groin|calf|calves|pecs?|biceps?|triceps|quads?|ligaments?|tendons?"
+    r"|acl|mcl|meniscus|labrum|rotator cuff|back|neck|shoulder|knee|wrist|elbow)\b",
+    r"\b(?:broken|broke (?:my|a)) (?:arm|leg|wrist|ankle|foot|hand|ribs?|bone|fingers?|toes?"
+    r"|collarbone)\b",
+    # Joint pain, said either way round: "knee pain", "pain in my knee", "my knee hurts".
+    rf"\b{_BODY_PARTS} (?:pain|pains|aches?|aching)\b|\bbackaches?\b",
+    rf"\b(?:pain|pains|aches?|hurts?|hurting|swelling|clicking|popping) (?:in|on) (?:my|the|both)"
+    rf" (?:\w+ )?{_BODY_PARTS}\b",
+    rf"\b(?:my|both|the) (?:\w+ )?{_BODY_PARTS} (?:hurts?|is hurting|are hurting|aches?"
+    r"|is aching|are aching|is swollen|are swollen|keeps? hurting|gives? out|pops?|clicks?)\b",
+    rf"\b(?:swollen|painful|sore) {_BODY_PARTS}\b",
+    # Pain with a quality, or the user's own pain while training ("I get pain when I squat").
+    r"\b(?:sharp|stabbing|shooting|sudden|severe|burning|radiating|nerve|chronic) pains?\b",
+    r"\b(?:i (?:have|get|got|feel|felt|had|keep getting|am getting|am having|still have)"
+    r"|i've (?:got|had|been having|been getting)|ive got|i'm (?:getting|having|feeling|in)"
+    rf"|i am (?:getting|having|feeling|in)) (?:\w+ ){{0,3}}?{_NOT_MUSCLE}pains?\b",
+    rf"\b{_NOT_MUSCLE}(?:pains?|it hurts|hurts) (?:during|after|when|while|from)"
+    rf" (?:i |my |the )?{_TRAINING}\b",
+    r"\b(?:it|this|that) hurts (?:when|if|after|during|to)\b|\bhurts? when i\b",
 ]
 
 # --- Disordered eating ------------------------------------------------------------------------
@@ -451,6 +505,45 @@ _DE_MEDICAL_PATTERNS = [
     r"|testosteronersatztherapie|hormonersatztherapie|hormontherapie)\b",
 ]
 
+# As in English: muscle soreness passes ("Muskelkater", "Muskelschmerzen nach dem Training": the
+# compound is one word, so "\bschmerzen" does not match inside it). "Gebrochen" counts only with
+# a body part ("einen Rekord gebrochen" passes), "verletzen" only as an injury ("Regeln verletzen"
+# passes).
+_DE_BODY_PARTS = (
+    r"(?:gelenk|knie|rücken|kreuz|schulter|ellenbogen|ellbogen|handgelenk|hüft|hüfte|nacken"
+    r"|brust|fuss|fersen|achillessehnen|leisten|wirbelsäulen|sprunggelenk|steissbein)"
+)
+_DE_TRAINING = (
+    r"(?:training|trainieren|heben|kniebeugen|bankdrücken|kreuzheben|schulterdrücken|curls"
+    r"|rudern|klimmzügen|liegestützen|laufen|joggen|sport|beintag|workout)"
+)
+_DE_INJURY_PATTERNS = [
+    r"\b(?:verletzung(?:en)?|verletzungsbedingt\w*"
+    r"|(?:mich|mir|sich|habe|hab|bin|ist) (?:\w+ ){0,4}?verletzt"
+    r"|verletzte[nrms]? (?:knie|schulter|rücken|sehne|band|bänder|muskel|fuss|hand|handgelenk"
+    r"|ellenbogen|ellbogen))\b",
+    r"\b(?:reha|reha-\w+|rehabilitation|physiotherap\w*|krankengymnastik|physio)\b",
+    r"\b(?:zerrung(?:en)?|muskelfaserriss|faserriss|bänderriss|bänderdehnung|sehnenriss"
+    r"|sehnenentzündung(?:en)?|sehnenscheidenentzündung|tendinitis|tendinopathie"
+    r"|schleimbeutelentzündung|bandscheibenvorfall|hexenschuss|ischias|kreuzbandriss"
+    r"|meniskus(?:riss|schaden|verletzung)?|tennisarm|golferarm|ermüdungsbruch|knochenbruch"
+    r"|verstaucht\w*|verstauchung(?:en)?|prellung(?:en)?|ausgekugelt\w*|gehirnerschütterung"
+    r"|überlastungsschäden|überlastungsschaden|impingement)\b",
+    r"\b(?:arm|bein|handgelenk|knöchel|fuss|rippe|finger|zeh|schlüsselbein) (?:\w+ )?gebrochen\b"
+    r"|\bgebrochene[nmrs]? (?:arm|bein|handgelenk|knöchel|fuss|rippe|finger|zeh)\b",
+    # Joint pain: "Knieschmerzen", "Schmerzen im Knie", "mein Knie tut weh".
+    rf"\b{_DE_BODY_PARTS}schmerz(?:en)?\b",
+    rf"\bschmerzen (?:im|in der|in den|am|an der|in meinem|in meiner|in meinen) {_DE_BODY_PARTS}"
+    r"\w*\b",
+    # "Tut weh", but not about the muscles ("meine Muskeln tun nach dem Beintag weh").
+    r"(?<!muskeln )(?<!muskel )\b(?:tut|tun|tat|taten) (?:\w+ ){0,3}?weh\b|\bwehtut\b",
+    r"\b(?:stechende|starke|plötzliche|ziehende|chronische|ausstrahlende)[nr]? schmerzen\b",
+    # The user's own pain, or pain while training ("Schmerzen beim Kreuzheben").
+    r"\b(?:ich habe|ich hab|ich hatte|habe ich|hab ich|ich bekomme|ich kriege|ich spüre)"
+    r" (?:\w+ ){0,3}?schmerzen\b",
+    rf"\bschmerzen (?:beim|bei|nach dem|nach|während des|während dem|vom) {_DE_TRAINING}\b",
+]
+
 # Throwing up counts after eating, not after training ("nach dem Training muss ich kotzen").
 _DE_DISORDERED_PATTERNS = [
     r"\b(?:magersucht|magersüchtig\w*|anorexie|anorektisch\w*|bulimie|bulimisch\w*"
@@ -545,6 +638,8 @@ def _compiled(english: list[str], german_patterns: list[str]) -> list[re.Pattern
 _REDIRECTS = [
     (Concern.MINOR, _compiled(_MINOR_PATTERNS, _DE_MINOR_PATTERNS)),
     (Concern.PREGNANCY, _compiled(_PREGNANCY_PATTERNS, _DE_PREGNANCY_PATTERNS)),
+    # Before MEDICAL, as in Concern: find_concern() returns the first match in this list.
+    (Concern.INJURY, _compiled(_INJURY_PATTERNS, _DE_INJURY_PATTERNS)),
     (Concern.MEDICAL, _compiled(_MEDICAL_PATTERNS, _DE_MEDICAL_PATTERNS)),
     (Concern.DISORDERED_EATING, _compiled(_DISORDERED_PATTERNS, _DE_DISORDERED_PATTERNS)),
 ]

@@ -1,8 +1,11 @@
 """Tests for src/guardrails.py and its place in the guard: refusals, redirects, no API call."""
 
+import time
+
 import pytest
 
 from src import config, guard, guardrails
+from src.eval_questions import load_questions
 from src.guardrails import Concern
 from tests.test_guard import BENIGN as GUARD_BENIGN
 
@@ -49,6 +52,19 @@ FLAGGED = [
     ("I'm breastfeeding and want to lose fat.", Concern.PREGNANCY),
     ("Postpartum macros for weight loss?", Concern.PREGNANCY),
     ("We are trying to conceive, should I change my diet?", Concern.PREGNANCY),
+    # Pain, injuries and rehabilitation (redirected; T9.19a, AC-39).
+    ("My knee hurts when I squat, what should I do?", Concern.INJURY),
+    ("I have pain in my lower back after deadlifts.", Concern.INJURY),
+    ("I get a sharp pain in my shoulder when benching.", Concern.INJURY),
+    ("I have chest pain during training.", Concern.INJURY),
+    ("Is joint pain normal when lifting heavy?", Concern.INJURY),
+    ("It hurts when I bend my elbow.", Concern.INJURY),
+    ("I tore my hamstring last week, how much protein to heal?", Concern.INJURY),
+    ("I sprained my ankle, can I still train upper body?", Concern.INJURY),
+    ("Is physiotherapy better than rest for tennis elbow?", Concern.INJURY),
+    ("What should I eat during rehab after knee surgery?", Concern.INJURY),
+    ("Can creatine help an injury heal faster?", Concern.INJURY),
+    ("I nursed a shoulder injury for months, what should I eat to recover?", Concern.INJURY),
     # Medical conditions (a disease anywhere; a side effect said about the user or a group) and
     # any medication (redirected).
     ("I have type 1 diabetes, how many carbs before training?", Concern.MEDICAL),
@@ -124,7 +140,22 @@ BENIGN = [
     "I have been training for 5 years, is 2 g/kg protein enough?",
     "My cut is 12 weeks long.",
     "Under 18% body fat, should I eat more carbs?",
-    "I nursed a shoulder injury for months, what should I eat to recover?",
+    # "Nursed" is not breastfeeding (an injury here is redirected as INJURY, above).
+    "I nursed one coffee all morning, does the caffeine still help my workout?",
+    # Muscle soreness and recovery are answered (T9.19a; owner's choice, 2026-10-28).
+    "What is DOMS and how long does it last?",
+    "I have sore muscles after leg day, should I train?",
+    "How important is recovery after training?",
+    "Does protein reduce muscle damage after lifting?",
+    "I have muscle pain after training, is that normal?",
+    "My muscles ache after a heavy session, should I eat more protein?",
+    # Near misses of the injury patterns.
+    "I am torn between cutting and bulking.",
+    "Is strained yogurt a good protein source?",
+    "Does caffeine reduce pain perception?",
+    "How do I train my back for width, and how many carbs do I need?",
+    "Should I train chest twice a week?",
+    "I back squat three times a week, how many carbs?",
     "What is the lactate threshold and does diet change it?",
     "Does creatine harm the kidneys?",
     "Is creatine safe for people with healthy kidneys?",
@@ -269,3 +300,52 @@ def test_a_guardrail_rejection_makes_no_call(limiter):
     assert decision.reason is guard.Rejection.GUARDRAIL
     assert result is None
     assert calls == []
+
+
+def test_the_injury_message_names_a_physiotherapist_and_the_emergency_number():
+    """The pain and injury redirect names who to see and 112 for severe symptoms (AC-39)."""
+    message = guardrails.MESSAGES[Concern.INJURY]
+    assert "doctor" in message and "physiotherapist" in message
+    assert "112" in message and "chest pain" in message
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I have chest pain and take beta blockers, what should I eat?",
+        "My knee hurts and I have arthritis.",
+        "Ich habe Brustschmerzen und nehme Betablocker.",
+    ],
+)
+def test_an_injury_wins_over_a_medical_redirect(text, limiter):
+    """A message that is both pain and a condition gets the message with the emergency number."""
+    assert guardrails.find_concern(text) is Concern.INJURY
+    assert guard.check_message(text, limiter).concern is Concern.INJURY
+
+
+@pytest.mark.parametrize("path", [config.EVAL_QUESTIONS_PATH, config.EVAL_QUESTIONS_DE_PATH])
+def test_no_evaluation_question_is_redirected_as_pain_or_injury(path):
+    """The injury guard lets every nutrition evaluation question through (T9.19a)."""
+    caught = [
+        item.id
+        for item in load_questions(path)
+        if guardrails.find_concern(item.question) is Concern.INJURY
+    ]
+    assert caught == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "i have " * (config.MAX_INPUT_CHARS // 7),
+        "pain after " * (config.MAX_INPUT_CHARS // 11),
+        "my left " * (config.MAX_INPUT_CHARS // 8),
+        "torn my " * (config.MAX_INPUT_CHARS // 8),
+    ],
+    ids=["frames", "pain-after", "body-part", "torn"],
+)
+def test_the_injury_patterns_stay_fast_on_long_input(text, limiter):
+    """Worst-case repeats of the injury words are checked well under a second."""
+    start = time.perf_counter()
+    guard.check_message(text, limiter)
+    assert time.perf_counter() - start < 1.0
