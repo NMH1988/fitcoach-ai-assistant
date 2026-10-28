@@ -2,12 +2,14 @@
 
 import logging
 import os
+import uuid
 
 import pytest
 from streamlit import config as st_config
 from streamlit.runtime.secrets import Secrets
 
 from src import chat, config, i18n, observability, usage
+from src.store import db
 from tests.fakes import TEST_LANGUAGE_PARTS
 
 
@@ -100,3 +102,26 @@ def language_part_files(tmp_path_factory, monkeypatch):
         paths[lang].write_text(text, encoding="utf-8")
     monkeypatch.setattr(config, "ANSWER_LANGUAGE_PROMPT_PATHS", paths)
     return paths
+
+
+@pytest.fixture(scope="session")
+def store_root(tmp_path_factory):
+    """Return one temporary folder for all the tests' store files."""
+    return tmp_path_factory.mktemp("store")
+
+
+@pytest.fixture(autouse=True)
+def store_file_is_temporary(store_root, monkeypatch):
+    """Point the store at a fresh temporary file, so no test writes data/store/ (T9.6)."""
+    # Only the path is set; the folder is made when a test opens the store.
+    folder = store_root / uuid.uuid4().hex
+    monkeypatch.setattr(config, "STORE_DIR", folder)
+    monkeypatch.setattr(config, "STORE_PATH", folder / "test.sqlite3")
+    return config.STORE_PATH
+
+
+@pytest.fixture
+def store_conn():
+    """Yield an open, migrated connection to the test's own store file."""
+    with db.connect() as conn:
+        yield conn

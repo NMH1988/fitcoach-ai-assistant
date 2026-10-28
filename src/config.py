@@ -230,6 +230,19 @@ EVAL_BASELINE_PATH = PROJECT_ROOT / "data" / "eval_baseline.json"
 EVAL_TOLERANCE = 0.06
 # How long each of the two git calls that read the evaluated code's commit may take (T8.4).
 EVAL_GIT_TIMEOUT_SECONDS = 10
+
+# The store of signed-in users' data (T9.6, D13): one SQLite file in a gitignored folder, local.
+# Not encrypted: anyone who can read the file reads the data (docs/SECURITY.md).
+STORE_DIR = PROJECT_ROOT / "data" / "store"
+STORE_PATH = STORE_DIR / "fitcoach.sqlite3"
+# How long a write waits for another session's write to finish before it fails.
+STORE_BUSY_TIMEOUT_SECONDS = 5
+# Longest user ID the store accepts (T9.5's keyed hash is 64 hex characters).
+STORE_ID_MAX_CHARS = 128
+# Longest text the store accepts in any text field (a display name, a preference, a review's JSON
+# is longer and checked by STORE_JSON_MAX_CHARS); T9.5 and T9.7 set tighter limits for their input.
+STORE_TEXT_MAX_CHARS = 500
+STORE_JSON_MAX_CHARS = 100_000
 # The answer system prompt, written by the owner (O1; .claude/rules/workflow.md).
 ANSWER_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "answer_system.md"
 # The language part of the answer prompt, one file per UI language, written by the owner (O1, T7.2).
