@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-28 · T9.19 Training sources and indexing · #<PR> (closes NMH1988/fitcoach-ai-assistant#30)
+## 2026-10-28 · T9.19 Training sources and indexing · NMH1988/fitcoach-ai-assistant#43 (closes NMH1988/fitcoach-ai-assistant#30)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 2 (the agent's main tasks), evaluation: technical (a relevant knowledge base). Sprint 2 (`docs/BRIEF.md`): core 1 (RAG: a knowledge base relevant to the domain), core 3 (a focused knowledge base). Beyond the brief (owner's request): training content (PRD feature 26). AC-40.
 - **What:**
   - `docs/SOURCES.md`: 10 approved training sources, #24-#33, all tier 2 ("Approved training sources"), with notes on conflicts of interest, narrative reviews and third-party material, the gaps of criterion 5, and the rejected candidates with their reasons under "Excluded"; the status line records O16 as done.
