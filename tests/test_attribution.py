@@ -155,7 +155,7 @@ def test_main_writes_the_file_and_returns_0(monkeypatch, tmp_path, capsys):
         load_manifest(), usda_release=read_usda_release(), formula_sources=FORMULA_SOURCES
     )
     assert target.read_text(encoding="utf-8") == expected
-    assert "with 21 sources" in capsys.readouterr().out
+    assert f"with {len(load_manifest())} sources" in capsys.readouterr().out
 
 
 def test_main_returns_1_without_the_foods_table(monkeypatch, tmp_path, capsys):

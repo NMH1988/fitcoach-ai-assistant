@@ -25,7 +25,7 @@ One chat turn runs a fixed pipeline (details in [`docs/ARCHITECTURE.md`](docs/AR
 3. **Hybrid retrieval** (`src/rag/`): vector search in a local Chroma index plus BM25 keyword search, for the question and each rewrite, merged with Reciprocal Rank Fusion; a distance limit decides whether the sources cover the question at all.
 4. **Answer with tools** (`src/chat.py`, `src/tools/`): the chat model gets the system prompt (`src/prompts/answer_system.md`), the retrieved passages as delimited data and, when needed, the profile; it may call the four tools (at most 4 rounds) and then writes the answer with `[S#]` citations.
 
-The knowledge base is 20 open-access sports nutrition articles (ISSN position stands and peer-reviewed reviews, all CC BY) and one correction notice, split into chunks with their licence and citation data. Food values come from USDA FoodData Central Foundation Foods (CC0). Models run through OpenRouter: `openai/gpt-5-mini` for answers, `openai/gpt-5-nano` for query translation, `qwen/qwen3-embedding-8b` for embeddings.
+The knowledge base is 20 open-access sports nutrition articles (ISSN position stands and peer-reviewed reviews, all CC BY) and one correction notice, plus 10 open-access resistance training reviews (CC BY; T9.19), split into chunks with their licence and citation data. The chat explains training principles from those reviews only once T9.20 is done; until then it answers nutrition questions. Food values come from USDA FoodData Central Foundation Foods (CC0). Models run through OpenRouter: `openai/gpt-5-mini` for answers, `openai/gpt-5-nano` for query translation, `qwen/qwen3-embedding-8b` for embeddings.
 
 ## Course brief coverage
 

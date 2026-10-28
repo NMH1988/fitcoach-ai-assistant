@@ -200,6 +200,8 @@ def test_dropped_content_never_appears(parsed, marker):
         "5. Data Availability Statement",
         "Supplementary Material",
         "Appendix B: More plots",
+        # Found in the T9.19 spot-check of the training sources (#30).
+        "Conflict of Interest Statement",
     ],
 )
 def test_back_matter_titles_are_dropped(title):

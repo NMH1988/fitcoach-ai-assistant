@@ -122,7 +122,8 @@ def test_the_about_dialog_says_what_the_answers_are_based_on():
     at = _open_about()
     assert not at.exception
     summary = chat.knowledge_base_summary(chat.manifest_by_id())
-    assert summary.articles == 20
+    # 20 nutrition articles and 10 training reviews (T9.19); the correction notice is not counted.
+    assert summary.articles == 30
     [about] = at.get("dialog")
     assert about.proto.dialog.title == "About the answers"
     assert Block.Dialog.DialogWidth.Name(about.proto.dialog.width) == "LARGE"

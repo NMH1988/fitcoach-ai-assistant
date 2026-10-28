@@ -76,6 +76,9 @@ TOPICS: tuple[str, ...] = (
     "energy_balance",
     "nutrient_timing",
     "supplements",
+    # Training principles (PRD feature 26, T9.19): only on the approved training sources, never on
+    # a nutrition source (docs/SOURCES.md, "Training sources").
+    "resistance_training",
 )
 # 1 = ISSN position stand, 2 = other peer-reviewed review or meta-analysis (docs/SOURCES.md).
 EVIDENCE_TIERS: tuple[int, ...] = (1, 2)
@@ -135,7 +138,9 @@ INGEST_DROPPED_SEC_TITLES: frozenset[str] = frozenset(
         "clinical trial registration",
         "competing interests",
         "conflict of interest",
+        "conflict of interest statement",
         "conflicts of interest",
+        "conflicts of interest statement",
         "consent for publication",
         "contributor information",
         "correction note",
@@ -206,6 +211,13 @@ EVAL_QUESTIONS_PATH = PROJECT_ROOT / "data" / "eval_questions.json"
 # The owner's German evaluation questions (O2, for T7.2), kept apart: compare_retrieval.py searches
 # each question as written, with no rewrite into English, so German ones would lower the T3.6 rates.
 EVAL_QUESTIONS_DE_PATH = PROJECT_ROOT / "data" / "eval_questions_de.json"
+# The owner's training evaluation questions (O17, T9.19), in their own files so the nutrition rates
+# can still be compared with the nutrition baseline alone; run them with the file as an argument.
+EVAL_QUESTIONS_TRAINING_PATH = PROJECT_ROOT / "data" / "eval_questions_training.json"
+EVAL_QUESTIONS_TRAINING_DE_PATH = PROJECT_ROOT / "data" / "eval_questions_training_de.json"
+# Training questions that the pain and injury guard (T9.19a) must catch: their evaluation check is
+# the fixed message and no model or embedding call.
+EVAL_GUARDED_QUESTION_IDS: frozenset[str] = frozenset({"t8"})
 # Where scripts/run_evaluation.py (T6.1) writes its full reports: the answers and the article text
 # of the chunks found, for judging the citations. Gitignored: never committed.
 EVAL_RUNS_DIR = PROJECT_ROOT / "data" / "eval_runs"

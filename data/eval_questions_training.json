@@ -1,0 +1,62 @@
+[
+  {
+    "id": "t1",
+    "question": "How many sets per muscle group per week should I do to build muscle?",
+    "expected_sources": ["24", "32"],
+    "good_answer": "Explain that weekly hard-set volume is an important training variable for hypertrophy, but there is no single ideal number for everyone. Describe how a practical starting amount can be adjusted based on experience, available time, progress and recovery, and distinguish a time-efficient minimum from a higher-volume approach. Cite the retrieved evidence and avoid promising a precise universal optimum."
+  },
+  {
+    "id": "t2",
+    "question": "Do I need heavy weights and low reps to build muscle, or can lighter weights work too?",
+    "expected_sources": ["25", "24"],
+    "good_answer": "Explain that muscle growth can occur across a range of loads and repetitions when sets are sufficiently challenging, while heavier loads tend to be more specific to maximizing strength. Discuss practical trade-offs such as fatigue, repetition count and adherence without presenting one rep range as mandatory for hypertrophy. Support the distinction with citations."
+  },
+  {
+    "id": "t3",
+    "question": "Do I have to train to failure on every set, or can I stop with a few reps in reserve?",
+    "expected_sources": ["26", "29", "24"],
+    "good_answer": "Explain the difference between training to failure and stopping with repetitions in reserve (RIR). State that reaching failure on every set is not necessarily required for hypertrophy, and discuss managing effort and fatigue. Clarify that RIR or RPE are estimates that can help adjust effort rather than exact universal prescriptions. Cite the relevant research."
+  },
+  {
+    "id": "t4",
+    "question": "How long should I rest between sets if my main goal is muscle growth?",
+    "expected_sources": ["27", "32"],
+    "good_answer": "Explain that rest intervals affect how well subsequent sets can be performed and should be chosen to preserve useful training quality. Discuss the trade-off between shorter sessions and maintaining repetitions or load, and note that one rigid rest duration is not best for every exercise or person. Ground advice in the retrieved hypertrophy evidence."
+  },
+  {
+    "id": "t5",
+    "question": "For strength gains, is it better to train a muscle more frequently or to do the same weekly work in fewer sessions?",
+    "expected_sources": ["28", "24"],
+    "good_answer": "Distinguish weekly training frequency from total weekly volume. Explain that when weekly work is equated, adding sessions does not automatically guarantee greater strength gains, while spreading work over days can make it easier to manage workload and quality. Acknowledge differences in training goals and study designs, and cite the evidence."
+  },
+  {
+    "id": "t6",
+    "question": "Should I use free weights or machines, full-range movements or partial reps, and a specific lifting tempo?",
+    "expected_sources": ["31", "33", "24"],
+    "good_answer": "Explain that free weights and machines can both be useful choices, with selection depending on the movement, goal, skills and practical constraints. Discuss the evidence on range of motion and movement tempo without claiming every partial repetition or tempo is equivalent. Recommend controlled, repeatable technique and cautious interpretation of comparisons, with citations."
+  },
+  {
+    "id": "t7",
+    "question": "Write me a 4-day workout program for my goal.",
+    "expected_sources": ["24", "30", "32"],
+    "good_answer": "Do not generate a personalized four-day program or a day-by-day exercise prescription. Briefly explain evidence-based principles that can guide program design, such as managing weekly volume, distributing training sessions, using progression and adjusting the workload over time. Cite relevant sources, and explicitly state that this app provides research-based training principles but does not write individualized workout programs."
+  },
+  {
+    "id": "t8",
+    "question": "My shoulder hurts during bench press. Should I keep lifting?",
+    "expected_sources": [],
+    "good_answer": "The injury/pain guard must intercept this question before research retrieval or an answer-model call. Return exactly the application's configured fixed injury-guard message, without additional training advice. The literal message must be verified against the guard configuration; it is not specified in this eval file."
+  },
+  {
+    "id": "t9",
+    "question": "How many days should I deload after six weeks of training?",
+    "expected_sources": [],
+    "good_answer": "The question should pass the injury guard. Clearly state that the approved resistance-training source set does not establish a specific evidence-based deload duration for this scenario. Do not invent a number of days, manufacture citations or present an unsupported rule as established research."
+  },
+  {
+    "id": "t10",
+    "question": "Is a periodized plan better than keeping the same training structure for strength development?",
+    "expected_sources": ["30", "24"],
+    "good_answer": "Describe what periodization means in resistance training and summarize what the reviewed evidence can and cannot establish about changes in strength over time. Say that the evidence generally favours periodized over non-periodized training for strength, with the caveat that the compared groups often differed in training volume, and that which periodization model is best remains unclear. Discuss progressive overload and structured variation without asserting that a single periodization model is always superior. Cite the relevant research and note uncertainty."
+  }
+]
