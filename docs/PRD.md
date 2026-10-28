@@ -39,7 +39,7 @@ A chatbot that gives adults who lift weights clear, evidence-based nutrition ans
 
 - No dosing or use advice on steroids, SARMs or other performance-enhancing drugs.
 - A minimum calorie floor enforced in the tool code (value taken from the approved sources, not invented): 1200 kcal/day, the top of the low-energy diet range in sources #1 and #9 (owner's choice in T4.2).
-- Refuse or redirect for minors, pregnancy, medical conditions and medication, and signs of disordered eating.
+- Refuse or redirect for minors, pregnancy, medical conditions and medication, and signs of disordered eating; since T9.19a also pain, injuries and rehabilitation (Sprint 3, AC-39).
 - A visible "not medical advice" disclaimer.
 - User input and retrieved text are data, not instructions; tool arguments are validated.
 

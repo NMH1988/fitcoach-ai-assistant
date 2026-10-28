@@ -65,6 +65,10 @@ FLAGGED = [
     ("What should I eat during rehab after knee surgery?", Concern.INJURY),
     ("Can creatine help an injury heal faster?", Concern.INJURY),
     ("I nursed a shoulder injury for months, what should I eat to recover?", Concern.INJURY),
+    # Found in the review of PR #42: "hurt" as the verb, a torn tendon without "my".
+    ("I hurt my shoulder benching, how much protein should I eat to recover?", Concern.INJURY),
+    ("I hurt myself at the gym, what should I eat?", Concern.INJURY),
+    ("What should I eat to heal my torn hamstring?", Concern.INJURY),
     # Medical conditions (a disease anywhere; a side effect said about the user or a group) and
     # any medication (redirected).
     ("I have type 1 diabetes, how many carbs before training?", Concern.MEDICAL),
@@ -149,6 +153,14 @@ BENIGN = [
     "Does protein reduce muscle damage after lifting?",
     "I have muscle pain after training, is that normal?",
     "My muscles ache after a heavy session, should I eat more protein?",
+    # Found in the review of PR #42: soreness said in other words.
+    "I have pain in my muscles after training, is that normal?",
+    "I have DOMS pain in my legs, should I eat more carbs?",
+    "Everything hurts after leg day, should I eat more protein?",
+    "My muscles hurt when I train, do I need more magnesium?",
+    "I pulled back on carbs this week, should I raise fats?",
+    "I tweaked my macros back to maintenance, how much protein?",
+    "Does lifting tear muscle fibres?",
     # Near misses of the injury patterns.
     "I am torn between cutting and bulking.",
     "Is strained yogurt a good protein source?",
@@ -349,3 +361,20 @@ def test_the_injury_patterns_stay_fast_on_long_input(text, limiter):
     start = time.perf_counter()
     guard.check_message(text, limiter)
     assert time.perf_counter() - start < 1.0
+
+
+def test_injury_comes_before_medical_in_the_enum_and_the_redirect_list():
+    """Both orders put INJURY first: the list decides in one text, the enum across views."""
+    concerns = list(Concern)
+    assert concerns.index(Concern.INJURY) < concerns.index(Concern.MEDICAL)
+    redirects = [concern for concern, _ in guardrails._REDIRECTS]
+    assert redirects == [concern for concern in Concern if concern is not Concern.PED_DOSING]
+
+
+def test_an_injury_wins_when_the_detection_views_disagree(limiter):
+    """A zero-width space read as a space in one view and dropped in another still gives INJURY."""
+    text = "Knie\u200bschmerz und Bluthochdruck, was essen?"
+    # The view that drops the space reads "Knieschmerz" (INJURY), the other one only MEDICAL.
+    found = {guardrails.find_concern(view) for view in guard.detection_views(text)}
+    assert found == {Concern.INJURY, Concern.MEDICAL}
+    assert guard.check_message(text, limiter).concern is Concern.INJURY

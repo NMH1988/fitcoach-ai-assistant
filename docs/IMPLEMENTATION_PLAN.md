@@ -109,7 +109,7 @@ Deadline: **2026-11-02** (Sprint 2, already submitted by the owner, 2026-10-28).
 | **Epic 9: Sprint 3 agent, P0** | | | | | | |
 | T9.1 | #96 | Sprint 3 product and design decisions (coach-first scope) | M | - | 10-25 | done |
 | T9.2 | #97 | The chat turn as a LangGraph `StateGraph`, same behaviour | L | T9.1, T8.1, T8.2, T8.4 | 10-30 | in review |
-| T9.19a | NMH1988/fitcoach-ai-assistant#41 | The pain and injury guard (split from T9.19 by the owner, 2026-10-28) | S | - | 10-28 | in progress |
+| T9.19a | NMH1988/fitcoach-ai-assistant#41 | The pain and injury guard (split from T9.19 by the owner, 2026-10-28) | S | - | 10-28 | in review |
 | T9.19 | NMH1988/fitcoach-ai-assistant#30 | Training sources and indexing (moved before T9.3 by the owner, 2026-10-28; the dates after it were not moved; its injury guard split into T9.19a the same day) | M | T8.4, T9.19a, O7, O16, O17, O8 (the tier names only) | 10-30 | todo |
 | T9.3 | #98 | Agentic RAG: searching the knowledge base is the agent's tool | M | T9.2, T8.4, O8 | 10-31 | todo |
 | T9.4 | #99 | Short-term memory: a conversation that remembers earlier turns | M | T9.2, O8 | 10-31 | todo |
@@ -846,8 +846,8 @@ Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this 
 - [ ] `docs/ARCHITECTURE.md` shows the graph as a Mermaid diagram from the compiled graph, and a test fails if it differs - test.
 - [ ] `docs/SECURITY.md` covers the new path (client data to the model as aggregates; the evidence inside `<sources>`; access checked at every step) - review; the `security-reviewer` agent run on the PR; the owner drafts and approves one review (O13).
 
-### T9.19a The pain and injury guard (S) · status: in progress · issue NMH1988/fitcoach-ai-assistant#41
-**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Medium 8 (a guard against misuse, extended), evaluation: technical (appropriate security); Sprint 2 (`docs/BRIEF.md`): core 3 (security measures relevant to the domain); beyond the brief (owner's request): the training content it protects (PRD feature 26).
+### T9.19a The pain and injury guard (S) · status: in review · issue NMH1988/fitcoach-ai-assistant#41
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Medium 8 (a guard against misuse, extended), evaluation: technical (appropriate security); Sprint 2 (`docs/BRIEF.md`): core 3 (security measures relevant to the domain), evaluation: technical (appropriate security); beyond the brief (owner's request): the training content it protects (PRD feature 26).
 **Depends on:** none (split from T9.19 by the owner on 2026-10-28, so the guard merges before any training chunk is indexed)
 **Acceptance criteria**
 - [ ] `src/guardrails.py` gains `Concern.INJURY` (joint pain, pain during or after training, an injury, rehabilitation or physiotherapy, in English and German), which the input guard runs before any model or embedding call; it comes before `Concern.MEDICAL` both in `_REDIRECTS` (`find_concern` returns the first match in that list for one text) and in the enum (`_first_concern` in `src/guard.py` uses enum order across the detection views), because the injury message holds the emergency number. Its fixed message (English and German in `src/i18n.py`) points to a doctor or physiotherapist and, for sudden, severe or chest symptoms, to the emergency number (112 in Germany and the EU) - unit tests.

@@ -88,6 +88,13 @@ FLAGGED = [
     ("Hilft Physiotherapie bei einem Tennisarm?", Concern.INJURY),
     ("Mein Fuss ist gebrochen, darf ich Oberkörper trainieren?", Concern.INJURY),
     ("Ich habe Brustschmerzen und nehme Betablocker.", Concern.INJURY),
+    # Found in the review of PR #42: "schmerzt", "wehgetan", "umgeknickt", "gezerrt".
+    ("Mein Knie schmerzt beim Kniebeugen.", Concern.INJURY),
+    ("Tut mir das Knie beim Laufen weh, was soll ich essen?", Concern.INJURY),
+    ("Ich habe mir beim Training wehgetan.", Concern.INJURY),
+    ("Ich bin beim Laufen umgeknickt, darf ich trainieren?", Concern.INJURY),
+    ("Ich habe mir den Rücken gezerrt.", Concern.INJURY),
+    ("Es tut weh, wenn ich die Hantel hebe.", Concern.INJURY),
     # Medical conditions (any mention; a side effect about the user or a group) and medication.
     ("Ich habe Diabetes Typ 2, wie viele Kohlenhydrate?", Concern.MEDICAL),
     ("Ich bin Diabetiker und will Muskeln aufbauen.", Concern.MEDICAL),
@@ -193,6 +200,12 @@ BENIGN = [
     "Ich habe Muskelschmerzen nach dem Training, ist das normal?",
     "Meine Muskeln tun nach dem Beintag weh, was soll ich essen?",
     "Wie wichtig ist die Regeneration nach dem Training?",
+    # Found in the review of PR #42: soreness said in other words.
+    "Mir tun die Muskeln weh, was soll ich essen?",
+    "Meine Beine tun nach dem Beintag weh, brauche ich mehr Kohlenhydrate?",
+    "Ich habe nach dem Training Schmerzen in den Muskeln, ist das normal?",
+    "Kreuzheben: wie viel Protein brauche ich?",
+    "Brusttraining zweimal pro Woche, wie viele Kalorien?",
     # Near misses of the injury patterns.
     "Ich habe einen Rekord im Kreuzheben gebrochen, was soll ich jetzt essen?",
     "Wie trainiere ich meinen Rücken, und wie viele Kohlenhydrate brauche ich?",
