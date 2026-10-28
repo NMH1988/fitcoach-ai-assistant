@@ -68,7 +68,7 @@ Both articles state these values as the method of their own study (an older or o
 
 ### Training sources (for the vector store, PRD feature 26, T9.19)
 
-Sources for the training principles the agent explains (owner's decision, 2026-10-26). The copyright policy applies to them in full, as to the nutrition sources; the criteria below add what a training source must be. **Status:** the criteria were approved by the owner on 2026-10-26 (O16); the clarifications made after the code review the same day (criteria 1 and 2, the reading method, the numbering) await the owner's confirmation. No candidate has been searched for yet. Below, "criterion N" is an item of this list and "rule N" a rule of the copyright policy (`.claude/rules/copyright.md`).
+Sources for the training principles the agent explains (owner's decision, 2026-10-26). The copyright policy applies to them in full, as to the nutrition sources; the criteria below add what a training source must be. **Status:** the criteria were approved by the owner on 2026-10-26 (O16); the clarifications made after the code review the same day (criteria 1 and 2, the reading method, the numbering) await the owner's confirmation, and the reading method was tightened again on 2026-10-28 (the owner alone reads the article pages) after the compliance review; O16 stays open for these confirmations, each candidate row and the tier 1 label. No candidate has been searched for yet. Below, "criterion N" is an item of this list and "rule N" a rule of the copyright policy (`.claude/rules/copyright.md`).
 
 #### Selection criteria
 
@@ -84,7 +84,7 @@ Sources for the training principles the agent explains (owner's decision, 2026-1
 
 #### How candidates are chosen
 
-Claude searches the Europe PMC REST API (open access, licence filter) for each topic in criterion 5 and reads the licence block in each candidate's full-text XML from the same API. The licence line on the publisher's or PMC's article page is then read in a browser, one page at a time: by the owner, from the links Claude lists, or by Claude in the app's browser only if the owner approves that for this check. Never by a script, a crawler or a batch of requests to a website (rule 10; the correction at the top of this file). Claude proposes a table with the title, year, journal, licence, kind of evidence and tier (criterion 2), topics covered, why it was chosen and anything doubtful. The owner approves each row (O16). Only approved rows go into `data/sources.json` with the topic `resistance_training`; rejected candidates go to "Excluded" with their reason.
+Claude searches the Europe PMC REST API (open access, licence filter) for each topic in criterion 5 and reads the licence block in each candidate's full-text XML from the same API. The licence line on the publisher's or PMC's article page is then read in a browser by the owner alone, one page at a time, from the links Claude lists. Claude reads no page of those websites, in a browser or otherwise: an agent driving a browser is automated access (rule 10; the correction at the top of this file), as is a script, a crawler or a batch of requests. Claude proposes a table with the title, year, journal, licence, kind of evidence and tier (criterion 2), topics covered, why it was chosen and anything doubtful. The owner approves each row (O16). Only approved rows go into `data/sources.json` with the topic `resistance_training`; rejected candidates go to "Excluded" with their reason.
 
 #### Approved training sources
 
