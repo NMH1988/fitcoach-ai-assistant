@@ -4,10 +4,10 @@
 package is added. This test runs that check in CI's pytest run on every push to `main` and every
 PR, Dependabot's included: it takes the app's requirements from `[project].dependencies` in
 `pyproject.toml`, follows them through the installed packages' metadata (markers evaluated for the
-running Python and platform, extras a package asks for followed, the project's own `dev` extra
-never), and fails on a licence outside `ALLOWED`: GPL, LGPL, AGPL, SSPL, proprietary, unrecognised
-or missing. A runtime requirement that is missing or installed at another version than its pin
-fails too, so a stale venv cannot pass.
+running Python and platform, extras a package asks for followed, the project's own extras (only
+`dev` today) never), and fails on a licence outside `ALLOWED`: GPL, LGPL, AGPL, SSPL, proprietary,
+unrecognised or missing. A runtime requirement that is missing or installed at another version
+than its pin fails too, so a stale venv cannot pass.
 
 What it does not check: the dev tools (they do not ship with the app); the licences of the
 knowledge base, the USDA data, fonts or screenshots (`docs/SOURCES.md`, `ATTRIBUTION.md`); whether a
@@ -32,8 +32,9 @@ from packaging.utils import canonicalize_name
 ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT = ROOT / "pyproject.toml"
 
-# SPDX identifiers the check accepts (compared without case). "BSD-family" stands for the generic
-# "BSD License" classifier, which names no clause count. MPL-2.0 is file-level copyleft: allowed
+# SPDX identifiers the check accepts (compared without case). "BSD (classifier)" stands for the
+# generic "BSD License" classifier, which names no clause count; its space keeps it from matching
+# an SPDX token, so only that classifier reaches it. MPL-2.0 is file-level copyleft: allowed
 # because we use those packages unchanged (certifi, orjson and tqdm today).
 ALLOWED = frozenset(
     name.lower()
@@ -42,7 +43,7 @@ ALLOWED = frozenset(
         "MIT-CMU",
         "BSD-2-Clause",
         "BSD-3-Clause",
-        "BSD-family",
+        "BSD (classifier)",
         "0BSD",
         "ISC",
         "Apache-2.0",
@@ -56,7 +57,7 @@ ALLOWED = frozenset(
 # The last part of a `License ::` classifier, as an identifier above. Anything else is unrecognised.
 CLASSIFIERS = {
     "MIT License": "MIT",
-    "BSD License": "BSD-family",
+    "BSD License": "BSD (classifier)",
     "Apache Software License": "Apache-2.0",
     "ISC License (ISCL)": "ISC",
     "CC0 1.0 Universal (CC0 1.0) Public Domain Dedication": "CC0-1.0",
@@ -213,7 +214,8 @@ def check(
     """Walk the requirements from `roots` through `find` and check each package's licence."""
     exceptions = LICENCE_EXCEPTIONS if exceptions is None else exceptions
     report = Report()
-    # The project's own extras (`dev`) are not runtime: "" is the only extra the roots see.
+    # The project's own extras (only `dev` today) are not runtime: "" is the only extra the roots
+    # see.
     todo = [(Requirement(line), "pyproject.toml") for line in roots]
     todo = [(req, parent) for req, parent in todo if _applies(req, {""})]
     expanded: dict[str, set[str]] = {}
@@ -382,6 +384,12 @@ def test_allowed_licences_pass(source, text):
         ("License-Expression", "MIT)"),
         ("License-Expression", "MIT WITH"),
         ("License-Expression", "MIT WITH AND"),
+        ("License-Expression", "MIT OR AND"),
+        ("License-Expression", "AND MIT"),
+        ("License-Expression", "(MIT Apache-2.0"),
+        ("License-Expression", "(MIT Apache-2.0)"),
+        ("License-Expression", "BSD (classifier)"),
+        ("License", "BSD (classifier)"),
         ("Classifier", "Other/Proprietary License"),
         ("Classifier", "OSI Approved"),
         ("Classifier", "MIT License; GNU General Public License v3 (GPLv3)"),
