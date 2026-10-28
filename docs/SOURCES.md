@@ -88,7 +88,7 @@ Claude searches the Europe PMC REST API (open access, licence filter) for each t
 
 #### Approved training sources
 
-Rows use the columns #, title (short), year, journal, tier, licence (as stated in the article), checked on (where and when), and PMCID; the numbers continue from #24.
+Rows use the columns #, title (short), year, journal, tier, licence (as stated in the article), checked on (where and when), and PMCID; the numbers start at #24 (the last row above is #23).
 
 None yet (T9.19).
 
