@@ -114,7 +114,7 @@ Deadline: **2026-11-02** (Sprint 2, already submitted by the owner, 2026-10-28).
 | T9.19 | NMH1988/fitcoach-ai-assistant#30 | Training sources and indexing (moved before T9.3 by the owner, 2026-10-28; the dates after it were not moved; its injury guard split into T9.19a the same day) | M | T8.4, T9.19a, O7, O16, O17, O8 (the tier names only) | 10-30 | todo |
 | T9.3 | #98 | Agentic RAG: searching the knowledge base is the agent's tool | M | T9.2, T8.4, O8 | 10-31 | todo |
 | T9.4 | #99 | Short-term memory: a conversation that remembers earlier turns | M | T9.2, O8 | 10-31 | todo |
-| T9.6 | #101 | The SQLite store and the authorisation layer | L | T9.1, T8.2 | 11-02 | in review |
+| T9.6 | #101 | The SQLite store and the authorisation layer | L | T9.1, T8.2 | 11-02 | done |
 | T9.5 | #100 | Sign in with Google, roles, guest and demo mode, My data | L | T9.6, T8.1, O9 | 11-03 | todo |
 | T9.12 | #112 | Invitations and sharing | M | T9.5 | 11-04 | todo |
 | T9.13 | #113 | Food and weight diary, and the weekly nutrition metrics | M | T9.5, T9.2 | 11-05 | todo |
@@ -751,7 +751,7 @@ Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this 
 - [ ] The answer prompt no longer says each request stands alone, and its Safety section names pain and injury (O8, written by the owner; T9.19a's second line of defence) - owner review; a test on the built prompt, and `test_the_answer_prompt_keeps_the_domain_guardrails` gains the pain and injury phrase.
 **Notes:** cost rises with history; the trim limit is set from a measured turn. Serves AC-31. Left by T9.2 (its code review): the graph's state is built for one invocation per turn. With a checkpointer and a `thread_id` the keys of the last turn stay: `after_guard()` and `after_retrieve()` route on `"result" in state`, so the next turn would end at once with the old result; `rounds`, `answer` and `runs` (an `operator.add` list that cannot be cleared) carry over; and `text` and `profile` would be checkpointed. Route on a value each turn writes (or `Command(goto=...)`), reset the per-turn keys in the guard node, give `runs` a reducer that can be cleared, and keep the profile in `TurnContext` (it is already there through the tools) rather than in state, which also serves this ticket's `<profile>` criterion.
 
-### T9.6 The SQLite store and the authorisation layer (L) · status: in review · issue NMH1988/fitcoach-ai-assistant#9 (the copy of #101)
+### T9.6 The SQLite store and the authorisation layer (L) · status: done · issue NMH1988/fitcoach-ai-assistant#9 (the copy of #101)
 **Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Medium 4 (personalisation; T9.5 adds the authentication), Medium 2 in part (the store T9.7's long-term memory writes to), core 4 (real-world use), evaluation: appropriate security; Sprint 2 (`docs/BRIEF.md`): Medium 4 (personalisation), evaluation: technical (appropriate security); beyond the brief (owner's request): the coach-client sharing model.
 **Depends on:** T9.1, T8.2 (the canary log tests)
 **Acceptance criteria**
