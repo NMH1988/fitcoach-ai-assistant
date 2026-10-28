@@ -66,6 +66,32 @@ Added in T4.2 with the owner's approval (2026-10-19), because none of the approv
 
 Both articles state these values as the method of their own study (an older or overweight population) and cite earlier work for them; the app uses them as the standard equation and factors, not as findings of these studies. Neither article says the equation is exact: #23 notes it is less accurate in people with obesity, which is why the tools call their results estimates.
 
+### Training sources (for the vector store, PRD feature 26, T9.19)
+
+Sources for the training principles the agent explains (owner's decision, 2026-10-26). The copyright policy applies to them in full, as to the nutrition sources; the criteria below add what a training source must be. **Status:** the criteria were approved by the owner on 2026-10-26 (O16); the clarifications made after the code review the same day (criteria 1 and 2, the reading method, the numbering) await the owner's confirmation, and the reading method was tightened again on 2026-10-28 (the owner alone reads the article pages) after the compliance review; O16 stays open for these confirmations, each candidate row and the tier 1 label. No candidate has been searched for yet. Below, "criterion N" is an item of this list and "rule N" a rule of the copyright policy (`.claude/rules/copyright.md`).
+
+#### Selection criteria
+
+1. **Licence and access.** CC BY (any version) or CC0, read on the article itself (rules 1-4); candidates are found and downloaded only through the Europe PMC REST API (rule 10). A public-domain article is allowed by the policy, but the download script accepts only CC BY and CC0 (AC-14), so one would need that check widened first, with the owner's approval. CC BY-NC, CC BY-ND, CC BY-SA, "free to read" and unverified licences are excluded, however good the article.
+2. **Kind of evidence.** Tier 1: a position stand of a professional society (the label "Position stand", O16); a consensus statement is tier 1 only if the society publishes it as its position stand, otherwise tier 2. Tier 2: a systematic review with meta-analysis, a systematic review, an umbrella review or a peer-reviewed evidence-based review. Excluded: single trials, preprints (not peer reviewed), conference abstracts, books, websites, coaching blogs and commercial material.
+3. **Population.** Healthy adults (18+), trained or untrained, doing resistance training for muscle size, strength or body composition. Excluded as the main population: minors, older adults only (as for the nutrition sources), clinical or rehabilitation groups, pregnancy, and athletes of a single competitive sport.
+4. **Outcomes.** Muscle hypertrophy, muscle strength or body composition. Excluded: injury prevention and rehabilitation, sport-specific performance, endurance performance, and health outcomes of disease.
+5. **Topics to cover**, at least one source each where one passes criteria 1-4 (otherwise the gap is written here and the agent says the sources do not cover it): training volume (sets per muscle per week); load and repetition range; proximity to failure; training frequency; rest between sets; progression and periodisation (general principles, not programs); exercise selection (multi- and single-joint, free weights and machines, range of motion). Optional: concurrent strength and endurance training, detraining and deloads.
+6. **The key findings are in the text.** The parser drops tables and figures (rule 5 of the policy), so a source whose recommendations appear only in tables or figures is of little use; the abstract, results or discussion must state them in words.
+7. **Recency and currency.** Published in 2010 or later, newest first. When a newer review answers the same question, it replaces the older one unless the older one adds something the newer lacks. Each candidate is checked for corrections and retractions on its Europe PMC record; a correction is listed with its article (as #18a).
+8. **Integrity.** No source written or funded mainly by a seller of training products; the funding and conflict of interest statements are read and noted. Third-party content inside an article is left out (rule 7 of the policy).
+9. **Size.** About 6-10 articles: enough to cover criterion 5 and keep the evaluation and the index manageable. Each source is used for the principles it states, never turned into a program for a user.
+
+#### How candidates are chosen
+
+Claude searches the Europe PMC REST API (open access, licence filter) for each topic in criterion 5 and reads the licence block in each candidate's full-text XML from the same API. The licence line on the publisher's or PMC's article page is then read in a browser by the owner alone, one page at a time, from the links Claude lists. Claude reads no page of those websites, in a browser or otherwise: an agent driving a browser is automated access (rule 10; the correction at the top of this file), as is a script, a crawler or a batch of requests. Claude proposes a table with the title, year, journal, licence, kind of evidence and tier (criterion 2), topics covered, why it was chosen and anything doubtful. The owner approves each row (O16). Only approved rows go into `data/sources.json` with the topic `resistance_training`; rejected candidates go to "Excluded" with their reason.
+
+#### Approved training sources
+
+Rows use the columns #, title (short), year, journal, tier, licence (as stated in the article), checked on (where and when), and PMCID; the numbers start at #24 (the last row above is #23).
+
+None yet (T9.19).
+
 ## Excluded
 
 ### Needs permission, restricted or unverified licence
