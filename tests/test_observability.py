@@ -395,6 +395,10 @@ CANARY_ENDINGS = {
 }
 
 
+# Fields whose values the app generates itself; the canary search leaves them out.
+GENERATED_FIELDS = frozenset({"ts", "turn_id", "duration_ms"})
+
+
 @pytest.mark.turn_error
 @pytest.mark.parametrize("ending", CANARY_ENDINGS)
 def test_no_record_holds_the_question_the_answer_the_profile_or_the_key(index, ending):
@@ -406,8 +410,14 @@ def test_no_record_holds_the_question_the_answer_the_profile_or_the_key(index, e
     # The turn did log (an empty stream would pass the checks below for the wrong reason).
     assert [line["event"] for line in _lines(stream) if line["event"] == "turn"] == ["turn"]
     assert result.turn_id in text
+    # Values the app makes up (the time, a random UUID, a duration) can hold a canary's digits by
+    # chance: CI once found the TDEE "2834" inside a turn_id. They are left out of the search.
+    searched = "\n".join(
+        json.dumps({name: value for name, value in line.items() if name not in GENERATED_FIELDS})
+        for line in _lines(stream)
+    )
     for canary in CANARY_TEXTS:
-        assert canary not in text, (ending, canary)
+        assert canary not in searched, (ending, canary)
     for line in _lines(stream):
         assert set(line) <= {"ts", "level", "logger", "event"} | observability.ALLOWED_FIELDS
 
