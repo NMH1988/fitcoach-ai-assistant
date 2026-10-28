@@ -96,6 +96,31 @@ def test_the_store_has_the_columns_this_test_expects(full_world):
     }
 
 
+def test_a_gymers_export_holds_a_rejection_but_not_the_rejected_review(full_world):
+    """A rejected review stays out of the gymer's export; its review_rejected audit row is in it."""
+    rejected = reviews.save_review(
+        full_world,
+        world.COACH_A,
+        world.SHARED,
+        period_start=date(2026, 10, 12),
+        metrics={"logged_days": 2},
+        data_quality={},
+        draft={"observations": ["CANARY-REJECTED"]},
+        model_version="m",
+    )
+    reviews.decide_review(full_world, world.COACH_A, rejected, "reject")
+    text = my_data.export_user_data(full_world, world.SHARED)
+    document = json.loads(text)
+    assert rejected not in [review["id"] for review in document["ai_reviews"]]
+    assert "CANARY-REJECTED" not in text
+    decisions = [
+        (row["action"], row["resource_id"])
+        for row in document["audit_log"]
+        if row["action"].startswith("review_")
+    ]
+    assert ("review_rejected", rejected) in decisions
+
+
 def test_a_gymers_export_holds_all_their_rows_as_json(full_world):
     """Every table appears; the gymer's records, relationship, scopes, approved review and audit."""
     document = json.loads(my_data.export_user_data(full_world, world.SHARED))
