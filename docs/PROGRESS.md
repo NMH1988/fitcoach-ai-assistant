@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-28 · T9.19a The pain and injury guard · #<PR> (closes NMH1988/fitcoach-ai-assistant#41)
+## 2026-10-28 · T9.19a The pain and injury guard · NMH1988/fitcoach-ai-assistant#42 (closes NMH1988/fitcoach-ai-assistant#41)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Medium 8 (a guard against misuse, extended), evaluation: technical (appropriate security). Sprint 2 (`docs/BRIEF.md`): core 3 (security measures relevant to the domain). Beyond the brief (owner's request): the training content it protects (PRD feature 26). PRD AC-39.
 - **What:**
   - `src/guardrails.py`: `Concern.INJURY` with English and German patterns (an injury, rehabilitation or physiotherapy named anywhere; joint pain said either way round; pain with a quality; the user's own pain while training) and a fixed message naming a doctor or physiotherapist and the emergency number 112 for sudden, severe or chest symptoms. INJURY comes before MEDICAL in the enum and in `_REDIRECTS`.
