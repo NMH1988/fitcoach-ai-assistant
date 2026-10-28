@@ -340,6 +340,9 @@ CANARY_ENDINGS = {
     "guardrail": lambda index: _canary_turn(
         "CANARY-Q how much trenbolone should I take at 87.3 kg?", index, _answer_model()
     ),
+    "injury guardrail": lambda index: _canary_turn(
+        "CANARY-Q my knee hurts when I squat 87.3 kg", index, _answer_model()
+    ),
     "model error": lambda index: _canary_turn(
         CANARY_QUESTION,
         index,
@@ -423,6 +426,16 @@ def test_no_record_holds_the_question_the_answer_the_profile_or_the_key(index, e
         assert canary not in searched, (ending, canary)
     for line in _lines(stream):
         assert set(line) <= {"ts", "level", "logger", "event"} | observability.ALLOWED_FIELDS
+
+
+def test_the_injury_guardrail_logs_its_category_not_the_question(index):
+    """A pain or injury redirect leaves `guardrail.injury` in `code` and no text (T9.19a)."""
+    stream = io.StringIO()
+    observability.configure_logging(stream=stream)
+    CANARY_ENDINGS["injury guardrail"](index)
+    codes = {line.get("code") for line in _lines(stream)}
+    assert "guardrail.injury" in codes
+    assert "knee" not in stream.getvalue()
 
 
 def test_the_canary_run_sent_the_profile_to_the_model(index):

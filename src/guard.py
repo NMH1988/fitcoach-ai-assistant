@@ -519,7 +519,7 @@ def looks_like_injection(text: str) -> bool:
 
 
 def _first_concern(views: set[str]) -> guardrails.Concern | None:
-    """Return the guardrail any detection view falls under, drug dosing first, or None."""
+    """Return the guardrail any detection view falls under, in the order of Concern, or None."""
     found = {concern for view in views if (concern := guardrails.find_concern(view)) is not None}
     # The order of Concern, so the same text always gets the same message.
     return next((concern for concern in guardrails.Concern if concern in found), None)

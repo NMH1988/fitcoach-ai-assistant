@@ -1050,6 +1050,25 @@ def test_a_guardrail_question_opens_nothing_and_calls_no_model():
     assert opened == []
 
 
+@pytest.mark.parametrize(
+    "text", ["My knee hurts when I squat, what should I eat?", "Mein Knie tut beim Laufen weh."]
+)
+def test_a_pain_or_injury_question_opens_nothing_and_calls_no_model(text):
+    """A pain or injury question is redirected before the index or any model is touched (AC-39)."""
+    opened = []
+    result = chat.run_turn(
+        text,
+        guard.RateLimiter(),
+        open_index=lambda: opened.append("index"),
+        chat_model=lambda: opened.append("model"),
+        translation_model=lambda: opened.append("translator"),
+    )
+    assert result.kind == "guardrail"
+    assert result.text == guardrails.MESSAGES[guardrails.Concern.INJURY]
+    assert result.steps == (Step.CHECK,)
+    assert opened == []
+
+
 def test_a_rate_limited_question_is_rejected_with_the_guard_message(index):
     """Once the session limit is used up, the turn is rejected without a model call."""
     limiter = guard.RateLimiter(per_session=1)
@@ -1759,6 +1778,7 @@ def test_a_cut_off_answer_logs_its_diagnostic_with_no_status(index, caplog):
     [
         (INJECTION, "injection", "guard.injection"),
         (GUARDRAIL_QUESTION, "guardrail", "guardrail.ped_dosing"),
+        ("I have knee pain after squats.", "guardrail", "guardrail.injury"),
         ("   ", "empty", "guard.empty"),
     ],
 )

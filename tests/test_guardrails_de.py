@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from src import config, guard, guardrails
+from src import config, guard, guardrails, i18n
 from src.guardrails import Concern
 from tests.test_guard_de import BENIGN as GUARD_BENIGN
 
@@ -74,6 +74,52 @@ FLAGGED = [
     ),
     ("Ich habe beim Stillen meines Sohnes Durst, wie viel trinken?", Concern.PREGNANCY),
     ("Beim Stillen des Kindes Appetit auf Süßes, normal?", Concern.PREGNANCY),
+    # Pain, injuries and rehabilitation (redirected; T9.19a, AC-39), with ü/ue/u and ß/ss.
+    ("Mein Knie tut beim Kniebeugen weh.", Concern.INJURY),
+    ("Ich habe Schmerzen im Rücken nach dem Kreuzheben.", Concern.INJURY),
+    ("Ich habe Schmerzen im Ruecken nach dem Kreuzheben.", Concern.INJURY),
+    ("Stechende Schmerzen in der Schulter beim Bankdrücken, was tun?", Concern.INJURY),
+    ("Knieschmerzen beim Laufen, was soll ich essen?", Concern.INJURY),
+    ("Ich habe Schmerzen beim Training.", Concern.INJURY),
+    ("Ich habe mir eine Zerrung zugezogen, wie viel Eiweiß brauche ich?", Concern.INJURY),
+    ("Ich habe mich beim Training verletzt.", Concern.INJURY),
+    ("Ich habe mir beim Kreuzheben die Schulter verletzt.", Concern.INJURY),
+    ("Ich bin in der Reha nach einem Kreuzbandriss, was essen?", Concern.INJURY),
+    ("Hilft Physiotherapie bei einem Tennisarm?", Concern.INJURY),
+    ("Mein Fuss ist gebrochen, darf ich Oberkörper trainieren?", Concern.INJURY),
+    ("Ich habe Brustschmerzen und nehme Betablocker.", Concern.INJURY),
+    # Found in the review of PR #42: "schmerzt", "wehgetan", "umgeknickt", "gezerrt".
+    ("Mein Knie schmerzt beim Kniebeugen.", Concern.INJURY),
+    ("Tut mir das Knie beim Laufen weh, was soll ich essen?", Concern.INJURY),
+    ("Ich habe mir beim Training wehgetan.", Concern.INJURY),
+    ("Ich bin beim Laufen umgeknickt, darf ich trainieren?", Concern.INJURY),
+    ("Ich habe mir den Rücken gezerrt.", Concern.INJURY),
+    ("Es tut weh, wenn ich die Hantel hebe.", Concern.INJURY),
+    # Found in the review of PR #42, round 2.
+    ("Ich habe Schmerzen beim Bankdrücken, wie viel Protein für mehr Muskeln?", Concern.INJURY),
+    ("Es tut mir beim Bankdrücken weh, was soll ich essen?", Concern.INJURY),
+    ("Mir tut beim Bankdrücken die Schulter weh.", Concern.INJURY),
+    # Found in the review of PR #42, round 3: compound body parts and injuries, more parts.
+    ("Mein Kniegelenk tut weh, was soll ich essen?", Concern.INJURY),
+    ("Schmerzen im Kniegelenk nach dem Laufen.", Concern.INJURY),
+    ("Mein Hüftgelenk schmerzt.", Concern.INJURY),
+    ("Mein Schulterblatt tut weh.", Concern.INJURY),
+    ("Mein Brustkorb schmerzt beim Bankdrücken.", Concern.INJURY),
+    ("Ich habe eine Knieverletzung, was soll ich essen?", Concern.INJURY),
+    ("Was soll ich nach einer Sportverletzung essen?", Concern.INJURY),
+    ("Mein Knöchel tut weh.", Concern.INJURY),
+    ("Meine Ferse schmerzt beim Laufen.", Concern.INJURY),
+    # Muscle as a goal does not hide the pain (owner's choice, 2026-10-28).
+    ("Ich habe Schmerzen beim Bankdrücken für den Muskelaufbau.", Concern.INJURY),
+    ("Ich habe Schmerzen beim Bankdrücken, ich will Muskeln aufbauen.", Concern.INJURY),
+    # Any compound injury (found in the review of PR #42, round 4).
+    ("Ich habe eine Wadenverletzung, was soll ich essen?", Concern.INJURY),
+    ("Nach meiner Kreuzbandverletzung: wie viel Protein?", Concern.INJURY),
+    ("Wie hoch ist mein Verletzungsrisiko beim Kreuzheben?", Concern.INJURY),
+    # Muscle in a nutrition phrase does not hide the pain (owner's choice, 2026-10-28).
+    ("Ich habe Schmerzen beim Bankdrücken, wie viel Protein für meine Muskeln?", Concern.INJURY),
+    ("Ich habe Schmerzen beim Training, hilft Muskelproteinsynthese?", Concern.INJURY),
+    ("Es tut weh, wenn ich hebe, wie kann ich Muskeln aufbauen?", Concern.INJURY),
     # Medical conditions (any mention; a side effect about the user or a group) and medication.
     ("Ich habe Diabetes Typ 2, wie viele Kohlenhydrate?", Concern.MEDICAL),
     ("Ich bin Diabetiker und will Muskeln aufbauen.", Concern.MEDICAL),
@@ -174,6 +220,36 @@ FLAGGED = [
 
 # German questions that must pass: the research's supplements and near misses of every pattern.
 BENIGN = [
+    # Muscle soreness and recovery are answered (T9.19a; owner's choice, 2026-10-28).
+    "Ich habe Muskelkater, soll ich trotzdem trainieren?",
+    "Ich habe Muskelschmerzen nach dem Training, ist das normal?",
+    "Meine Muskeln tun nach dem Beintag weh, was soll ich essen?",
+    "Wie wichtig ist die Regeneration nach dem Training?",
+    # Found in the review of PR #42: soreness said in other words.
+    "Mir tun die Muskeln weh, was soll ich essen?",
+    "Meine Beine tun nach dem Beintag weh, brauche ich mehr Kohlenhydrate?",
+    "Ich habe nach dem Training Schmerzen in den Muskeln, ist das normal?",
+    "Kreuzheben: wie viel Protein brauche ich?",
+    "Brusttraining zweimal pro Woche, wie viele Kalorien?",
+    # Found in the review of PR #42, round 2: a lift named after a body part is not one.
+    "Nach Kniebeugen tun mir die Beine weh, brauche ich mehr Kohlenhydrate?",
+    "Nach dem Kreuzheben tut mir alles weh, was soll ich essen?",
+    "Nach Kniebeugen schmerzen meine Oberschenkel, ist das normal?",
+    "Ich werde zwischen Diät und Aufbau hin und her gezerrt, was tun?",
+    "Ist ein zu hohes Kaloriendefizit eine Regelverletzung beim Wettkampf?",
+    "Rückentag: wie viel Protein brauche ich danach?",
+    "Ich habe Muskelkater, es tut überall weh. Was soll ich essen?",
+    # Found in the review of PR #42, round 4: "mehr" before a sore muscle (with "es tut überall
+    # weh", this also pins the grouping in _outside_muscle_talk: the "es tut ... weh" branch
+    # would escape the muscle check without it); breaches of a rule or law are not injuries.
+    "Ich habe mehr Muskelkater als sonst, es tut überall weh.",
+    "Ich habe mehr Muskelkrämpfe als sonst, es tut überall weh.",
+    "Nach dem Training haben mir die Muskeln wehgetan, was soll ich essen?",
+    "Ist eine Datenschutzverletzung beim Kalorien-Tracking möglich?",
+    "Ist ein Dopingtest ohne Zustimmung eine Gesetzesverletzung?",
+    # Near misses of the injury patterns.
+    "Ich habe einen Rekord im Kreuzheben gebrochen, was soll ich jetzt essen?",
+    "Wie trainiere ich meinen Rücken, und wie viele Kohlenhydrate brauche ich?",
     "Wie viel Eiweiß brauche ich am Tag für den Muskelaufbau?",
     "Wie viel Kreatin sollte ich pro Tag nehmen?",
     "Ist Kreatin sicher für Erwachsene?",
@@ -376,3 +452,10 @@ def test_the_german_guardrails_stay_fast_on_long_input(text, limiter):
     start = time.perf_counter()
     guard.check_message(text, limiter)
     assert time.perf_counter() - start < 1.0
+
+
+def test_the_german_injury_message_names_a_physiotherapist_and_the_emergency_number():
+    """The German pain and injury redirect names who to see and 112 for severe symptoms."""
+    message = i18n.t("guardrail.injury", "de")
+    assert "Arzt" in message and "Physiotherapeut" in message
+    assert "112" in message and "Brust" in message

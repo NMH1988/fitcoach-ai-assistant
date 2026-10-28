@@ -1,8 +1,11 @@
 """Tests for src/guardrails.py and its place in the guard: refusals, redirects, no API call."""
 
+import time
+
 import pytest
 
 from src import config, guard, guardrails
+from src.eval_questions import load_questions
 from src.guardrails import Concern
 from tests.test_guard import BENIGN as GUARD_BENIGN
 
@@ -49,6 +52,48 @@ FLAGGED = [
     ("I'm breastfeeding and want to lose fat.", Concern.PREGNANCY),
     ("Postpartum macros for weight loss?", Concern.PREGNANCY),
     ("We are trying to conceive, should I change my diet?", Concern.PREGNANCY),
+    # Pain, injuries and rehabilitation (redirected; T9.19a, AC-39).
+    ("My knee hurts when I squat, what should I do?", Concern.INJURY),
+    ("I have pain in my lower back after deadlifts.", Concern.INJURY),
+    ("I get a sharp pain in my shoulder when benching.", Concern.INJURY),
+    ("I have chest pain during training.", Concern.INJURY),
+    ("Is joint pain normal when lifting heavy?", Concern.INJURY),
+    ("It hurts when I bend my elbow.", Concern.INJURY),
+    ("I tore my hamstring last week, how much protein to heal?", Concern.INJURY),
+    ("I sprained my ankle, can I still train upper body?", Concern.INJURY),
+    ("Is physiotherapy better than rest for tennis elbow?", Concern.INJURY),
+    ("What should I eat during rehab after knee surgery?", Concern.INJURY),
+    ("Can creatine help an injury heal faster?", Concern.INJURY),
+    ("I nursed a shoulder injury for months, what should I eat to recover?", Concern.INJURY),
+    # Found in the review of PR #42: "hurt" as the verb, a torn tendon without "my".
+    ("I hurt my shoulder benching, how much protein should I eat to recover?", Concern.INJURY),
+    ("I hurt myself at the gym, what should I eat?", Concern.INJURY),
+    ("What should I eat to heal my torn hamstring?", Concern.INJURY),
+    # Found in the review of PR #42, round 2: pain before a clause about muscle.
+    ("I get pain when I squat, how much protein do I need to build muscle?", Concern.INJURY),
+    ("It hurts when I bench, what should I eat for muscle growth?", Concern.INJURY),
+    # "Sore" with a joint (owner's choice, 2026-10-28).
+    ("My knee is sore after squats, should I eat more protein?", Concern.INJURY),
+    ("Sore knees after running, what should I eat?", Concern.INJURY),
+    # Muscle as a goal does not hide the pain (owner's choice, 2026-10-28).
+    ("I get pain when I squat to build muscle.", Concern.INJURY),
+    ("It hurts when I bench for muscle growth, what should I change?", Concern.INJURY),
+    ("I have pain and soreness in my knee.", Concern.INJURY),
+    # Muscle in a nutrition phrase does not hide the pain (owner's choice, 2026-10-28).
+    (
+        "I get pain when I squat, what protein dose maximises muscle protein synthesis?",
+        Concern.INJURY,
+    ),
+    ("It hurts when I bench, how much protein for my muscles?", Concern.INJURY),
+    # Found in the review of PR #42, round 3: "I've hurt", joint soreness in other forms.
+    ("I've hurt my shoulder, what should I eat to recover?", Concern.INJURY),
+    ("I've hurt myself at the gym.", Concern.INJURY),
+    ("I may have hurt my knee squatting, how much protein?", Concern.INJURY),
+    ("I have knee soreness after running.", Concern.INJURY),
+    ("I have soreness in my knee after squats.", Concern.INJURY),
+    ("My knee has been sore for a week.", Concern.INJURY),
+    ("My knees get sore when I run.", Concern.INJURY),
+    ("My knee's sore after leg day.", Concern.INJURY),
     # Medical conditions (a disease anywhere; a side effect said about the user or a group) and
     # any medication (redirected).
     ("I have type 1 diabetes, how many carbs before training?", Concern.MEDICAL),
@@ -124,7 +169,43 @@ BENIGN = [
     "I have been training for 5 years, is 2 g/kg protein enough?",
     "My cut is 12 weeks long.",
     "Under 18% body fat, should I eat more carbs?",
-    "I nursed a shoulder injury for months, what should I eat to recover?",
+    # "Nursed" is not breastfeeding (an injury here is redirected as INJURY, above).
+    "I nursed one coffee all morning, does the caffeine still help my workout?",
+    # Muscle soreness and recovery are answered (T9.19a; owner's choice, 2026-10-28).
+    "What is DOMS and how long does it last?",
+    "I have sore muscles after leg day, should I train?",
+    "How important is recovery after training?",
+    "Does protein reduce muscle damage after lifting?",
+    "I have muscle pain after training, is that normal?",
+    "My muscles ache after a heavy session, should I eat more protein?",
+    # Found in the review of PR #42: soreness said in other words.
+    "I have pain in my muscles after training, is that normal?",
+    "I have DOMS pain in my legs, should I eat more carbs?",
+    "Everything hurts after leg day, should I eat more protein?",
+    "My muscles hurt when I train, do I need more magnesium?",
+    "I pulled back on carbs this week, should I raise fats?",
+    "I tweaked my macros back to maintenance, how much protein?",
+    "Does lifting tear muscle fibres?",
+    # A sore muscle named anywhere in the sentence covers the pain after it.
+    "I have DOMS from leg day, it hurts to walk, should I eat more protein?",
+    # Found in the review of PR #42, round 4: "more" before a sore muscle is not a goal.
+    "I have more muscle pain than usual after squats, should I eat more protein?",
+    # Found in the review of PR #42, round 2: "hurt" about progress, not the body.
+    "Does cardio hurt my muscle growth?",
+    "Will a calorie deficit hurt my back squat?",
+    "Did I hurt my metabolism by dieting too long?",
+    "Have I hurt my gains by skipping protein?",
+    # "Sore" with a muscle group is soreness (owner's choice, 2026-10-28).
+    "Sore chest after bench day, should I eat more protein?",
+    "My chest is sore after benching, is that normal?",
+    "Sore shoulders after overhead press, what should I eat?",
+    # Near misses of the injury patterns.
+    "I am torn between cutting and bulking.",
+    "Is strained yogurt a good protein source?",
+    "Does caffeine reduce pain perception?",
+    "How do I train my back for width, and how many carbs do I need?",
+    "Should I train chest twice a week?",
+    "I back squat three times a week, how many carbs?",
     "What is the lactate threshold and does diet change it?",
     "Does creatine harm the kidneys?",
     "Is creatine safe for people with healthy kidneys?",
@@ -269,3 +350,89 @@ def test_a_guardrail_rejection_makes_no_call(limiter):
     assert decision.reason is guard.Rejection.GUARDRAIL
     assert result is None
     assert calls == []
+
+
+def test_the_injury_message_names_a_physiotherapist_and_the_emergency_number():
+    """The pain and injury redirect names who to see and 112 for severe symptoms (AC-39)."""
+    message = guardrails.MESSAGES[Concern.INJURY]
+    assert "doctor" in message and "physiotherapist" in message
+    assert "112" in message and "chest pain" in message
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I have chest pain and take beta blockers, what should I eat?",
+        "My knee hurts and I have arthritis.",
+        "Ich habe Brustschmerzen und nehme Betablocker.",
+    ],
+)
+def test_an_injury_wins_over_a_medical_redirect(text, limiter):
+    """A message that is both pain and a condition gets the message with the emergency number."""
+    assert guardrails.find_concern(text) is Concern.INJURY
+    assert guard.check_message(text, limiter).concern is Concern.INJURY
+
+
+@pytest.mark.parametrize("path", [config.EVAL_QUESTIONS_PATH, config.EVAL_QUESTIONS_DE_PATH])
+def test_no_evaluation_question_is_redirected_as_pain_or_injury(path):
+    """The injury guard lets every nutrition evaluation question through (T9.19a)."""
+    caught = [
+        item.id
+        for item in load_questions(path)
+        if guardrails.find_concern(item.question) is Concern.INJURY
+    ]
+    assert caught == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "i have " * (config.MAX_INPUT_CHARS // 7),
+        "pain after " * (config.MAX_INPUT_CHARS // 11),
+        "my left " * (config.MAX_INPUT_CHARS // 8),
+        "torn my " * (config.MAX_INPUT_CHARS // 8),
+    ],
+    ids=["frames", "pain-after", "body-part", "torn"],
+)
+def test_the_injury_patterns_stay_fast_on_long_input(text, limiter):
+    """Worst-case repeats of the injury words are checked well under a second."""
+    start = time.perf_counter()
+    guard.check_message(text, limiter)
+    assert time.perf_counter() - start < 1.0
+
+
+def test_injury_comes_first_in_the_enum_and_the_rest_follow_its_order():
+    """INJURY leads the enum (the order across views); the redirect list follows the enum."""
+    assert list(Concern)[0] is Concern.INJURY
+    redirects = [concern for concern, _ in guardrails._REDIRECTS]
+    checked_first = {Concern.INJURY, Concern.PED_DOSING}
+    assert redirects == [concern for concern in Concern if concern not in checked_first]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I'm pregnant and have sudden chest pain, what should I eat?",
+        "I'm on tren and get chest pain when I train.",
+        "I'm 16 and my knee hurts when I squat.",
+        "Ich bin schwanger und habe plötzliche Brustschmerzen.",
+        "Ich bin 16 und mein Knie tut beim Laufen weh.",
+        # Disordered eating and an intake below the floor too (compliance review of PR #42).
+        "I eat 600 kcal a day and my knee hurts.",
+        "Ich esse 600 kcal am Tag und mein Knie tut weh.",
+    ],
+)
+def test_pain_wins_over_every_other_guardrail(text, limiter):
+    """Pain said with another guardrail gets the message with 112 (owner's choice, 2026-10-28)."""
+    result = guard.check_message(text, limiter)
+    assert result.concern is Concern.INJURY
+    assert "112" in result.message
+
+
+def test_an_injury_wins_when_the_detection_views_disagree(limiter):
+    """A zero-width space read as a space in one view and dropped in another still gives INJURY."""
+    text = "Knie\u200bschmerz und Bluthochdruck, was essen?"
+    # The view that drops the space reads "Knieschmerz" (INJURY), the other one only MEDICAL.
+    found = {guardrails.find_concern(view) for view in guard.detection_views(text)}
+    assert found == {Concern.INJURY, Concern.MEDICAL}
+    assert guard.check_message(text, limiter).concern is Concern.INJURY
