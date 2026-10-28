@@ -18,12 +18,13 @@ from src.german import german
 class Concern(StrEnum):
     """Why a question is refused or redirected."""
 
+    # First, here and in find_concern(): its message names the emergency number, so pain said
+    # together with drug use, an age under 18, pregnancy or a medication gets it (owner's choice,
+    # 2026-10-28). The message gives no advice either, so no refusal is lost.
+    INJURY = "injury"
     PED_DOSING = "ped_dosing"
     MINOR = "minor"
     PREGNANCY = "pregnancy"
-    # Before MEDICAL, here and in _REDIRECTS: its message names the emergency number, so "chest
-    # pain on my blood pressure medication" gets it.
-    INJURY = "injury"
     MEDICAL = "medical"
     DISORDERED_EATING = "disordered_eating"
 
@@ -227,23 +228,33 @@ _MEDICAL_PATTERNS = [
 # An injury, rehabilitation or physiotherapy named anywhere (as a disease is), joint pain, and
 # pain the user has during or after training. Muscle soreness is answered: "DOMS", "sore muscles
 # after leg day", "muscle damage" (a research term) and muscle pain after training pass (owner's
-# choice, 2026-10-28), so the general pain patterns count only in a clause that names no muscle
-# (_outside_muscle_talk); joint pain and named injuries count anywhere. "Sore" counts only with a
-# joint: a sore chest, back or shoulders after a session is soreness (owner's choice, 2026-10-28).
+# choice, 2026-10-28), so the general pain patterns count only in a sentence that names no
+# muscle as the thing that is sore (_outside_muscle_talk); joint pain and named injuries count
+# anywhere. "Sore" counts only with a joint: a sore chest, back or shoulders after a session is
+# soreness (owner's choice, 2026-10-28).
 _BODY_PARTS = (
     r"(?:joints?|knees?|(?:lower |upper )?back|shoulders?|elbows?|wrists?|hips?|ankles?|neck"
     r"|chest|feet|foot|heels?|achilles|spine|groin|rotator cuff)"
 )
 _JOINTS = r"(?:joints?|knees?|elbows?|wrists?|hips?|ankles?|heels?|feet|foot|achilles)"
-# Muscle words in either language, as the clause check runs on the same folded text.
-_MUSCLE_WORDS = r"(?:muscles?|muscular|doms|soreness|muskel\w*|muskulatur)"
+# Muscle words in either language, as the sentence check runs on the same folded text. Muscle as
+# a goal does not count (owner's choice, 2026-10-28): "to build muscle", "lean muscle", "muscle
+# growth", "Muskelaufbau", "mehr Muskeln", so "I get pain when I squat to build muscle" is
+# still redirected. No umlaut here: german() would make a lookbehind variable-width.
+_MUSCLE_WORDS = (
+    r"(?:(?<!build )(?<!building )(?<!gain )(?<!gaining )(?<!grow )(?<!growing )(?<!more )"
+    r"(?<!lean )(?<!mehr )(?:muscles?(?! (?:growth|gains?|mass|building|size|hypertrophy)\b)"
+    r"|muskel(?!aufbau|wachstum|masse|zuwachs|zuwachses|hypertrophie)\w*|muskeln)"
+    r"|muscular|doms|soreness|muskulatur)"
+)
 
 
 def _outside_muscle_talk(pattern: str) -> str:
-    """Return the pattern matched only in a clause that names no muscle (soreness passes)."""
-    # From a clause start (a comma counts, so "..., how much protein to build muscle?" does not
-    # hide the pain before it): no muscle word in the clause, then the pattern in it.
-    return rf"(?:^|[.?!;,] )(?![^.?!;,]*\b{_MUSCLE_WORDS}\b)[^.?!;,]*?{pattern}"
+    """Return the pattern matched only in a sentence that names no sore muscle (DOMS passes)."""
+    # From a sentence start: no muscle word in the sentence, then the pattern in it. The whole
+    # sentence counts, so "I have DOMS from leg day, it hurts to walk" passes.
+    # The pattern is grouped, so an alternation inside it stays under the muscle check.
+    return rf"(?:^|[.?!;] )(?![^.?!;]*\b{_MUSCLE_WORDS}\b)[^.?!;]*?(?:{pattern})"
 
 
 _TRAINING = (
@@ -693,11 +704,10 @@ def _compiled(english: list[str], german_patterns: list[str]) -> list[re.Pattern
     return [re.compile(p) for p in [*english, *map(german, german_patterns)]]
 
 
+_INJURY_RE = _compiled(_INJURY_PATTERNS, _DE_INJURY_PATTERNS)
 _REDIRECTS = [
     (Concern.MINOR, _compiled(_MINOR_PATTERNS, _DE_MINOR_PATTERNS)),
     (Concern.PREGNANCY, _compiled(_PREGNANCY_PATTERNS, _DE_PREGNANCY_PATTERNS)),
-    # Before MEDICAL, as in Concern: find_concern() returns the first match in this list.
-    (Concern.INJURY, _compiled(_INJURY_PATTERNS, _DE_INJURY_PATTERNS)),
     (Concern.MEDICAL, _compiled(_MEDICAL_PATTERNS, _DE_MEDICAL_PATTERNS)),
     (Concern.DISORDERED_EATING, _compiled(_DISORDERED_PATTERNS, _DE_DISORDERED_PATTERNS)),
 ]
@@ -718,8 +728,11 @@ def _below_floor(folded: str) -> bool:
 
 
 def find_concern(text: str) -> Concern | None:
-    """Return the first guardrail the text falls under (drug dosing first), or None."""
+    """Return the first guardrail the text falls under (pain and injury, then drug dosing)."""
     folded = " ".join(text.casefold().split())
+    # The order of Concern: pain and injury first, as its message names the emergency number.
+    if any(p.search(folded) for p in _INJURY_RE):
+        return Concern.INJURY
     for sentence in _SENTENCE_END.split(folded):
         if _PED_TERMS_RE.search(sentence) and _PED_USE_RE.search(sentence):
             return Concern.PED_DOSING

@@ -75,6 +75,10 @@ FLAGGED = [
     # "Sore" with a joint (owner's choice, 2026-10-28).
     ("My knee is sore after squats, should I eat more protein?", Concern.INJURY),
     ("Sore knees after running, what should I eat?", Concern.INJURY),
+    # Muscle as a goal does not hide the pain (owner's choice, 2026-10-28).
+    ("I get pain when I squat to build muscle.", Concern.INJURY),
+    ("It hurts when I bench for muscle growth, what should I change?", Concern.INJURY),
+    ("I have pain and soreness in my knee.", Concern.INJURY),
     # Found in the review of PR #42, round 3: "I've hurt", joint soreness in other forms.
     ("I've hurt my shoulder, what should I eat to recover?", Concern.INJURY),
     ("I've hurt myself at the gym.", Concern.INJURY),
@@ -176,6 +180,8 @@ BENIGN = [
     "I pulled back on carbs this week, should I raise fats?",
     "I tweaked my macros back to maintenance, how much protein?",
     "Does lifting tear muscle fibres?",
+    # A sore muscle named anywhere in the sentence covers the pain after it.
+    "I have DOMS from leg day, it hurts to walk, should I eat more protein?",
     # Found in the review of PR #42, round 2: "hurt" about progress, not the body.
     "Does cardio hurt my muscle growth?",
     "Will a calorie deficit hurt my back squat?",
@@ -387,12 +393,29 @@ def test_the_injury_patterns_stay_fast_on_long_input(text, limiter):
     assert time.perf_counter() - start < 1.0
 
 
-def test_injury_comes_before_medical_in_the_enum_and_the_redirect_list():
-    """Both orders put INJURY first: the list decides in one text, the enum across views."""
-    concerns = list(Concern)
-    assert concerns.index(Concern.INJURY) < concerns.index(Concern.MEDICAL)
+def test_injury_comes_first_in_the_enum_and_the_rest_follow_its_order():
+    """INJURY leads the enum (the order across views); the redirect list follows the enum."""
+    assert list(Concern)[0] is Concern.INJURY
     redirects = [concern for concern, _ in guardrails._REDIRECTS]
-    assert redirects == [concern for concern in Concern if concern is not Concern.PED_DOSING]
+    checked_first = {Concern.INJURY, Concern.PED_DOSING}
+    assert redirects == [concern for concern in Concern if concern not in checked_first]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I'm pregnant and have sudden chest pain, what should I eat?",
+        "I'm on tren and get chest pain when I train.",
+        "I'm 16 and my knee hurts when I squat.",
+        "Ich bin schwanger und habe plötzliche Brustschmerzen.",
+        "Ich bin 16 und mein Knie tut beim Laufen weh.",
+    ],
+)
+def test_pain_wins_over_drug_dosing_minors_and_pregnancy(text, limiter):
+    """Pain said with another guardrail gets the message with 112 (owner's choice, 2026-10-28)."""
+    result = guard.check_message(text, limiter)
+    assert result.concern is Concern.INJURY
+    assert "112" in result.message
 
 
 def test_an_injury_wins_when_the_detection_views_disagree(limiter):

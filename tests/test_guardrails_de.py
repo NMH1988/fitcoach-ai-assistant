@@ -109,6 +109,8 @@ FLAGGED = [
     ("Was soll ich nach einer Sportverletzung essen?", Concern.INJURY),
     ("Mein Knöchel tut weh.", Concern.INJURY),
     ("Meine Ferse schmerzt beim Laufen.", Concern.INJURY),
+    # Muscle as a goal does not hide the pain (owner's choice, 2026-10-28).
+    ("Ich habe Schmerzen beim Bankdrücken für den Muskelaufbau.", Concern.INJURY),
     # Medical conditions (any mention; a side effect about the user or a group) and medication.
     ("Ich habe Diabetes Typ 2, wie viele Kohlenhydrate?", Concern.MEDICAL),
     ("Ich bin Diabetiker und will Muskeln aufbauen.", Concern.MEDICAL),
@@ -227,6 +229,7 @@ BENIGN = [
     "Ich werde zwischen Diät und Aufbau hin und her gezerrt, was tun?",
     "Ist ein zu hohes Kaloriendefizit eine Regelverletzung beim Wettkampf?",
     "Rückentag: wie viel Protein brauche ich danach?",
+    "Ich habe Muskelkater, es tut überall weh. Was soll ich essen?",
     # Near misses of the injury patterns.
     "Ich habe einen Rekord im Kreuzheben gebrochen, was soll ich jetzt essen?",
     "Wie trainiere ich meinen Rücken, und wie viele Kohlenhydrate brauche ich?",
