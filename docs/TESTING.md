@@ -258,7 +258,7 @@ The misses are the baseline's: q1's #15 and q10's #8 in all three askings, q5's 
 
 ### Agentic search (T9.3)
 
-Owner's run (O13), **not run yet**: it waits for the owner's prompt rules on when to search (O8), as the answer prompt still describes `<sources>` in the user message. On the T9.3 branch with O8 in, the real index and the app's models:
+Owner's run (O13), **not run yet** (O8's T9.3 part, the answer prompt's rules on when to search, went in on 2026-10-29). On the T9.3 branch, the real index and the app's models:
 
 1. `.venv\Scripts\python.exe -m scripts.run_evaluation --repeat 3`, then `python -m scripts.check_eval_baseline <results.json>`: the found and cited rates within T8.4's tolerance (exit 0).
 2. q14 ("150 g rolled oats") and de4 (`--language de data/eval_questions_de.json`): no search and no passage sent, and the tokens before and after. **Before** (T8.4's baseline, `data/eval_baseline.json`, on bd0304c): q14 17,568, 17,586 and 17,030 tokens in its three askings (average 17,395), each with the lookup and six unrelated passages (T6.1's "Known problems", 5). de4 has no baseline file (T8.4's is English only), so its "before" comes from a run of the German file on `main` before T9.3 merges. **After:** to be recorded here.

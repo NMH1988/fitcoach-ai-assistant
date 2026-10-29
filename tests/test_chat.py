@@ -1327,11 +1327,16 @@ def test_the_answer_prompt_matches_the_code(monkeypatch):
     """The owner's prompt names the delimiters, label form, tier labels and floor the code uses."""
     monkeypatch.undo()
     text = chat.load_system_prompt(config.PROJECT_ROOT / "src" / "prompts" / "answer_system.md")
-    expected = ["<sources>", "<profile>", "<user_input>", "[S1]"]
+    expected = ["<sources>", "<user_input>", "[S1]"]
     expected += [f"{config.CALORIE_FLOOR_KCAL:,} kcal", "matched_name", "profile_needed"]
     # The meal plan tool (T4.5): the owner's lines on it (O1) block the merge until written.
     expected += ["evaluate_meal_plan"]
     expected += list(config.EVIDENCE_TIER_LABELS.values())
+    # The search tool (T9.3, O8): its name, what an empty search returns, and the cap.
+    empty_search = "None: no research excerpt is close enough"
+    assert config.NO_SOURCES_BLOCK.startswith(empty_search)
+    assert config.MAX_SEARCHES_PER_TURN == 2
+    expected += ["search_knowledge_base", empty_search, "at most twice", "There is never a"]
     assert [phrase for phrase in expected if phrase not in text] == []
 
 
