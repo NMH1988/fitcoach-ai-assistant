@@ -326,6 +326,7 @@ _EN: dict[str, str] = {
     "topic.energy_balance": "Energy balance",
     "topic.nutrient_timing": "Nutrient timing",
     "topic.supplements": "Supplements",
+    "topic.resistance_training": "Resistance training",
     "tier_filter.1": "ISSN position stands only",
     "tier_filter.2": "Peer-reviewed reviews only",
     "search.fell_back": (
@@ -768,6 +769,7 @@ _DE: dict[str, str] = {
     "topic.energy_balance": "Energiebilanz",
     "topic.nutrient_timing": "Nährstoff-Timing",
     "topic.supplements": "Nahrungsergänzung",
+    "topic.resistance_training": "Krafttraining",
     "tier_filter.1": "Nur ISSN-Positionspapiere",
     "tier_filter.2": "Nur begutachtete Übersichtsarbeiten",
     "search.fell_back": (

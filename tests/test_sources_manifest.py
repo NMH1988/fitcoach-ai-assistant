@@ -12,23 +12,30 @@ SOURCES_MD = config.PROJECT_ROOT / "docs" / "SOURCES.md"
 
 
 def approved_rows() -> dict[str, dict]:
-    """Return the Approved articles of docs/SOURCES.md: tier, year, licence and PMCID per ID."""
+    """Return the Approved articles of docs/SOURCES.md: tier, year, licence, PMCID, training."""
     rows = {}
     tier = None
     in_approved = False
+    # The training table has its own tier column (T9.19); the nutrition tables take the tier from
+    # their "### Tier N" heading.
+    in_training = False
     for line in SOURCES_MD.read_text(encoding="utf-8").splitlines():
         if line.startswith("## "):
             in_approved = line.strip() == "## Approved"
         elif line.startswith("### "):
             match = re.match(r"### Tier (\d)", line)
             tier = int(match.group(1)) if match else None
-        elif in_approved and tier and (match := re.match(r"\| (\d+a?) \|", line)):
+            in_training = False
+        elif line.startswith("#### "):
+            in_training = line.strip() == "#### Approved training sources"
+        elif in_approved and (tier or in_training) and (match := re.match(r"\| (\d+a?) \|", line)):
             cells = [cell.strip() for cell in line.strip("|").split("|")]
             rows[match.group(1)] = {
-                "tier": tier,
+                "tier": int(cells[4]) if in_training else tier,
                 "year": int(re.match(r"\d{4}", cells[2]).group(0)),
                 "license": re.search(r"CC BY \d\.\d|CC0 1\.0", line).group(0),
                 "pmcid": re.search(r"PMC\d+", cells[-1]).group(0),
+                "training": in_training,
             }
     return rows
 
@@ -68,9 +75,22 @@ def write_manifest(tmp_path, entries) -> object:
 
 
 def test_the_approved_list_is_parsed():
-    """The parser finds all 21 approved articles (#1-#20 and the correction #18a)."""
+    """The parser finds all 31 approved articles (#1-#20, the correction #18a, #24-#33)."""
     rows = approved_rows()
-    assert sorted(rows) == sorted([str(n) for n in range(1, 21)] + ["18a"])
+    assert sorted(rows) == sorted([str(n) for n in [*range(1, 21), *range(24, 34)]] + ["18a"])
+    assert {source_id for source_id, row in rows.items() if row["training"]} == {
+        str(n) for n in range(24, 34)
+    }
+
+
+def test_resistance_training_is_on_exactly_the_approved_training_rows(manifest):
+    """Only the "Approved training sources" rows carry the training topic, and only it (AC-40)."""
+    rows = approved_rows()
+    for source in manifest:
+        if rows[source.id]["training"]:
+            assert source.topics == ["resistance_training"], source.id
+        else:
+            assert "resistance_training" not in source.topics, source.id
 
 
 def test_manifest_ids_match_the_approved_list(manifest):

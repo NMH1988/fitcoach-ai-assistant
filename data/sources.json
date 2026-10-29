@@ -624,5 +624,236 @@
     "topics": [
       "supplements"
     ]
+  },
+  {
+    "id": "24",
+    "title": "Resistance Training Variables for Optimization of Muscle Hypertrophy: An Umbrella Review",
+    "authors": [
+      "Roberto Bernárdez-Vázquez",
+      "Javier Raya-González",
+      "Daniel Castillo",
+      "Marco Beato"
+    ],
+    "year": 2022,
+    "journal": "Frontiers in Sports and Active Living",
+    "doi": "10.3389/fspor.2022.949021",
+    "pmcid": "PMC9302196",
+    "url": "https://doi.org/10.3389/fspor.2022.949021",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "Copyright © 2022 Bernárdez-Vázquez, Raya-González, Castillo and Beato.",
+    "evidence_tier": 2,
+    "topics": [
+      "resistance_training"
+    ]
+  },
+  {
+    "id": "25",
+    "title": "Loading Recommendations for Muscle Strength, Hypertrophy, and Local Endurance: A Re-Examination of the Repetition Continuum",
+    "authors": [
+      "Brad J Schoenfeld",
+      "Jozo Grgic",
+      "Derrick W Van Every",
+      "Daniel L Plotkin"
+    ],
+    "year": 2021,
+    "journal": "Sports",
+    "doi": "10.3390/sports9020032",
+    "pmcid": "PMC7927075",
+    "url": "https://doi.org/10.3390/sports9020032",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© 2021 by the authors.",
+    "evidence_tier": 2,
+    "topics": [
+      "resistance_training"
+    ]
+  },
+  {
+    "id": "26",
+    "title": "Influence of Resistance Training Proximity-to-Failure on Skeletal Muscle Hypertrophy: A Systematic Review with Meta-analysis",
+    "authors": [
+      "Martin C Refalo",
+      "Eric R Helms",
+      "Eric T Trexler",
+      "D Lee Hamilton",
+      "Jackson J Fyfe"
+    ],
+    "year": 2022,
+    "journal": "Sports Medicine",
+    "doi": "10.1007/s40279-022-01784-y",
+    "pmcid": "PMC9935748",
+    "url": "https://doi.org/10.1007/s40279-022-01784-y",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© The Author(s) 2022",
+    "evidence_tier": 2,
+    "topics": [
+      "resistance_training"
+    ]
+  },
+  {
+    "id": "27",
+    "title": "Give it a rest: a systematic review with Bayesian meta-analysis on the effect of inter-set rest interval duration on muscle hypertrophy",
+    "authors": [
+      "Alec Singer",
+      "Milo Wolf",
+      "Leonardo Generoso",
+      "Elizabeth Arias",
+      "Kenneth Delcastillo",
+      "Edwin Echevarria",
+      "Amaris Martinez",
+      "Patroklos Androulakis Korakakis",
+      "Martin C Refalo",
+      "Paul A Swinton",
+      "Brad J Schoenfeld"
+    ],
+    "year": 2024,
+    "journal": "Frontiers in Sports and Active Living",
+    "doi": "10.3389/fspor.2024.1429789",
+    "pmcid": "PMC11349676",
+    "url": "https://doi.org/10.3389/fspor.2024.1429789",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© 2024 Singer, Wolf, Generoso, Arias, Delcastillo, Echevarria, Martinez, Androulakis Korakakis, Refalo, Swinton and Schoenfeld.",
+    "evidence_tier": 2,
+    "topics": [
+      "resistance_training"
+    ]
+  },
+  {
+    "id": "28",
+    "title": "Weekly Training Frequency Effects on Strength Gain: A Meta-Analysis",
+    "authors": [
+      "Grant W. Ralston",
+      "Lon Kilgore",
+      "Frank B. Wyatt",
+      "Duncan Buchan",
+      "Julien S. Baker"
+    ],
+    "year": 2018,
+    "journal": "Sports Medicine - Open",
+    "doi": "10.1186/s40798-018-0149-9",
+    "pmcid": "PMC6081873",
+    "url": "https://doi.org/10.1186/s40798-018-0149-9",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© The Author(s). 2018",
+    "evidence_tier": 2,
+    "topics": [
+      "resistance_training"
+    ]
+  },
+  {
+    "id": "29",
+    "title": "The Effect of Load and Volume Autoregulation on Muscular Strength and Hypertrophy: A Systematic Review and Meta-Analysis",
+    "authors": [
+      "Landyn M. Hickmott",
+      "Philip D. Chilibeck",
+      "Keely A. Shaw",
+      "Scotty J. Butcher"
+    ],
+    "year": 2022,
+    "journal": "Sports Medicine - Open",
+    "doi": "10.1186/s40798-021-00404-9",
+    "pmcid": "PMC8762534",
+    "url": "https://doi.org/10.1186/s40798-021-00404-9",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© The Author(s) 2022",
+    "evidence_tier": 2,
+    "topics": [
+      "resistance_training"
+    ]
+  },
+  {
+    "id": "30",
+    "title": "Periodized Resistance Training for Enhancing Skeletal Muscle Hypertrophy and Strength: A Mini-Review",
+    "authors": [
+      "Jonathan W. Evans"
+    ],
+    "year": 2019,
+    "journal": "Frontiers in Physiology",
+    "doi": "10.3389/fphys.2019.00013",
+    "pmcid": "PMC6351492",
+    "url": "https://doi.org/10.3389/fphys.2019.00013",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "Copyright © 2019 Evans.",
+    "evidence_tier": 2,
+    "topics": [
+      "resistance_training"
+    ]
+  },
+  {
+    "id": "31",
+    "title": "Effect of free-weight vs. machine-based strength training on maximal strength, hypertrophy and jump performance – a systematic review and meta-analysis",
+    "authors": [
+      "Markus E. Haugen",
+      "Fredrik T. Vårvik",
+      "Stian Larsen",
+      "Arvid S. Haugen",
+      "Roland van den Tillaar",
+      "Thomas Bjørnsen"
+    ],
+    "year": 2023,
+    "journal": "BMC Sports Science, Medicine and Rehabilitation",
+    "doi": "10.1186/s13102-023-00713-4",
+    "pmcid": "PMC10426227",
+    "url": "https://doi.org/10.1186/s13102-023-00713-4",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© The Author(s) 2023",
+    "evidence_tier": 2,
+    "topics": [
+      "resistance_training"
+    ]
+  },
+  {
+    "id": "32",
+    "title": "No Time to Lift? Designing Time-Efficient Training Programs for Strength and Hypertrophy: A Narrative Review",
+    "authors": [
+      "Vegard M Iversen",
+      "Martin Norum",
+      "Brad J Schoenfeld",
+      "Marius S Fimland"
+    ],
+    "year": 2021,
+    "journal": "Sports Medicine",
+    "doi": "10.1007/s40279-021-01490-1",
+    "pmcid": "PMC8449772",
+    "url": "https://doi.org/10.1007/s40279-021-01490-1",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© The Author(s) 2021",
+    "evidence_tier": 2,
+    "topics": [
+      "resistance_training"
+    ]
+  },
+  {
+    "id": "33",
+    "title": "Optimizing Resistance Training Technique to Maximize Muscle Hypertrophy: A Narrative Review",
+    "authors": [
+      "Patroklos Androulakis Korakakis",
+      "Milo Wolf",
+      "Max Coleman",
+      "Ryan Burke",
+      "Alec Piñero",
+      "Jeff Nippard",
+      "Brad J Schoenfeld"
+    ],
+    "year": 2023,
+    "journal": "Journal of Functional Morphology and Kinesiology",
+    "doi": "10.3390/jfmk9010009",
+    "pmcid": "PMC10801605",
+    "url": "https://doi.org/10.3390/jfmk9010009",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "copyright_notice": "© 2023 by the authors.",
+    "evidence_tier": 2,
+    "topics": [
+      "resistance_training"
+    ]
   }
 ]

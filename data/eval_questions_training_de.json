@@ -1,0 +1,14 @@
+[
+  {
+    "id": "tde1",
+    "question": "Wie viele Sätze pro Muskelgruppe und Woche sind für Muskelaufbau sinnvoll?",
+    "expected_sources": ["24", "32"],
+    "good_answer": "Die Antwort sollte erklären, dass das wöchentliche Trainingsvolumen für Muskelaufbau wichtig ist, es aber keine für alle Personen identische optimale Satzzahl gibt. Sie sollte ein zeiteffizientes Mindestvolumen von einem höheren Trainingsvolumen unterscheiden und erläutern, dass Erfahrung, Fortschritt, Erholung und verfügbare Zeit die praktische Anpassung beeinflussen. Die Aussagen sollen durch die gefundenen Quellen belegt werden."
+  },
+  {
+    "id": "tde2",
+    "question": "Muss ich jeden Satz bis zum Muskelversagen trainieren, oder reichen einige Wiederholungen in Reserve?",
+    "expected_sources": ["26", "29", "24"],
+    "good_answer": "Die Antwort sollte Muskelversagen und Wiederholungen in Reserve (RIR) unterscheiden. Sie sollte erläutern, dass Muskelversagen nicht für jeden Satz zwingend notwendig ist, und erklären, wie RIR beziehungsweise RPE zur Steuerung der Belastung dienen können. Ermüdung und die Unsicherheit subjektiver Einschätzungen sollen angesprochen und die Aussagen mit Quellen belegt werden."
+  }
+]

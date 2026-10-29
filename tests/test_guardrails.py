@@ -373,15 +373,34 @@ def test_an_injury_wins_over_a_medical_redirect(text, limiter):
     assert guard.check_message(text, limiter).concern is Concern.INJURY
 
 
-@pytest.mark.parametrize("path", [config.EVAL_QUESTIONS_PATH, config.EVAL_QUESTIONS_DE_PATH])
-def test_no_evaluation_question_is_redirected_as_pain_or_injury(path):
-    """The injury guard lets every nutrition evaluation question through (T9.19a)."""
-    caught = [
-        item.id
-        for item in load_questions(path)
-        if guardrails.find_concern(item.question) is Concern.INJURY
-    ]
-    assert caught == []
+@pytest.mark.parametrize(
+    "path",
+    [
+        config.EVAL_QUESTIONS_PATH,
+        config.EVAL_QUESTIONS_DE_PATH,
+        config.EVAL_QUESTIONS_TRAINING_PATH,
+        config.EVAL_QUESTIONS_TRAINING_DE_PATH,
+    ],
+    ids=lambda path: path.name,
+)
+def test_only_the_guarded_evaluation_questions_are_redirected_as_pain_or_injury(path):
+    """The injury guard catches only the questions listed for it (q15, q16 are other guardrails)."""
+    questions = load_questions(path)
+    caught = {
+        item.id for item in questions if guardrails.find_concern(item.question) is Concern.INJURY
+    }
+    assert caught == {item.id for item in questions} & config.EVAL_GUARDED_QUESTION_IDS
+
+
+def test_a_guarded_evaluation_question_gets_the_injury_message(limiter):
+    """The training files' pain question is caught with the fixed message (T9.19, O17)."""
+    questions = load_questions(config.EVAL_QUESTIONS_TRAINING_PATH)
+    guarded = [item for item in questions if item.id in config.EVAL_GUARDED_QUESTION_IDS]
+    assert guarded
+    for item in guarded:
+        result = guard.check_message(item.question, limiter)
+        assert result.concern is Concern.INJURY
+        assert result.message == guardrails.MESSAGES[Concern.INJURY]
 
 
 @pytest.mark.parametrize(

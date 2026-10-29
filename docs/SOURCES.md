@@ -68,12 +68,12 @@ Both articles state these values as the method of their own study (an older or o
 
 ### Training sources (for the vector store, PRD feature 26, T9.19)
 
-Sources for the training principles the agent explains (owner's decision, 2026-10-26). The copyright policy applies to them in full, as to the nutrition sources; the criteria below add what a training source must be. **Status:** the criteria were approved by the owner on 2026-10-26 (O16); the clarifications made after the code review the same day (criteria 1 and 2, the reading method, the numbering) await the owner's confirmation, and the reading method was tightened again on 2026-10-28 (the owner alone reads the article pages) after the compliance review; O16 stays open for these confirmations, each candidate row and the tier 1 label. No candidate has been searched for yet. Below, "criterion N" is an item of this list and "rule N" a rule of the copyright policy (`.claude/rules/copyright.md`).
+Sources for the training principles the agent explains (owner's decision, 2026-10-26). The copyright policy applies to them in full, as to the nutrition sources; the criteria below add what a training source must be. **Status:** the criteria were approved by the owner on 2026-10-26 (O16), and the clarifications of that day and of 2026-10-28 (the owner alone reads the article pages) were confirmed on 2026-10-28. The candidates were searched for on 2026-10-28 and each row below was approved by the owner the same day (O16 done). The tier 1 label stays "ISSN position stand" (owner's choice, 2026-10-28): no resistance training position stand has an open licence (below), so every training source is tier 2. Below, "criterion N" is an item of this list and "rule N" a rule of the copyright policy (`.claude/rules/copyright.md`).
 
 #### Selection criteria
 
 1. **Licence and access.** CC BY (any version) or CC0, read on the article itself (rules 1-4); candidates are found and downloaded only through the Europe PMC REST API (rule 10). A public-domain article is allowed by the policy, but the download script accepts only CC BY and CC0 (AC-14), so one would need that check widened first, with the owner's approval. CC BY-NC, CC BY-ND, CC BY-SA, "free to read" and unverified licences are excluded, however good the article.
-2. **Kind of evidence.** Tier 1: a position stand of a professional society (the label "Position stand", O16); a consensus statement is tier 1 only if the society publishes it as its position stand, otherwise tier 2. Tier 2: a systematic review with meta-analysis, a systematic review, an umbrella review or a peer-reviewed evidence-based review. Excluded: single trials, preprints (not peer reviewed), conference abstracts, books, websites, coaching blogs and commercial material.
+2. **Kind of evidence.** Tier 1: a position stand of a professional society (none is open-licensed, so the label stays "ISSN position stand"; a training position stand would first need the owner to choose a label that fits it); a consensus statement is tier 1 only if the society publishes it as its position stand, otherwise tier 2. Tier 2: a systematic review with meta-analysis, a systematic review, an umbrella review or a peer-reviewed evidence-based review. Excluded: single trials, preprints (not peer reviewed), conference abstracts, books, websites, coaching blogs and commercial material.
 3. **Population.** Healthy adults (18+), trained or untrained, doing resistance training for muscle size, strength or body composition. Excluded as the main population: minors, older adults only (as for the nutrition sources), clinical or rehabilitation groups, pregnancy, and athletes of a single competitive sport.
 4. **Outcomes.** Muscle hypertrophy, muscle strength or body composition. Excluded: injury prevention and rehabilitation, sport-specific performance, endurance performance, and health outcomes of disease.
 5. **Topics to cover**, at least one source each where one passes criteria 1-4 (otherwise the gap is written here and the agent says the sources do not cover it): training volume (sets per muscle per week); load and repetition range; proximity to failure; training frequency; rest between sets; progression and periodisation (general principles, not programs); exercise selection (multi- and single-joint, free weights and machines, range of motion). Optional: concurrent strength and endurance training, detraining and deloads.
@@ -88,9 +88,24 @@ Claude searches the Europe PMC REST API (open access, licence filter) for each t
 
 #### Approved training sources
 
-Rows use the columns #, title (short), year, journal, tier, licence (as stated in the article), checked on (where and when), and PMCID; the numbers start at #24 (the last row above is #23).
+Rows use the columns #, title (short), year, journal, tier, licence (as stated in the article), checked on (where and when), and PMCID; the numbers start at #24 (the last row above is #23). Every row was found and read through the Europe PMC REST API on 2026-10-28 (the licence block of the article's full-text XML), and its licence line was then read by the owner on the publisher's article page the same day (frontiersin.org, mdpi.com, link.springer.com); the two agree for every row. The copyright notice in `data/sources.json` is the article's own, from its full-text XML (the Springer pages do not show it). All are tier 2 and carry only the topic `resistance_training`.
 
-None yet (T9.19).
+| # | Title (short) | Year | Journal | Tier | Licence (as stated in the article) | Checked on | PMCID |
+|---|---|---|---|---|---|---|---|
+| 24 | Resistance training variables for muscle hypertrophy: an umbrella review | 2022 | Frontiers in Sports and Active Living | 2 | CC BY 4.0 | Europe PMC XML and frontiersin.org, 2026-10-28 | PMC9302196 |
+| 25 | Loading recommendations: the repetition continuum re-examined | 2021 | Sports (MDPI) | 2 | CC BY 4.0 | Europe PMC XML and mdpi.com, 2026-10-28 | PMC7927075 |
+| 26 | Proximity-to-failure and muscle hypertrophy (SR/MA) | 2022 (vol. 2023) | Sports Medicine | 2 | CC BY 4.0 | Europe PMC XML and link.springer.com, 2026-10-28 | PMC9935748 |
+| 27 | Inter-set rest interval and muscle hypertrophy (SR, Bayesian MA) | 2024 | Frontiers in Sports and Active Living | 2 | CC BY 4.0 | Europe PMC XML and frontiersin.org, 2026-10-28 | PMC11349676 |
+| 28 | Weekly training frequency and strength gain (MA) | 2018 | Sports Medicine - Open | 2 | CC BY 4.0 | Europe PMC XML and link.springer.com, 2026-10-28 | PMC6081873 |
+| 29 | Load and volume autoregulation (SR/MA) | 2022 | Sports Medicine - Open | 2 | CC BY 4.0 | Europe PMC XML and link.springer.com, 2026-10-28 | PMC8762534 |
+| 30 | Periodized resistance training for hypertrophy and strength: a mini-review | 2019 | Frontiers in Physiology | 2 | CC BY 4.0 | Europe PMC XML and frontiersin.org, 2026-10-28 | PMC6351492 |
+| 31 | Free-weight vs machine-based strength training (SR/MA) | 2023 | BMC Sports Science, Medicine and Rehabilitation | 2 | CC BY 4.0 (CC0 for the data only) | Europe PMC XML and link.springer.com, 2026-10-28 | PMC10426227 |
+| 32 | Time-efficient training for strength and hypertrophy: a narrative review | 2021 | Sports Medicine | 2 | CC BY 4.0 | Europe PMC XML and link.springer.com, 2026-10-28 | PMC8449772 |
+| 33 | Resistance training technique for muscle hypertrophy: a narrative review | 2023 (vol. 2024) | Journal of Functional Morphology and Kinesiology (MDPI) | 2 | CC BY 4.0 | Europe PMC XML and mdpi.com, 2026-10-28 | PMC10801605 |
+
+Notes (criteria 3-8). No row has a correction or retraction on its Europe PMC record; #32 has two published comments (Sports Med 2022;52:1449-1452), not corrections. Conflicts of interest as the articles state them: #26, two authors earn income as writers and practitioners in the fitness industry; #27, one author was on the scientific advisory board of a fitness equipment maker (Tonal); #33, one author is on the same board and one was employed by a fitness content and products company (STRCNG, Jeff Nippard Fitness) — approved by the owner on 2026-10-28 under criterion 8, as #33 is not written or funded mainly by a seller and is the only openly licensed source on range of motion. #24 and #30 state no funding. #25, #32 and #33 are narrative reviews and #30 a mini-review, the weakest kind in tier 2. Springer and BMC articles (#26, #28, #29, #31, #32) state that third-party material is covered only where no other credit line says so: such material is left out at the spot-check (rule 7). Jump performance in #31 is out of scope.
+
+Gaps (criterion 5): no tier 1 source; no openly licensed dose-response meta-analysis of weekly volume for hypertrophy (volume is covered in words by #24 and #32); rest between sets is covered for hypertrophy (#27, #32) but not by a dedicated review for strength; range of motion only by #33; the optional detraining and deloads have no source (#32 touches maintenance). The agent says the sources do not cover a question in these gaps.
 
 ## Excluded
 
@@ -111,6 +126,13 @@ None yet (T9.19).
 | WADA Prohibited List | Terms of use not verified |
 | NIH ODS fact sheet: Dietary Supplements for Exercise and Athletic Performance | Licence notice not verified; may be reconsidered after the owner checks the page |
 | Open Food Facts | ODbL (share-alike) database licence; terms say the data must not be used for medical purposes; volunteer data with no accuracy guarantee |
+| ACSM position stand: resistance training prescription (2026, PMC12965823) | CC BY-NC-ND (it would have been the training tier 1 source; T9.19) |
+| Currier et al., resistance training prescription network MA, BJSM (2023, PMC10579494) | CC BY-NC (T9.19) |
+| Training to failure vs non-failure MA, J Sport Health Sci (2022, PMC9068575); non-failure training (2026, PMC13377779) | CC BY-NC-ND (T9.19) |
+| Training volume and hypertrophy, J Hum Kinet (2022, PMC8884877) | CC BY-NC-ND (T9.19) |
+| Range of motion reviews (2020, PMC6977096; 2021, Scand J Med Sci Sports); longer muscle length (2026, PMC12869050) | CC BY-NC or CC BY-NC-ND (T9.19) |
+| Cluster sets (2026); periodisation in inactive adults (2015, PMC4721364) | CC BY-NC-ND (T9.19) |
+| Volume and frequency dose-response meta-regressions (2026), proximity-to-failure meta-regressions (2024), periodisation MA (2022), weekly volume dose-response (2017), rest intervals (2017), exercise variation (2022), low vs high load (2016) | No open-access copy or licence in Europe PMC, so the licence cannot be verified through the API (T9.19) |
 
 ### Open licence but out of scope
 
@@ -118,6 +140,18 @@ None yet (T9.19).
 |---|---|
 | ISSN: nutrition and weight cut strategies for combat sports (2025, PMC11894756) | CC BY 4.0, but competitive weight cuts are out of scope |
 | Creatine + resistance training in older adults (2026, PMC13549873; 2025, PMC12752335) | CC BY, but the audience is adults who train, not older adults |
+| Concurrent aerobic and strength training, updated SR/MA (Schumann et al., Sports Med 2022, PMC8891239) | CC BY 4.0 (licence line read by the owner on link.springer.com, 2026-10-28), but an optional topic beyond the size of about 10 (criterion 9; owner's choice, 2026-10-28) (T9.19) |
+| Youth resistance training MA (2016, PMC4941165) | CC BY-NC, and minors (T9.19) |
+| Detraining in older adults (2022, PMC9657634); dose-response in older adults (2015, PMC4656698) | Older adults only (criterion 3) (T9.19) |
+| Deload trials (2024, PMC10809978; 2026) and a deloading survey (2024) | Single trials or a survey, not reviews (criterion 2) (T9.19) |
+| Exercise selection and injuries (2022) | Injury outcome (criterion 4) (T9.19) |
+| Bodybuilders' training programs (2020, PMC7698840) | One competitive sport (criterion 3) (T9.19) |
+
+### Open licence and in scope, not chosen (training alternates, T9.19)
+
+| Source | Reason |
+|---|---|
+| Other CC BY reviews seen as alternates (Lyristakis 2026, Ralston 2017, Cuthbert 2021, Grgic 2017 PeerJ, Huiberts 2024, Nuzzo 2024, Lacio 2021, Rios 2026) | Not needed for criterion 5 or weaker than an approved row (older, untrained or one-sex samples, an equipment seller's former staff among the authors for Nuzzo 2024); may replace a row later with the owner's approval (T9.19) |
 
 ## Attribution template (CC BY)
 

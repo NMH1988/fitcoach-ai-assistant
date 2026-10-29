@@ -10,7 +10,14 @@ from src.eval_questions import QuestionsFileError, load_eval_items, load_questio
 from src.rag.sources import load_manifest
 from src.tools import registry
 
-FILES = [config.EVAL_QUESTIONS_PATH, config.EVAL_QUESTIONS_DE_PATH]
+FILES = [
+    config.EVAL_QUESTIONS_PATH,
+    config.EVAL_QUESTIONS_DE_PATH,
+    # The training questions (O17, T9.19), in their own files.
+    config.EVAL_QUESTIONS_TRAINING_PATH,
+    config.EVAL_QUESTIONS_TRAINING_DE_PATH,
+]
+TRAINING_FILES = [config.EVAL_QUESTIONS_TRAINING_PATH, config.EVAL_QUESTIONS_TRAINING_DE_PATH]
 
 
 @pytest.fixture(params=FILES, ids=lambda path: path.name)
@@ -49,6 +56,14 @@ def test_every_expected_source_is_in_the_manifest(questions):
         if source_id not in known
     }
     assert not unknown
+
+
+@pytest.mark.parametrize("path", TRAINING_FILES, ids=lambda path: path.name)
+def test_training_questions_expect_only_training_sources(path):
+    """A training question expects only sources with the training topic (T9.19, AC-40)."""
+    training = {s.id for s in load_manifest() if "resistance_training" in s.topics}
+    for question in load_questions(path):
+        assert set(question.expected_sources) <= training, question.id
 
 
 @pytest.mark.parametrize("path", FILES, ids=lambda path: path.name)
