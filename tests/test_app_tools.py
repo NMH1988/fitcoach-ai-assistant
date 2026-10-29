@@ -239,6 +239,20 @@ def test_the_model_never_gets_the_session_profile(monkeypatch):
         assert value not in sent
 
 
+def test_a_failed_tool_shows_under_not_covered(monkeypatch, tmp_path):
+    """A tool that failed is no basis: "not covered", with the failure in Tool results (T9.3)."""
+    monkeypatch.setattr(config, "USDA_FOODS_PATH", tmp_path / "missing.csv")
+    lookup = tool_reply(("lookup_food_nutrition", {"food": "rolled oats", "grams": 80}))
+    model = _use_model(monkeypatch, lookup, AIMessage("Oats have about 380 kcal per 100 g."))
+    model.search_first = False
+    at = _ask("How many kcal are in 80 g of rolled oats?")
+    message = _assistant(at)
+    assert message.markdown[0].value == config.NO_SOURCES_MESSAGE
+    assert config.TOOL_FAILED_MESSAGE in [c.value for c in _tool_results(at).caption]
+    assert not [m for m in at.markdown if "380 kcal" in m.value]
+    assert not at.exception
+
+
 def test_without_a_profile_the_result_points_to_the_form(monkeypatch):
     """With no profile the result says the details are needed; its button opens the dialog."""
     _use_model(monkeypatch, tool_reply((MACRO_TOOL, {})), AIMessage(ANSWER))

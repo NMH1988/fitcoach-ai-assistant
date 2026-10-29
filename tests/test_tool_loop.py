@@ -207,6 +207,9 @@ def test_a_failed_tool_alone_is_no_basis(index, monkeypatch, tmp_path):
     assert (result.kind, result.text) == ("no_sources", NO_SOURCES)
     assert not [text for text in shown if text]
     assert config.BASIS_TOOL_STATUSES == {"ok", "found", "not_found", "profile_needed"}
+    # The failure stays visible: the run goes with "not covered" to the Tool results.
+    assert [(run.name, run.status) for run in result.tool_runs] == [(FOOD_TOOL, "error")]
+    assert result.tool_runs[0].result.message == config.TOOL_FAILED_MESSAGE
 
 
 def test_profile_needed_is_a_basis_so_the_answer_points_to_the_form(index):
@@ -409,6 +412,8 @@ def test_with_no_source_a_refused_call_does_not_count_as_a_tool(index, refused):
     assert (result.kind, result.text) == ("no_sources", config.NO_SOURCES_MESSAGE)
     assert len(model.calls) == 2
     assert not [text for text in shown if text]
+    # The refused call is kept with "not covered", so Tool results say it was not run.
+    assert [run.status for run in result.tool_runs] == ["invalid"]
 
 
 def test_with_no_source_a_retry_after_a_refused_call_is_shown(index):

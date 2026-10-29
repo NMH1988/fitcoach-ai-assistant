@@ -365,9 +365,16 @@ def finish(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
     answer = state.get("answer")
     log = runtime.context.search_log or SearchLog()
     searches = tuple(log.searches)
+    runs = tuple(state.get("runs", []))
     if answer is None:
+        # The tool runs stay with "not covered", so a tool that failed or a call that was refused
+        # shows in Tool results rather than being hidden behind it (owner's choice, 2026-10-29).
         result = TurnResult(
-            "no_sources", config.NO_SOURCES_MESSAGE, searches=searches, code="answer.no_sources"
+            "no_sources",
+            config.NO_SOURCES_MESSAGE,
+            searches=searches,
+            tool_runs=runs,
+            code="answer.no_sources",
         )
         return {"result": result}
     manifest = runtime.context.manifest or {}
@@ -377,7 +384,7 @@ def finish(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
         answer,
         cards,
         searches=searches,
-        tool_runs=tuple(state.get("runs", [])),
+        tool_runs=runs,
     )
     return {"result": result}
 
