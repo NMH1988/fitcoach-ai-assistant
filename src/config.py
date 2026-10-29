@@ -228,7 +228,7 @@ EVAL_BASELINE_PATH = PROJECT_ROOT / "data" / "eval_baseline.json"
 # and a run of unchanged code falls below the found rate's limit about one time in ten (less often
 # for the cited rate), so rerun before believing a failure (docs/TESTING.md, "Baseline (T8.4)").
 EVAL_TOLERANCE = 0.06
-# How long each of the two git calls that read the evaluated code's commit may take (T8.4).
+# How long each of the three git calls that read the evaluated code's state may take (T8.4, T9.21).
 EVAL_GIT_TIMEOUT_SECONDS = 10
 
 # The store of signed-in users' data (T9.6, D13): one SQLite file in a gitignored folder, local.

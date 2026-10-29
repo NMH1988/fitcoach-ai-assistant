@@ -7,6 +7,7 @@
       <article-id pub-id-type="pmcid">PMC1234567</article-id>
       <article-id pub-id-type="doi">10.1234/made-up.1</article-id>
       <title-group><article-title>A made-up article about oats</article-title></title-group>
+      <contrib-group><contrib contrib-type="author"><name><surname>Example</surname><given-names>Ann</given-names></name></contrib></contrib-group>
       <permissions>
         <copyright-statement>© The Author(s) 2024</copyright-statement>
         <license>

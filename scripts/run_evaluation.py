@@ -25,10 +25,11 @@ file in data/eval_runs/ for judging the citations against the good answers. It c
 cents and never prints or writes the key. Record the results in docs/TESTING.md.
 
 Next to the report it writes a results file with the same name and a .json ending (T8.4): the run's
-commit, models, language and date, and for each run only IDs and counts (how it ended, the expected
-sources found and cited, the sources cited that were not expected, the tools, tokens and cost). It
-holds no answer, question or chunk text, so one run can be committed as data/eval_baseline.json;
-scripts/check_eval_baseline.py compares a later run with it.
+commit (read when the run starts, and again at the end: a change in between is noted in the file
+and printed, T9.21), models, language and date, and for each run only IDs and counts (how it
+ended, the expected sources found and cited, the sources cited that were not expected, the tools,
+tokens and cost). It holds no answer, question or chunk text, so one run can be committed as
+data/eval_baseline.json; scripts/check_eval_baseline.py compares a later run with it.
 """
 
 import argparse
@@ -366,6 +367,11 @@ def main(args: Sequence[str] | None = None) -> int:
         print(exc, file=sys.stderr)
         return 2
     started = datetime.now()
+    # The commit of the code that runs: `src` is read from the project folder, which is not always
+    # the folder the command was started in (T8.3's two wrong runs). Read now, as the modules are
+    # loaded, and again at the end, so a commit made while the run goes is not recorded as the
+    # code that ran (T9.21).
+    git_at_start = eval_results.git_state(config.PROJECT_ROOT)
     try:
         # Built and opened before the first question, so a missing key or index stops the run.
         index = store.open_index()
@@ -396,12 +402,12 @@ def main(args: Sequence[str] | None = None) -> int:
     print("\n".join(summary_lines(runs)))
     report = write_report(runs, started, config.EVAL_RUNS_DIR, options.language)
     print(f"Full report: {report}")
+    git_at_end = eval_results.git_state(config.PROJECT_ROOT)
     results = eval_results.write_results(
         eval_results.results_document(
             run_records(runs),
-            # The commit of the code that ran: `src` is read from the project folder, which is not
-            # always the folder the command was started in (T8.3's two wrong runs).
-            git=eval_results.git_state(config.PROJECT_ROOT),
+            git=git_at_start,
+            git_at_end=git_at_end,
             models={
                 "answer": usage.model_name(chat_model),
                 "query_translation": usage.model_name(translation_model),
@@ -415,6 +421,8 @@ def main(args: Sequence[str] | None = None) -> int:
         report.with_suffix(".json"),
     )
     print(f"Results file: {results}")
+    if note := eval_results.change_note(git_at_start, git_at_end):
+        print(note)
     return 1 if any(run.result.kind == "error" for run in runs) else 0
 
 

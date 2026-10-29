@@ -114,6 +114,32 @@ def test_the_run_and_the_baseline_are_named_by_commit(tmp_path, capsys):
     assert "results: commit bbbbbbb (files changed since)" in out
 
 
+def test_a_run_whose_code_changed_during_it_is_noted_next_to_its_commit(tmp_path, capsys):
+    """A results file that says the code changed is still compared, with a note (T9.21)."""
+    assert _check(tmp_path, _results(changed_during_run=True)) == 0
+    out = capsys.readouterr().out
+    assert "results: commit aaaaaaa (code changed during the run)" in out
+    assert "baseline: commit aaaaaaa\n" in out
+
+
+def test_the_committed_baseline_compares_with_a_file_of_the_new_layout(monkeypatch, tmp_path):
+    """A file without the end-of-run fields (T8.4's layout) compares with one that has them."""
+    monkeypatch.undo()
+    baseline = eval_results.load_results(config.EVAL_BASELINE_PATH)
+    added = {"commit_at_end", "dirty_at_end", "changed_during_run"}
+    old = {key: value for key, value in baseline.items() if key not in added}
+    newer = {
+        **old,
+        "commit_at_end": old["commit"],
+        "dirty_at_end": old["dirty"],
+        "changed_during_run": False,
+    }
+    old_path = _write(tmp_path, "old.json", old)
+    new_path = _write(tmp_path, "new.json", newer)
+    assert check_eval_baseline.main([new_path, "--baseline", old_path]) == 0
+    assert check_eval_baseline.main([old_path, "--baseline", new_path]) == 0
+
+
 def test_other_models_are_a_note_not_a_failure(tmp_path, capsys):
     """A run on other models than the baseline's is compared, with a note saying so."""
     results = _results(models={"answer": "another-model"})
@@ -305,6 +331,7 @@ def test_a_file_written_by_the_run_can_be_read_by_the_check(tmp_path):
     document = eval_results.results_document(
         [record],
         git=GitState("c" * 40, False),
+        git_at_end=GitState("c" * 40, False),
         models={"answer": "m"},
         language="en",
         repeat=1,

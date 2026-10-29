@@ -7,6 +7,10 @@
     <article-meta>
       <article-id pub-id-type="doi">10.1234/made-up.1</article-id>
       <title-group><article-title>Oats and <italic>made-up</italic> lifters</article-title></title-group>
+      <contrib-group>
+        <contrib contrib-type="author"><name><surname>Example</surname><given-names>Ann</given-names></name></contrib>
+        <contrib contrib-type="author"><name><surname>Sample</surname><given-names>Ben</given-names></name></contrib>
+      </contrib-group>
       <permissions>
         <copyright-statement>© The Author(s) 2024</copyright-statement>
         <license xlink:href="https://creativecommons.org/licenses/by/4.0/"><license-p>CC BY 4.0.</license-p></license>
