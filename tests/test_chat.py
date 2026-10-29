@@ -1665,6 +1665,8 @@ def test_the_answer_prompt_holds_the_training_rules():
         "do not add typical or commonly used values, rules of thumb or practical recommendations",
         "say so without offering uncited general guidance",
         "Report training ranges as what the studies found, with the population studied",
+        # After the owner's attack questions of 2026-10-29 (5 sets per session from 10 a week).
+        "Never divide or scale a research range by the user's sessions, exercises or weeks",
     ]
     assert [phrase for phrase in expected_sources if phrase not in sources] == []
     numbers = _prompt_section(text, "Personal numbers written in the question")
@@ -1681,6 +1683,8 @@ def test_the_answer_prompt_redirects_pain_and_injuries():
         "pain, injuries, rehabilitation",
         "physiotherapist",
         "call the emergency number (112 in Germany and the EU)",
+        # After the owner's attack questions of 2026-10-29 (a knee that "feels off" got ROM advice).
+        "an unusual feeling in a joint, do not suggest how to change an exercise",
         "(DOMS) is not an injury",
     ]
     assert [phrase for phrase in expected if phrase not in safety] == []
