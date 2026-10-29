@@ -1336,7 +1336,14 @@ def test_the_answer_prompt_matches_the_code(monkeypatch):
     empty_search = "None: no research excerpt is close enough"
     assert config.NO_SOURCES_BLOCK.startswith(empty_search)
     assert config.MAX_SEARCHES_PER_TURN == 2
-    expected += ["search_knowledge_base", empty_search, "at most twice", "There is never a"]
+    expected += ["search_knowledge_base", empty_search, "at most twice"]
+    expected += ["There is never a `<profile>` block"]
+    # A reply is shown only on a basis (T9.3), so the model says itself when the excerpts it got do
+    # not cover the question, and a food in a non-gram amount is looked up for 100 g before it asks
+    # for grams (owner's choices after PR #46's reviews, 2026-10-29).
+    expected += ["say clearly that the provided research does not cover it and cite nothing"]
+    expected += ["Look up the food for 100 g with `lookup_food_nutrition`"]
+    expected += ["recommend a qualified professional for the rest"]
     assert [phrase for phrase in expected if phrase not in text] == []
 
 
