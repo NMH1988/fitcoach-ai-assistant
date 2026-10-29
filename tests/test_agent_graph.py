@@ -387,7 +387,7 @@ def test_end_round_stops_when_the_searches_found_no_basis():
 
 @pytest.mark.parametrize("basis", ["chunk", "tool run"])
 def test_end_round_goes_on_when_the_answer_has_a_basis(index, basis):
-    """A relevant chunk, or a tool that really ran, lets the model answer after the round."""
+    """A relevant chunk, or a tool that gave a result, lets the model answer after the round."""
     log = SearchLog(searches=[chat.SearchDetails(QUESTION)])
     runs = []
     if basis == "chunk":

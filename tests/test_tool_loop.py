@@ -417,7 +417,7 @@ def test_with_no_source_a_refused_call_does_not_count_as_a_tool(index, refused):
 
 
 def test_with_no_source_a_retry_after_a_refused_call_is_shown(index):
-    """After a refused call, a tool that really runs makes the next reply the answer."""
+    """After a refused call, a tool that gives a result makes the next reply the answer."""
     answer = "The app's food lookup gives 304 kcal for 80 g of rolled oats."
     result, _ = _turn(
         index,
@@ -541,7 +541,7 @@ def test_a_targets_question_may_search_and_use_a_tool(index):
 
 
 def test_an_off_topic_search_that_finds_nothing_makes_no_further_call(index):
-    """Nothing found and no tool run: "not covered" after the one routing call (AC-2)."""
+    """Nothing found and no tool result: "not covered" after the one routing call (AC-2)."""
     shown = []
     plan = plan_json(OFF_TOPIC_REWRITES)
     result, model = _turn(

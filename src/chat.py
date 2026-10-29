@@ -457,9 +457,10 @@ def answer_with_tools(
     """Let the model call tools for at most MAX_TOOL_ROUNDS rounds; return its answer and runs."""
     # The chat graph's own answer loop (its agent and ToolNode), run on the given messages; a
     # turn runs it inside the whole graph (src/agent/graph.py). tools_only: replies stay hidden
-    # until a tool has really run, and an answer of None means "not covered". The messages must
-    # come from a guarded turn: this loop has no guard of its own. on_tool_run gets a valid call's
-    # run from the ToolNode's worker thread and a refused bad-JSON call's from the caller's.
+    # until a tool gives a result (config.BASIS_TOOL_STATUSES), and an answer of None means "not
+    # covered", returned with no runs (a whole turn keeps them with "not covered"). The messages
+    # must come from a guarded turn: this loop has no guard of its own. on_tool_run gets a valid
+    # call's run from the ToolNode's worker thread and a refused bad-JSON call's from the caller's.
     from src.agent import graph  # The graph builds its nodes from this module's helpers.
 
     context = graph.TurnContext(
