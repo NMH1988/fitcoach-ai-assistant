@@ -245,6 +245,18 @@ EVAL_BASELINE_PATH = PROJECT_ROOT / "data" / "eval_baseline.json"
 # and a run of unchanged code falls below the found rate's limit about one time in ten (less often
 # for the cited rate), so rerun before believing a failure (docs/TESTING.md, "Baseline (T8.4)").
 EVAL_TOLERANCE = 0.06
+# The training questions' baseline (T9.20, taking over T9.19's deferred part): an owner's run of
+# `data/eval_questions_training.json` with `--repeat 3`, compared with `--baseline`.
+EVAL_TRAINING_BASELINE_PATH = PROJECT_ROOT / "data" / "eval_baseline_training.json"
+# Its own tolerance, by T8.4's rule (the largest distance of one asking from the average, rounded
+# up): the owner's training run of 2026-10-29 found 13, 16 and 13 of 19 expected sources (0.6842,
+# 0.8421, 0.6842; average 0.7368, so 0.1053) and cited 12, 15 and 13 (0.0877). One source is
+# 0.0526 of a single asking, so the training askings vary by about two sources (owner's choice,
+# 2026-10-29). A baseline whose questions file is not listed uses EVAL_TOLERANCE.
+EVAL_TRAINING_TOLERANCE = 0.11
+EVAL_TOLERANCES_BY_QUESTIONS_FILE: dict[str, float] = {
+    EVAL_QUESTIONS_TRAINING_PATH.name: EVAL_TRAINING_TOLERANCE,
+}
 # How long each of the three git calls that read the evaluated code's state may take (T8.4, T9.21).
 EVAL_GIT_TIMEOUT_SECONDS = 10
 

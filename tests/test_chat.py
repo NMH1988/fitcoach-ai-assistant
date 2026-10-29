@@ -1661,6 +1661,10 @@ def test_the_answer_prompt_holds_the_training_rules():
         "clearly state that the available research sources do not cover it",
         "identify the population and training status actually studied",
         "Never turn a research range into an individual prescription for the user",
+        # After the owner's run of 2026-10-29 (t9's uncited deload days; imperative guidance).
+        "do not add typical or commonly used values, rules of thumb or practical recommendations",
+        "say so without offering uncited general guidance",
+        "Report training ranges as what the studies found, with the population studied",
     ]
     assert [phrase for phrase in expected_sources if phrase not in sources] == []
     numbers = _prompt_section(text, "Personal numbers written in the question")

@@ -96,6 +96,26 @@ def test_the_tolerance_comes_from_the_config(tmp_path, monkeypatch):
     assert _check(tmp_path, _results(found=0.8, cited=0.8)) == 0
 
 
+def test_a_baseline_of_the_training_questions_uses_their_own_tolerance(tmp_path, monkeypatch):
+    """The training baseline's tolerance comes from its questions file, not the default (T9.20)."""
+    training = config.EVAL_QUESTIONS_TRAINING_PATH.name
+    monkeypatch.setitem(config.EVAL_TOLERANCES_BY_QUESTIONS_FILE, training, 0.1)
+    run = _results(found=0.8, cited=0.8, questions_file=training)
+    baseline = _results(questions_file=training)
+    assert _check(tmp_path, run, baseline) == 0
+    # The same rates against a nutrition baseline use the default and fail.
+    assert _check(tmp_path, _results(found=0.8, cited=0.8)) == 1
+
+
+def test_the_training_tolerance_is_listed_by_its_questions_file():
+    """The config gives the training questions their own tolerance, wider than the default."""
+    tolerance = config.EVAL_TOLERANCES_BY_QUESTIONS_FILE[config.EVAL_QUESTIONS_TRAINING_PATH.name]
+    assert tolerance == config.EVAL_TRAINING_TOLERANCE
+    assert config.EVAL_TOLERANCE < tolerance < 1
+    nutrition = eval_results.load_results(config.EVAL_BASELINE_PATH)
+    assert eval_results.tolerance_for(nutrition) == config.EVAL_TOLERANCE
+
+
 def test_the_baseline_defaults_to_the_committed_file(tmp_path, monkeypatch):
     """With no --baseline the check reads config.EVAL_BASELINE_PATH."""
     path = tmp_path / "committed.json"
