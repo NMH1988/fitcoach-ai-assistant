@@ -134,6 +134,19 @@ def test_a_doi_mismatch_is_refused(tmp_path):
     assert report.refused and "DOI" in report.refused[0][1]
 
 
+def test_an_author_mismatch_is_refused_and_an_older_copy_deleted(tmp_path):
+    """A file whose authors are not the manifest's is reported, not written, and replaces none."""
+    (tmp_path / "PMC1.xml").write_bytes(b"old copy")
+    other = (FIXTURES / "cc_by.xml").read_bytes().replace(b"<surname>Example", b"<surname>Other")
+    report = download_sources.download_all(
+        [made_up_source("1", "PMC1")], tmp_path, fetch=FakeFetch(default=other), sleep=FakeSleep()
+    )
+    assert [sid for sid, _ in report.refused] == ["1"]
+    assert "not in the article: Ann Example" in report.refused[0][1]
+    assert not (tmp_path / "PMC1.xml").exists()
+    assert any(line.startswith("REFUSED #1: ") for line in download_sources.format_report(report))
+
+
 def test_a_failed_request_is_reported_and_the_run_goes_on(tmp_path):
     """One failed download does not stop the others; it is reported and fails the run."""
     sources = [made_up_source("1", "PMC1"), made_up_source("2", "PMC2")]

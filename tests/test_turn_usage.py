@@ -13,11 +13,13 @@ from src.tools.registry import TDEE_TOOL
 from src.usage import CallUsage, UsageRecorder
 from tests.fakes import (
     PROFILE,
+    FailsAfterFirstCall,
     KeywordEmbeddings,
     ScriptedChatModel,
     ScriptedTranslator,
     build_fixture_index,
     plan_json,
+    search_reply,
     tool_reply,
 )
 
@@ -91,7 +93,7 @@ def _turn(
     index, model: ScriptedChatModel, question: str = QUESTION, plans: tuple[str, ...] = ()
 ) -> chat.TurnResult:
     """Run one turn with this answer model and a translator that reports REWRITE_USAGE."""
-    # With no plans given the translator's default plan sets needs_tool and needs_profile.
+    # With no plans given the translator's rewrites repeat the query (tests/fakes.py).
     return chat.run_turn(
         question,
         guard.RateLimiter(),
@@ -103,20 +105,23 @@ def _turn(
 
 
 def test_a_turn_records_every_call_in_order(index):
-    """Rewrite, query embedding and each answer round are recorded with their model."""
+    """Each model round, and the search's rewrite and query embedding, recorded in call order."""
     model = ScriptedChatModel(
         replies=[
+            _with_usage(search_reply(QUESTION), 500, 20),
             _with_usage(tool_reply((TDEE_TOOL, {})), 2000, 150),
             _with_usage(AIMessage(ANSWER), 2600, 400),
-        ]
+        ],
+        search_first=False,
     )
     result = _turn(index, model)
     assert result.kind == "answer"
     assert result.usage == (
+        _answer_round(1, 500, 20),
         REWRITE_ROW,
         SEARCH_ROW,
-        _answer_round(1, 2000, 150),
-        _answer_round(2, 2600, 400),
+        _answer_round(2, 2000, 150),
+        _answer_round(3, 2600, 400),
     )
 
 
@@ -130,8 +135,8 @@ def test_reasoning_tokens_of_an_answer_round_are_kept():
 
 
 def test_an_error_keeps_the_tokens_spent_before_it(index):
-    """A turn that fails in the answer step still shows the rewrite and search it paid for."""
-    result = _turn(index, ScriptedChatModel(error=llm.RateLimitedError(429)))
+    """A turn that fails after its search still shows the rewrite and search it paid for."""
+    result = _turn(index, FailsAfterFirstCall())
     assert result.kind == "error"
     assert result.usage == (REWRITE_ROW, SEARCH_ROW)
 
@@ -139,28 +144,32 @@ def test_an_error_keeps_the_tokens_spent_before_it(index):
 def test_a_cut_off_answer_is_counted(index):
     """A reply cut off by the token limit is not shown, but its tokens were paid for."""
     reply = AIMessage("Half an answer", response_metadata={"finish_reason": "length"})
+    # After the search (which reports no tokens here), so the cut-off reply is the answer.
     result = _turn(index, ScriptedChatModel(replies=[_with_usage(reply, 2000, 4000)]))
     assert result.text == llm.ReplyCutOffError.user_message
-    assert result.usage == (REWRITE_ROW, SEARCH_ROW, _answer_round(1, 2000, 4000))
+    assert result.usage == (REWRITE_ROW, SEARCH_ROW, _answer_round(2, 2000, 4000))
 
 
 def test_a_hidden_reply_with_no_source_is_counted(index):
-    """With no relevant source the fixed message is shown, but the model call is counted."""
-    # The default plan says needs_tool, so the model is still called (T4.4's path).
-    model = ScriptedChatModel(replies=[_with_usage(AIMessage("Offside is..."), 800, 50)])
+    """A reply with no search and no tool is not shown, but its model call is counted."""
+    model = ScriptedChatModel(
+        replies=[_with_usage(AIMessage("Offside is..."), 800, 50)], search_first=False
+    )
     result = _turn(index, model, OFF_TOPIC)
     assert result.kind == "no_sources"
-    assert result.usage == (REWRITE_ROW, SEARCH_ROW, _answer_round(1, 800, 50))
+    assert result.usage == (_answer_round(1, 800, 50),)
 
 
-def test_an_off_topic_question_skipped_by_the_plan_keeps_its_usage(index):
-    """No source and no needs_tool: no answer call, but the rewrite and the search are counted."""
-    plan = plan_json(["offside rule", "football offside law", "offside position"], needs_tool=False)
-    model = ScriptedChatModel(replies=[_with_usage(AIMessage("Offside is..."), 800, 50)])
+def test_an_off_topic_search_that_finds_nothing_keeps_its_usage(index):
+    """Nothing found: no further call, but the search call, rewrite and embedding are counted."""
+    plan = plan_json(["offside rule", "football offside law", "offside position"])
+    model = ScriptedChatModel(
+        replies=[_with_usage(search_reply(OFF_TOPIC), 700, 20)], search_first=False
+    )
     result = _turn(index, model, OFF_TOPIC, plans=(plan,))
     assert (result.kind, result.text) == ("no_sources", config.NO_SOURCES_MESSAGE)
-    assert model.calls == []
-    assert result.usage == (REWRITE_ROW, SEARCH_ROW)
+    assert len(model.calls) == 1
+    assert result.usage == (_answer_round(1, 700, 20), REWRITE_ROW, SEARCH_ROW)
 
 
 @pytest.mark.parametrize(

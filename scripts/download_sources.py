@@ -7,8 +7,9 @@ Run from the repo root (no API key needed):
 Only the Europe PMC REST API is used: its terms allow automated retrieval, while the PMC,
 Europe PMC and publisher websites must never be scripted (copyright policy rule 10). Requests
 carry a descriptive User-Agent and are spaced out. Each file is kept only if its own licence
-block says CC BY or CC0 and matches the manifest, and its DOI matches too; a refused file is not
-written (and an older copy of it is deleted). data/raw/ is gitignored (rule 8).
+block says CC BY or CC0 and matches the manifest, and its DOI and its authors (editors left out,
+T9.21) match too; a refused file is not written (and an older copy of it is deleted). data/raw/ is
+gitignored (rule 8).
 """
 
 import http.client

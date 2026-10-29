@@ -9,15 +9,17 @@ For the German questions (T7.2):
     python scripts/run_evaluation.py --language de data/eval_questions_de.json
 
 Each question goes through `chat.run_turn()`, the function the app calls: the input guard and the
-domain guardrails, query translation, hybrid search, the answer model with its tools. The models
+domain guardrails, then the agent with its tools, the knowledge base search among them (query
+translation and hybrid search; T9.3: the agent decides whether to search). The models
 are the app's own (`llm.build_chat_model()`). A question with a "profile" (q13) runs twice: with
 that fixed session profile, then with none. Other questions run with no profile, as a new visitor
 asks them. `--repeat N` runs every question N times (default 1). `--language` is the answer
 language the app's EN | DE control would set (default en, T7.2); the questions keep their own
 language either way.
 
-For each run the script prints how the turn ended, the plan's flags and filters, the sources found
-(in [S#] order; "*" marks a chunk found by keyword only), the sources the answer cites, whether
+For each run the script prints how the turn ended, the searches the agent ran with their filters,
+the sources found (in [S#] order over all its searches; "*" marks a chunk found by keyword only),
+the sources the answer cites, whether
 the expected sources were found and cited (or, with none expected, whether the answer cites
 nothing), the tools called and the tokens and cost. Then the run's totals. It writes a full
 report, with each answer, its tool results and the text of every chunk found, to a gitignored
@@ -25,10 +27,11 @@ file in data/eval_runs/ for judging the citations against the good answers. It c
 cents and never prints or writes the key. Record the results in docs/TESTING.md.
 
 Next to the report it writes a results file with the same name and a .json ending (T8.4): the run's
-commit, models, language and date, and for each run only IDs and counts (how it ended, the expected
-sources found and cited, the sources cited that were not expected, the tools, tokens and cost). It
-holds no answer, question or chunk text, so one run can be committed as data/eval_baseline.json;
-scripts/check_eval_baseline.py compares a later run with it.
+commit (read when the run starts, and again at the end: a change in between is noted in the file
+and printed, T9.21), models, language and date, and for each run only IDs and counts (how it
+ended, the expected sources found and cited, the sources cited that were not expected, the tools,
+tokens and cost). It holds no answer, question or chunk text, so one run can be committed as
+data/eval_baseline.json; scripts/check_eval_baseline.py compares a later run with it.
 """
 
 import argparse
@@ -113,7 +116,8 @@ def evaluate(
             language=language,
             prices=lambda: prices,
         )
-        chunks = tuple(seen[0]) if seen else ()
+        # Each search reports its newly labelled chunks, so together they are in [S#] order.
+        chunks = tuple(chunk for found in seen for chunk in found)
         done.append(
             EvalRun(
                 label,
@@ -188,11 +192,6 @@ def expectation_line(run: EvalRun) -> str:
     return f"expected {_ids(met.expected)}: found {_ids(met.found)}, cited {_ids(met.cited)}"
 
 
-def _flag(value: bool | None) -> str:
-    """Return a plan flag as 'yes', 'no' or 'no plan'."""
-    return "no plan" if value is None else ("yes" if value else "no")
-
-
 def _filters(search: chat.SearchDetails) -> str:
     """Return the plan's filters in a few words, saying when they were dropped."""
     parts = []
@@ -203,7 +202,16 @@ def _filters(search: chat.SearchDetails) -> str:
     if search.evidence_tier is not None:
         parts.append(f"tier {search.evidence_tier}")
     text = "; ".join(parts) or "none"
-    return text + (" (dropped: nothing passed them)" if search.filter_dropped else "")
+    text += " (dropped: nothing passed them)" if search.filter_dropped else ""
+    return text + (" (no usable rewrite: the query alone)" if search.fell_back else "")
+
+
+def _searches(searches: Sequence[chat.SearchDetails]) -> str:
+    """Return each search's passages found and filters in a few words, or 'none'."""
+    return (
+        "; ".join(f"{len(search.labels)} found, filters: {_filters(search)}" for search in searches)
+        or "none"
+    )
 
 
 def _tools(result: chat.TurnResult) -> str:
@@ -223,13 +231,8 @@ def summary_lines(runs: Sequence[EvalRun]) -> list[str]:
         if result.kind != "answer":
             head += f" - {result.text}"
         lines.append(f"{head} · {usage.format_turn(run.cost)}")
-        if result.search is not None:
-            search = result.search
-            lines.append(
-                f"  plan: needs_tool {_flag(search.needs_tool)}, "
-                f"needs_profile {_flag(search.needs_profile)}; filters: {_filters(search)}; "
-                f"profile sent: {'yes' if result.profile_sent else 'no'}"
-            )
+        if result.searches is not None:
+            lines.append(f"  searches: {_searches(result.searches)}")
             lines.append(f"  found: {_found(run.chunks)}")
             lines.append(f"  cited: {_cited(result)}")
             lines.append(f"  tools: {_tools(result)}")
@@ -301,19 +304,25 @@ def report_text(runs: Sequence[EvalRun], started: datetime, language: i18n.Langu
             f"**Question:** {run.item.question}",
             f"**Good answer:** {run.item.good_answer}",
             f"**Session profile:** {'the fixed profile' if run.with_profile else 'none'}",
-            f"**Turn:** {result.kind} · {usage.format_turn(run.cost)} · "
-            f"profile block sent: {'yes' if result.profile_sent else 'no'}",
+            f"**Turn:** {result.kind} · {usage.format_turn(run.cost)}",
         ]
-        if result.search is not None:
-            search = result.search
-            # Model output on one line each, so a newline or a heading in a rewrite stays text.
-            rewrites = "; ".join(" ".join(rewrite.split()) for rewrite in search.rewrites) or "none"
-            parts += [
-                f"**Rewrites:** {rewrites}",
-                f"**Plan:** needs_tool {_flag(search.needs_tool)}, needs_profile "
-                f"{_flag(search.needs_profile)}; filters: {_filters(search)}",
-                f"**Cited:** {_cited(result)} · {expectation_line(run)}",
-            ]
+        if result.searches is not None:
+            if not result.searches:
+                parts.append("**Searches:** none")
+            for number, search in enumerate(result.searches, start=1):
+                # Model output on one line each and escaped, so a newline, a heading, a link or an
+                # image in it stays text when the report is previewed.
+                query = chat.escape_markdown(" ".join(search.query.split()))
+                rewrites = (
+                    "; ".join(chat.escape_markdown(" ".join(r.split())) for r in search.rewrites)
+                    or "none"
+                )
+                labels = ", ".join(f"S{label}" for label in search.labels) or "nothing"
+                parts += [
+                    f"**Search {number}:** {query} · rewrites: {rewrites} · filters: "
+                    f"{_filters(search)} · found: {labels}"
+                ]
+            parts.append(f"**Cited:** {_cited(result)} · {expectation_line(run)}")
         parts += ["### Answer", _fence(result.text)]
         if result.tool_runs:
             parts.append("### Tool results")
@@ -366,6 +375,11 @@ def main(args: Sequence[str] | None = None) -> int:
         print(exc, file=sys.stderr)
         return 2
     started = datetime.now()
+    # The commit of the code that runs: `src` is read from the project folder, which is not always
+    # the folder the command was started in (T8.3's two wrong runs). Read now, as the modules are
+    # loaded, and again at the end, so a commit made while the run goes is not recorded as the
+    # code that ran (T9.21).
+    git_at_start = eval_results.git_state(config.PROJECT_ROOT)
     try:
         # Built and opened before the first question, so a missing key or index stops the run.
         index = store.open_index()
@@ -396,12 +410,12 @@ def main(args: Sequence[str] | None = None) -> int:
     print("\n".join(summary_lines(runs)))
     report = write_report(runs, started, config.EVAL_RUNS_DIR, options.language)
     print(f"Full report: {report}")
+    git_at_end = eval_results.git_state(config.PROJECT_ROOT)
     results = eval_results.write_results(
         eval_results.results_document(
             run_records(runs),
-            # The commit of the code that ran: `src` is read from the project folder, which is not
-            # always the folder the command was started in (T8.3's two wrong runs).
-            git=eval_results.git_state(config.PROJECT_ROOT),
+            git=git_at_start,
+            git_at_end=git_at_end,
             models={
                 "answer": usage.model_name(chat_model),
                 "query_translation": usage.model_name(translation_model),
@@ -415,6 +429,8 @@ def main(args: Sequence[str] | None = None) -> int:
         report.with_suffix(".json"),
     )
     print(f"Results file: {results}")
+    if note := eval_results.change_note(git_at_start, git_at_end):
+        print(note)
     return 1 if any(run.result.kind == "error" for run in runs) else 0
 
 

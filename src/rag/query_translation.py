@@ -39,8 +39,9 @@ class QueryPlan(BaseModel):
     )
     evidence_tier: EvidenceTier | None
     # T3.5. needs_tool: a profile calculation (energy needs, daily targets, a day's meal plan check)
-    # or a food lookup could answer; with no relevant source, the answer model is called only then.
-    # needs_profile: the answer needs the user's own numbers, so only then is <profile> sent.
+    # or a food lookup could answer. needs_profile: the answer needs the user's own numbers. Since
+    # T9.3 the agent decides on tools and no <profile> block is sent, so the turn reads neither;
+    # they stay required until the owner drops them from the prompt (O7).
     # Strict, so a reply such as "yes" or 1 makes the plan unusable rather than a guess.
     needs_tool: StrictBool
     needs_profile: StrictBool

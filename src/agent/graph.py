@@ -1,18 +1,26 @@
-"""One chat turn as a LangGraph `StateGraph` (T9.2, D9): the same steps as before, as nodes.
+"""One chat turn as a LangGraph `StateGraph` (T9.2, D9), with agentic retrieval (T9.3, D10).
 
-guard -> prepare -> translate -> retrieve -> agent <-> tools -> end_round -> finish. The guard runs
-first and a rejected input goes straight to the end, so it opens no index and calls no model
-(security-privacy.md, "Guards"); a question the sources do not cover ends after retrieval, as
-before (AC-2, T3.5). The agent node and a `ToolNode` loop for at most `MAX_TOOL_ROUNDS` rounds;
-the `ToolNode` runs each call through `registry.run_tool_call()` (validated arguments, fixed
-messages) within the per-round limits.
+guard -> prepare -> agent <-> tools -> end_round -> finish. The guard runs first and a rejected
+input goes straight to the end, so it opens no index and calls no model (security-privacy.md,
+"Guards"). The agent node and a `ToolNode` loop for at most `MAX_TOOL_ROUNDS` rounds; the
+`ToolNode` runs each call within the per-round limits, a knowledge base search through
+`search.run_search()` and every other call through `registry.run_tool_call()` (validated
+arguments, fixed messages). The agent decides whether to search: a food or calculator question
+needs no research passage (the Sprint 2 review, point 3).
 
-The caller passes the text and the profile and gets back only the `TurnResult`: the messages,
-the chunks, the plan and the tool runs are private state. What cannot live in state (the index,
-the model clients, the UI's callbacks, the rate limiter and the turn's `UsageRecorder`) is the
-run's context (`TurnContext`). The recorder is there, not in state, because a node that raises
-loses its state update, and an error result must keep the tokens spent before it (T5.1, T1.8).
-Errors are raised as before and mapped to a fixed message by `chat.run_turn()`.
+Its replies stay hidden until the answer has a basis: a search found a relevant chunk or a tool
+gave a result (`config.BASIS_TOOL_STATUSES`). A reply with no tool call before that, or a round
+whose searches found nothing with no tool result, ends the turn with the "not covered" message and
+no further model call (AC-2; owner's choice in T9.3, 2026-10-29).
+
+The caller passes the text and gets back only the `TurnResult`: the messages and the tool runs are
+private state. What cannot live in state (the index, the model clients, the UI's callbacks, the
+rate limiter, the turn's `UsageRecorder` and its `SearchLog`) is the run's context (`TurnContext`).
+The recorder is there, not in state, because a node that raises loses its state update, and an
+error result must keep the tokens spent before it (T5.1, T1.8); the search log, because a round's
+searches must number their chunks one after another before the round's updates are applied. The
+profile is in neither: only the tools have it (`TurnContext.tools`). Errors are raised as before
+and mapped to a fixed message by `chat.run_turn()`.
 """
 
 import logging
@@ -38,11 +46,11 @@ from langgraph.runtime import Runtime
 from langgraph.types import Command
 
 from src import chat, config, guard, i18n, llm, usage
+from src.agent import search
+from src.agent.search import SearchLog
 from src.chat import Step, TurnResult
-from src.profile import UserProfile
-from src.rag import hybrid, query_translation
+from src.rag import hybrid
 from src.rag.hybrid import KeywordIndex
-from src.rag.query_translation import QueryPlan
 from src.rag.retriever import RetrievedChunk
 from src.rag.sources import Source
 from src.tools import registry
@@ -51,17 +59,16 @@ from src.usage import UsageRecorder
 
 logger = logging.getLogger(__name__)
 
-# The most supersteps a turn can take: guard, prepare, translate and retrieve, then one agent call
-# more than there are tool rounds, a tools and an end_round step per round, and finish. A graph
-# that loops past it is a bug, which the turn's catch-all reports (T1.8).
-MAX_STEPS = 3 * config.MAX_TOOL_ROUNDS + 6
+# The most supersteps a turn can take: guard and prepare, then one agent call more than there are
+# tool rounds, a tools and an end_round step per round, and finish. A graph that loops past it is
+# a bug, which the turn's catch-all reports (T1.8).
+MAX_STEPS = 3 * config.MAX_TOOL_ROUNDS + 4
 
 
 class TurnInput(TypedDict):
-    """What the caller gives the graph: the user's raw text and the session's profile."""
+    """What the caller gives the graph: the user's raw text (the profile is the tools' alone)."""
 
     text: str
-    profile: UserProfile | None
 
 
 class TurnOutput(TypedDict):
@@ -71,10 +78,11 @@ class TurnOutput(TypedDict):
 
 
 class LoopInput(TypedDict):
-    """What the answer loop starts from: the request's messages and whether no source was found."""
+    """What the answer loop starts from: the messages and whether replies wait for a basis."""
 
     messages: Annotated[list[AnyMessage], add_messages]
-    # True when no chunk is relevant: replies stay hidden until a tool really runs (T4.4).
+    # True: replies stay hidden until a search finds a relevant chunk or a tool gives a result
+    # (T4.4, T9.3). A whole turn always starts so; the answer loop alone may not.
     tools_only: bool
 
 
@@ -86,19 +94,17 @@ class LoopOutput(TypedDict):
 
 
 class TurnState(TurnInput, TurnOutput, LoopInput, LoopOutput, total=False):
-    """The whole state of a turn; every key but text, profile and result is private."""
+    """The whole state of a turn; every key but text and result is private."""
 
-    # The cleaned text the guard accepted; the answer model gets it, never the rewrites.
+    # The cleaned text the guard accepted; the model gets it, never a search's rewrites.
     question: str
     system_prompt: str
+    # The query translation prompt, read before any API call and used by every search.
     translation_prompt: str
-    plan: QueryPlan | None
-    details: chat.SearchDetails
-    chunks: list[RetrievedChunk]
-    # True when the answer request carries the <profile> block (T3.5).
-    include_profile: bool
     # Tool rounds done so far.
     rounds: int
+    # True when a round's searches found nothing and nothing else gave the answer a basis (AC-2).
+    stopped: bool
 
 
 @dataclass(frozen=True)
@@ -120,7 +126,9 @@ class TurnContext:
     keyword_index: Callable[[Chroma], KeywordIndex] = hybrid.build_keyword_index
     language: i18n.Language = "en"
     on_chunks: Callable[[Sequence[RetrievedChunk]], None] | None = None
-    on_profile_sent: Callable[[], None] | None = None
+    # The turn's searches and their labelled chunks (T9.3); None for the answer loop alone, which
+    # is then not offered the search tool.
+    search_log: SearchLog | None = None
     turn_id: str = ""
 
 
@@ -142,6 +150,23 @@ def load_prompt(path: Path, message: str, code: str) -> str:
 def _last_reply(messages: Sequence[AnyMessage]) -> AIMessage:
     """Return the latest model reply in the messages."""
     return next(message for message in reversed(messages) if isinstance(message, AIMessage))
+
+
+def _has_basis(runs: Sequence[ToolRun], log: SearchLog | None) -> bool:
+    """Return True once an answer has something to rest on: a relevant chunk or a tool result."""
+    # A refused call (an unknown tool, bad arguments, over a limit) or a failed tool does not count
+    # (config.BASIS_TOOL_STATUSES).
+    return any(run.status in config.BASIS_TOOL_STATUSES for run in runs) or bool(
+        log is not None and log.chunks
+    )
+
+
+def _tools(context: TurnContext) -> list[StructuredTool]:
+    """Return the tools the model is given: the turn's own, and the search for a whole turn."""
+    tools = list(context.tools().values())
+    if context.search_log is not None:
+        tools.append(search.search_tool_definition())
+    return tools
 
 
 def _answer_text(reply: AIMessage) -> str:
@@ -173,7 +198,7 @@ def guard_node(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any
 
 
 def prepare(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
-    """Read the prompts, then open the index and the clients, for an accepted question only."""
+    """Read the prompts, open the index and the clients, and build the request's messages."""
     context = runtime.context
     # Read before any API call, so a missing or empty prompt file costs nothing.
     system_prompt = load_prompt(
@@ -189,97 +214,38 @@ def prepare(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
         config.LANGUAGE_PROMPT_MISSING_MESSAGE,
         "prompt.language_missing",
     )
-    # The index is opened first: a missing index is reported even when the key is missing.
+    # The index is opened first: a missing index is reported even when the key is missing. All
+    # three are opened before the first model call, as before T9.3, so a turn that would search
+    # meets a missing index or key before it spends anything.
     context.open_index()
     context.translation_model()
     context.chat_model()
+    context.on_step(Step.PLAN)
+    system = chat.answer_system_prompt(system_prompt, language_part)
     return {
-        "system_prompt": chat.answer_system_prompt(system_prompt, language_part),
+        "system_prompt": system,
         "translation_prompt": translation_prompt,
-    }
-
-
-def translate(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
-    """Rewrite the question and pick its filters (None when the reply is unusable, T3.2)."""
-    context = runtime.context
-    context.on_step(Step.REWRITE)
-    plan = query_translation.translate(
-        state["question"],
-        context.translation_model(),
-        state["translation_prompt"],
-        context.recorder,
-    )
-    return {"plan": plan}
-
-
-def retrieve(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
-    """Search the question and its rewrites; end the turn if the sources do not cover it."""
-    context = runtime.context
-    question, plan = state["question"], state["plan"]
-    context.on_step(Step.SEARCH)
-    with llm.mapped_errors():
-        chunks, details = chat.find_chunks(
-            question,
-            plan,
-            context.open_index(),
-            keyword_index=context.keyword_index,
-            recorder=context.recorder,
-        )
-    # When nothing passed a training-only plan's filters (its topic, year or tier), the search
-    # without them keeps only training chunks: a nutrition chunk never stands in for a missing
-    # training source (PRD feature 26; T9.20, security review finding 3).
-    training_only = plan is not None and plan.topics == (config.TRAINING_TOPIC,)
-    if training_only and details.filter_dropped:
-        chunks = [c for c in chunks if config.TRAINING_TOPIC in c.metadata.get("topics", ())]
-    if context.on_chunks is not None:
-        context.on_chunks(tuple(chunks))
-    # With no relevant chunk the model may still answer from a tool (a food lookup rarely matches
-    # a research passage; owner's choice in T4.4), but only when the plan says a tool could: an
-    # off-topic question, or one with no usable plan, costs no answer call (AC-2; T3.5).
-    if not chunks and not (plan is not None and plan.needs_tool):
-        result = TurnResult(
-            "no_sources", config.NO_SOURCES_MESSAGE, search=details, code="answer.no_sources"
-        )
-        return {"details": details, "result": result}
-    context.on_step(Step.ANSWER)
-    # The user's own question, never the rewrites, goes to the answer model. The profile goes
-    # only when the plan says the answer needs the user's numbers (security-privacy.md; T3.5).
-    include_profile = plan is not None and plan.needs_profile
-    messages = chat.build_messages(
-        question,
-        chunks,
-        state["system_prompt"],
-        state.get("profile"),
-        include_profile=include_profile,
-    )
-    if include_profile and context.on_profile_sent is not None:
-        context.on_profile_sent()
-    return {
-        "details": details,
-        "chunks": chunks,
-        "include_profile": include_profile,
-        # With no relevant chunk, replies stay hidden until a tool really runs.
-        "tools_only": not chunks,
-        "messages": messages,
+        # The user's own question only; the chunks come in a search's tool message (T9.3).
+        "messages": chat.build_messages(state["question"], system),
+        "tools_only": True,
     }
 
 
 def agent(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
     """Ask the model; keep its tool calls for the tools node, or its text as the answer."""
-    # tools_only (no relevant source): replies are not shown until a tool has really run (a
-    # refused call, e.g. an unknown tool or bad arguments, does not count), and a reply with no
-    # tool call before that gives None, so the turn shows NO_SOURCES_MESSAGE, never an answer
-    # with no basis.
+    # tools_only: replies are not shown until the answer has a basis (a search found a relevant
+    # chunk or a tool gave a result; _has_basis()), and a reply with no tool call before that gives
+    # None, so the turn shows NO_SOURCES_MESSAGE, never an answer with no basis (AC-2).
     context = runtime.context
     round_number = state.get("rounds", 0)
     last = round_number >= config.MAX_TOOL_ROUNDS
-    runs = state.get("runs", [])
-    hidden = state.get("tools_only", False) and all(run.status == "invalid" for run in runs)
+    hidden = state.get("tools_only", False) and not _has_basis(
+        state.get("runs", []), context.search_log
+    )
     chat_model = context.chat_model()
     # Only the tools are bound (never the model or max_tokens; security-privacy.md). After the
     # last round the model must answer from the results it has.
-    tools = list(context.tools().values())
-    bound = chat_model.bind_tools(tools, tool_choice="none" if last else None)
+    bound = chat_model.bind_tools(_tools(context), tool_choice="none" if last else None)
     record = None
     if context.recorder is not None:
         step = config.USAGE_STEP_ANSWER.format(round=round_number + 1)
@@ -289,17 +255,23 @@ def agent(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
         reply = chat.stream_reply(bound, state["messages"], on_text, record)
     except llm.ReplyCutOffError:
         if hidden:
-            # Nothing was shown and no tool ran: the turn ends as "not covered".
+            # Nothing was shown and no tool gave a result: the turn ends as "not covered".
             return {"answer": None}
         raise
     if not reply.tool_calls and not reply.invalid_tool_calls:
         return {"answer": None if hidden else _answer_text(reply)}
     if last:
         raise chat.ToolLoopError(diagnostic="tool calls after the last round")
-    if context.on_text is not None:
-        # Text written before the tool calls is not the answer.
-        context.on_text("")
-    context.on_step(Step.TOOLS)
+    if on_text is not None:
+        # Text written before the tool calls is not the answer (a hidden reply showed none).
+        on_text("")
+    # Reported here, on the caller's thread: the ToolNode runs the calls in a worker thread, and
+    # Streamlit draws only from the script's thread.
+    names = [call["name"] for call in (*reply.tool_calls, *reply.invalid_tool_calls)]
+    if search.SEARCH_TOOL in names:
+        context.on_step(Step.SEARCH)
+    if any(name != search.SEARCH_TOOL for name in names):
+        context.on_step(Step.TOOLS)
     request = AIMessage(
         reply.content, tool_calls=reply.tool_calls, invalid_tool_calls=reply.invalid_tool_calls
     )
@@ -333,12 +305,18 @@ def run_checked_call(request: ToolCallRequest, execute: Callable[..., Any]) -> C
     if position is None:
         raise RuntimeError("The tool call is not in the model's last reply.")
     refusal = round_refusal(calls, position)
+    run: ToolRun | None
     if refusal is not None:
         # OpenAI models always send call ids; a call without one gets "", which the API would
         # refuse on the next request (shown as a service error).
         message, run = registry.refused_call(call["id"] or "", refusal)
+    elif call["name"] == search.SEARCH_TOOL and context.search_log is not None:
+        # A search that runs is no tool run: it goes into the turn's SearchLog (T9.3).
+        message, run = search.run_search(context, call, request.state["translation_prompt"])
     else:
         message, run = registry.run_tool_call(context.tools(), call)
+    if run is None:
+        return Command(update={"messages": [message]})
     # Each run is reported as it ends, so a turn that fails later still logs it (T8.2).
     if context.on_tool_run is not None:
         context.on_tool_run(run)
@@ -350,12 +328,12 @@ def tool_node() -> ToolNode:
     # The tools it is built with give it the names and schemas; the turn's own tools (bound to
     # its profile) come from the context. handle_tool_errors=False: an error of ours is raised
     # to the turn's catch-all (T1.8), never written to the model.
-    definitions = list(registry.build_tools(None).values())
+    definitions = [*registry.build_tools(None).values(), search.search_tool_definition()]
     return ToolNode(definitions, wrap_tool_call=run_checked_call, handle_tool_errors=False)
 
 
 def end_round(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
-    """Answer the round's calls that were not valid JSON, then go back to the model."""
+    """Answer the round's calls that were not valid JSON; stop if a search found no basis (AC-2)."""
     # Every call needs an answer; ToolNode reads only the parsed calls, so these come after the
     # round's results, as before.
     context = runtime.context
@@ -366,36 +344,48 @@ def end_round(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]
     if context.on_tool_run is not None:
         for _, run in refused:
             context.on_tool_run(run)
-    context.on_step(Step.ANSWER)
-    return {
+    update: dict[str, Any] = {
         "messages": [message for message, _ in refused],
         "runs": [run for _, run in refused],
         "rounds": state.get("rounds", 0) + 1,
     }
+    log = context.search_log
+    runs = [*state.get("runs", []), *update["runs"]]
+    if state.get("tools_only", False) and log is not None and log.searches:
+        if not _has_basis(runs, log):
+            # The searches found nothing and no tool gave a result: "not covered", with no
+            # further model call (AC-2). A round of refused calls alone goes back to the model
+            # instead.
+            return {**update, "stopped": True, "answer": None}
+    context.on_step(Step.ANSWER)
+    return update
 
 
 def finish(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
     """Build the turn's result: the answer with its cited sources, or "not covered"."""
     answer = state.get("answer")
+    log = runtime.context.search_log or SearchLog()
+    searches = tuple(log.searches)
+    runs = tuple(state.get("runs", []))
     if answer is None:
+        # The tool runs stay with "not covered", so a tool that failed or a call that was refused
+        # shows in Tool results rather than being hidden behind it (owner's choice, 2026-10-29).
         result = TurnResult(
             "no_sources",
             config.NO_SOURCES_MESSAGE,
-            search=state["details"],
-            profile_sent=state["include_profile"],
+            searches=searches,
+            tool_runs=runs,
             code="answer.no_sources",
         )
         return {"result": result}
-    chunks = state["chunks"]
     manifest = runtime.context.manifest or {}
-    cards = chat.source_cards(chunks, chat.cited_labels(answer, len(chunks)), manifest)
+    cards = chat.source_cards(log.chunks, chat.cited_labels(answer, len(log.chunks)), manifest)
     result = TurnResult(
         "answer",
         answer,
         cards,
-        search=state["details"],
-        tool_runs=tuple(state.get("runs", [])),
-        profile_sent=state["include_profile"],
+        searches=searches,
+        tool_runs=runs,
     )
     return {"result": result}
 
@@ -408,11 +398,6 @@ def after_guard(state: TurnState) -> str:
     return END if "result" in state else "prepare"
 
 
-def after_retrieve(state: TurnState) -> str:
-    """Go on to the model; end the turn when the sources do not cover the question."""
-    return END if "result" in state else "agent"
-
-
 def after_agent(state: TurnState) -> str:
     """Run the tools when the model's last reply called any (even with bad JSON); else finish."""
     # Like LangGraph's tools_condition, but a reply whose only calls are not valid JSON is a
@@ -423,6 +408,11 @@ def after_agent(state: TurnState) -> str:
     return "finish"
 
 
+def after_round(state: TurnState) -> str:
+    """Go back to the model after a round, unless its searches ended the turn (AC-2)."""
+    return "finish" if state.get("stopped") else "agent"
+
+
 def _add_answer_loop(builder: StateGraph, done: str) -> None:
     """Add the agent, the ToolNode and end_round in a loop that leaves to `done`."""
     builder.add_node("agent", agent)
@@ -430,7 +420,7 @@ def _add_answer_loop(builder: StateGraph, done: str) -> None:
     builder.add_node("end_round", end_round)
     builder.add_conditional_edges("agent", after_agent, {"tools": "tools", "finish": done})
     builder.add_edge("tools", "end_round")
-    builder.add_edge("end_round", "agent")
+    builder.add_conditional_edges("end_round", after_round, {"agent": "agent", "finish": done})
 
 
 @cache
@@ -441,14 +431,10 @@ def chat_graph() -> CompiledStateGraph:
     )
     builder.add_node("guard", guard_node)
     builder.add_node("prepare", prepare)
-    builder.add_node("translate", translate)
-    builder.add_node("retrieve", retrieve)
     builder.add_node("finish", finish)
     builder.add_edge(START, "guard")
     builder.add_conditional_edges("guard", after_guard, ["prepare", END])
-    builder.add_edge("prepare", "translate")
-    builder.add_edge("translate", "retrieve")
-    builder.add_conditional_edges("retrieve", after_retrieve, ["agent", END])
+    builder.add_edge("prepare", "agent")
     _add_answer_loop(builder, "finish")
     builder.add_edge("finish", END)
     return builder.compile()

@@ -323,7 +323,7 @@ def test_the_answer_model_gets_the_language_chosen_in_the_header(
     if switch_to is not None:
         at = _switch(at, switch_to)
     _ask(at, QUESTION)
-    [[system, _]] = model.calls
+    system = model.calls[-1][0]
     assert system.content.endswith(TEST_LANGUAGE_PARTS[lang])
 
 
@@ -331,7 +331,7 @@ def test_an_english_question_in_the_german_ui_gets_the_german_part(monkeypatch):
     """The question's own language does not pick the answer's: the header's choice does."""
     model = _use_model(monkeypatch, _answers(ANSWER))
     _ask(_start(monkeypatch, "de-DE"), "How much protein should I eat per meal? Answer in English.")
-    [[system, _]] = model.calls
+    system = model.calls[-1][0]
     assert system.content.endswith(TEST_LANGUAGE_PARTS["de"])
 
 

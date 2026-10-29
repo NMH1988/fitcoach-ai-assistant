@@ -1,5 +1,6 @@
 """Tests for src/eval_results.py (T8.4): the results file of an evaluation run; no network."""
 
+import hashlib
 import json
 import shutil
 import subprocess
@@ -41,7 +42,8 @@ def _record(**changes) -> RunRecord:
 def _document(records, **changes) -> dict:
     """Return the results document for these records with made-up run details."""
     details = {
-        "git": GitState(commit="a" * 40, dirty=False),
+        "git": GitState(commit="a" * 40, dirty=False, changes="same"),
+        "git_at_end": GitState(commit="a" * 40, dirty=False, changes="same"),
         "models": MODELS,
         "language": "en",
         "repeat": 3,
@@ -75,6 +77,9 @@ def test_the_document_names_the_code_the_models_the_language_the_repeat_and_the_
     assert document["schema_version"] == config.EVAL_RESULTS_SCHEMA_VERSION
     assert document["commit"] == "a" * 40
     assert document["dirty"] is False
+    assert document["commit_at_end"] == "a" * 40
+    assert document["dirty_at_end"] is False
+    assert document["changed_during_run"] is False
     assert document["models"] == MODELS
     assert document["language"] == "en"
     assert document["repeat"] == 3
@@ -109,8 +114,8 @@ def _fake_git(outputs):
     """Return a stand-in for subprocess.run that answers each git call from the outputs."""
 
     def run(command, **_kwargs):
-        """Return the scripted output for this git subcommand, or fail like a missing git."""
-        output = outputs[command[3]]
+        """Return the scripted output for this git subcommand (else empty), or fail like git."""
+        output = outputs.get(command[3], (0, ""))
         if isinstance(output, Exception):
             raise output
         return subprocess.CompletedProcess(command, output[0], stdout=output[1])
@@ -118,12 +123,19 @@ def _fake_git(outputs):
     return run
 
 
+def _sha(text: str) -> str:
+    """Return the SHA-256 hex digest of a text, as the git state hashes the diff."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def test_the_git_state_is_the_head_commit_and_whether_tracked_files_changed(tmp_path):
-    """A clean tree is dirty False; a change to a tracked file is dirty True."""
-    clean = _fake_git({"rev-parse": (0, "b" * 40 + "\n"), "status": (0, "")})
-    assert eval_results.git_state(tmp_path, run=clean) == GitState("b" * 40, False)
-    changed = _fake_git({"rev-parse": (0, "b" * 40 + "\n"), "status": (0, " M src/chat.py\n")})
-    assert eval_results.git_state(tmp_path, run=changed) == GitState("b" * 40, True)
+    """A clean tree is dirty False; a change to a tracked file is dirty True, its diff hashed."""
+    head = (0, "b" * 40 + "\n")
+    clean = _fake_git({"rev-parse": head, "status": (0, ""), "diff": (0, "")})
+    assert eval_results.git_state(tmp_path, run=clean) == GitState("b" * 40, False, _sha(""))
+    diff = "diff --git a/src/chat.py b/src/chat.py\n+x\n"
+    changed = _fake_git({"rev-parse": head, "status": (0, " M src/chat.py\n"), "diff": (0, diff)})
+    assert eval_results.git_state(tmp_path, run=changed) == GitState("b" * 40, True, _sha(diff))
 
 
 @pytest.mark.parametrize(
@@ -141,8 +153,19 @@ def test_the_git_state_is_unknown_when_git_cannot_say(tmp_path, outputs):
     assert eval_results.git_state(tmp_path, run=_fake_git(outputs)) == GitState(None, None)
 
 
+@pytest.mark.parametrize(
+    "diff", [(128, ""), subprocess.TimeoutExpired("git", 10)], ids=["fails", "times out"]
+)
+def test_a_failed_diff_keeps_the_commit_and_loses_only_the_change_check(tmp_path, diff):
+    """The commit and dirty flag read before the diff stay; the change check becomes unknown."""
+    outputs = {"rev-parse": (0, "c" * 40), "status": (0, " M a.txt\n"), "diff": diff}
+    state = eval_results.git_state(tmp_path, run=_fake_git(outputs))
+    assert state == GitState("c" * 40, True, None)
+    assert eval_results.changed_during_run(state, state) is None
+
+
 def test_git_is_asked_about_the_folder_given_with_fixed_arguments(tmp_path):
-    """Both calls name the folder with -C and use no shell, so the folder is the code that ran."""
+    """Each call names the folder with -C and uses no shell, so the folder is the code that ran."""
     seen = []
 
     def run(command, **kwargs):
@@ -153,8 +176,10 @@ def test_git_is_asked_about_the_folder_given_with_fixed_arguments(tmp_path):
         )
 
     eval_results.git_state(tmp_path, run=run)
-    assert [command[:3] for command, _ in seen] == [["git", "-C", str(tmp_path)]] * 2
-    assert [command[3] for command, _ in seen] == ["rev-parse", "status"]
+    assert [command[:3] for command, _ in seen] == [["git", "-C", str(tmp_path)]] * 3
+    assert [command[3] for command, _ in seen] == ["rev-parse", "status", "diff"]
+    # No external diff tool or text conversion from the user's git config runs.
+    assert {"--no-ext-diff", "--no-textconv"} <= set(seen[2][0])
     for _, kwargs in seen:
         assert kwargs.get("shell") is not True
         assert kwargs["timeout"] > 0
@@ -181,10 +206,63 @@ def test_the_git_state_of_a_real_repository(tmp_path):
     assert clean.dirty is False
     assert clean.commit is not None and len(clean.commit) == 40
     tracked.write_text("two", encoding="utf-8")
-    assert eval_results.git_state(tmp_path).dirty is True
+    edited = eval_results.git_state(tmp_path)
+    assert edited.dirty is True
+    assert eval_results.changed_during_run(clean, edited) is True
+    # A second edit to a file that was already changed is seen too (T9.21).
+    tracked.write_text("three", encoding="utf-8")
+    assert eval_results.changed_during_run(edited, eval_results.git_state(tmp_path)) is True
     (tmp_path / "untracked.txt").write_text("x", encoding="utf-8")
     git("checkout", "--", "a.txt")
-    assert eval_results.git_state(tmp_path).dirty is False
+    restored = eval_results.git_state(tmp_path)
+    assert restored.dirty is False
+    assert eval_results.changed_during_run(clean, restored) is False
+    tracked.write_text("four", encoding="utf-8")
+    git("commit", "-q", "-am", "second")
+    committed = eval_results.git_state(tmp_path)
+    assert committed.dirty is False
+    assert eval_results.changed_during_run(clean, committed) is True
+
+
+START = GitState("a" * 40, True, _sha("one change"))
+
+
+@pytest.mark.parametrize(
+    ("end", "changed"),
+    [
+        (GitState("a" * 40, True, _sha("one change")), False),
+        (GitState("b" * 40, False, _sha("")), True),
+        (GitState("a" * 40, True, _sha("one change, then another")), True),
+        (GitState(None, None), None),
+        (GitState("a" * 40, True, None), None),
+    ],
+    ids=["no change", "a new commit", "an edited tracked file", "git cannot say", "no diff"],
+)
+def test_the_code_changed_during_the_run_when_head_or_the_diff_moved(end, changed):
+    """HEAD or the tracked files' changes moving is a change; an unknown state is null."""
+    assert eval_results.changed_during_run(START, end) is changed
+    assert eval_results.changed_during_run(GitState(None, None), START) is None
+
+
+def test_the_document_records_the_end_and_whether_the_code_changed():
+    """The start's commit stays the file's commit; the end's is recorded beside it (T9.21)."""
+    document = _document([_record()], git=START, git_at_end=GitState("b" * 40, False, _sha("")))
+    assert (document["commit"], document["dirty"]) == ("a" * 40, True)
+    assert (document["commit_at_end"], document["dirty_at_end"]) == ("b" * 40, False)
+    assert document["changed_during_run"] is True
+    assert _sha("one change") not in json.dumps(document)
+    unknown = _document([_record()], git=START, git_at_end=GitState(None, None))
+    assert unknown["changed_during_run"] is None
+
+
+def test_the_change_note_names_both_commits_or_the_edited_files():
+    """The note says HEAD moved with both short commits, or that tracked files changed."""
+    moved = eval_results.change_note(START, GitState("b" * 40, False, _sha("")))
+    assert moved is not None and "HEAD moved from aaaaaaa to bbbbbbb" in moved
+    edited = eval_results.change_note(START, GitState("a" * 40, True, _sha("more")))
+    assert edited is not None and "tracked files changed on aaaaaaa" in edited
+    assert eval_results.change_note(START, START) is None
+    assert eval_results.change_note(START, GitState(None, None)) is None
 
 
 # --- The summary: found and cited rate per run and averaged -------------------------------------
