@@ -122,9 +122,8 @@ def test_a_run_whose_code_changed_during_it_is_noted_next_to_its_commit(tmp_path
     assert "baseline: commit aaaaaaa\n" in out
 
 
-def test_the_committed_baseline_compares_with_a_file_of_the_new_layout(monkeypatch, tmp_path):
+def test_the_committed_baseline_compares_with_a_file_of_the_new_layout(tmp_path):
     """A file without the end-of-run fields (T8.4's layout) compares with one that has them."""
-    monkeypatch.undo()
     baseline = eval_results.load_results(config.EVAL_BASELINE_PATH)
     added = {"commit_at_end", "dirty_at_end", "changed_during_run"}
     old = {key: value for key, value in baseline.items() if key not in added}
