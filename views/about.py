@@ -22,7 +22,9 @@ def content(manifest) -> None:
         rewrite_model=config.QUERY_TRANSLATION_MODEL,
         answer_model=config.DEFAULT_ANSWER_MODEL,
     )
-    st.markdown(f"- {articles}\n- {t('about.method')}\n- {models}")
+    # What the answers cover and that a model writes them (PRD guardrails, AC-41; T9.20).
+    lines = [articles, t("about.scope"), t("about.method"), models, t("about.ai")]
+    st.markdown("\n".join(f"- {line}" for line in lines))
     # Credits every source (copyright policy rule 6): authors, title, journal, licence, link,
     # and the change made with the no-endorsement note, as in ATTRIBUTION.md. The credits
     # themselves stay as the articles give them.

@@ -8,7 +8,7 @@ import streamlit as st
 from streamlit.proto.Block_pb2 import Block
 from streamlit.testing.v1 import AppTest
 
-from src import chat, config
+from src import chat, config, i18n
 from src.rag.sources import ARTICLE_CHANGES_NOTE
 
 APP = Path(__file__).resolve().parent.parent / "app.py"
@@ -132,6 +132,9 @@ def test_the_about_dialog_says_what_the_answers_are_based_on():
     assert f"{summary.position_stands} ISSN position stands" in notes[0]
     assert config.DEFAULT_ANSWER_MODEL in notes[0]
     assert config.QUERY_TRANSLATION_MODEL in notes[0]
+    # What the answers cover and that a model writes them (AC-41, T9.20).
+    assert i18n.t("about.scope", "en") in notes[0]
+    assert i18n.t("about.ai", "en") in notes[0]
     assert "**:material/license: Sources and credits**" in [m.value for m in about.markdown]
     lines = [m.value for m in about.markdown if "creativecommons.org" in m.value]
     assert len(lines) == len(chat.manifest_by_id())

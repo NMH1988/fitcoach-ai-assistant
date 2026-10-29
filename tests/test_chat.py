@@ -604,6 +604,149 @@ def test_an_exact_term_finds_the_hmb_source_that_vector_search_misses(tmp_path):
     assert [card.title for card in result.sources] == ["Made-up article 9"]
 
 
+# --- Training principles (T9.20, AC-38) -----------------------------------------------------------
+
+# Text written for these tests. With no keyword of the fake embeddings, it sits at distance 0 from a
+# question that has none either, and far from the fixture's nutrition chunks, which all have one.
+TRAINING_CHUNK = chunk(
+    "24",
+    0,
+    "Volume: ten or more sets per muscle per week in trained adults.",
+    topics=["resistance_training"],
+)
+TRAINING_QUESTION = "How many sets per muscle per week for hypertrophy?"
+PROGRAM_REQUEST = "Write me a 4-day program to build muscle."
+# A training question in a gap of the sources (docs/SOURCES.md: no source on deloads).
+DELOAD_QUESTION = "Do I need a deload week?"
+
+
+def _training_plan(question: str) -> str:
+    """Return the plan the query translation gives a training question: the topic, no tool."""
+    rewrites = [f"{question} rewrite {n}" for n in (1, 2, 3)]
+    return plan_json(rewrites, ["resistance_training"], needs_tool=False, needs_profile=False)
+
+
+@pytest.fixture(scope="module")
+def training_index(tmp_path_factory):
+    """Open an index of the fixture chunks plus one training chunk."""
+    path = tmp_path_factory.mktemp("training") / "chroma"
+    return open_fixture_index(build_fixture_index(path, [*CHUNKS, TRAINING_CHUNK]))
+
+
+def _training_turn(question, index, model, **kwargs):
+    """Run one turn with a profile in the session and the training plan for the question."""
+    return chat.run_turn(
+        question,
+        guard.RateLimiter(),
+        open_index=lambda: index,
+        chat_model=lambda: model,
+        translation_model=lambda: ScriptedTranslator(plans=[_training_plan(question)]),
+        user=PROFILE,
+        **kwargs,
+    )
+
+
+def test_a_training_question_is_answered_from_its_cited_training_chunk(training_index):
+    """A principle question gets its training chunk, cites it, and sends no profile (AC-38)."""
+    model = _model("Ten or more sets per muscle per week, in trained adults [S1].")
+    result = _training_turn(TRAINING_QUESTION, training_index, model)
+    assert result.kind == "answer"
+    assert result.search.topics == ("resistance_training",)
+    [[_, user]] = model.calls
+    sources = user.content.split("<sources>", 1)[1].split("</sources>", 1)[0]
+    assert TRAINING_CHUNK.page_content in sources
+    assert "Protein" not in sources
+    # The session has a profile, but the plan says the answer does not need it.
+    assert "<profile>" not in user.content
+    assert result.profile_sent is False
+    assert result.tool_runs == ()
+    [card] = result.sources
+    assert (card.source_id, card.labels) == ("24", ("S1",))
+
+
+@pytest.mark.parametrize("lang", ["en", "de"])
+def test_a_program_request_reaches_the_model_with_the_rules_and_the_principles(
+    training_index, monkeypatch, lang
+):
+    """A program request goes out with the owner's prompt, its training chunk and no profile."""
+    # What the model writes is checked in the owner's run of the O17 questions (docs/TESTING.md);
+    # this pins what it is given: the fixed sentence's rule, the principles to cite, no profile.
+    monkeypatch.setattr(config, "ANSWER_PROMPT_PATH", PROMPTS / "answer_system.md")
+    parts = {code: PROMPTS / f"answer_language_{code}.md" for code in ("en", "de")}
+    monkeypatch.setattr(config, "ANSWER_LANGUAGE_PROMPT_PATHS", parts)
+    sentence = config.NO_PROGRAM_SENTENCE[lang]
+    model = _model(f"Train each muscle with ten or more sets a week [S1]. {sentence}")
+    result = _training_turn(PROGRAM_REQUEST, training_index, model, language=lang)
+    [[system, user]] = model.calls
+    assert f'"{config.NO_PROGRAM_SENTENCE["en"]}"' in system.content
+    if lang == "de":
+        # The language part gives the German sentence the answer uses instead.
+        assert f"„{sentence}“" in system.content
+    assert "Do not write workout programs, splits or templates of any kind" in system.content
+    assert TRAINING_CHUNK.page_content in user.content
+    assert "<profile>" not in user.content
+    assert result.kind == "answer"
+    assert sentence in result.text
+    assert [card.source_id for card in result.sources] == ["24"]
+
+
+def test_a_training_question_the_sources_do_not_cover_gets_the_fixed_message(index):
+    """A deload question finds no chunk: the not-covered message, no answer call (AC-38, AC-2)."""
+    model = _model("unused")
+    result = _training_turn(DELOAD_QUESTION, index, model)
+    assert (result.kind, result.text) == ("no_sources", config.NO_SOURCES_MESSAGE)
+    assert result.sources == ()
+    assert model.calls == []
+
+
+MIXED_QUESTION = "How many sets per week should I do while eating more protein?"
+
+
+def test_a_training_only_question_is_not_answered_from_nutrition_chunks(index):
+    """No training chunk: the search without the filter finds protein, but nothing is answered."""
+    assert config.TRAINING_TOPIC in config.TOPICS
+    found = []
+    model = _model("Do ten sets a week [S1].")
+    result = _training_turn(MIXED_QUESTION, index, model, on_chunks=found.append)
+    assert result.search.filter_dropped is True
+    assert (result.kind, result.text) == ("no_sources", config.NO_SOURCES_MESSAGE)
+    assert result.sources == ()
+    assert model.calls == []
+    # The evaluation run sees what the model would have got: nothing.
+    assert found == [()]
+
+
+def test_a_too_strict_year_on_a_training_question_falls_back_to_training_chunks(training_index):
+    """A year no training chunk meets drops the filters, but only training chunks are kept."""
+    rewrites = [f"{TRAINING_QUESTION} rewrite {n}" for n in (1, 2, 3)]
+    plan = plan_json(
+        rewrites, ["resistance_training"], min_year=2025, needs_tool=False, needs_profile=False
+    )
+    model = _model("Ten or more sets per muscle per week, in trained adults [S1].")
+    result = _turn(
+        TRAINING_QUESTION, training_index, model, translator=ScriptedTranslator(plans=[plan])
+    )
+    assert result.search.filter_dropped is True
+    assert result.kind == "answer"
+    [[_, user]] = model.calls
+    sources = user.content.split("<sources>", 1)[1].split("</sources>", 1)[0]
+    assert TRAINING_CHUNK.page_content in sources
+    assert "Protein" not in sources
+    assert [card.source_id for card in result.sources] == ["24"]
+
+
+@pytest.mark.parametrize("topics", [["fat"], ["resistance_training", "fat"]])
+def test_a_plan_with_a_nutrition_topic_still_falls_back_without_the_filter(index, topics):
+    """Only a training-only plan ends there: with a nutrition topic the unfiltered chunks answer."""
+    rewrites = [f"{MIXED_QUESTION} rewrite {n}" for n in (1, 2, 3)]
+    plan = plan_json(rewrites, topics, needs_tool=False)
+    model = _model("Spread protein over four meals [S1].")
+    result = _turn(MIXED_QUESTION, index, model, translator=ScriptedTranslator(plans=[plan]))
+    assert result.search.filter_dropped is True
+    assert result.kind == "answer"
+    assert len(model.calls) == 1
+
+
 # --- No relevant chunk (AC 3) ---------------------------------------------------------------------
 
 
@@ -1388,6 +1531,65 @@ def test_the_german_part_names_the_german_ui_labels():
     for key in ("profile.add", "tab.targets"):
         assert f"„{i18n.t(key, 'de')}“" in text
     assert f"„{i18n.t('tool.results', 'de', count=0).split(' (')[0]}“" in text
+
+
+def _prompt_section(text: str, heading: str) -> str:
+    """Return the text of one `## ` section of a prompt, without its heading."""
+    return text.split(f"## {heading}\n", 1)[1].split("\n## ", 1)[0]
+
+
+def test_the_answer_prompt_holds_the_training_rules():
+    """The owner's training rules (O8, T9.20): scope, cited principles, ranges, no programs."""
+    text = chat.load_system_prompt(PROMPTS / "answer_system.md")
+    identity = text.split("\n", 1)[0]
+    assert "nutrition and resistance-training-principles assistant" in identity
+    scope = _prompt_section(text, "Scope")
+    expected_scope = [
+        "Answer research-based questions about resistance training principles",
+        "Do not write workout programs, splits or templates of any kind",
+        "a study's protocol presented as a plan",
+        "Describing what a study's participants did, with the population studied, is allowed",
+        "set-and-rep prescriptions for individual exercises",
+        "exercise technique or form instructions",
+        "If the user asks for a personal training program",
+        f'"{config.NO_PROGRAM_SENTENCE["en"]}"',
+    ]
+    assert [phrase for phrase in expected_scope if phrase not in scope] == []
+    sources = _prompt_section(text, "Using the research sources")
+    expected_sources = [
+        "make a claim or recommendation only when a relevant training research excerpt",
+        "clearly state that the available research sources do not cover it",
+        "identify the population and training status actually studied",
+        "Never turn a research range into an individual prescription for the user",
+    ]
+    assert [phrase for phrase in expected_sources if phrase not in sources] == []
+    numbers = _prompt_section(text, "Personal numbers written in the question")
+    assert "This applies to nutrition rules only. Never scale or divide a training range" in numbers
+    tools = _prompt_section(text, "When to use the tools")
+    assert "For questions solely about resistance-training principles" in tools
+    assert "no stored profile is required" in tools
+
+
+def test_the_answer_prompt_redirects_pain_and_injuries():
+    """The prompt's Safety section is the second line after the injury guard (T9.19a, O8)."""
+    safety = _prompt_section(chat.load_system_prompt(PROMPTS / "answer_system.md"), "Safety")
+    expected = [
+        "pain, injuries, rehabilitation",
+        "physiotherapist",
+        "call the emergency number (112 in Germany and the EU)",
+        "(DOMS) is not an injury",
+    ]
+    assert [phrase for phrase in expected if phrase not in safety] == []
+
+
+@pytest.mark.parametrize(("lang", "quoted"), [("en", '"{}"'), ("de", "„{}“")])
+def test_the_built_prompt_gives_the_no_program_sentence_in_its_language(lang, quoted):
+    """Each built prompt holds the fixed no-program sentence of its answer language (T9.20)."""
+    built = chat.answer_system_prompt(
+        chat.load_system_prompt(PROMPTS / "answer_system.md"),
+        chat.load_system_prompt(PROMPTS / f"answer_language_{lang}.md"),
+    )
+    assert quoted.format(config.NO_PROGRAM_SENTENCE[lang]) in built
 
 
 def test_the_answer_prompt_leaves_the_language_to_its_language_parts(monkeypatch):

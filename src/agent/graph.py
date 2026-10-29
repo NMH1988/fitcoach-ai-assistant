@@ -225,6 +225,12 @@ def retrieve(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
             keyword_index=context.keyword_index,
             recorder=context.recorder,
         )
+    # When nothing passed a training-only plan's filters (its topic, year or tier), the search
+    # without them keeps only training chunks: a nutrition chunk never stands in for a missing
+    # training source (PRD feature 26; T9.20, security review finding 3).
+    training_only = plan is not None and plan.topics == (config.TRAINING_TOPIC,)
+    if training_only and details.filter_dropped:
+        chunks = [c for c in chunks if config.TRAINING_TOPIC in c.metadata.get("topics", ())]
     if context.on_chunks is not None:
         context.on_chunks(tuple(chunks))
     # With no relevant chunk the model may still answer from a tool (a food lookup rarely matches
