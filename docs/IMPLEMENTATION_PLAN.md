@@ -113,7 +113,7 @@ Deadline: **2026-11-02** (Sprint 2, already submitted by the owner, 2026-10-28).
 | T9.19a | NMH1988/fitcoach-ai-assistant#41 | The pain and injury guard (split from T9.19 by the owner, 2026-10-28) | S | - | 10-28 | in review |
 | T9.19 | NMH1988/fitcoach-ai-assistant#30 | Training sources and indexing (moved before T9.3 by the owner, 2026-10-28; the dates after it were not moved; its injury guard split into T9.19a the same day) | M | T8.4, T9.19a, O7, O16, O17, O8 (the tier names only) | 10-30 | todo |
 | T9.21 | NMH1988/fitcoach-ai-assistant#44 | Checks: the manifest's authors against the article, and the evaluated code's git state (follow-up of T9.19's reviews, owner's choice, 2026-10-29) | S | T2.1, T8.4 | 10-30 | done |
-| T9.3 | #98 | Agentic RAG: searching the knowledge base is the agent's tool | M | T9.2, T8.4, O8 | 10-31 | in review |
+| T9.3 | #98 | Agentic RAG: searching the knowledge base is the agent's tool | M | T9.2, T8.4, O8 | 10-31 | done |
 | T9.4 | #99 | Short-term memory: a conversation that remembers earlier turns | M | T9.2, O8 | 10-31 | todo |
 | T9.6 | #101 | The SQLite store and the authorisation layer | L | T9.1, T8.2 | 11-02 | done |
 | T9.5 | #100 | Sign in with Google, roles, guest and demo mode, My data | L | T9.6, T8.1, O9 | 11-03 | todo |
@@ -726,7 +726,7 @@ Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this 
 - [x] `run_evaluation.py --repeat 3` gives found and cited rates within the baseline tolerance - `scripts/check_eval_baseline.py` on the owner's run (O13). Done: the owner's run of 2026-10-26 16:29 on this branch at eafc50e (51 runs, no error, $0.0904): found rate 0.8235 (baseline 0.8235, lowest allowed 0.7635), cited rate 0.8235 (baseline 0.8039, lowest allowed 0.7439), exit 0; recorded in `docs/TESTING.md` ("Same behaviour on the graph (T9.2)" and the Live checks table).
 **Notes:** behaviour first, new abilities from T9.3 on, so a regression has one cause. The state's user field and the tool sets per role (D11) arrive with T9.5 and T9.7; this ticket keeps the guest's behaviour. The largest ticket in the epic; split in the Structure phase if needed.
 
-### T9.3 Agentic RAG: searching the knowledge base is the agent's tool (M) · status: in review · issue #98 (NMH1988/fitcoach-ai-assistant#6)
+### T9.3 Agentic RAG: searching the knowledge base is the agent's tool (M) · status: done · issue #98 (NMH1988/fitcoach-ai-assistant#6)
 **Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Hard 1, Sprint 2 review point 3; Sprint 2 (`docs/BRIEF.md`): core 1 (RAG).
 **Depends on:** T9.2, T8.4, O8
 **Acceptance criteria**
