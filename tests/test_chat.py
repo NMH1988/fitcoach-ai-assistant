@@ -1343,6 +1343,7 @@ def test_the_answer_prompt_matches_the_code(monkeypatch):
     # for grams (owner's choices after PR #46's reviews, 2026-10-29).
     expected += ["say clearly that the provided research does not cover it and cite nothing"]
     expected += ["Look up the food for 100 g with `lookup_food_nutrition`"]
+    expected += ["Look up each food without a gram amount for 100 g with `lookup_food_nutrition`"]
     expected += ["recommend a qualified professional for the rest"]
     assert [phrase for phrase in expected if phrase not in text] == []
 
