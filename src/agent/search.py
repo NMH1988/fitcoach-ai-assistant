@@ -42,10 +42,10 @@ SEARCH_TOOL = "search_knowledge_base"
 SEARCH_DESCRIPTION = (
     "Search the app's research knowledge base (openly licensed review articles and position "
     "stands on nutrition for strength training, and reviews on resistance training principles) "
-    "for passages relevant to a query. Returns the "
-    "passages inside <sources>, each labelled [S#] for citing; if none is relevant, <sources> says "
-    "so. Write the query in English as a short, self-contained research question. Never put the "
-    "user's own values (weight, goal, activity, targets or other personal details) in the query."
+    "for passages relevant to a query. Returns the passages inside <sources>, each labelled [S#] "
+    "for citing; if none is relevant, <sources> says so. Write the query in English as a short, "
+    "self-contained research question. Never put the user's own values (weight, goal, activity, "
+    "targets or other personal details) in the query."
 )
 
 
