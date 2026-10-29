@@ -112,7 +112,7 @@ Deadline: **2026-11-02** (Sprint 2, already submitted by the owner, 2026-10-28).
 | T9.2 | #97 | The chat turn as a LangGraph `StateGraph`, same behaviour | L | T9.1, T8.1, T8.2, T8.4 | 10-30 | done |
 | T9.19a | NMH1988/fitcoach-ai-assistant#41 | The pain and injury guard (split from T9.19 by the owner, 2026-10-28) | S | - | 10-28 | in review |
 | T9.19 | NMH1988/fitcoach-ai-assistant#30 | Training sources and indexing (moved before T9.3 by the owner, 2026-10-28; the dates after it were not moved; its injury guard split into T9.19a the same day) | M | T8.4, T9.19a, O7, O16, O17, O8 (the tier names only) | 10-30 | todo |
-| T9.21 | NMH1988/fitcoach-ai-assistant#44 | Checks: the manifest's authors against the article, and the evaluated code's git state (follow-up of T9.19's reviews, owner's choice, 2026-10-29) | S | T2.1, T8.4 | 10-30 | in review |
+| T9.21 | NMH1988/fitcoach-ai-assistant#44 | Checks: the manifest's authors against the article, and the evaluated code's git state (follow-up of T9.19's reviews, owner's choice, 2026-10-29) | S | T2.1, T8.4 | 10-30 | done |
 | T9.3 | #98 | Agentic RAG: searching the knowledge base is the agent's tool | M | T9.2, T8.4, O8 | 10-31 | todo |
 | T9.4 | #99 | Short-term memory: a conversation that remembers earlier turns | M | T9.2, O8 | 10-31 | todo |
 | T9.6 | #101 | The SQLite store and the authorisation layer | L | T9.1, T8.2 | 11-02 | done |
@@ -901,7 +901,7 @@ Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this 
 - [ ] `docs/SECURITY.md` (the training rules in the prompt as the second line of defence after the guard), `docs/ARCHITECTURE.md` (D22) and the PRD's guardrails match the code - review; the `security-reviewer` agent run on the PR.
 **Notes:** the weekly review's training check is in T9.16's validation and O15; the workout views stay facts only (T9.14). What a cut of T9.20 changes is in "Overview and order".
 
-### T9.21 Checks: the manifest's authors against the article, and the evaluated code's git state (S) · status: in review · issue NMH1988/fitcoach-ai-assistant#44
+### T9.21 Checks: the manifest's authors against the article, and the evaluated code's git state (S) · status: done · issue NMH1988/fitcoach-ai-assistant#44
 **Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): the Sprint 2 review, point 5 (evaluation results the development loop can trust), core 4 (an app that copes with real-world use), evaluation: technical (a relevant knowledge base); Sprint 2 (`docs/BRIEF.md`): core 1 (the knowledge base), Hard 7 (RAG evaluation), evaluation: technical (a relevant knowledge base).
 **Depends on:** T2.1 (the download and its licence and DOI check), T8.4 (the results file); came out of T9.19's reviews (PR NMH1988/fitcoach-ai-assistant#43, owner's choice, 2026-10-29), but needs none of its code.
 **Acceptance criteria**
