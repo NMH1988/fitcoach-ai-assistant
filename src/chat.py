@@ -121,11 +121,6 @@ class SearchDetails:
         """Return what was searched: the query, then its rewrites."""
         return (self.query, *self.rewrites)
 
-    @property
-    def has_filters(self) -> bool:
-        """Return True when the plan set any filter (used or dropped)."""
-        return bool(self.topics) or self.min_year is not None or self.evidence_tier is not None
-
 
 @dataclass(frozen=True)
 class TurnResult:
