@@ -555,8 +555,9 @@ def test_a_commit_made_during_the_run_is_not_recorded_as_the_code_that_ran(
     monkeypatch.setattr(run_evaluation.eval_results, "git_state", fake_state)
     item = {"id": "q1", "question": QUESTION, "expected_sources": [], "good_answer": "x"}
     assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 0
-    # The first read comes before the answer model is called, the second after the questions.
-    assert asked == [0, 1]
+    # The first read comes before the answer model is called, the second after the questions
+    # (since T9.3 a question is a search call and an answer call, so count them, not 1).
+    assert asked == [0, len(real_pieces.calls)] and asked[1] > 0
     _, document = _results_file(tmp_path)
     assert (document["commit"], document["commit_at_end"]) == ("a" * 40, "b" * 40)
     assert document["changed_during_run"] is True

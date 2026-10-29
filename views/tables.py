@@ -5,6 +5,7 @@ without AppTest.
 """
 
 import re
+from collections.abc import Sequence
 
 from src import chat, config, i18n, units, usage
 from src.i18n import Language
@@ -47,6 +48,16 @@ def one_line(text: str) -> str:
 def columns(names: tuple[str, ...], rows: list[list[str]]) -> dict[str, list[str]]:
     """Return rows of cells as columns by name, for st.dataframe."""
     return {name: [row[i] for row in rows] for i, name in enumerate(names)}
+
+
+def distinct_filters(
+    searches: Sequence[chat.SearchDetails],
+) -> tuple[tuple[str, ...], tuple[int, ...], tuple[int, ...]]:
+    """Return the topics, years and tiers the searches filtered by, each once, in order (T9.3)."""
+    topics = dict.fromkeys(topic for details in searches for topic in details.topics)
+    years = dict.fromkeys(d.min_year for d in searches if d.min_year is not None)
+    tiers = dict.fromkeys(d.evidence_tier for d in searches if d.evidence_tier is not None)
+    return tuple(topics), tuple(years), tuple(tiers)
 
 
 def tier_label(tier: int, lang: Language) -> str:

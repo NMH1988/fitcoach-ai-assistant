@@ -267,9 +267,9 @@ QUERY_REWRITE_MAX_CHARS = 300
 QUERY_MIN_YEAR_RANGE = (2000, 2100)
 # Shown instead of an answer when the model's answer would rest on nothing (AC-2): since T9.3 the
 # agent decides whether to search, and its replies stay hidden until a search finds a relevant chunk
-# or a tool really runs. A reply before that with no tool call, or a search that finds nothing with
-# no tool run, ends the turn with this message and no further model call (owner's choice,
-# 2026-10-29).
+# or a tool gives a result (BASIS_TOOL_STATUSES). A reply before that with no tool call, or a search
+# that finds nothing with no tool result, ends the turn with this message and no further model call
+# (owner's choice, 2026-10-29).
 NO_SOURCES_MESSAGE = (
     "Our sources do not cover this question, so there is no answer from the research. Try a "
     "question about protein, carbohydrate, fat, energy balance, nutrient timing or supplements "

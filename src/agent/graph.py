@@ -9,9 +9,9 @@ arguments, fixed messages). The agent decides whether to search: a food or calcu
 needs no research passage (the Sprint 2 review, point 3).
 
 Its replies stay hidden until the answer has a basis: a search found a relevant chunk or a tool
-really ran. A reply with no tool call before that, or a round whose searches found nothing with no
-tool run, ends the turn with the "not covered" message and no further model call (AC-2; owner's
-choice in T9.3, 2026-10-29).
+gave a result (`config.BASIS_TOOL_STATUSES`). A reply with no tool call before that, or a round
+whose searches found nothing with no tool result, ends the turn with the "not covered" message and
+no further model call (AC-2; owner's choice in T9.3, 2026-10-29).
 
 The caller passes the text and gets back only the `TurnResult`: the messages and the tool runs are
 private state. What cannot live in state (the index, the model clients, the UI's callbacks, the
@@ -81,8 +81,8 @@ class LoopInput(TypedDict):
     """What the answer loop starts from: the messages and whether replies wait for a basis."""
 
     messages: Annotated[list[AnyMessage], add_messages]
-    # True: replies stay hidden until a search finds a relevant chunk or a tool really runs (T4.4,
-    # T9.3). A whole turn always starts so; the answer loop alone may not.
+    # True: replies stay hidden until a search finds a relevant chunk or a tool gives a result
+    # (T4.4, T9.3). A whole turn always starts so; the answer loop alone may not.
     tools_only: bool
 
 
@@ -234,7 +234,7 @@ def prepare(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
 def agent(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
     """Ask the model; keep its tool calls for the tools node, or its text as the answer."""
     # tools_only: replies are not shown until the answer has a basis (a search found a relevant
-    # chunk or a tool really ran; _has_basis()), and a reply with no tool call before that gives
+    # chunk or a tool gave a result; _has_basis()), and a reply with no tool call before that gives
     # None, so the turn shows NO_SOURCES_MESSAGE, never an answer with no basis (AC-2).
     context = runtime.context
     round_number = state.get("rounds", 0)

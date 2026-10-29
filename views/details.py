@@ -21,39 +21,27 @@ def last_searched() -> tuple[str, dict] | None:
     return None
 
 
-def filter_badges(details: chat.SearchDetails) -> None:
-    """Show the filters the rewrite step chose as badges, or say there were none."""
-    if not details.has_filters:
+def filter_badges(searches: Sequence[chat.SearchDetails]) -> None:
+    """Show each filter the searches' rewrite steps chose, once, or say there were none."""
+    # The Details tab passes one search; the card passes the turn's searches, so a filter two
+    # searches share shows once and "No filters" only when none set any (T9.3).
+    topics, years, tiers = tables.distinct_filters(searches)
+    if not (topics or years or tiers):
         st.badge(t("filter.none"), icon=":material/filter_alt_off:", color="gray")
         return
     with st.container(horizontal=True, gap="small"):
-        for topic in details.topics:
+        for topic in topics:
             st.badge(tables.topic_label(topic, lang()), icon=":material/sell:", color="blue")
-        if details.min_year is not None:
-            year = t("filter.from_year", year=str(details.min_year))
-            st.badge(year, icon=":material/calendar_month:", color="blue")
-        if details.evidence_tier is not None:
-            tier = details.evidence_tier
+        for year in years:
+            label = t("filter.from_year", year=str(year))
+            st.badge(label, icon=":material/calendar_month:", color="blue")
+        for tier in tiers:
             label = (
                 t(f"tier_filter.{tier}")
                 if tier in config.EVIDENCE_TIERS
                 else tables.tier_label(tier, lang())
             )
             st.badge(label, icon=":material/verified:", color="blue")
-
-
-def merged_filters(searches: Sequence[chat.SearchDetails]) -> chat.SearchDetails:
-    """Return one set of filters for the card: each filter the turn's searches set, once."""
-    # The card names no search, so a badge per search would repeat filters and show "No filters"
-    # beside a search that set some; the Details tab shows each search's own.
-    tiers = {details.evidence_tier for details in searches} - {None}
-    years = [details.min_year for details in searches if details.min_year is not None]
-    return chat.SearchDetails(
-        query="",
-        topics=tuple(dict.fromkeys(topic for details in searches for topic in details.topics)),
-        min_year=min(years) if years else None,
-        evidence_tier=tiers.pop() if len(tiers) == 1 else None,
-    )
 
 
 def search_notes(details: chat.SearchDetails) -> None:
@@ -84,7 +72,7 @@ def search_section(number: int, details: chat.SearchDetails) -> None:
     ]
     st.markdown("\n".join(lines))
     st.markdown(f"**{t('details.filters')}**")
-    filter_badges(details)
+    filter_badges([details])
     search_notes(details)
     st.caption(found_line(details))
 
@@ -134,7 +122,7 @@ def last_answer_card() -> None:
         else:
             st.caption(t("card.searches_many", count=len(searches), queries=queries))
         if searches:
-            filter_badges(merged_filters(searches))
+            filter_badges(searches)
         if any(details.filter_dropped for details in searches):
             st.caption(t("card.filters_dropped"))
         turn_usage = message.get("usage")

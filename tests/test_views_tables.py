@@ -4,7 +4,7 @@ from decimal import Decimal
 
 import pytest
 
-from src import config, i18n, usage
+from src import chat, config, i18n, usage
 from src.tools import energy, registry
 from src.tools.food import FoodLookupResult, Nutrients
 from tests.fakes import PROFILE
@@ -301,3 +301,23 @@ def test_the_usage_rows_list_each_call_with_its_tokens_and_cost():
     assert columns[0][1] == i18n.t("usage.step.answer", "en", round=1)
     assert columns[6][0] == usage.format_cost(Decimal("0.0001"), "en")
     assert columns[6][1] == usage.format_cost(None, "en")
+
+
+def test_distinct_filters_lists_each_filter_of_the_searches_once():
+    """Topics, years and tiers of several searches come back once each, in order (T9.3)."""
+    searches = [
+        chat.SearchDetails("a", topics=("protein",), min_year=2020, evidence_tier=1),
+        chat.SearchDetails("b", topics=("protein", "fat"), min_year=2015, evidence_tier=2),
+        chat.SearchDetails("c"),
+    ]
+    assert tables.distinct_filters(searches) == (("protein", "fat"), (2020, 2015), (1, 2))
+
+
+def test_distinct_filters_is_empty_only_when_no_search_set_one():
+    """Searches with no filter give nothing; one tier filter alone still counts."""
+    assert tables.distinct_filters([chat.SearchDetails("a"), chat.SearchDetails("b")]) == (
+        (),
+        (),
+        (),
+    )
+    assert tables.distinct_filters([chat.SearchDetails("a", evidence_tier=1)]) == ((), (), (1,))
