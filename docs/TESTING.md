@@ -260,7 +260,7 @@ The misses are the baseline's: q1's #15 and q10's #8 in all three askings, q5's 
 
 Owner's runs (O13, 2026-10-28) from this checkout on `feature/t9.19-training-sources`, the app's models (`openai/gpt-5-mini` answers, `openai/gpt-5-nano` query translation, `qwen/qwen3-embedding-8b` embeddings), after `python -m scripts.build_index` on the 31 sources (2304 chunks; the index was built before 2a7e0ed removed two editors from the authors of #25 and #33, which are chunk metadata only, not searched text, so the rates below stand and only a rebuild is needed for the source cards).
 
-**Nutrition questions against the T8.4 baseline:** `python -m scripts.run_evaluation --repeat 3` at 23:26 (started on 5f2d0c8's code with 2a7e0ed's manifest and docs edits not yet committed; the results file records 2a7e0ed and a clean tree because `scripts/run_evaluation.py` reads the git state when it writes the file, at the end of the run, and 2a7e0ed was committed at 23:30 while the run was going; the code the chat runs is the same in both), 51 runs, no error, 639,350 tokens, $0.0879; report `data/eval_runs/run-20261028-232630.md`, results `.json` (gitignored). `python -m scripts.check_eval_baseline` on it, run by Claude: exit 0.
+**Nutrition questions against the T8.4 baseline:** `python -m scripts.run_evaluation --repeat 3` at 23:26 (started on 5f2d0c8's code with 2a7e0ed's manifest and docs edits not yet committed; the results file records 2a7e0ed and a clean tree because `scripts/run_evaluation.py` read the git state when it wrote the file, at the end of the run (before T9.21, which reads it at the start too), and 2a7e0ed was committed at 23:30 while the run was going; the code the chat runs is the same in both), 51 runs, no error, 639,350 tokens, $0.0879; report `data/eval_runs/run-20261028-232630.md`, results `.json` (gitignored). `python -m scripts.check_eval_baseline` on it, run by Claude: exit 0.
 
 | Askings | 1 | 2 | 3 | Average | Baseline | Lowest allowed |
 |---|---|---|---|---|---|---|
@@ -269,7 +269,7 @@ Owner's runs (O13, 2026-10-28) from this checkout on `feature/t9.19-training-sou
 
 The misses are the baseline's own (q1's #15, q5's #12, q9's #4 in two askings each; q10's #8 in all three). No nutrition answer cited a training source (#24-#33) in any asking, and the guardrail questions (q15, q16) ended at the guard: the topic filter and the O7 boundary keep training chunks out of nutrition answers.
 
-**Training questions:** `python -m scripts.run_evaluation --repeat 3 data/eval_questions_training.json` at 23:39 (started on 2a7e0ed; the results file records 1cd28e6, the merge of `main` with T9.6 committed at 23:44 while the run was going, as the git state is read at the end; T9.6 did not change the chat path), 30 runs, no error, 326,511 tokens, $0.0498; report `data/eval_runs/run-20261028-233906.md`, results `.json` (gitignored).
+**Training questions:** `python -m scripts.run_evaluation --repeat 3 data/eval_questions_training.json` at 23:39 (started on 2a7e0ed; the results file records 1cd28e6, the merge of `main` with T9.6 committed at 23:44 while the run was going, as the git state was read at the end (before T9.21); T9.6 did not change the chat path), 30 runs, no error, 326,511 tokens, $0.0498; report `data/eval_runs/run-20261028-233906.md`, results `.json` (gitignored).
 
 | Askings | 1 | 2 | 3 | Average |
 |---|---|---|---|---|
