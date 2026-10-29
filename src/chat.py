@@ -1,15 +1,15 @@
-"""One chat turn: guard -> query translation -> retrieval -> answer with tools and [S#] citations.
+"""One chat turn: guard -> the agent and its tools (a knowledge base search among them) -> answer.
 
 `run_turn()` runs the turn as the LangGraph graph in `src/agent/graph.py` (T9.2), whose nodes use
 this module's helpers, and turns its errors into fixed messages. The user's question goes only
-inside <user_input>, the retrieved chunks only inside <sources> and the profile only inside
-<profile> (sent only when the query plan says the answer needs the user's numbers, T3.5), all in
-the user message; none is ever put into the system prompt
-(.claude/rules/security-privacy.md). All three are escaped first (`src/prompt_data.py`), so no text
-can close or open a block (T3.4). The rewrites from query translation are used only for the search
-and shown in the app; the answer model gets the user's own question. Tool results reach the model
-only as tool messages (T4.4). Every error a user can cause or meet ends as a TurnResult with a fixed
-message, so the app shows it in the answer and keeps the chat history (AC-13). The answer's
+inside <user_input> in the user message; the chunks a search finds come back only inside <sources>
+in that search's tool message (T9.3, `src/agent/search.py`); neither is ever put into the system
+prompt (.claude/rules/security-privacy.md). Both are escaped first (`src/prompt_data.py`), so no
+text can close or open a block (T3.4). The profile is never in the messages: the tools read it from
+the app (owner's choice in T9.3, 2026-10-29). The rewrites from query translation are used only for
+the search and shown in the app. Tool results reach the model only as tool messages (T4.4). Every
+error a user can cause or meet ends as a TurnResult with a fixed message, so the app shows it in
+the answer and keeps the chat history (AC-13). The answer's
 language is the app's EN | DE choice, passed in as a fixed value: the code joins that language's
 part of the owner's prompt to the end of the system prompt, and nothing the user types picks it
 (T7.2).
@@ -40,7 +40,7 @@ from langchain_core.messages.ai import UsageMetadata
 from langchain_core.runnables import Runnable
 from langchain_core.tools import StructuredTool
 
-from src import config, guard, i18n, llm, profile, units, usage
+from src import config, guard, i18n, llm, profile, usage
 from src.prompt_data import escape_prompt_data
 from src.rag import hybrid, query_translation
 from src.rag.hybrid import KeywordIndex
@@ -59,13 +59,14 @@ class Step(StrEnum):
     """The steps of a turn, as the progress indicator names them."""
 
     CHECK = "Checking your question"
-    REWRITE = "Rewriting the question"
+    PLAN = "Planning the answer"
     SEARCH = "Searching the research"
     ANSWER = "Writing the answer"
     TOOLS = "Using the tools"
 
 
-# answer: the model's answer; no_sources: nothing relevant was found (AC-2); rejected: the guard
+# answer: the model's answer; no_sources: no search found a relevant chunk and no tool gave a
+# result (BASIS_TOOL_STATUSES), so an answer would rest on nothing (AC-2); rejected: the guard
 # refused the input; guardrail: a domain guardrail refused or redirected it (AC-12); error: a
 # model, key or index problem.
 TurnKind = Literal["answer", "no_sources", "rejected", "guardrail", "error"]
@@ -99,31 +100,26 @@ class SourceCard:
 
 @dataclass(frozen=True)
 class SearchDetails:
-    """How a turn searched: the question, its rewrites and the filters (AC-3)."""
+    """How one search ran: its query, the rewrites, the filters and what it found (AC-3)."""
 
-    question: str
+    # The query the model wrote for the search tool (T9.3).
+    query: str
     rewrites: tuple[str, ...] = ()
     topics: tuple[str, ...] = ()
     min_year: int | None = None
     evidence_tier: int | None = None
-    # True when the rewrite step gave no usable plan, so only the question was searched.
+    # True when the rewrite step gave no usable plan, so only the query was searched.
     fell_back: bool = False
     # True when nothing passed the filters, so the search ran again without them.
     filter_dropped: bool = False
-    # The plan's needs_tool and needs_profile (T3.5); None when there was no usable plan, which
-    # means no answer call without a relevant chunk and no <profile> block.
-    needs_tool: bool | None = None
-    needs_profile: bool | None = None
+    # The [S#] number of each relevant chunk found, in rank order (a chunk an earlier search of the
+    # turn found keeps its label, T9.3); empty when the sources do not cover the query.
+    labels: tuple[int, ...] = ()
 
     @property
     def queries(self) -> tuple[str, ...]:
-        """Return what was searched: the question, then its rewrites."""
-        return (self.question, *self.rewrites)
-
-    @property
-    def has_filters(self) -> bool:
-        """Return True when the plan set any filter (used or dropped)."""
-        return bool(self.topics) or self.min_year is not None or self.evidence_tier is not None
+        """Return what was searched: the query, then its rewrites."""
+        return (self.query, *self.rewrites)
 
 
 @dataclass(frozen=True)
@@ -134,8 +130,9 @@ class TurnResult:
     text: str
     sources: tuple[SourceCard, ...] = ()
     steps: tuple[Step, ...] = ()
-    # How the search ran; None when the turn ended before it (rejected, or an error before it).
-    search: SearchDetails | None = None
+    # Each search the agent ran, in order (T9.3); () when it ran none, None when the turn was
+    # rejected or ended in an error (an error result keeps no searches, as it keeps no tool runs).
+    searches: tuple[SearchDetails, ...] | None = None
     # True when the index could not be used, so the app opens it again on the next turn.
     index_not_ready: bool = False
     # The tool calls the model made, in order, with their results (T4.4).
@@ -143,9 +140,6 @@ class TurnResult:
     # The tokens of each model and embedding call the turn made, in order, including the calls
     # made before an error (T5.1); empty when the guard stopped the question.
     usage: tuple[CallUsage, ...] = ()
-    # True when the answer model was called with a <profile> block (T3.5): False when the plan
-    # did not ask for it and when no answer call was made. Tool results are not counted here.
-    profile_sent: bool = False
     # A fixed message's key in src/i18n.py and its numbers, so the UI shows it in the language
     # chosen now (T7.1); set for every kind but "answer" (tests/conftest.py checks it), None for
     # the model's answer. `text` stays English, for the summary PDF.
@@ -225,9 +219,9 @@ def answer_system_prompt(prompt: str, language_part: str) -> str:
     return f"{prompt}\n\n{language_part}"
 
 
-def search_queries(question: str, plan: QueryPlan | None) -> tuple[str, ...]:
-    """Return the plan's rewrites that differ from the question and from each other."""
-    seen = {question.casefold()}
+def search_queries(query: str, plan: QueryPlan | None) -> tuple[str, ...]:
+    """Return the plan's rewrites that differ from the query and from each other."""
+    seen = {query.casefold()}
     rewrites = []
     for rewrite in plan.queries if plan is not None else ():
         if rewrite.casefold() not in seen:
@@ -237,35 +231,34 @@ def search_queries(question: str, plan: QueryPlan | None) -> tuple[str, ...]:
 
 
 def find_chunks(
-    question: str,
+    query: str,
     plan: QueryPlan | None,
     index: Chroma,
     *,
     keyword_index: Callable[[Chroma], KeywordIndex] = hybrid.build_keyword_index,
     recorder: UsageRecorder | None = None,
 ) -> tuple[list[RetrievedChunk], SearchDetails]:
-    """Search the question and its rewrites by meaning and by keyword, merged with RRF (T3.3)."""
-    rewrites = search_queries(question, plan)
-    queries = (question, *rewrites)
+    """Search the query and its rewrites by meaning and by keyword, merged with RRF (T3.3)."""
+    rewrites = search_queries(query, plan)
+    queries = (query, *rewrites)
     where = query_translation.build_filter(plan)
     # One embedding call for all the queries; the vectors serve the retry too.
     vectors = embed_queries(index, queries, recorder=recorder)
     chunks = hybrid.hybrid_search(index, queries, vectors, where, keyword_index)
-    # Empty only when the question itself has no chunk within the distance limit (T3.8), even if a
+    # Empty only when the query itself has no chunk within the distance limit (T3.8), even if a
     # rewrite has one; a filter that keeps fewer but relevant chunks stays.
     filter_dropped = not chunks and where is not None
     if filter_dropped:
         chunks = hybrid.hybrid_search(index, queries, vectors, None, keyword_index)
     details = SearchDetails(
-        question=question,
+        query=query,
         rewrites=rewrites,
         topics=plan.topics if plan is not None else (),
         min_year=plan.min_year if plan is not None else None,
         evidence_tier=plan.evidence_tier if plan is not None else None,
         fell_back=plan is None,
         filter_dropped=filter_dropped,
-        needs_tool=plan.needs_tool if plan is not None else None,
-        needs_profile=plan.needs_profile if plan is not None else None,
+        labels=tuple(range(1, len(chunks) + 1)),
     )
     return chunks, details
 
@@ -295,12 +288,14 @@ def markdown_url(url: str) -> str:
     return urllib.parse.quote(url, safe=":/%#?=&")
 
 
-def format_sources(chunks: Sequence[RetrievedChunk]) -> str:
+def format_sources(chunks: Sequence[RetrievedChunk], labels: Sequence[int] | None = None) -> str:
     """Return the chunks as labelled blocks: [S#], title, year and tier, then the text, escaped."""
+    # labels: each chunk's [S#] number (unique across a turn's searches, T9.3); 1, 2, ... if None.
     if not chunks:
         return config.NO_SOURCES_BLOCK
+    numbers = range(1, len(chunks) + 1) if labels is None else labels
     blocks = []
-    for number, chunk in enumerate(chunks, start=1):
+    for number, chunk in zip(numbers, chunks, strict=True):
         meta = chunk.metadata
         tier = config.EVIDENCE_TIER_LABELS.get(meta["evidence_tier"], config.UNKNOWN_TIER_LABEL)
         title, year, tier, text = (
@@ -310,42 +305,18 @@ def format_sources(chunks: Sequence[RetrievedChunk]) -> str:
     return "\n\n".join(blocks)
 
 
-def format_profile(user: profile.UserProfile | None) -> str:
-    """Return the profile as lines of fixed labels and checked values, or say there is none."""
-    # Only validated numbers and fixed labels: nothing here is text the user typed.
-    if user is None:
-        # The exact line the owner's prompt names for a missing profile.
-        return "Not given"
-    return "\n".join(
-        [
-            f"Weight: {units.format_weight(user.weight_kg, 'metric')}",
-            f"Height: {units.format_height(user.height_cm, 'metric')}",
-            f"Age: {user.age} years",
-            f"Sex: {profile.SEX_LABELS[user.sex]}",
-            f"Activity: {profile.ACTIVITY_LABELS[user.activity]}",
-            f"Goal: {profile.GOAL_LABELS[user.goal]}",
-        ]
-    )
+def sources_block(chunks: Sequence[RetrievedChunk], labels: Sequence[int] | None = None) -> str:
+    """Return the chunks inside the delimited <sources> block a search's tool message holds."""
+    return f"<sources>\n{format_sources(chunks, labels)}\n</sources>"
 
 
-def build_messages(
-    question: str,
-    chunks: Sequence[RetrievedChunk],
-    system_prompt: str,
-    user: profile.UserProfile | None = None,
-    *,
-    include_profile: bool = False,
-) -> list[BaseMessage]:
-    """Return the system prompt and a user message: <sources>, <profile> if asked, <user_input>."""
+def build_messages(question: str, system_prompt: str) -> list[BaseMessage]:
+    """Return the system prompt and a user message holding only <user_input>."""
     # Plain string content, never a prompt template: braces in the question stay as typed. The
-    # profile holds only fixed labels and checked numbers; it is escaped like the rest anyway.
-    # The <profile> block is left out unless the caller asks for it (T3.5): the profile goes only
-    # to a call that needs it (security-privacy.md).
-    blocks = [f"<sources>\n{format_sources(chunks)}\n</sources>"]
-    if include_profile:
-        blocks.append(f"<profile>\n{escape_prompt_data(format_profile(user))}\n</profile>")
-    blocks.append(f"<user_input>\n{escape_prompt_data(question)}\n</user_input>")
-    return [SystemMessage(system_prompt), HumanMessage("\n\n".join(blocks))]
+    # chunks come only in a search's tool message (T9.3); the profile is never sent: the tools
+    # read it from the app (owner's choice in T9.3, 2026-10-29).
+    user = f"<user_input>\n{escape_prompt_data(question)}\n</user_input>"
+    return [SystemMessage(system_prompt), HumanMessage(user)]
 
 
 def cited_labels(answer: str, count: int) -> list[int]:
@@ -486,9 +457,10 @@ def answer_with_tools(
     """Let the model call tools for at most MAX_TOOL_ROUNDS rounds; return its answer and runs."""
     # The chat graph's own answer loop (its agent and ToolNode), run on the given messages; a
     # turn runs it inside the whole graph (src/agent/graph.py). tools_only: replies stay hidden
-    # until a tool has really run, and an answer of None means "not covered". The messages must
-    # come from a guarded turn: this loop has no guard of its own. on_tool_run gets a valid call's
-    # run from the ToolNode's worker thread and a refused bad-JSON call's from the caller's.
+    # until a tool gives a result (config.BASIS_TOOL_STATUSES), and an answer of None means "not
+    # covered", returned with no runs (a whole turn keeps them with "not covered"). The messages
+    # must come from a guarded turn: this loop has no guard of its own. on_tool_run gets a valid
+    # call's run from the ToolNode's worker thread and a refused bad-JSON call's from the caller's.
     from src.agent import graph  # The graph builds its nodes from this module's helpers.
 
     context = graph.TurnContext(
@@ -531,11 +503,11 @@ def _cost_text(
 class _TurnTrace:
     """What a turn did, collected as it happens, for its log lines (T8.2)."""
 
-    # The chunks the answer model got, the tool runs and whether a request carried <profile>. An
-    # error result has no tool runs and says profile_sent=False, so the log cannot read them there.
+    # The chunks the searches gave the model, in [S#] order, the tool runs and the searches run. An
+    # error result has no tool runs or searches, so the log cannot read them there.
     chunks: list[RetrievedChunk] = field(default_factory=list)
     tool_runs: list[ToolRun] = field(default_factory=list)
-    profile_sent: bool = False
+    searches: int = 0
 
 
 def _log_turn(
@@ -573,7 +545,7 @@ def _log_turn(
             "tokens": sum(call.tokens for call in result.usage),
             "cost_usd": _cost_text(result, prices),
             "duration_ms": round(seconds * 1000),
-            "profile_sent": trace.profile_sent,
+            "searches": trace.searches,
         },
     )
 
@@ -594,12 +566,13 @@ def run_turn(
     language: i18n.Language = "en",
     prices: Callable[[], Mapping[str, ModelPrice] | None] | None = None,
 ) -> TurnResult:
-    """Run one chat turn: guard, retrieval, answer; never raise for an error a user can cause."""
+    """Run one chat turn: guard, agent, tools; never raise for an error a user can cause."""
     # on_step(step) is called as each step starts; on_text(text) as the answer streams in. `user`
-    # is the session's profile, for the energy and meal plan tools and, when the query plan says
-    # needs_profile, the model's <profile> block.
+    # is the session's profile, for the energy and meal plan tools only: it never goes into the
+    # model's messages (T9.3).
     # keyword_index(index) gives the BM25 index of the opened index; the app passes a cached one.
-    # on_chunks(chunks) gets the chunks found, in [S#] order; only the evaluation run uses it, T6.1.
+    # on_chunks(chunks) gets each search's newly labelled chunks, in [S#] order, so all its calls
+    # together give the turn's chunks in label order; only the evaluation run uses it (T6.1, T9.3).
     # language is the app's EN | DE choice (T7.2), never taken from the text; an unknown one is a
     # bug in the caller, refused before any call.
     # prices() gives the model prices already known, never reading them (T8.2): only the turn's log
@@ -611,16 +584,15 @@ def run_turn(
     steps: list[Step] = []
     recorder = UsageRecorder()
     trace = _TurnTrace()
+    from src.agent import search  # The search tool builds on this module's helpers.
+
+    search_log = search.SearchLog()
 
     def keep_chunks(chunks: Sequence[RetrievedChunk]) -> None:
-        """Keep the chunks found for the log line, then pass them on to the caller's callback."""
+        """Keep a search's new chunks for the log line, then pass them to the caller's callback."""
         trace.chunks.extend(chunks)
         if on_chunks is not None:
             on_chunks(chunks)
-
-    def profile_sent() -> None:
-        """Note that an answer request carried the <profile> block."""
-        trace.profile_sent = True
 
     def step(name: Step) -> None:
         """Record a step and report it to the caller's progress indicator."""
@@ -647,11 +619,11 @@ def run_turn(
             keyword_index=keyword_index,
             language=language,
             on_chunks=keep_chunks,
-            on_profile_sent=profile_sent,
+            search_log=search_log,
             turn_id=turn_id,
         )
         state = graph.chat_graph().invoke(
-            {"text": text, "profile": user}, context=context, config=graph.run_config()
+            {"text": text}, context=context, config=graph.run_config()
         )
         return state["result"]
 
@@ -702,6 +674,7 @@ def run_turn(
         return replace(result, steps=tuple(steps), usage=tuple(recorder.calls))
 
     result = replace(outcome(), turn_id=turn_id)
+    trace.searches = len(search_log.searches)
     try:
         _log_turn(result, language, trace, time.monotonic() - started, prices)
     except Exception:

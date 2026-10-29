@@ -9,15 +9,17 @@ For the German questions (T7.2):
     python scripts/run_evaluation.py --language de data/eval_questions_de.json
 
 Each question goes through `chat.run_turn()`, the function the app calls: the input guard and the
-domain guardrails, query translation, hybrid search, the answer model with its tools. The models
+domain guardrails, then the agent with its tools, the knowledge base search among them (query
+translation and hybrid search; T9.3: the agent decides whether to search). The models
 are the app's own (`llm.build_chat_model()`). A question with a "profile" (q13) runs twice: with
 that fixed session profile, then with none. Other questions run with no profile, as a new visitor
 asks them. `--repeat N` runs every question N times (default 1). `--language` is the answer
 language the app's EN | DE control would set (default en, T7.2); the questions keep their own
 language either way.
 
-For each run the script prints how the turn ended, the plan's flags and filters, the sources found
-(in [S#] order; "*" marks a chunk found by keyword only), the sources the answer cites, whether
+For each run the script prints how the turn ended, the searches the agent ran with their filters,
+the sources found (in [S#] order over all its searches; "*" marks a chunk found by keyword only),
+the sources the answer cites, whether
 the expected sources were found and cited (or, with none expected, whether the answer cites
 nothing), the tools called and the tokens and cost. Then the run's totals. It writes a full
 report, with each answer, its tool results and the text of every chunk found, to a gitignored
@@ -114,7 +116,8 @@ def evaluate(
             language=language,
             prices=lambda: prices,
         )
-        chunks = tuple(seen[0]) if seen else ()
+        # Each search reports its newly labelled chunks, so together they are in [S#] order.
+        chunks = tuple(chunk for found in seen for chunk in found)
         done.append(
             EvalRun(
                 label,
@@ -189,11 +192,6 @@ def expectation_line(run: EvalRun) -> str:
     return f"expected {_ids(met.expected)}: found {_ids(met.found)}, cited {_ids(met.cited)}"
 
 
-def _flag(value: bool | None) -> str:
-    """Return a plan flag as 'yes', 'no' or 'no plan'."""
-    return "no plan" if value is None else ("yes" if value else "no")
-
-
 def _filters(search: chat.SearchDetails) -> str:
     """Return the plan's filters in a few words, saying when they were dropped."""
     parts = []
@@ -204,7 +202,16 @@ def _filters(search: chat.SearchDetails) -> str:
     if search.evidence_tier is not None:
         parts.append(f"tier {search.evidence_tier}")
     text = "; ".join(parts) or "none"
-    return text + (" (dropped: nothing passed them)" if search.filter_dropped else "")
+    text += " (dropped: nothing passed them)" if search.filter_dropped else ""
+    return text + (" (no usable rewrite: the query alone)" if search.fell_back else "")
+
+
+def _searches(searches: Sequence[chat.SearchDetails]) -> str:
+    """Return each search's passages found and filters in a few words, or 'none'."""
+    return (
+        "; ".join(f"{len(search.labels)} found, filters: {_filters(search)}" for search in searches)
+        or "none"
+    )
 
 
 def _tools(result: chat.TurnResult) -> str:
@@ -224,13 +231,8 @@ def summary_lines(runs: Sequence[EvalRun]) -> list[str]:
         if result.kind != "answer":
             head += f" - {result.text}"
         lines.append(f"{head} · {usage.format_turn(run.cost)}")
-        if result.search is not None:
-            search = result.search
-            lines.append(
-                f"  plan: needs_tool {_flag(search.needs_tool)}, "
-                f"needs_profile {_flag(search.needs_profile)}; filters: {_filters(search)}; "
-                f"profile sent: {'yes' if result.profile_sent else 'no'}"
-            )
+        if result.searches is not None:
+            lines.append(f"  searches: {_searches(result.searches)}")
             lines.append(f"  found: {_found(run.chunks)}")
             lines.append(f"  cited: {_cited(result)}")
             lines.append(f"  tools: {_tools(result)}")
@@ -302,19 +304,25 @@ def report_text(runs: Sequence[EvalRun], started: datetime, language: i18n.Langu
             f"**Question:** {run.item.question}",
             f"**Good answer:** {run.item.good_answer}",
             f"**Session profile:** {'the fixed profile' if run.with_profile else 'none'}",
-            f"**Turn:** {result.kind} · {usage.format_turn(run.cost)} · "
-            f"profile block sent: {'yes' if result.profile_sent else 'no'}",
+            f"**Turn:** {result.kind} · {usage.format_turn(run.cost)}",
         ]
-        if result.search is not None:
-            search = result.search
-            # Model output on one line each, so a newline or a heading in a rewrite stays text.
-            rewrites = "; ".join(" ".join(rewrite.split()) for rewrite in search.rewrites) or "none"
-            parts += [
-                f"**Rewrites:** {rewrites}",
-                f"**Plan:** needs_tool {_flag(search.needs_tool)}, needs_profile "
-                f"{_flag(search.needs_profile)}; filters: {_filters(search)}",
-                f"**Cited:** {_cited(result)} · {expectation_line(run)}",
-            ]
+        if result.searches is not None:
+            if not result.searches:
+                parts.append("**Searches:** none")
+            for number, search in enumerate(result.searches, start=1):
+                # Model output on one line each and escaped, so a newline, a heading, a link or an
+                # image in it stays text when the report is previewed.
+                query = chat.escape_markdown(" ".join(search.query.split()))
+                rewrites = (
+                    "; ".join(chat.escape_markdown(" ".join(r.split())) for r in search.rewrites)
+                    or "none"
+                )
+                labels = ", ".join(f"S{label}" for label in search.labels) or "nothing"
+                parts += [
+                    f"**Search {number}:** {query} · rewrites: {rewrites} · filters: "
+                    f"{_filters(search)} · found: {labels}"
+                ]
+            parts.append(f"**Cited:** {_cited(result)} · {expectation_line(run)}")
         parts += ["### Answer", _fence(result.text)]
         if result.tool_runs:
             parts.append("### Tool results")

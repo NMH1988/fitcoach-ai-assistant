@@ -265,10 +265,11 @@ QUERY_REWRITE_MAX_CHARS = 300
 # The years a min_year filter may name; the oldest approved source is from 2014. A year with no
 # source after it finds nothing, so the search runs again without filters.
 QUERY_MIN_YEAR_RANGE = (2000, 2100)
-# Shown instead of an answer when no chunk is relevant and the model used no tool (AC-2). Since T4.4
-# the model is still called with the tools when the query plan says a tool could answer
-# (`needs_tool`, T3.5), as a food lookup or an energy question may match no research passage; its
-# own text is never shown on this path (owner's choice, 2026-10-20). Otherwise no model is called.
+# Shown instead of an answer when the model's answer would rest on nothing (AC-2): since T9.3 the
+# agent decides whether to search, and its replies stay hidden until a search finds a relevant chunk
+# or a tool gives a result (BASIS_TOOL_STATUSES). A reply before that with no tool call, or a search
+# that finds nothing with no tool result, ends the turn with this message and no further model call
+# (owner's choice, 2026-10-29).
 NO_SOURCES_MESSAGE = (
     "Our sources do not cover this question, so there is no answer from the research. Try a "
     "question about protein, carbohydrate, fat, energy balance, nutrient timing or supplements "
@@ -276,6 +277,22 @@ NO_SOURCES_MESSAGE = (
 )
 # What <sources> holds for the model when no chunk is relevant.
 NO_SOURCES_BLOCK = "None: no research excerpt is close enough to this question."
+# The agent's knowledge base search (T9.3, D10): the most searches one turn runs (each costs a
+# query translation call and an embedding call, and adds up to RETRIEVAL_TOP_K chunks to every later
+# model call), and the longest query the model may write (the question's own limit is the guard's).
+MAX_SEARCHES_PER_TURN = 2
+# The tool results an answer may rest on (T9.3): a calculation, a food found or not found, and
+# "profile needed", whose answer points to the "Add your details" button (owner's choice of
+# 2026-10-29, after the security review of PR #46). A refused call ("invalid") or a tool that
+# failed ("error") is no basis, so a reply after it stays hidden.
+BASIS_TOOL_STATUSES = frozenset({"ok", "found", "not_found", "profile_needed"})
+SEARCH_QUERY_MAX_CHARS = 500
+INVALID_SEARCH_QUERY_MESSAGE = (
+    f"Invalid call: the query must be one text of 1 to {SEARCH_QUERY_MAX_CHARS} characters."
+)
+TOO_MANY_SEARCHES_MESSAGE = (
+    f"Not run: at most {MAX_SEARCHES_PER_TURN} knowledge base searches are run for one question."
+)
 API_KEY_NAME = "OPENROUTER_API_KEY"
 
 # Shown in the answer when the key is not set up (AC-13).
