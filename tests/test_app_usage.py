@@ -8,7 +8,7 @@ from langchain_core.messages import AIMessage
 from src import chat, config, llm, usage
 from src.rag import store
 from src.usage import ModelPrice, PriceCache, PriceError
-from tests.fakes import ScriptedChatModel, ScriptedTranslator, _open_index
+from tests.fakes import FailsAfterFirstCall, ScriptedChatModel, ScriptedTranslator, _open_index
 from tests.test_app_chat import (
     QUESTION,
     _ask,
@@ -89,7 +89,7 @@ def test_without_prices_the_cost_says_price_unknown(monkeypatch):
 def test_the_cost_stays_with_each_answer_in_the_history(monkeypatch, prices):
     """Every past answer keeps its own line after later turns and reruns."""
     _use(monkeypatch, ANSWER, ANSWER)
-    at = _ask(_ask(_start(), QUESTION), "And per day?")
+    at = _ask(_ask(_start(), QUESTION), "And protein per day?")
     at.run(timeout=30)
     for turn in (0, 1):
         assert _usage_captions(_assistant(at, turn)) == [f":material/data_usage: {TURN_LINE}"]
@@ -117,7 +117,7 @@ def test_a_failed_price_read_is_tried_again_on_the_next_turn(monkeypatch):
 
     monkeypatch.setattr(usage, "PRICES", PriceCache(fetch))
     _use(monkeypatch, ANSWER, ANSWER)
-    at = _ask(_ask(_start(), QUESTION), "And per day?")
+    at = _ask(_ask(_start(), QUESTION), "And protein per day?")
     assert _usage_captions(_assistant(at, 0))[0].endswith("price unknown")
     assert _usage_captions(_assistant(at, 1)) == [f":material/data_usage: {TURN_LINE}"]
 
@@ -132,7 +132,8 @@ def test_a_rejected_question_shows_no_usage_and_reads_no_prices(monkeypatch, pri
 
 def test_a_failed_turn_shows_what_it_spent(monkeypatch, prices):
     """A turn that fails after the rewrite still shows the rewrite's tokens and cost."""
-    model = ScriptedChatModel(error=llm.RateLimitedError(429))
+    # The model searches, then its answer call fails.
+    model = FailsAfterFirstCall()
     _use_model(monkeypatch, model, ScriptedTranslator(usage=REWRITE_USAGE))
     at = _ask(_start(), QUESTION)
     assert _assistant(at).error
@@ -148,7 +149,7 @@ def test_the_sidebar_card_shows_the_answer_and_the_session_totals(monkeypatch, p
         f":material/data_usage: This answer: {TURN_LINE}",
         f":material/data_usage: Session: {TURN_LINE}",
     ]
-    at = _ask(at, "And per day?")
+    at = _ask(at, "And protein per day?")
     assert _usage_captions(_card(at)) == [
         f":material/data_usage: This answer: {TURN_LINE}",
         r":material/data_usage: Session: 7,400 tokens · \$0.0148",
@@ -168,7 +169,7 @@ def test_the_session_total_says_when_some_prices_were_unknown(monkeypatch):
 
     monkeypatch.setattr(usage, "PRICES", PriceCache(fetch))
     _use(monkeypatch, ANSWER, ANSWER)
-    at = _ask(_ask(_start(), QUESTION), "And per day?")
+    at = _ask(_ask(_start(), QUESTION), "And protein per day?")
     assert _usage_captions(_card(at))[-1] == (
         r":material/data_usage: Session: 7,400 tokens · \$0.0074 + price unknown"
     )
@@ -197,7 +198,8 @@ def test_details_lists_each_call_with_its_tokens_and_cost(monkeypatch, prices, i
     assert frame.values.tolist() == [
         [config.USAGE_STEP_REWRITE, config.QUERY_TRANSLATION_MODEL, 900, 0, 300, 0, "$0.0004"],
         [config.USAGE_STEP_SEARCH, config.EMBEDDING_MODEL, 24, 0, 0, 0, "<$0.0001"],
-        ["Answer, round 1", config.DEFAULT_ANSWER_MODEL, 2000, 0, 500, 200, "$0.0070"],
+        # Round 1 is the search call, which the fake reports no tokens for.
+        ["Answer, round 2", config.DEFAULT_ANSWER_MODEL, 2000, 0, 500, 200, "$0.0070"],
     ]
     markdown = [m.value for m in tab.markdown]
     assert r"**This answer:** 3,724 tokens · \$0.0074" in markdown

@@ -15,7 +15,7 @@ import pydantic
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, HumanMessage
 from langchain_core.messages.ai import UsageMetadata
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langchain_core.runnables import RunnableLambda
@@ -59,9 +59,41 @@ class KeywordEmbeddings(Embeddings):
         return self._vector(text)
 
 
+SEARCH_TOOL = "search_knowledge_base"
+
+
+def search_reply(query: str, call_id: str = "search-0") -> AIMessage:
+    """Return a scripted model reply that calls the knowledge base search with this query."""
+    return AIMessage(
+        "",
+        tool_calls=[{"name": SEARCH_TOOL, "args": {"query": query}, "id": call_id}],
+        response_metadata={"finish_reason": "tool_calls"},
+    )
+
+
+def _searched(messages: list[BaseMessage]) -> bool:
+    """Return True when a reply in the messages already called the knowledge base search."""
+    return any(
+        call["name"] == SEARCH_TOOL
+        for message in messages
+        if isinstance(message, AIMessage)
+        for call in message.tool_calls
+    )
+
+
+def _question(messages: list[BaseMessage]) -> str:
+    """Return the question inside <user_input> of the request's user message."""
+    users = [message for message in messages if isinstance(message, HumanMessage)]
+    return question_in(users[-1:]) if users else ""
+
+
 class ScriptedChatModel(BaseChatModel):
     """A chat model that returns scripted replies (or raises) and records every request."""
 
+    # search_first: when the search tool is offered and the request has no search yet, the model
+    # first searches the user's question (search_reply()) without taking a scripted reply, as a
+    # research question's turn does since T9.3; tests of turns with no search turn it off.
+    search_first: bool = True
     replies: list[AIMessage] = Field(default_factory=list)
     error: Exception | None = None
     # When set with error, streaming raises the error after this many chunks.
@@ -81,13 +113,25 @@ class ScriptedChatModel(BaseChatModel):
         schemas = [convert_to_openai_tool(tool) for tool in tools]
         return self.bind(tools=schemas, tool_choice=tool_choice, **kwargs)
 
+    def _next_reply(self, messages: list[BaseMessage], kwargs: dict[str, Any]) -> AIMessage:
+        """Return a search of the question when search_first applies, else the next reply."""
+        offered = {tool["function"]["name"] for tool in kwargs.get("tools") or ()}
+        if (
+            self.search_first
+            and SEARCH_TOOL in offered
+            and kwargs.get("tool_choice") != "none"
+            and not _searched(messages)
+        ):
+            return search_reply(_question(messages))
+        return self.replies.pop(0)
+
     def _generate(self, messages: list[BaseMessage], stop: Any = None, **kwargs: Any) -> ChatResult:
         """Record the messages, then raise the scripted error or return the next reply."""
         self.calls.append(list(messages))
         self.call_kwargs.append(dict(kwargs))
         if self.error is not None:
             raise self.error
-        return ChatResult(generations=[ChatGeneration(message=self.replies.pop(0))])
+        return ChatResult(generations=[ChatGeneration(message=self._next_reply(messages, kwargs))])
 
     def _stream(
         self, messages: list[BaseMessage], stop: Any = None, run_manager: Any = None, **kwargs: Any
@@ -99,7 +143,7 @@ class ScriptedChatModel(BaseChatModel):
             raise ValueError("fail_after_chunks needs an error to raise.")
         if self.error is not None and self.fail_after_chunks is None:
             raise self.error
-        reply = self.replies.pop(0)
+        reply = self._next_reply(messages, kwargs)
         chunks = [AIMessageChunk(piece) for piece in re.findall(r"\S+\s*|\s+", reply.text)]
         # Tool calls stream as argument strings; invalid ones carry their raw, broken text.
         calls = [(c["name"], json.dumps(c["args"]), c["id"]) for c in reply.tool_calls]
@@ -119,6 +163,19 @@ class ScriptedChatModel(BaseChatModel):
             yield ChatGenerationChunk(
                 message=AIMessageChunk("", usage_metadata=reply.usage_metadata)
             )
+
+
+class FailsAfterFirstCall(ScriptedChatModel):
+    """A scripted model whose second and later calls raise the error, as a 429 mid-turn would."""
+
+    later_error: Exception = llm.RateLimitedError(429, diagnostic="RateLimitError in x")
+
+    def _stream(self, messages, stop=None, run_manager=None, **kwargs):
+        """Give the first reply (a search, by search_first), then raise on every later call."""
+        if self.calls:
+            self.calls.append(list(messages))
+            raise self.later_error
+        yield from super()._stream(messages, stop, run_manager, **kwargs)
 
 
 def plan_json(

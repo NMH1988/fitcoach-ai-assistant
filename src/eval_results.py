@@ -6,6 +6,7 @@ committed; this file holds only IDs, labels, counts and the run's details, so th
 one run as the baseline (data/eval_baseline.json).
 """
 
+import hashlib
 import json
 import subprocess
 from collections.abc import Callable, Mapping, Sequence
@@ -62,9 +63,14 @@ class RunRecord:
 class GitState:
     """The code an evaluation ran on: its commit and whether tracked files differ from it."""
 
-    # Both None when git could not say (no git, not a repository).
+    # All None when git could not say (no git, not a repository).
     commit: str | None
     dirty: bool | None
+    # A hash of the tracked files' changes against the commit (`git diff HEAD`), so an edit to a
+    # file that was already changed is seen too (T9.21); None when the diff could not be read.
+    # Kept in memory only, never written. Read as text, so a second edit to a binary or
+    # non-UTF-8 tracked file may give the same hash (no such file changes what a run measures).
+    changes: str | None = None
 
 
 def cost_text(cost: Decimal | None) -> str | None:
@@ -84,7 +90,35 @@ def git_state(
     commit = head.strip()
     if len(commit) != 40 or any(char not in "0123456789abcdef" for char in commit):
         return GitState(None, None)
-    return GitState(commit, bool(status.strip()))
+    # A failed diff loses only the change check, not the commit read before it.
+    try:
+        diff = _git(run, folder, "diff", "HEAD", "--no-ext-diff", "--no-textconv", "--no-color")
+    except OSError, subprocess.SubprocessError:
+        return GitState(commit, bool(status.strip()))
+    changes = hashlib.sha256(diff.encode("utf-8")).hexdigest()
+    return GitState(commit, bool(status.strip()), changes)
+
+
+def changed_during_run(start: GitState, end: GitState) -> bool | None:
+    """Return whether HEAD or the tracked files' changes differ between reads; None if unknown."""
+    if None in (start.commit, start.changes, end.commit, end.changes):
+        return None
+    return (start.commit, start.changes) != (end.commit, end.changes)
+
+
+def change_note(start: GitState, end: GitState) -> str | None:
+    """Return the line that says the code changed during the run, or None when it did not."""
+    if not changed_during_run(start, end):
+        return None
+    before, after = (start.commit or "")[:7], (end.commit or "")[:7]
+    if before != after:
+        what = f"HEAD moved from {before} to {after}"
+    else:
+        what = f"tracked files changed on {before}"
+    return (
+        f"Note: the code changed during the run ({what}). The results file records the commit "
+        "at the start; rerun to measure one version of the code."
+    )
 
 
 def _git(run: Callable[..., subprocess.CompletedProcess[str]], folder: Path, *args: str) -> str:
@@ -94,6 +128,8 @@ def _git(run: Callable[..., subprocess.CompletedProcess[str]], folder: Path, *ar
         capture_output=True,
         text=True,
         encoding="utf-8",
+        # A file with other bytes in the diff must not stop the run; the hash only has to change.
+        errors="replace",
         timeout=config.EVAL_GIT_TIMEOUT_SECONDS,
         check=False,
     )
@@ -147,6 +183,7 @@ def results_document(
     records: Sequence[RunRecord],
     *,
     git: GitState,
+    git_at_end: GitState,
     models: Mapping[str, str],
     language: str,
     repeat: int,
@@ -154,10 +191,16 @@ def results_document(
     questions_file: str,
 ) -> dict:
     """Return the whole results file: the run's details, then every run's record."""
+    # `commit` and `dirty` are read when the run starts, as the modules are loaded then; the
+    # `_at_end` fields are read when the file is written (T9.21). Fields were only added, so
+    # EVAL_RESULTS_SCHEMA_VERSION stays 1 and an older file (the baseline) still compares.
     return {
         "schema_version": config.EVAL_RESULTS_SCHEMA_VERSION,
         "commit": git.commit,
         "dirty": git.dirty,
+        "commit_at_end": git_at_end.commit,
+        "dirty_at_end": git_at_end.dirty,
+        "changed_during_run": changed_during_run(git, git_at_end),
         "models": dict(models),
         "language": language,
         "repeat": repeat,
@@ -249,10 +292,11 @@ def _scored_errors(document: Mapping) -> int:
 
 
 def _code(document: Mapping) -> str:
-    """Return a results file's commit in short form, and say when its files had changed."""
+    """Return a results file's commit in short form, and say when its code had changed."""
     commit = document.get("commit")
     text = f"commit {commit[:7]}" if isinstance(commit, str) and commit else "commit unknown"
-    return text + (" (files changed since)" if document.get("dirty") else "")
+    text += " (files changed since)" if document.get("dirty") else ""
+    return text + (" (code changed during the run)" if document.get("changed_during_run") else "")
 
 
 def compare(results: Mapping, baseline: Mapping, tolerance: float) -> Comparison:
