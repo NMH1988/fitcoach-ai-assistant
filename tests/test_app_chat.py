@@ -483,7 +483,7 @@ def test_details_says_when_the_filters_were_dropped(monkeypatch):
     assert _badges(tab) == [":blue-badge[:material/sell: Fat]"]
     assert _search_notes(tab) == [
         ":material/filter_alt_off: No passage close enough matched all these filters, so they "
-        "were relaxed (a training or nutrition topic is kept)."
+        "were relaxed (a training or nutrition topic, if named, is kept)."
     ]
     assert _assistant(at).expander[0].label == "Sources (1)"
 

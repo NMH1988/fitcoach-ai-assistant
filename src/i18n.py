@@ -335,7 +335,7 @@ _EN: dict[str, str] = {
     ),
     "search.filter_dropped": (
         "No passage close enough matched all these filters, so they were relaxed (a training or "
-        "nutrition topic is kept)."
+        "nutrition topic, if named, is kept)."
     ),
     "card.last_answer": "Last answer",
     "card.for": "For: {question}",
@@ -790,7 +790,7 @@ _DE: dict[str, str] = {
     ),
     "search.filter_dropped": (
         "Keine Textstelle passte nah genug zu allen diesen Filtern, daher wurden sie gelockert "
-        "(ein Trainings- oder Ernährungsthema bleibt)."
+        "(ein genanntes Trainings- oder Ernährungsthema bleibt)."
     ),
     "card.last_answer": "Letzte Antwort",
     "card.for": "Zu: {question}",
