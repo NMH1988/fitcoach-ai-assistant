@@ -735,6 +735,30 @@ def test_a_too_strict_year_on_a_training_question_falls_back_to_training_chunks(
     assert [card.source_id for card in result.sources] == ["24"]
 
 
+def test_the_fallback_of_a_training_only_plan_drops_the_nutrition_chunks_it_finds(training_index):
+    """Without the filters both kinds are found; only the training chunk reaches the model."""
+    rewrites = [f"{MIXED_QUESTION} rewrite {n}" for n in (1, 2, 3)]
+    plan = plan_json(
+        rewrites, ["resistance_training"], min_year=2025, needs_tool=False, needs_profile=False
+    )
+    # The precondition: the search without the filters finds protein chunks (by meaning) and the
+    # training chunk (by keyword, "sets per week"), so the cut has something to drop.
+    found, details = chat.find_chunks(
+        MIXED_QUESTION, QueryPlan.model_validate_json(plan), training_index
+    )
+    assert details.filter_dropped is True
+    assert {c.metadata["source_id"] for c in found} >= {"1", "24"}
+    model = _model("Ten or more sets per muscle per week, in trained adults [S1].")
+    result = _turn(
+        MIXED_QUESTION, training_index, model, translator=ScriptedTranslator(plans=[plan])
+    )
+    [[_, user]] = model.calls
+    sources = user.content.split("<sources>", 1)[1].split("</sources>", 1)[0]
+    assert TRAINING_CHUNK.page_content in sources
+    assert "Protein" not in sources
+    assert [card.source_id for card in result.sources] == ["24"]
+
+
 @pytest.mark.parametrize("topics", [["fat"], ["resistance_training", "fat"]])
 def test_a_plan_with_a_nutrition_topic_still_falls_back_without_the_filter(index, topics):
     """Only a training-only plan ends there: with a nutrition topic the unfiltered chunks answer."""
