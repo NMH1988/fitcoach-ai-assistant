@@ -18,12 +18,13 @@ Your profile is kept in the app's memory for this session only and sent to the m
 
 ## How it works
 
-One chat turn runs a fixed pipeline (details in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), section 2):
+One chat turn runs as a LangGraph agent whose tools include the knowledge base search, so the agent decides whether to search (agentic RAG, T9.3; details in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), section 2):
 
 1. **Input guard** (`src/guard.py`, `src/guardrails.py`): cleans the text and rejects empty, too long or prompt-injection input and high-risk requests before any API call.
-2. **Query translation** (`src/rag/query_translation.py`): a small model rewrites the question three ways in English and picks optional filters (topic, year, evidence tier) from a fixed schema.
-3. **Hybrid retrieval** (`src/rag/`): vector search in a local Chroma index plus BM25 keyword search, for the question and each rewrite, merged with Reciprocal Rank Fusion; a distance limit decides whether the sources cover the question at all.
-4. **Answer with tools** (`src/chat.py`, `src/tools/`): the chat model gets the system prompt (`src/prompts/answer_system.md`), the retrieved passages as delimited data and, when needed, the profile; it may call the four tools (at most 4 rounds) and then writes the answer with `[S#]` citations.
+2. **The agent decides** (`src/agent/`): the chat model gets the question alone and calls the search, one of the four tools, or both; a food or calculator question searches nothing. A reply with nothing to rest on (no passage found, no tool run) is not shown: the app says the sources do not cover the question.
+3. **Search: query translation** (`src/rag/query_translation.py`): a small model rewrites the search query three ways in English and picks optional filters (topic, year, evidence tier) from a fixed schema.
+4. **Search: hybrid retrieval** (`src/rag/`): vector search in a local Chroma index plus BM25 keyword search, for the query and each rewrite, merged with Reciprocal Rank Fusion; a distance limit decides whether the sources cover the query at all. The passages come back to the agent as delimited data.
+5. **Answer with tools** (`src/chat.py`, `src/tools/`): with the system prompt (`src/prompts/answer_system.md`), the passages found and the tool results (the tools read the profile from the app; at most 4 rounds and 2 searches), the model writes the answer with `[S#]` citations.
 
 The knowledge base is 20 open-access sports nutrition articles (ISSN position stands and peer-reviewed reviews, all CC BY) and one correction notice, split into chunks with their licence and citation data. Food values come from USDA FoodData Central Foundation Foods (CC0). Models run through OpenRouter: `openai/gpt-5-mini` for answers, `openai/gpt-5-nano` for query translation, `qwen/qwen3-embedding-8b` for embeddings.
 

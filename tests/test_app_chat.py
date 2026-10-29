@@ -10,11 +10,13 @@ from streamlit.testing.v1 import AppTest
 from src import chat, config, guard, guardrails, i18n, llm
 from src.rag import hybrid, store
 from tests.fakes import (
+    SEARCH_TOOL,
     ScriptedChatModel,
     ScriptedTranslator,
     build_fixture_index,
     open_fixture_index,
     plan_json,
+    tool_reply,
 )
 from tests.test_ingest import make_source
 
@@ -69,10 +71,9 @@ def _use_model(
 
 
 def _off_topic_plan() -> ScriptedTranslator:
-    """Return a translator whose plan says no tool could answer and no profile is needed."""
+    """Return a translator whose rewrites of an off-topic query find nothing either."""
     rewrites = ["offside rule football", "football offside law", "offside position"]
-    plan = plan_json(rewrites, needs_tool=False, needs_profile=False)
-    return ScriptedTranslator(plans=[plan])
+    return ScriptedTranslator(plans=[plan_json(rewrites)])
 
 
 def _answers(*texts: str) -> ScriptedChatModel:
@@ -206,25 +207,26 @@ def test_no_relevant_source_shows_the_fixed_message_and_no_sources(monkeypatch):
     message = _assistant(at)
     assert message.markdown[0].value == config.NO_SOURCES_MESSAGE
     assert not message.expander
-    # The plan says no tool could answer, so the answer model is never called (T3.5).
-    assert model.calls == []
+    # Only the call that searched: nothing was found, so no answer call (AC-2, T9.3).
+    assert len(model.calls) == 1
     statuses = [(s.label, s.state) for s in message.status]
     assert statuses == [
         ("No matching research found", "complete"),
         (chat.Step.CHECK.value, "complete"),
-        (chat.Step.REWRITE.value, "complete"),
+        (chat.Step.PLAN.value, "complete"),
         (chat.Step.SEARCH.value, "complete"),
     ]
     assert not [m for m in at.markdown if "Offside" in m.value]
 
 
-def test_with_no_source_a_tool_answerable_question_calls_the_model_unseen(monkeypatch):
-    """No source but needs_tool: one call with the tools; with no tool used, its text is unseen."""
-    model = _use_model(monkeypatch, _answers("Offside is a football rule."))
+def test_a_reply_with_no_search_and_no_tool_is_never_shown(monkeypatch):
+    """The model answers at once with nothing to rest on: its text is unseen (AC-2, T9.3)."""
+    model = _answers("Offside is a football rule.")
+    model.search_first = False
+    _use_model(monkeypatch, model)
     at = _ask(_start(), OFF_TOPIC)
     message = _assistant(at)
     assert message.markdown[0].value == config.NO_SOURCES_MESSAGE
-    # The default fake plan says needs_tool (T4.4's path); the model calls no tool.
     assert len(model.calls) == 1
     assert not [m for m in at.markdown if "Offside" in m.value]
 
@@ -248,7 +250,7 @@ def test_the_status_shows_each_step_of_the_turn(monkeypatch):
     assert statuses == [
         ("Answered from the research", "complete"),
         (chat.Step.CHECK.value, "complete"),
-        (chat.Step.REWRITE.value, "complete"),
+        (chat.Step.PLAN.value, "complete"),
         (chat.Step.SEARCH.value, "complete"),
         (chat.Step.ANSWER.value, "complete"),
     ]
@@ -416,15 +418,6 @@ def test_a_rejected_question_shows_the_guard_message(monkeypatch):
 REWRITES = ["protein per meal for muscle", "protein dose in one sitting", "meal protein amount"]
 
 
-# The routing badges of an answered turn with the fakes' default plan, which sets needs_tool and
-# needs_profile, so the answer model got the profile block (T3.5).
-TOOL_MAY_HELP = ":blue-badge[:material/build: A tool may help]"
-NO_TOOL = ":gray-badge[:material/build: No tool expected]"
-BLOCK_SENT = ":blue-badge[:material/person: Profile block sent]"
-BLOCK_NOT_SENT = ":gray-badge[:material/person_off: Profile block not sent]"
-ROUTED = [TOOL_MAY_HELP, BLOCK_SENT]
-
-
 def _details_tab(at: AppTest):
     """Return the Details tab."""
     [tab] = [t for t in at.tabs if "Details" in t.label]
@@ -453,13 +446,14 @@ def _card(at: AppTest):
 
 
 def test_details_shows_the_rewrites_and_the_filters(monkeypatch):
-    """The Details tab lists the question and its 3 rewrites and shows each filter as a badge."""
+    """The Details tab lists the model's query and its 3 rewrites, each filter, what was found."""
     plan = plan_json(REWRITES, ["protein", "nutrient_timing"], 2021, 1)
     _use_model(monkeypatch, _answers("Four meals [S1]."), ScriptedTranslator(plans=[plan]))
     tab = _details_tab(_ask(_start(), QUESTION))
     markdown = [m.value for m in tab.markdown]
+    assert "**Search 1** · Searched for" in markdown
     assert (
-        "1. How much protein per meal? *(your question)*\n"
+        "1. How much protein per meal? *(the model's query)*\n"
         "2. protein per meal for muscle\n"
         "3. protein dose in one sitting\n"
         "4. meal protein amount"
@@ -469,7 +463,6 @@ def test_details_shows_the_rewrites_and_the_filters(monkeypatch):
         ":blue-badge[:material/sell: Nutrient timing]",
         ":blue-badge[:material/calendar_month: From 2021]",
         ":blue-badge[:material/verified: ISSN position stands only]",
-        *ROUTED,
     ]
     assert not _search_notes(tab)
 
@@ -478,7 +471,7 @@ def test_details_says_no_filters_when_none_were_chosen(monkeypatch):
     """A plan without filters shows a "No filters" badge."""
     _use_model(monkeypatch, _answers("Four meals [S1]."))
     tab = _details_tab(_ask(_start(), QUESTION))
-    assert _badges(tab) == [":gray-badge[:material/filter_alt_off: No filters]", *ROUTED]
+    assert _badges(tab) == [":gray-badge[:material/filter_alt_off: No filters]"]
 
 
 def test_details_says_when_the_filters_were_dropped(monkeypatch):
@@ -487,7 +480,7 @@ def test_details_says_when_the_filters_were_dropped(monkeypatch):
     _use_model(monkeypatch, _answers("Four meals [S1]."), ScriptedTranslator(plans=[plan]))
     at = _ask(_start(), QUESTION)
     tab = _details_tab(at)
-    assert _badges(tab) == [":blue-badge[:material/sell: Fat]", *ROUTED]
+    assert _badges(tab) == [":blue-badge[:material/sell: Fat]"]
     assert _search_notes(tab) == [
         ":material/filter_alt_off: No passage close enough matched these filters, so the "
         "search ran again without them."
@@ -495,47 +488,60 @@ def test_details_says_when_the_filters_were_dropped(monkeypatch):
     assert _assistant(at).expander[0].label == "Sources (1)"
 
 
-def test_details_says_when_only_the_question_was_searched(monkeypatch):
-    """An unusable rewrite reply is shown as a search for the question alone, unfiltered."""
+def test_details_says_when_only_the_query_was_searched(monkeypatch):
+    """An unusable rewrite reply is shown as a search for the model's query alone, unfiltered."""
     translator = ScriptedTranslator(plans=["not JSON at all"])
     _use_model(monkeypatch, _answers("Four meals [S1]."), translator)
     tab = _details_tab(_ask(_start(), QUESTION))
-    assert "1. How much protein per meal? *(your question)*" in [m.value for m in tab.markdown]
-    assert any("only your question was searched" in c.value for c in tab.caption)
-    # With no plan there is no tool or profile decision to show; the note says what happened.
-    assert "**Tools and your details**" not in [m.value for m in tab.markdown]
-    assert any("the profile block was not sent" in c.value for c in tab.caption)
+    assert "1. How much protein per meal? *(the model's query)*" in [m.value for m in tab.markdown]
+    assert any("only the model's query was searched" in c.value for c in tab.caption)
 
 
 def test_details_shows_the_search_even_when_nothing_was_found(monkeypatch):
-    """An off-topic question still shows what was searched, and no tool or details were used."""
+    """An off-topic question still shows what was searched, and that nothing was found."""
     _use_model(monkeypatch, _answers("Offside is a football rule."), _off_topic_plan())
     tab = _details_tab(_ask(_start(), OFF_TOPIC))
     assert any(m.value.startswith("1. What is the offside rule") for m in tab.markdown)
-    assert "**Tools and your details**" in [m.value for m in tab.markdown]
-    assert _badges(tab)[-2:] == [NO_TOOL, BLOCK_NOT_SENT]
+    captions = [c.value for c in tab.caption]
+    assert "No passage close enough: the sources do not cover this query." in captions
+    assert "Your question: What is the offside rule in football?" in captions
 
 
-@pytest.mark.parametrize(
-    ("needs_tool", "needs_profile", "expected"),
-    [(True, False, [TOOL_MAY_HELP, BLOCK_NOT_SENT]), (False, True, [NO_TOOL, BLOCK_SENT])],
-)
-def test_details_shows_each_flag_of_the_plan(monkeypatch, needs_tool, needs_profile, expected):
-    """With sources, the tool badge follows needs_tool and the block badge needs_profile."""
-    plan = plan_json(REWRITES, needs_tool=needs_tool, needs_profile=needs_profile)
-    _use_model(monkeypatch, _answers("Four meals [S1]."), ScriptedTranslator(plans=[plan]))
-    tab = _details_tab(_ask(_start(), QUESTION))
-    assert _badges(tab)[-2:] == expected
+def test_details_shows_the_passages_each_search_found(monkeypatch):
+    """Each search's found line names its [S#] labels (AC-3)."""
+    _use_model(monkeypatch, _answers("Four meals [S1]."))
+    captions = [c.value for c in _details_tab(_ask(_start(), QUESTION)).caption]
+    assert "3 passages found, labelled S1, S2, S3." in captions
 
 
-def test_details_says_no_block_was_sent_when_no_answer_call_was_made(monkeypatch):
-    """No source and no needs_tool: the plan asked for the profile, but no block was sent."""
-    rewrites = ["offside rule football", "football offside law", "offside position"]
-    plan = plan_json(rewrites, needs_tool=False, needs_profile=True)
-    model = _use_model(monkeypatch, _answers("Offside is..."), ScriptedTranslator(plans=[plan]))
-    tab = _details_tab(_ask(_start(), OFF_TOPIC))
-    assert model.calls == []
-    assert _badges(tab)[-2:] == [NO_TOOL, BLOCK_NOT_SENT]
+def test_details_says_when_the_model_made_no_search(monkeypatch):
+    """A food lookup with no search: Details says the model did not search (T9.3)."""
+    food = tool_reply(("lookup_food_nutrition", {"food": "rolled oats", "grams": 80}))
+    model = ScriptedChatModel(replies=[food, AIMessage("About 300 kcal.")], search_first=False)
+    _use_model(monkeypatch, model)
+    at = _ask(_start(), "How many kcal are in 80 g of rolled oats?")
+    tab = _details_tab(at)
+    assert any("did not search the research" in c.value for c in tab.caption)
+    assert not [m for m in tab.markdown if m.value.startswith("**Search ")]
+    assert "No search of the research." in [c.value for c in _card(at).caption]
+
+
+def test_details_lists_each_search_of_the_turn(monkeypatch):
+    """Two searches in one turn are both shown, their labels unique across the turn (T9.3)."""
+    both = tool_reply(
+        (SEARCH_TOOL, {"query": "protein per meal"}), (SEARCH_TOOL, {"query": "creatine"})
+    )
+    model = ScriptedChatModel(replies=[both, AIMessage("A [S1], B [S4].")], search_first=False)
+    _use_model(monkeypatch, model)
+    at = _ask(_start(), "Protein per meal, and creatine?")
+    tab = _details_tab(at)
+    markdown = [m.value for m in tab.markdown]
+    assert "**Search 1** · Searched for" in markdown and "**Search 2** · Searched for" in markdown
+    found = [c.value for c in tab.caption if "found, labelled" in c.value]
+    assert len(found) == 2
+    assert "2 searches of the research" in " ".join(c.value for c in _card(at).caption)
+    # Neither search set a filter: one "No filters" badge, not one per search.
+    assert _badges(_card(at)) == [":gray-badge[:material/filter_alt_off: No filters]"]
 
 
 def test_details_follows_the_last_question(monkeypatch):
@@ -544,7 +550,7 @@ def test_details_follows_the_last_question(monkeypatch):
     _use_model(monkeypatch, _answers("A [S1].", "B [S1]."), ScriptedTranslator(plans=plans))
     at = _ask(_ask(_start(), QUESTION), "And creatine?")
     markdown = [m.value for m in _details_tab(at).markdown]
-    assert any(m.startswith("1. And creatine? *(your question)*") for m in markdown)
+    assert any(m.startswith("1. And creatine? *(the model's query)*") for m in markdown)
     assert not any("protein per meal for muscle" in m for m in markdown)
 
 
@@ -568,13 +574,13 @@ def test_a_new_session_invites_a_question_in_details_and_shows_no_card():
 
 
 def test_the_sidebar_card_sums_up_the_last_search(monkeypatch):
-    """The sidebar card shows how many ways the last question was searched and its filters."""
+    """The sidebar card shows the searches of the last question, their queries and filters."""
     plan = plan_json(REWRITES, ["protein"])
     _use_model(monkeypatch, _answers("Four meals [S1]."), ScriptedTranslator(plans=[plan]))
     card = _card(_ask(_start(), QUESTION))
     captions = [c.value for c in card.caption]
     assert "For: How much protein per meal?" in captions
-    assert "Searched 4 ways: your question and 3 rewrites." in captions
+    assert "1 search of the research, 4 queries in all." in captions
     assert _badges(card) == [":blue-badge[:material/sell: Protein]"]
 
 
@@ -605,12 +611,12 @@ def test_the_sidebar_card_is_drawn_once_per_run():
     assert source.count("details.last_answer_card()\n") == 1
 
 
-def test_the_sidebar_card_counts_a_single_rewrite_in_the_singular(monkeypatch):
-    """When only one rewrite differs from the question, the card says "1 rewrite"."""
+def test_the_sidebar_card_counts_only_the_rewrites_that_differ(monkeypatch):
+    """When only one rewrite differs from the query, the card counts 2 queries."""
     plan = plan_json([QUESTION, QUESTION.upper(), "protein per meal"], evidence_tier=2)
     _use_model(monkeypatch, _answers("A [S3]."), ScriptedTranslator(plans=[plan]))
     card = _card(_ask(_start(), QUESTION))
-    assert "Searched 2 ways: your question and 1 rewrite." in [c.value for c in card.caption]
+    assert "1 search of the research, 2 queries in all." in [c.value for c in card.caption]
     assert _badges(card) == [":blue-badge[:material/verified: Peer-reviewed reviews only]"]
 
 
@@ -665,7 +671,8 @@ def test_a_creatine_or_caffeine_dose_question_is_answered(monkeypatch):
     at = _ask(_start(), "How much creatine should I take per day?")
     at = _ask(at, "What dose of caffeine before a workout, with protein?")
     assert [list(_assistant(at, turn).info) for turn in (0, 1)] == [[], []]
-    assert len(model.calls) == 2
+    # A search and an answer call per question.
+    assert len(model.calls) == 4
 
 
 def _after_answer(monkeypatch) -> AppTest:

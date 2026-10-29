@@ -7,7 +7,7 @@ How the project is tested, and where evaluation results and live checks are reco
 | Level | What | How |
 |---|---|---|
 | Unit | Pure logic: TDEE and macro calculators, calorie floor, unit conversion, profile validation, input guard, JATS parsing and chunking, metadata filters, RRF, citation formatting, token cost, PDF content | pytest; known-answer tests (e.g. TDEE for a fixed profile), conversions tested both ways, RRF on a hand-computed example |
-| Integration | The pipeline end to end without the network: ingest -> Chroma -> query translation -> hybrid retrieval -> answer step with tools, run as the chat graph since T9.2 (`tests/test_agent_graph.py` also checks each node and edge, and that a rejected input sends no request on the wire) | `DeterministicFakeEmbedding` (langchain-core); Chroma in-memory or in a temp dir; a scripted fake chat model that returns fixed rewrites, tool calls and answers |
+| Integration | The pipeline end to end without the network: ingest -> Chroma -> query translation -> hybrid retrieval -> answer step with tools, run as the chat graph since T9.2 (since T9.3 the search is one of the agent's tools: the scripted model searches the question first unless a test turns `search_first` off, and `tests/test_agent_search.py` checks the tool itself) (`tests/test_agent_graph.py` also checks each node and edge, and that a rejected input sends no request on the wire) | `DeterministicFakeEmbedding` (langchain-core); Chroma in-memory or in a temp dir; a scripted fake chat model that returns fixed rewrites, tool calls and answers |
 | UI | Visible behaviour of `app.py` and `views/`: chat, sources, tool results, progress, settings, profile form, PDF button, error messages | `streamlit.testing.v1.AppTest` with the pipeline faked. This is our end-to-end level |
 | Live (manual) | Real models and the real index | Run by the owner; results recorded below, never in CI |
 
@@ -255,6 +255,13 @@ Owner's run (O13, 2026-10-26, 16:29): `.venv\Scripts\python.exe -m scripts.run_e
 | Cited rate | 0.8235 (14) | 0.8235 (14) | 0.8235 (14) | **0.8235** | 0.8039 | 0.7439 |
 
 The misses are the baseline's: q1's #15 and q10's #8 in all three askings, q5's #12 in two of three (found in asking 1), and q9's #4 in one (asking 1, where the plan set an `evidence_tier` 2 filter, as in T6.1's run). q6 cited both its sources in all three askings (the baseline cited one of two once), which is why the cited rate is a little higher; that is the query translation's variation between askings, not a change of the graph. Every scored question ended as an answer, the guardrail questions (q15, q16) ended at the guard with 0 tokens, and their `guard_rejected` lines now come from the `src.agent.graph` logger. q14 still sent six passages to the answer model with the food lookup, as before: making the search the agent's own tool is T9.3. The check notes "(files changed since)" for the baseline only because the baseline was taken from T8.4's uncommitted code.
+
+### Agentic search (T9.3)
+
+Owner's run (O13), **not run yet**: it waits for the owner's prompt rules on when to search (O8), as the answer prompt still describes `<sources>` in the user message. On the T9.3 branch with O8 in, the real index and the app's models:
+
+1. `.venv\Scripts\python.exe -m scripts.run_evaluation --repeat 3`, then `python -m scripts.check_eval_baseline <results.json>`: the found and cited rates within T8.4's tolerance (exit 0).
+2. q14 ("150 g rolled oats") and de4 (`--language de data/eval_questions_de.json`): no search and no passage sent, and the tokens before and after. **Before** (T8.4's baseline, `data/eval_baseline.json`, on bd0304c): q14 17,568, 17,586 and 17,030 tokens in its three askings (average 17,395), each with the lookup and six unrelated passages (T6.1's "Known problems", 5). de4 has no baseline file (T8.4's is English only), so its "before" comes from a run of the German file on `main` before T9.3 merges. **After:** to be recorded here.
 
 ## Live checks
 

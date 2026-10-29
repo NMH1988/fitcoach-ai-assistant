@@ -51,7 +51,7 @@ ALLOWED_FIELDS = frozenset(
         "tokens",
         "cost_usd",
         "duration_ms",
-        "profile_sent",
+        "searches",
         # The warnings and the error line.
         "diagnostic",
         "status_code",

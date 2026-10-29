@@ -1,4 +1,4 @@
-"""The chat turn's LangGraph graph (T9.2): its nodes, its edges, the guard first, the diagram.
+"""The chat turn's LangGraph graph (T9.2, T9.3): its nodes, edges, the guard first, the diagram.
 
 `tests/test_chat.py`, `tests/test_tool_loop.py` and `tests/test_turn_usage.py` check the turn's
 behaviour through `chat.run_turn()`, unchanged since before the graph; these tests check the graph
@@ -18,11 +18,11 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Tool
 from langgraph.graph import END
 
 from src import chat, config, guard, llm
-from src.agent import graph
+from src.agent import graph, search
 from src.agent.graph import TurnContext
+from src.agent.search import SearchLog
 from src.chat import Step, TurnResult
 from src.rag import store
-from src.rag.query_translation import QueryPlan
 from src.tools import registry
 from src.tools.registry import FOOD_TOOL, MEAL_PLAN_TOOL, TDEE_TOOL
 from tests.fakes import (
@@ -31,7 +31,7 @@ from tests.fakes import (
     ScriptedTranslator,
     build_fixture_index,
     open_fixture_index,
-    plan_json,
+    search_reply,
     tool_reply,
     write_food_table,
 )
@@ -86,13 +86,6 @@ def _runtime(context: TurnContext) -> SimpleNamespace:
     return SimpleNamespace(context=context)
 
 
-def _plan(needs_tool=True, needs_profile=True) -> QueryPlan:
-    """Return a usable query plan whose rewrites repeat the question."""
-    return QueryPlan.model_validate_json(
-        plan_json([QUESTION] * 3, needs_tool=needs_tool, needs_profile=needs_profile)
-    )
-
-
 def _request() -> list:
     """Return the start of an answer request: a system prompt and the user's message."""
     return [SystemMessage("Test system prompt."), HumanMessage(QUESTION)]
@@ -102,14 +95,12 @@ def _request() -> list:
 
 
 def test_the_graph_has_the_turns_nodes():
-    """Guard, prepare, translate, retrieve, the agent, the ToolNode, end_round and finish."""
+    """Guard, prepare, the agent, the ToolNode, end_round and finish; no fixed retrieval (T9.3)."""
     nodes = set(graph.chat_graph().get_graph().nodes)
     assert nodes == {
         "__start__",
         "guard",
         "prepare",
-        "translate",
-        "retrieve",
         "agent",
         "tools",
         "end_round",
@@ -123,7 +114,7 @@ def test_the_tools_node_is_langgraphs_tool_node():
     node = graph.tool_node()
     assert type(node).__name__ == "ToolNode"
     assert node._wrap_tool_call is graph.run_checked_call
-    assert set(node.tools_by_name) == set(registry.build_tools(None))
+    assert set(node.tools_by_name) == {*registry.build_tools(None), search.SEARCH_TOOL}
 
 
 def test_the_edges_put_the_guard_first_and_loop_the_agent_and_tools():
@@ -134,14 +125,12 @@ def test_the_edges_put_the_guard_first_and_loop_the_agent_and_tools():
         ("__start__", "guard"),
         ("guard", "prepare"),
         ("guard", "__end__"),
-        ("prepare", "translate"),
-        ("translate", "retrieve"),
-        ("retrieve", "agent"),
-        ("retrieve", "__end__"),
+        ("prepare", "agent"),
         ("agent", "tools"),
         ("agent", "finish"),
         ("tools", "end_round"),
         ("end_round", "agent"),
+        ("end_round", "finish"),
         ("finish", "__end__"),
     } == edges
 
@@ -165,10 +154,10 @@ def test_after_guard_ends_a_rejected_turn_and_goes_on_with_an_accepted_one():
     assert graph.after_guard({"question": QUESTION}) == "prepare"
 
 
-def test_after_retrieve_ends_an_uncovered_turn_and_goes_on_to_the_model():
-    """A "not covered" result ends the turn; the request's messages go to the agent."""
-    assert graph.after_retrieve({"result": TurnResult("no_sources", "None.")}) == END
-    assert graph.after_retrieve({"messages": _request()}) == "agent"
+def test_after_round_finishes_a_stopped_turn_and_goes_back_to_the_model_otherwise():
+    """A round whose searches found no basis finishes the turn (AC-2); any other goes on."""
+    assert graph.after_round({"stopped": True}) == "finish"
+    assert graph.after_round({"rounds": 1}) == "agent"
 
 
 @pytest.mark.parametrize(
@@ -234,11 +223,11 @@ def test_prepare_reads_the_prompts_before_it_opens_anything(tmp_path, monkeypatc
 
 def test_prepare_opens_the_index_then_the_translator_then_the_answer_model():
     """The order of the turn before T9.2: a missing index is reported before a missing key."""
-    opened = []
+    opened, steps = [], []
     context = TurnContext(
         chat_model=lambda: opened.append("model"),
         tools=dict,
-        on_step=lambda step: None,
+        on_step=steps.append,
         open_index=lambda: opened.append("index"),
         translation_model=lambda: opened.append("translator"),
     )
@@ -246,55 +235,17 @@ def test_prepare_opens_the_index_then_the_translator_then_the_answer_model():
     assert opened == ["index", "translator", "model"]
     assert update["translation_prompt"] == "Test query translation prompt."
     assert update["system_prompt"].startswith("Test system prompt.\n\nTest language part")
+    assert steps == [Step.PLAN]
 
 
-def test_translate_returns_the_plan_and_reports_its_step():
-    """The rewrite step's plan goes into the state."""
-    steps = []
-    translator = ScriptedTranslator(plans=[plan_json(["a", "b", "c"], needs_tool=False)])
-    context = _context(steps=steps, translation_model=lambda: translator)
-    update = graph.translate(
-        {"question": QUESTION, "translation_prompt": "Prompt."}, _runtime(context)
-    )
-    assert update["plan"].queries == ("a", "b", "c")
-    assert update["plan"].needs_tool is False
-    assert steps == [Step.REWRITE]
-
-
-def test_retrieve_builds_the_request_with_the_profile_when_the_plan_asks(index):
-    """Covered: the chunks, the details and the request with <profile> go into the state."""
-    steps, sent = [], []
-    context = _context(
-        steps=steps, open_index=lambda: index, on_profile_sent=lambda: sent.append(True)
-    )
-    state = {
-        "question": QUESTION,
-        "plan": _plan(),
-        "system_prompt": "Prompt.",
-        "profile": PROFILE,
-    }
-    update = graph.retrieve(state, _runtime(context))
-    assert steps == [Step.SEARCH, Step.ANSWER]
-    assert update["chunks"] and update["tools_only"] is False
-    assert update["include_profile"] is True and sent == [True]
+def test_prepare_sends_the_question_alone_and_waits_for_a_basis():
+    """The request holds the system prompt and <user_input> only: no <sources>, no <profile>."""
+    context = _context(open_index=lambda: None, translation_model=lambda: None)
+    update = graph.prepare({"question": QUESTION}, _runtime(context))
     system, user = update["messages"]
-    assert system.content == "Prompt."
-    assert "<profile>" in user.content and "result" not in update
-
-
-def test_retrieve_ends_an_uncovered_question_with_no_tool_expected(index):
-    """No relevant chunk and no needs_tool: "not covered", and no request is built (AC-2)."""
-    steps = []
-    off_topic = "What is the offside rule in football?"
-    plan = QueryPlan.model_validate_json(plan_json([off_topic] * 3, needs_tool=False))
-    context = _context(steps=steps, open_index=lambda: index)
-    update = graph.retrieve(
-        {"question": off_topic, "plan": plan, "system_prompt": "Prompt."}, _runtime(context)
-    )
-    assert update["result"].kind == "no_sources"
-    assert update["result"].code == "answer.no_sources"
-    assert "messages" not in update
-    assert steps == [Step.SEARCH]
+    assert system.content == update["system_prompt"]
+    assert user.content == f"<user_input>\n{QUESTION}\n</user_input>"
+    assert update["tools_only"] is True
 
 
 def test_the_agent_node_keeps_an_answer_with_no_tool_call():
@@ -304,6 +255,37 @@ def test_the_agent_node_keeps_an_answer_with_no_tool_call():
     update = graph.agent({"messages": _request()}, _runtime(context))
     assert update == {"answer": ANSWER}
     assert texts[-1] == ANSWER
+
+
+def test_the_agent_node_offers_the_search_only_to_a_whole_turn():
+    """With a search log the search tool is bound beside the turn's own; without, it is not."""
+    names = []
+    for log in (SearchLog(), None):
+        model = ScriptedChatModel(replies=[AIMessage(ANSWER)], search_first=False)
+        graph.agent({"messages": _request()}, _runtime(_context(model, search_log=log)))
+        names.append({tool["function"]["name"] for tool in model.call_kwargs[-1]["tools"]})
+    assert names[0] == {*registry.build_tools(None), search.SEARCH_TOOL}
+    assert names[1] == set(registry.build_tools(None))
+
+
+@pytest.mark.parametrize(
+    ("reply", "expected"),
+    [
+        (search_reply(QUESTION), [Step.SEARCH]),
+        (
+            tool_reply((search.SEARCH_TOOL, {"query": QUESTION}), (TDEE_TOOL, {})),
+            [Step.SEARCH, Step.TOOLS],
+        ),
+    ],
+)
+def test_the_agent_node_reports_a_search_as_its_own_step(reply, expected):
+    """A search call reports "Searching the research", other calls "Using the tools"."""
+    steps = []
+    context = _context(
+        ScriptedChatModel(replies=[reply], search_first=False), steps=steps, search_log=SearchLog()
+    )
+    graph.agent({"messages": _request()}, _runtime(context))
+    assert steps == expected
 
 
 def test_the_agent_node_passes_tool_calls_to_the_tools():
@@ -328,12 +310,30 @@ def test_the_agent_node_asks_for_the_answer_after_the_last_round():
 
 
 def test_the_agent_node_hides_a_reply_with_no_source_and_no_tool():
-    """tools_only and no tool run yet: the reply is not shown and the answer is None."""
+    """tools_only and no basis yet: the reply is not shown and the answer is None (AC-2)."""
     texts = []
-    context = _context(ScriptedChatModel(replies=[AIMessage("A guess.")]), texts=texts)
+    context = _context(
+        ScriptedChatModel(replies=[AIMessage("A guess.")], search_first=False),
+        texts=texts,
+        search_log=SearchLog(),
+    )
     update = graph.agent({"messages": _request(), "tools_only": True}, _runtime(context))
     assert update == {"answer": None}
     assert texts == []
+
+
+def test_the_agent_node_shows_a_reply_once_a_search_found_a_chunk(index):
+    """A relevant chunk from a search is a basis: the next reply is the answer and is shown."""
+    texts, log = [], SearchLog()
+    log.label(chat.find_chunks(QUESTION, None, index)[0])
+    context = _context(
+        ScriptedChatModel(replies=[AIMessage(ANSWER)], search_first=False),
+        texts=texts,
+        search_log=log,
+    )
+    update = graph.agent({"messages": _request(), "tools_only": True}, _runtime(context))
+    assert update == {"answer": ANSWER}
+    assert texts[-1] == ANSWER
 
 
 def test_round_refusal_keeps_the_limits_per_round():
@@ -376,45 +376,76 @@ def test_end_round_answers_broken_calls_and_counts_the_round():
     assert steps == [Step.ANSWER]
 
 
+def test_end_round_stops_when_the_searches_found_no_basis():
+    """A search that found nothing and no tool run: the turn ends with no answer (AC-2)."""
+    steps, log = [], SearchLog(searches=[chat.SearchDetails("offside rule")])
+    state = {"messages": [*_request(), search_reply("offside rule")], "tools_only": True}
+    update = graph.end_round(state, _runtime(_context(steps=steps, search_log=log)))
+    assert update["stopped"] is True and update["answer"] is None
+    assert steps == []
+
+
+@pytest.mark.parametrize("basis", ["chunk", "tool run"])
+def test_end_round_goes_on_when_the_answer_has_a_basis(index, basis):
+    """A relevant chunk, or a tool that really ran, lets the model answer after the round."""
+    log = SearchLog(searches=[chat.SearchDetails(QUESTION)])
+    runs = []
+    if basis == "chunk":
+        log.label(chat.find_chunks(QUESTION, None, index)[0])
+    else:
+        call = {"name": TDEE_TOOL, "args": {}, "id": "c"}
+        runs = [registry.run_tool_call(registry.build_tools(PROFILE), call)[1]]
+    state = {"messages": [*_request(), search_reply(QUESTION)], "tools_only": True, "runs": runs}
+    update = graph.end_round(state, _runtime(_context(search_log=log)))
+    assert "stopped" not in update
+
+
+def test_end_round_goes_on_after_refused_calls_alone():
+    """With no search run, a round of refused calls goes back to the model, still hidden."""
+    reply = AIMessage("", invalid_tool_calls=[{"name": FOOD_TOOL, "args": "{", "id": "c9"}])
+    state = {"messages": [*_request(), reply], "tools_only": True}
+    update = graph.end_round(state, _runtime(_context(search_log=SearchLog())))
+    assert "stopped" not in update
+
+
 def test_finish_builds_the_answer_with_its_sources(index):
-    """The answer's cited labels become source cards; the runs and flags are kept."""
-    chunks, _ = chat.find_chunks(QUESTION, None, index)
-    state = {
-        "answer": ANSWER,
-        "chunks": chunks,
-        "details": chat.SearchDetails(QUESTION),
-        "include_profile": True,
-        "runs": [],
-    }
-    update = graph.finish(state, _runtime(_context()))
+    """The answer's cited labels become source cards; the searches and runs are kept."""
+    log = SearchLog()
+    chunks, details = chat.find_chunks(QUESTION, None, index)
+    log.label(chunks)
+    log.searches.append(details)
+    update = graph.finish({"answer": ANSWER, "runs": []}, _runtime(_context(search_log=log)))
     result = update["result"]
-    assert (result.kind, result.text, result.profile_sent) == ("answer", ANSWER, True)
+    assert (result.kind, result.text, result.searches) == ("answer", ANSWER, (details,))
     assert [card.labels for card in result.sources] == [("S1",)]
 
 
 def test_finish_says_not_covered_when_there_is_no_answer():
-    """An answer of None (hidden, no tool ran) gives the fixed "not covered" message."""
+    """An answer of None (hidden, no basis) gives the fixed "not covered" message."""
     details = chat.SearchDetails(QUESTION)
-    state = {"answer": None, "details": details, "include_profile": False}
-    result = graph.finish(state, _runtime(_context()))["result"]
-    assert (result.kind, result.code, result.search) == ("no_sources", "answer.no_sources", details)
+    log = SearchLog(searches=[details])
+    result = graph.finish({"answer": None}, _runtime(_context(search_log=log)))["result"]
+    assert (result.kind, result.code, result.searches) == (
+        "no_sources",
+        "answer.no_sources",
+        (details,),
+    )
 
 
 # --- The compiled graph ------------------------------------------------------------------------
 
 
-def _graph_turn(index, *replies, text=QUESTION, **extra):
+def _graph_turn(index, *replies, text=QUESTION, search_first=True, **extra):
     """Invoke the compiled chat graph once with a scripted model; return its output and model."""
-    model = ScriptedChatModel(replies=list(replies))
+    model = ScriptedChatModel(replies=list(replies), search_first=search_first)
     context = _context(
         model,
         open_index=lambda: index,
         translation_model=lambda: ScriptedTranslator(),
+        search_log=SearchLog(),
         **extra,
     )
-    output = graph.chat_graph().invoke(
-        {"text": text, "profile": PROFILE}, context=context, config=graph.run_config()
-    )
+    output = graph.chat_graph().invoke({"text": text}, context=context, config=graph.run_config())
     return output, model
 
 
@@ -427,15 +458,18 @@ def test_the_caller_gets_only_the_result(index):
 
 
 def test_the_longest_turn_takes_max_steps(index):
-    """Four tool rounds and the answer fill MAX_STEPS exactly, so the limit never cuts a turn."""
-    rounds = [tool_reply((TDEE_TOOL, {}))] * config.MAX_TOOL_ROUNDS
-    model = ScriptedChatModel(replies=[*rounds, AIMessage(ANSWER)])
+    """A search, three more tool rounds and the answer fill MAX_STEPS exactly (no cut turn)."""
+    rounds = [search_reply(QUESTION)] + [tool_reply((TDEE_TOOL, {}))] * (config.MAX_TOOL_ROUNDS - 1)
+    model = ScriptedChatModel(replies=[*rounds, AIMessage(ANSWER)], search_first=False)
     context = _context(
-        model, open_index=lambda: index, translation_model=lambda: ScriptedTranslator()
+        model,
+        open_index=lambda: index,
+        translation_model=lambda: ScriptedTranslator(),
+        search_log=SearchLog(),
     )
     updates = list(
         graph.chat_graph().stream(
-            {"text": QUESTION, "profile": PROFILE},
+            {"text": QUESTION},
             context=context,
             config=graph.run_config(),
             stream_mode="updates",
@@ -457,7 +491,7 @@ def test_tool_runs_are_reported_in_the_order_of_their_messages(index):
         # Not JSON at all: langchain completes a string that is only cut short.
         invalid_tool_calls=[{"name": FOOD_TOOL, "args": "food = oats", "id": "bad"}],
     )
-    output, model = _graph_turn(index, reply, AIMessage(ANSWER), runs=runs)
+    output, model = _graph_turn(index, reply, AIMessage(ANSWER), runs=runs, search_first=False)
     names = [run.name for run in output["result"].tool_runs]
     assert names == [TDEE_TOOL, FOOD_TOOL, None] == [run.name for run in runs]
     messages = [m for m in model.calls[-1] if isinstance(m, ToolMessage)]
@@ -495,10 +529,8 @@ def test_the_callbacks_run_on_the_callers_thread(index):
         open_index=lambda: index,
         translation_model=lambda: ScriptedTranslator(),
     )
-    context = dataclasses.replace(context, on_step=note, on_text=note)
-    graph.chat_graph().invoke(
-        {"text": QUESTION, "profile": PROFILE}, context=context, config=graph.run_config()
-    )
+    context = dataclasses.replace(context, on_step=note, on_text=note, search_log=SearchLog())
+    graph.chat_graph().invoke({"text": QUESTION}, context=context, config=graph.run_config())
     assert threads == {threading.current_thread()}
 
 
@@ -545,7 +577,7 @@ def test_a_rejected_input_sends_no_request(index_path, no_env_key):
     spy = Spy()
     context = _wired_context(spy, index_path, guard.RateLimiter())
     output = graph.chat_graph().invoke(
-        {"text": INJECTION, "profile": PROFILE}, context=context, config=graph.run_config()
+        {"text": INJECTION}, context=context, config=graph.run_config()
     )
     assert output["result"].kind == "rejected"
     assert spy.requests == []
@@ -557,7 +589,7 @@ def test_a_rate_limited_input_sends_no_request(index_path, no_env_key):
     limiter = guard.RateLimiter(per_session=1)
     assert limiter.try_acquire() is None
     output = graph.chat_graph().invoke(
-        {"text": QUESTION, "profile": PROFILE},
+        {"text": QUESTION},
         context=_wired_context(spy, index_path, limiter),
         config=graph.run_config(),
     )
@@ -570,7 +602,5 @@ def test_an_accepted_input_reaches_the_spy(index_path, no_env_key):
     spy = Spy()
     context = _wired_context(spy, index_path, guard.RateLimiter())
     with pytest.raises(llm.LLMError):
-        graph.chat_graph().invoke(
-            {"text": QUESTION, "profile": PROFILE}, context=context, config=graph.run_config()
-        )
+        graph.chat_graph().invoke({"text": QUESTION}, context=context, config=graph.run_config())
     assert spy.requests == ["/api/v1/chat/completions"]

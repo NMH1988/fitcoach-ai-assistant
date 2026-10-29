@@ -7,11 +7,15 @@ from views import tables, usage_view
 from views.text import lang, t
 
 
-def last_searched() -> dict | None:
-    """Return the message of the latest turn that reached the search, or None before any."""
-    for message in reversed(st.session_state["messages"]):
-        if message["role"] == "assistant" and message["result"].search is not None:
-            return message
+def last_searched() -> tuple[str, dict] | None:
+    """Return the question and message of the latest turn that reached the model, or None."""
+    # searches is () when the model searched nothing and None when the turn ended before it.
+    messages = st.session_state["messages"]
+    for number in range(len(messages) - 1, -1, -1):
+        message = messages[number]
+        if message["role"] == "assistant" and message["result"].searches is not None:
+            asked = messages[number - 1] if number > 0 else {}
+            return asked.get("text", ""), message
     return None
 
 
@@ -36,25 +40,6 @@ def filter_badges(details: chat.SearchDetails) -> None:
             st.badge(label, icon=":material/verified:", color="blue")
 
 
-def routing_badges(result: chat.TurnResult) -> None:
-    """Show whether the rewrite step expected a tool, and whether <profile> was sent (T3.5)."""
-    if result.search is None or result.search.needs_tool is None:
-        # No usable plan: the note from search_notes() says what happened instead.
-        return
-    st.markdown(f"**{t('routing.title')}**")
-    with st.container(horizontal=True, gap="small"):
-        if result.search.needs_tool:
-            st.badge(t("routing.tool"), icon=":material/build:", color="blue")
-        else:
-            st.badge(t("routing.no_tool"), icon=":material/build:", color="gray")
-        # What the answer model really got: no block when no answer call was made, even if
-        # the plan asked for one. Tool results can still name some values (docs/SECURITY.md).
-        if result.profile_sent:
-            st.badge(t("routing.profile_sent"), icon=":material/person:", color="blue")
-        else:
-            st.badge(t("routing.profile_not_sent"), icon=":material/person_off:", color="gray")
-
-
 def search_notes(details: chat.SearchDetails) -> None:
     """Say when the rewrite step gave nothing usable or the filters were dropped."""
     if details.fell_back:
@@ -63,56 +48,82 @@ def search_notes(details: chat.SearchDetails) -> None:
         st.caption(f":material/filter_alt_off: {t('search.filter_dropped')}")
 
 
-def tab() -> None:
-    """Show how the last answer was found: what was searched and the filters used (AC-3)."""
-    message = last_searched()
-    st.subheader(f":material/manage_search: {t('details.title')}")
-    if message is None:
-        st.caption(t("details.empty"))
-        return
-    details = message["result"].search
-    st.markdown(f"**{t('details.searched_for')}**")
-    # The question is the user's text and the rewrites the model's: both shown escaped.
-    lines = [f"1. {tables.one_line(details.question)} *{t('details.your_question')}*"]
+def found_line(details: chat.SearchDetails) -> str:
+    """Return how many passages a search found and their [S#] labels, or that it found none."""
+    if not details.labels:
+        return t("details.found_none")
+    labels = ", ".join(f"S{number}" for number in details.labels)
+    if len(details.labels) == 1:
+        return t("details.found_one", labels=labels)
+    return t("details.found", count=len(details.labels), labels=labels)
+
+
+def search_section(number: int, details: chat.SearchDetails) -> None:
+    """Show one search: its query and rewrites, the filters, its notes and what it found."""
+    st.markdown(f"**{t('details.search', number=number)}** · {t('details.searched_for')}")
+    # The query and the rewrites are the model's text: shown escaped, on one line each.
+    lines = [f"1. {tables.one_line(details.query)} *{t('details.model_query')}*"]
     lines += [
-        f"{number}. {tables.one_line(rewrite)}"
-        for number, rewrite in enumerate(details.rewrites, 2)
+        f"{line}. {tables.one_line(rewrite)}" for line, rewrite in enumerate(details.rewrites, 2)
     ]
     st.markdown("\n".join(lines))
     st.markdown(f"**{t('details.filters')}**")
     filter_badges(details)
-    routing_badges(message["result"])
     search_notes(details)
+    st.caption(found_line(details))
+
+
+def tab() -> None:
+    """Show how the last answer was found: each search the model ran, or that it ran none (AC-3)."""
+    found = last_searched()
+    st.subheader(f":material/manage_search: {t('details.title')}")
+    if found is None:
+        st.caption(t("details.empty"))
+        return
+    question, message = found
+    st.caption(t("details.question", question=tables.one_line(question)))
+    searches = message["result"].searches
+    if not searches:
+        st.caption(f":material/search_off: {t('details.no_search')}")
+    for number, details in enumerate(searches, start=1):
+        search_section(number, details)
     usage_view.section(message.get("usage"))
 
 
 def last_answer_card() -> None:
     """Show a short summary of how the last answer was found, and its cost, in the sidebar."""
     current = lang()
-    message = last_searched()
-    if message is None:
-        # No turn has searched yet, but one may have spent tokens before failing (AC-10).
+    found = last_searched()
+    if found is None:
+        # No turn has reached the model yet, but one may have spent tokens before failing (AC-10).
         session = usage_view.session_usage()
         if session.tokens:
             line = t("usage.session", usage=tables.dollars(usage.format_session(session, current)))
             st.caption(f"{usage_view.USAGE_ICON} {line}")
         return
-    details = message["result"].search
+    question, message = found
+    searches = message["result"].searches
     with st.container(border=True):
         st.markdown(f"**:material/manage_search: {t('card.last_answer')}**")
-        # Names the question, as a rejected or failed turn leaves an earlier search here.
-        question = tables.one_line(details.question)
+        # Names the question, as a rejected or failed turn leaves an earlier answer here.
+        question = tables.one_line(question)
         if len(question) > config.CARD_QUESTION_CHARS:
             question = question[: config.CARD_QUESTION_CHARS].rstrip("\\ ") + "…"
         st.caption(t("card.for", question=question))
-        if details.rewrites:
-            rewrites = len(details.rewrites)
-            key = "card.searched_one" if rewrites == 1 else "card.searched_many"
-            st.caption(t(key, queries=len(details.queries), rewrites=rewrites))
+        queries = sum(len(details.queries) for details in searches)
+        if not searches:
+            st.caption(t("card.no_search"))
+        elif len(searches) == 1:
+            st.caption(t("card.searches_one", queries=queries))
         else:
-            st.caption(t("card.question_only"))
-        filter_badges(details)
-        if details.filter_dropped:
+            st.caption(t("card.searches_many", count=len(searches), queries=queries))
+        # One "No filters" badge for searches that all set none, not one per search.
+        if any(details.has_filters for details in searches):
+            for details in searches:
+                filter_badges(details)
+        elif searches:
+            filter_badges(searches[0])
+        if any(details.filter_dropped for details in searches):
             st.caption(t("card.filters_dropped"))
         turn_usage = message.get("usage")
         if turn_usage is not None and turn_usage.calls:
