@@ -110,7 +110,8 @@ class SearchDetails:
     evidence_tier: int | None = None
     # True when the rewrite step gave no usable plan, so only the query was searched.
     fell_back: bool = False
-    # True when nothing passed the filters, so the search ran again without them.
+    # True when nothing passed the filters, so they were relaxed (T9.20: a training-only plan
+    # keeps its topic, a nutrition-only plan the nutrition topics, any other none).
     filter_dropped: bool = False
     # The [S#] number of each relevant chunk found, in rank order (a chunk an earlier search of the
     # turn found keeps its label, T9.3); empty when the sources do not cover the query.
@@ -266,12 +267,12 @@ def find_chunks(
                 if where == topic_only
                 else hybrid.hybrid_search(index, queries, vectors, topic_only, keyword_index)
             )
-        elif plan is not None and plan.topics:
+        elif plan is not None and plan.topics and config.TRAINING_TOPIC not in plan.topics:
             # Mirrored: a plan whose topics are all nutrition runs again over the nutrition topics,
             # so a training chunk never joins a nutrition answer (T9.20, T9.19's code review).
             chunks = hybrid.hybrid_search(index, queries, vectors, _NUTRITION_ONLY, keyword_index)
         else:
-            # No topic (or no usable plan): the question's domain is unknown, so search everything.
+            # No topic, no usable plan, or both domains: search everything.
             chunks = hybrid.hybrid_search(index, queries, vectors, None, keyword_index)
     details = SearchDetails(
         query=query,

@@ -334,14 +334,15 @@ _EN: dict[str, str] = {
         "filters."
     ),
     "search.filter_dropped": (
-        "No passage close enough matched these filters, so the search ran again without them."
+        "No passage close enough matched all these filters, so they were relaxed (a training or "
+        "nutrition topic is kept)."
     ),
     "card.last_answer": "Last answer",
     "card.for": "For: {question}",
     "card.no_search": "No search of the research.",
     "card.searches_one": "1 search of the research, {queries} queries in all.",
     "card.searches_many": "{count} searches of the research, {queries} queries in all.",
-    "card.filters_dropped": "No match with these filters, so they were dropped.",
+    "card.filters_dropped": "No match with these filters, so they were relaxed.",
     "card.more": "More in the Details tab.",
     # The Ask tab.
     "ask.invitation": (
@@ -788,15 +789,15 @@ _DE: dict[str, str] = {
         "Modells gesucht, ohne Filter."
     ),
     "search.filter_dropped": (
-        "Keine Textstelle passte nah genug zu diesen Filtern, daher lief die Suche ohne sie noch "
-        "einmal."
+        "Keine Textstelle passte nah genug zu allen diesen Filtern, daher wurden sie gelockert "
+        "(ein Trainings- oder Ernährungsthema bleibt)."
     ),
     "card.last_answer": "Letzte Antwort",
     "card.for": "Zu: {question}",
     "card.no_search": "Keine Suche in der Forschung.",
     "card.searches_one": "1 Suche in der Forschung, insgesamt {queries} Suchanfragen.",
     "card.searches_many": "{count} Suchen in der Forschung, insgesamt {queries} Suchanfragen.",
-    "card.filters_dropped": "Nichts passte zu diesen Filtern, daher wurden sie weggelassen.",
+    "card.filters_dropped": "Nichts passte zu diesen Filtern, daher wurden sie gelockert.",
     "card.more": "Mehr im Tab „Details“.",
     "ask.invitation": (
         "Stellen Sie eine Frage zur Ernährung für Krafttraining. Die Antworten zitieren die "

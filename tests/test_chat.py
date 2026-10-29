@@ -363,7 +363,7 @@ def test_the_filter_keeps_only_matching_chunks(index):
     assert not _search(result).filter_dropped
 
 
-def test_with_no_hits_the_search_runs_again_without_the_filter(index, monkeypatch):
+def test_with_no_hits_the_search_runs_again_over_the_nutrition_topics(index, monkeypatch):
     """A filter nothing relevant passes: the same vectors are searched again over nutrition."""
     spy = SearchSpy(index, monkeypatch)
     model = _model("Four meals [S1].")
@@ -554,7 +554,7 @@ def test_find_chunks_fuses_every_list_and_keeps_the_top_k_distinct_chunks(tmp_pa
     assert [c.distance for c in found[1:3]] == [None, None]
 
 
-def test_with_the_filter_dropped_keyword_search_runs_unfiltered_too(index, monkeypatch):
+def test_with_the_filter_dropped_keyword_search_runs_over_nutrition_too(index, monkeypatch):
     """When no relevant chunk passes the filter, both searches run again over nutrition."""
     keywords = KeywordSpy()
     plan = plan_json(REWRITES, ["fat"])
@@ -802,8 +802,28 @@ def test_a_nutrition_only_plan_never_falls_back_to_training_chunks(training_inde
     assert len(model.calls) == 1
 
 
+def test_a_plan_with_both_domains_still_finds_training_chunks_on_its_retry(training_index):
+    """A training and a nutrition topic with a too-strict year: the retry keeps training chunks."""
+    rewrites = [f"{TRAINING_QUESTION} rewrite {n}" for n in (1, 2, 3)]
+    plan = plan_json(
+        rewrites,
+        ["resistance_training", "protein"],
+        min_year=2025,
+        needs_tool=False,
+        needs_profile=False,
+    )
+    model = _model("Ten or more sets per muscle per week, in trained adults [S1].")
+    result = _turn(
+        TRAINING_QUESTION, training_index, model, translator=ScriptedTranslator(plans=[plan])
+    )
+    assert _search(result).filter_dropped is True
+    assert result.kind == "answer"
+    assert TRAINING_CHUNK.page_content in _sources_block(model)
+    assert [card.source_id for card in result.sources] == ["24"]
+
+
 @pytest.mark.parametrize("topics", [["fat"], ["resistance_training", "fat"]])
-def test_a_plan_with_a_nutrition_topic_still_falls_back_without_the_filter(index, topics):
+def test_a_plan_with_a_nutrition_topic_still_falls_back_past_its_filter(index, topics):
     """A plan with a nutrition topic falls back past its filter, and nutrition chunks answer."""
     rewrites = [f"{MIXED_QUESTION} rewrite {n}" for n in (1, 2, 3)]
     plan = plan_json(rewrites, topics, needs_tool=False)
