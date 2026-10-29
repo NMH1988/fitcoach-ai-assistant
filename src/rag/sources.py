@@ -2,13 +2,16 @@
 
 The manifest (`data/sources.json`) lists the approved articles of `docs/SOURCES.md`. Downloaded
 article XML is used only if its own licence block says CC BY or CC0 and matches the manifest
-(copyright policy, `.claude/rules/copyright.md`).
+(copyright policy, `.claude/rules/copyright.md`), and its DOI and authors match the manifest's
+(the authors since T9.21, so the attribution credits the right people).
 """
 
 import json
 import re
+import unicodedata
 import urllib.parse
 import xml.etree.ElementTree as ET
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -215,6 +218,95 @@ def read_doi(article: ET.Element) -> str | None:
     return doi.strip() if doi and doi.strip() else None
 
 
+# A contributor whose <role> names an editor is not an author: MDPI lists its academic editors
+# in the front matter with the role "Academic Editor", which put two editors into the manifest as
+# authors in T9.19. A CRediT role such as "Writing – review & editing" names no editor.
+_EDITOR_ROLE = re.compile(r"\beditors?\b", re.IGNORECASE)
+
+
+def _text(element: ET.Element | None) -> str:
+    """Return an element's text with whitespace runs made single spaces ("" for no element)."""
+    return " ".join("".join(element.itertext()).split()) if element is not None else ""
+
+
+def _contributor_name(contrib: ET.Element) -> str:
+    """Return a contributor's name as "given-names surname", a group's <collab> text, or ""."""
+    name = contrib.find("name")
+    if name is None:
+        name = contrib.find("name-alternatives/name")
+    if name is not None:
+        parts = (_text(name.find("given-names")), _text(name.find("surname")))
+        return " ".join(part for part in parts if part)
+    return _collab_name(contrib.find("collab")) or _text(contrib.find("string-name"))
+
+
+def _collab_name(collab: ET.Element | None) -> str:
+    """Return a group author's own name, without the member list JATS may nest inside it."""
+    if collab is None:
+        return ""
+    parts = [collab.text or ""]
+    for child in collab:
+        if child.tag != "contrib-group":
+            parts.append("".join(child.itertext()))
+        parts.append(child.tail or "")
+    return " ".join("".join(parts).split())
+
+
+def read_authors(article: ET.Element) -> list[str]:
+    """Return the article's authors in order from its JATS front matter, editors left out."""
+    authors = []
+    for group in article.findall("front/article-meta/contrib-group"):
+        if group.get("content-type") == "editor":
+            continue
+        for contrib in group.findall("contrib"):
+            if contrib.get("contrib-type", "author") != "author":
+                continue
+            if any(_EDITOR_ROLE.search(_text(role)) for role in contrib.findall("role")):
+                continue
+            authors.append(_contributor_name(contrib))
+    return authors
+
+
+def _name_key(name: str) -> str:
+    """Return a name for comparing: Unicode NFC, no case, dots as spaces, single spaces."""
+    text = unicodedata.normalize("NFC", name).casefold().replace(".", " ")
+    return " ".join(text.split())
+
+
+def _shown(name: str) -> str:
+    """Return a name as a refusal shows it: printable characters only, or a placeholder."""
+    return "".join(char for char in name if char.isprintable()) or "(a contributor with no name)"
+
+
+def _unmatched(names: Sequence[str], others: Sequence[str]) -> list[str]:
+    """Return the names that have no match left among the others (a repeated name counts twice)."""
+    left = Counter(_name_key(name) for name in others)
+    unmatched = []
+    for name in names:
+        if left[_name_key(name)] > 0:
+            left[_name_key(name)] -= 1
+        else:
+            unmatched.append(name)
+    return unmatched
+
+
+def authors_mismatch(found: Sequence[str], listed: Sequence[str]) -> str | None:
+    """Return how the article's authors differ from the manifest's, or None if they match."""
+    if not found:
+        return "the article names no author"
+    if [_name_key(name) for name in found] == [_name_key(name) for name in listed]:
+        return None
+    missing, extra = _unmatched(listed, found), _unmatched(found, listed)
+    if not missing and not extra:
+        return "the article lists the manifest's authors in another order"
+    parts = []
+    if missing:
+        parts.append("not in the article: " + ", ".join(_shown(name) for name in missing))
+    if extra:
+        parts.append("not in the manifest: " + ", ".join(_shown(name) for name in extra))
+    return "the article's authors are not the manifest's (" + "; ".join(parts) + ")"
+
+
 def check_article(xml: bytes, source: Source) -> str | None:
     """Return why this article XML may not be used for the source, or None if it may."""
     try:
@@ -230,7 +322,7 @@ def check_article(xml: bytes, source: Source) -> str | None:
     doi = read_doi(article)
     if doi is None or doi.casefold() != source.doi.casefold():
         return f"the article's DOI ({doi}) is not the manifest's ({source.doi})"
-    return None
+    return authors_mismatch(read_authors(article), source.authors)
 
 
 def _md(text: str) -> str:

@@ -512,6 +512,13 @@ def test_a_file_the_licence_check_refuses_stops_the_build(tmp_path):
         load_chunks([make_source()], tmp_path)
 
 
+def test_a_file_whose_authors_differ_from_the_manifest_stops_the_build(tmp_path):
+    """XML whose authors are not the manifest entry's is refused at ingest too (T9.21)."""
+    write_raw(tmp_path, "PMC1234567")
+    with pytest.raises(IngestError, match=r"#1 \(PMC1234567\): refused.*not in the article"):
+        load_chunks([make_source(authors=["Ann Example", "Cy Third"])], tmp_path)
+
+
 def test_an_article_without_text_stops_the_build(tmp_path):
     """An accepted article that yields no text is reported, so no source is silently missing."""
     empty = (

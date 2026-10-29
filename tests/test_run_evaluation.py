@@ -502,15 +502,52 @@ def test_the_commit_is_read_from_the_code_that_ran_not_the_working_folder(
     def fake_state(folder):
         """Record the folder asked about and answer like a clean checkout."""
         seen.append(folder)
-        return run_evaluation.eval_results.GitState("e" * 40, False)
+        return run_evaluation.eval_results.GitState("e" * 40, False, "x")
 
     monkeypatch.setattr(run_evaluation.eval_results, "git_state", fake_state)
     monkeypatch.chdir(tmp_path)
     item = {"id": "q1", "question": QUESTION, "expected_sources": [], "good_answer": "x"}
     assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 0
-    assert seen == [config.PROJECT_ROOT]
+    assert seen == [config.PROJECT_ROOT] * 2
     _, document = _results_file(tmp_path)
     assert (document["commit"], document["dirty"]) == ("e" * 40, False)
+    assert document["changed_during_run"] is False
+
+
+def test_a_commit_made_during_the_run_is_not_recorded_as_the_code_that_ran(
+    real_pieces, tmp_path, monkeypatch, capsys
+):
+    """The state is read before the first question; a later commit is noted, not kept (T9.21)."""
+    git_state = run_evaluation.eval_results.GitState
+    states = iter([git_state("a" * 40, False, "x"), git_state("b" * 40, False, "x")])
+    asked = []
+
+    def fake_state(folder):
+        """Answer with the start's commit, then a newer one; record the model calls made so far."""
+        asked.append(len(real_pieces.calls))
+        return next(states)
+
+    monkeypatch.setattr(run_evaluation.eval_results, "git_state", fake_state)
+    item = {"id": "q1", "question": QUESTION, "expected_sources": [], "good_answer": "x"}
+    assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 0
+    # The first read comes before the answer model is called, the second after the questions.
+    assert asked == [0, 1]
+    _, document = _results_file(tmp_path)
+    assert (document["commit"], document["commit_at_end"]) == ("a" * 40, "b" * 40)
+    assert document["changed_during_run"] is True
+    out = capsys.readouterr().out
+    assert "Note: the code changed during the run (HEAD moved from aaaaaaa to bbbbbbb)" in out
+
+
+def test_no_change_note_is_printed_when_the_code_stayed_the_same(
+    real_pieces, tmp_path, monkeypatch, capsys
+):
+    """With the same state at both ends, the output has no change note."""
+    same = run_evaluation.eval_results.GitState("a" * 40, True, "x")
+    monkeypatch.setattr(run_evaluation.eval_results, "git_state", lambda folder: same)
+    item = {"id": "q1", "question": QUESTION, "expected_sources": [], "good_answer": "x"}
+    assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 0
+    assert "code changed" not in capsys.readouterr().out
 
 
 def test_the_results_file_holds_no_text_from_the_answer_the_chunks_or_the_key(

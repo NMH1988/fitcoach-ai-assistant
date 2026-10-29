@@ -6,7 +6,15 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from src import config
-from src.rag.sources import LicenseRefused, Source, check_article, read_doi, read_license
+from src.rag.sources import (
+    LicenseRefused,
+    Source,
+    authors_mismatch,
+    check_article,
+    read_authors,
+    read_doi,
+    read_license,
+)
 
 FIXTURES = config.PROJECT_ROOT / "tests" / "fixtures" / "jats"
 
@@ -14,6 +22,7 @@ ARTICLE = """<?xml version="1.0" encoding="UTF-8"?>
 <article xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:ali="http://www.niso.org/schemas/ali/1.0/">
   <front><article-meta>
     <article-id pub-id-type="doi">10.1234/made-up.1</article-id>
+    <contrib-group><contrib><name><surname>Example</surname><given-names>Ann</given-names></name></contrib></contrib-group>
     <permissions>{permissions}</permissions>
   </article-meta></front>
   <body><sec><title>Test</title><p>Made-up text for a test.</p></sec></body>
@@ -275,4 +284,177 @@ def test_cc0_only_article_listed_as_cc_by_is_refused():
     xml = ARTICLE.format(permissions=CC0_BLOCK).encode()
     assert (
         check_article(xml, source()) == "the article says CC0 1.0 but the manifest says CC BY 4.0"
+    )
+
+
+# The author check (T9.21). Every name below is made up for the tests.
+AUTHORS_ARTICLE = """<article xmlns:xlink="http://www.w3.org/1999/xlink">
+  <front><article-meta>
+    <article-id pub-id-type="doi">10.1234/made-up.1</article-id>
+    {groups}
+    <permissions><license xlink:href="https://creativecommons.org/licenses/by/4.0/"/></permissions>
+  </article-meta></front>
+</article>"""
+
+
+def person(given: str, surname: str, attributes: str = "", roles: str = "") -> str:
+    """Return the JATS markup of one made-up contributor with a name and optional roles."""
+    name = f"<name><surname>{surname}</surname><given-names>{given}</given-names></name>"
+    return f"<contrib{attributes}>{name}{roles}</contrib>"
+
+
+def authors_xml(*groups: str) -> bytes:
+    """Return a made-up CC BY article whose front matter holds the given contributor groups."""
+    return AUTHORS_ARTICLE.format(groups="".join(groups)).encode()
+
+
+ANN_AND_BEN = (
+    '<contrib-group content-type="author">'
+    + person("Ann B.", "Example", ' contrib-type="author"')
+    + person("Ben", "Sample", ' contrib-type="author"')
+    + "</contrib-group>"
+)
+
+
+def test_the_article_authors_in_order_with_dotted_initials_match():
+    """Names match without case, dots or extra spaces, so "Ann B." equals the manifest's "Ann B"."""
+    assert read_authors(ET.fromstring(authors_xml(ANN_AND_BEN))) == ["Ann B. Example", "Ben Sample"]
+    assert (
+        check_article(authors_xml(ANN_AND_BEN), source(authors=["ann b  example", "Ben Sample"]))
+        is None
+    )
+
+
+def test_names_are_compared_in_one_unicode_form():
+    """A composed and a decomposed accent are the same letter."""
+    xml = authors_xml(f"<contrib-group>{person('Jos\u00e9', 'Example')}</contrib-group>")
+    assert check_article(xml, source(authors=["Jose\u0301 Example"])) is None
+
+
+def test_an_author_the_manifest_lacks_is_refused_and_named():
+    """An extra author in the article is named in the reason."""
+    reason = check_article(authors_xml(ANN_AND_BEN), source(authors=["Ann B Example"]))
+    assert (
+        reason == "the article's authors are not the manifest's (not in the manifest: Ben Sample)"
+    )
+
+
+def test_an_author_the_article_lacks_is_refused_and_named():
+    """A manifest author the article does not list is named, next to the article's extra one."""
+    reason = check_article(authors_xml(ANN_AND_BEN), source(authors=["Ann B Example", "Cy Third"]))
+    assert reason == (
+        "the article's authors are not the manifest's "
+        "(not in the article: Cy Third; not in the manifest: Ben Sample)"
+    )
+
+
+def test_the_same_authors_in_another_order_are_refused():
+    """The attribution lists authors in the article's order, so another order is a mismatch."""
+    reason = check_article(
+        authors_xml(ANN_AND_BEN), source(authors=["Ben Sample", "Ann B Example"])
+    )
+    assert reason == "the article lists the manifest's authors in another order"
+
+
+def test_an_academic_editor_group_is_left_out():
+    """An MDPI-style editor group with an "Academic Editor" role is not part of the authors."""
+    editors = (
+        '<contrib-group content-type="editor">'
+        + person("Eve", "Editorial", ' contrib-type="editor"', "<role>Academic Editor</role>")
+        + "</contrib-group>"
+    )
+    xml = authors_xml(ANN_AND_BEN, editors)
+    assert read_authors(ET.fromstring(xml)) == ["Ann B. Example", "Ben Sample"]
+    assert check_article(xml, source(authors=["Ann B Example", "Ben Sample"])) is None
+    # The T9.19 mistake: the editor listed as an author in the manifest is refused.
+    with_editor = source(authors=["Ann B Example", "Ben Sample", "Eve Editorial"])
+    assert "not in the article: Eve Editorial" in check_article(xml, with_editor)
+
+
+@pytest.mark.parametrize(
+    "contributor",
+    [
+        person("Eve", "Editorial", ' contrib-type="editor"'),
+        person("Eve", "Editorial", "", "<role>Academic Editor</role>"),
+        person("Eve", "Editorial", "", "<role>Guest editors</role>"),
+    ],
+)
+def test_an_editor_inside_the_author_group_is_left_out(contributor):
+    """A contrib-type of editor, or a role naming an editor, leaves the contributor out."""
+    xml = authors_xml(f"<contrib-group>{person('Ann', 'Example')}{contributor}</contrib-group>")
+    assert read_authors(ET.fromstring(xml)) == ["Ann Example"]
+
+
+def test_a_credit_review_and_editing_role_keeps_the_author():
+    """A CRediT role such as "Writing – review & editing" names no editor."""
+    roles = "<role>Conceptualization</role><role>Writing \u2013 review &amp; editing</role>"
+    xml = authors_xml(f"<contrib-group>{person('Ann', 'Example', '', roles)}</contrib-group>")
+    assert check_article(xml, source(authors=["Ann Example"])) is None
+
+
+def test_an_article_with_no_author_is_refused():
+    """An article whose front matter names no author cannot be matched and is refused."""
+    assert check_article(authors_xml(), source()) == "the article names no author"
+
+
+def test_contributors_outside_the_article_meta_do_not_count():
+    """Only the article's own front matter counts, not a contributor in a sub-article."""
+    xml = authors_xml().replace(
+        b"</article>",
+        f"<sub-article><front-stub><contrib-group>{person('Ann', 'Example')}"
+        "</contrib-group></front-stub></sub-article></article>".encode(),
+    )
+    assert check_article(xml, source()) == "the article names no author"
+
+
+def test_a_group_author_is_its_collab_text():
+    """A group author (<collab>) is compared by its name."""
+    xml = authors_xml(
+        "<contrib-group><contrib><collab>The Made-up Oats Group</collab></contrib></contrib-group>"
+    )
+    assert check_article(xml, source(authors=["The Made-up Oats Group"])) is None
+
+
+def test_a_group_author_with_a_nested_member_list_is_its_own_name():
+    """The members JATS may list inside a <collab> are not part of the group's name."""
+    members = f"<contrib-group>{person('Ann', 'Example')}</contrib-group>"
+    xml = authors_xml(
+        "<contrib-group><contrib><collab>The Made-up Oats Group"
+        f"{members}</collab></contrib></contrib-group>"
+    )
+    assert check_article(xml, source(authors=["The Made-up Oats Group"])) is None
+
+
+@pytest.mark.parametrize(
+    "contributor",
+    [
+        "<contrib><name-alternatives><name><surname>Example</surname>"
+        "<given-names>Ann</given-names></name><name><surname>Beispiel</surname>"
+        "<given-names>Anna</given-names></name></name-alternatives></contrib>",
+        "<contrib><string-name>Ann Example</string-name></contrib>",
+    ],
+    ids=["name-alternatives", "string-name"],
+)
+def test_a_name_in_name_alternatives_or_a_string_name_is_read(contributor):
+    """The first <name> of <name-alternatives>, or a <string-name>, is the contributor's name."""
+    xml = authors_xml(f"<contrib-group>{contributor}</contrib-group>")
+    assert read_authors(ET.fromstring(xml)) == ["Ann Example"]
+    assert check_article(xml, source(authors=["Ann Example"])) is None
+
+
+def test_a_contributor_with_no_name_is_refused_with_a_placeholder():
+    """An author with no name never matches, and the reason says so without an empty name."""
+    xml = authors_xml(f"<contrib-group>{person('Ann', 'Example')}<contrib/></contrib-group>")
+    reason = check_article(xml, source(authors=["Ann Example"]))
+    assert reason == (
+        "the article's authors are not the manifest's "
+        "(not in the manifest: (a contributor with no name))"
+    )
+
+
+def test_a_refusal_shows_no_control_characters():
+    """A name from the file is shown with printable characters only."""
+    assert authors_mismatch(["Ann\x1b[31m Example"], ["Ann Example"]) == (
+        "the article's authors are not the manifest's "
+        "(not in the article: Ann Example; not in the manifest: Ann[31m Example)"
     )
