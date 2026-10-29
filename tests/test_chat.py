@@ -364,12 +364,13 @@ def test_the_filter_keeps_only_matching_chunks(index):
 
 
 def test_with_no_hits_the_search_runs_again_without_the_filter(index, monkeypatch):
-    """A filter nothing relevant passes: the same vectors are searched again, unfiltered."""
+    """A filter nothing relevant passes: the same vectors are searched again over nutrition."""
     spy = SearchSpy(index, monkeypatch)
     model = _model("Four meals [S1].")
     plan = plan_json(REWRITES, ["fat"])
     result = _turn(QUESTION, index, model, translator=ScriptedTranslator(plans=[plan]))
-    assert spy.filters == [{"topics": {"$contains": "fat"}}] * 4 + [None] * 4
+    # A nutrition plan drops its own filter but keeps out training chunks (T9.20).
+    assert spy.filters == [{"topics": {"$contains": "fat"}}] * 4 + [chat._NUTRITION_ONLY] * 4
     assert len(spy.embedded) == 1
     assert result.kind == "answer"
     assert _search(result).filter_dropped
@@ -554,7 +555,7 @@ def test_find_chunks_fuses_every_list_and_keeps_the_top_k_distinct_chunks(tmp_pa
 
 
 def test_with_the_filter_dropped_keyword_search_runs_unfiltered_too(index, monkeypatch):
-    """When no relevant chunk passes the filter, both searches run again without it."""
+    """When no relevant chunk passes the filter, both searches run again over nutrition."""
     keywords = KeywordSpy()
     plan = plan_json(REWRITES, ["fat"])
     result = _turn(
@@ -565,7 +566,9 @@ def test_with_the_filter_dropped_keyword_search_runs_unfiltered_too(index, monke
         keyword_index=keywords,
     )
     assert _search(result).filter_dropped
-    assert keywords.searches == [(query, None) for query in (QUESTION, *REWRITES)]
+    # The fixture holds only nutrition chunks, so the nutrition filter keeps every one (T9.20).
+    nutrition = {f"{c.metadata['source_id']}-{c.metadata['chunk_index']}" for c in CHUNKS}
+    assert keywords.searches == [(query, nutrition) for query in (QUESTION, *REWRITES)]
 
 
 def test_an_off_topic_question_runs_no_keyword_search(index):
@@ -759,31 +762,49 @@ def test_a_too_strict_year_on_a_training_question_falls_back_to_training_chunks(
     assert [card.source_id for card in result.sources] == ["24"]
 
 
-def test_the_fallback_of_a_training_only_plan_drops_the_nutrition_chunks_it_finds(training_index):
-    """Without the filters both kinds are found; only the training chunk reaches the model."""
+def test_a_training_chunk_found_only_by_keyword_does_not_cover_a_training_question(
+    training_index,
+):
+    """No training chunk is close: neither the protein chunks nor a keyword match answer it."""
     rewrites = [f"{MIXED_QUESTION} rewrite {n}" for n in (1, 2, 3)]
     plan = plan_json(
         rewrites, ["resistance_training"], min_year=2025, needs_tool=False, needs_profile=False
     )
-    # The precondition: the search without the filters finds protein chunks (by meaning) and the
-    # training chunk (by keyword, "sets per week"), so the cut has something to drop.
+    # The precondition: without filters the question finds protein chunks by meaning and the
+    # training chunk only by keyword ("sets per week"), with no distance (security review, PR #47).
     unfiltered = QueryPlan.model_validate_json(plan_json(rewrites, needs_tool=False))
     found, _ = chat.find_chunks(MIXED_QUESTION, unfiltered, training_index)
-    assert {c.metadata["source_id"] for c in found} >= {"1", "24"}
-    model = _model("Ten or more sets per muscle per week, in trained adults [S1].")
+    by_source = {c.metadata["source_id"]: c for c in found}
+    assert {"1", "24"} <= set(by_source)
+    assert by_source["24"].distance is None
+    model = _model("Do ten sets a week [S1].")
     result = _turn(
         MIXED_QUESTION, training_index, model, translator=ScriptedTranslator(plans=[plan])
     )
     assert _search(result).filter_dropped is True
-    sources = _sources_block(model)
-    assert TRAINING_CHUNK.page_content in sources
-    assert "Protein" not in sources
-    assert [card.source_id for card in result.sources] == ["24"]
+    assert (result.kind, result.text) == ("no_sources", config.NO_SOURCES_MESSAGE)
+    assert len(model.calls) == 1
+
+
+def test_a_nutrition_only_plan_never_falls_back_to_training_chunks(training_index):
+    """Mirrored: nothing passes a protein filter, and the nutrition retry keeps training out."""
+    rewrites = [f"{TRAINING_QUESTION} rewrite {n}" for n in (1, 2, 3)]
+    plan = plan_json(rewrites, ["protein"], needs_tool=False, needs_profile=False)
+    # The precondition: with no filter the question finds the training chunk (distance 0).
+    found, _ = chat.find_chunks(TRAINING_QUESTION, None, training_index)
+    assert [c.metadata["source_id"] for c in found] == ["24"]
+    model = _model("Ten or more sets per muscle per week [S1].")
+    result = _turn(
+        TRAINING_QUESTION, training_index, model, translator=ScriptedTranslator(plans=[plan])
+    )
+    assert _search(result).filter_dropped is True
+    assert (result.kind, result.text) == ("no_sources", config.NO_SOURCES_MESSAGE)
+    assert len(model.calls) == 1
 
 
 @pytest.mark.parametrize("topics", [["fat"], ["resistance_training", "fat"]])
 def test_a_plan_with_a_nutrition_topic_still_falls_back_without_the_filter(index, topics):
-    """Only a training-only plan is cut: with a nutrition topic the unfiltered chunks answer."""
+    """A plan with a nutrition topic falls back past its filter, and nutrition chunks answer."""
     rewrites = [f"{MIXED_QUESTION} rewrite {n}" for n in (1, 2, 3)]
     plan = plan_json(rewrites, topics, needs_tool=False)
     model = _model("Spread protein over four meals [S1].")
