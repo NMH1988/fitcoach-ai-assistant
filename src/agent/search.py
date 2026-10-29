@@ -7,13 +7,15 @@ the model inside a delimited `<sources>` block in the tool message, escaped like
 retrieved text stays data (T3.4). The query is the model's text: it is checked (type and length),
 used only for the rewrite and the search, and escaped wherever it is shown or sent.
 
-A turn's searches share one `SearchLog`, kept in the run's context like the usage recorder: the
-round's calls run one at a time, so each search numbers its chunks after the ones before it, even
-in the same round, which state updates (applied only when the round ends) could not do. A chunk
-found again keeps its first label, so `[S#]` labels stay unique across the turn.
+A turn's searches share one `SearchLog`, kept in the run's context like the usage recorder, so
+each search numbers its chunks after the ones before it, even in the same round, which state
+updates (applied only when the round ends) could not do. A chunk found again keeps its first label,
+so `[S#]` labels stay unique across the turn. The log takes a lock: the turn runs a round's calls
+one at a time (`graph.run_config()`), but the cap and the labels must hold if they ran together.
 """
 
 import dataclasses
+import threading
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -33,13 +35,15 @@ if TYPE_CHECKING:
     from src.agent.graph import TurnContext
 
 SEARCH_TOOL = "search_knowledge_base"
-# What the model reads about the tool: what it does and what it returns. When to call it is the
-# owner's to write in the answer prompt (O8), so it is not said here.
+# What the model reads about the tool: what it does, what it returns, and that the query carries no
+# personal values (owner's choice of 2026-10-29, after the compliance review: the query goes to the
+# query translation and embedding models). When to call it is the owner's to write (O8).
 SEARCH_DESCRIPTION = (
     "Search the app's research knowledge base (openly licensed review articles and position "
     "stands on nutrition for strength training) for passages relevant to a query. Returns the "
     "passages inside <sources>, each labelled [S#] for citing; if none is relevant, <sources> says "
-    "so. Write the query in English as a short, self-contained research question."
+    "so. Write the query in English as a short, self-contained research question. Never put the "
+    "user's own values (weight, goal, activity, targets or other personal details) in the query."
 )
 
 
@@ -81,19 +85,37 @@ class SearchLog:
 
     chunks: list[RetrievedChunk] = field(default_factory=list)
     searches: list[SearchDetails] = field(default_factory=list)
+    # Searches let through so far: counted before a search spends anything, so the cap holds even
+    # for calls that run together.
+    started: int = 0
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
+
+    def reserve(self) -> bool:
+        """Count a search about to run; return False when the turn's cap is already reached."""
+        with self._lock:
+            if self.started >= config.MAX_SEARCHES_PER_TURN:
+                return False
+            self.started += 1
+            return True
 
     def label(self, found: Sequence[RetrievedChunk]) -> tuple[list[int], list[RetrievedChunk]]:
         """Return each found chunk's [S#] number and the chunks new to this turn, labelling them."""
-        numbers = {chunk_key(chunk): number for number, chunk in enumerate(self.chunks, start=1)}
-        labels, new = [], []
-        for chunk in found:
-            key = chunk_key(chunk)
-            if key not in numbers:
-                self.chunks.append(chunk)
-                numbers[key] = len(self.chunks)
-                new.append(chunk)
-            labels.append(numbers[key])
-        return labels, new
+        with self._lock:
+            numbers = {chunk_key(c): number for number, c in enumerate(self.chunks, start=1)}
+            labels, new = [], []
+            for chunk in found:
+                key = chunk_key(chunk)
+                if key not in numbers:
+                    self.chunks.append(chunk)
+                    numbers[key] = len(self.chunks)
+                    new.append(chunk)
+                labels.append(numbers[key])
+            return labels, new
+
+    def record(self, details: SearchDetails) -> None:
+        """Keep a finished search's details, in the order the searches ended."""
+        with self._lock:
+            self.searches.append(details)
 
 
 def run_search(
@@ -110,12 +132,13 @@ def run_search(
     if log is None or open_index is None or translation_model is None:
         # The graph offers the tool only to a whole turn, which has all three.
         raise RuntimeError("A search needs the turn's search log, index and translation model.")
-    if len(log.searches) >= config.MAX_SEARCHES_PER_TURN:
-        return registry.refused_call(call["id"] or "", config.TOO_MANY_SEARCHES_MESSAGE)
     try:
         query = SearchArgs.model_validate(call["args"]).query
     except ValidationError:
         return registry.refused_call(call["id"] or "", config.INVALID_SEARCH_QUERY_MESSAGE)
+    # Reserved before anything is spent: a refused query takes no place.
+    if not log.reserve():
+        return registry.refused_call(call["id"] or "", config.TOO_MANY_SEARCHES_MESSAGE)
     plan = query_translation.translate(
         query, translation_model(), translation_prompt, context.recorder
     )
@@ -128,7 +151,7 @@ def run_search(
             recorder=context.recorder,
         )
     labels, new = log.label(found)
-    log.searches.append(dataclasses.replace(details, labels=tuple(labels)))
+    log.record(dataclasses.replace(details, labels=tuple(labels)))
     if context.on_chunks is not None:
         context.on_chunks(tuple(new))
     message = ToolMessage(

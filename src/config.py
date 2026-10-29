@@ -281,6 +281,11 @@ NO_SOURCES_BLOCK = "None: no research excerpt is close enough to this question."
 # query translation call and an embedding call, and adds up to RETRIEVAL_TOP_K chunks to every later
 # model call), and the longest query the model may write (the question's own limit is the guard's).
 MAX_SEARCHES_PER_TURN = 2
+# The tool results an answer may rest on (T9.3): a calculation, a food found or not found, and
+# "profile needed", whose answer points to the "Add your details" button (owner's choice of
+# 2026-10-29, after the security review of PR #46). A refused call ("invalid") or a tool that
+# failed ("error") is no basis, so a reply after it stays hidden.
+BASIS_TOOL_STATUSES = frozenset({"ok", "found", "not_found", "profile_needed"})
 SEARCH_QUERY_MAX_CHARS = 500
 INVALID_SEARCH_QUERY_MESSAGE = (
     f"Invalid call: the query must be one text of 1 to {SEARCH_QUERY_MAX_CHARS} characters."

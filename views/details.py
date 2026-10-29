@@ -1,5 +1,7 @@
 """The Details tab and the sidebar card: how the last answer was found, and what it cost (AC-3)."""
 
+from collections.abc import Sequence
+
 import streamlit as st
 
 from src import chat, config, usage
@@ -38,6 +40,20 @@ def filter_badges(details: chat.SearchDetails) -> None:
                 else tables.tier_label(tier, lang())
             )
             st.badge(label, icon=":material/verified:", color="blue")
+
+
+def merged_filters(searches: Sequence[chat.SearchDetails]) -> chat.SearchDetails:
+    """Return one set of filters for the card: each filter the turn's searches set, once."""
+    # The card names no search, so a badge per search would repeat filters and show "No filters"
+    # beside a search that set some; the Details tab shows each search's own.
+    tiers = {details.evidence_tier for details in searches} - {None}
+    years = [details.min_year for details in searches if details.min_year is not None]
+    return chat.SearchDetails(
+        query="",
+        topics=tuple(dict.fromkeys(topic for details in searches for topic in details.topics)),
+        min_year=min(years) if years else None,
+        evidence_tier=tiers.pop() if len(tiers) == 1 else None,
+    )
 
 
 def search_notes(details: chat.SearchDetails) -> None:
@@ -117,12 +133,8 @@ def last_answer_card() -> None:
             st.caption(t("card.searches_one", queries=queries))
         else:
             st.caption(t("card.searches_many", count=len(searches), queries=queries))
-        # One "No filters" badge for searches that all set none, not one per search.
-        if any(details.has_filters for details in searches):
-            for details in searches:
-                filter_badges(details)
-        elif searches:
-            filter_badges(searches[0])
+        if searches:
+            filter_badges(merged_filters(searches))
         if any(details.filter_dropped for details in searches):
             st.caption(t("card.filters_dropped"))
         turn_usage = message.get("usage")

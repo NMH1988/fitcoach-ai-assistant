@@ -544,6 +544,19 @@ def test_details_lists_each_search_of_the_turn(monkeypatch):
     assert _badges(_card(at)) == [":gray-badge[:material/filter_alt_off: No filters]"]
 
 
+def test_the_card_shows_each_filter_of_the_turns_searches_once(monkeypatch):
+    """Two searches, one filtered by protein: the card shows "Protein" once, no "No filters"."""
+    both = tool_reply((SEARCH_TOOL, {"query": QUESTION}), (SEARCH_TOOL, {"query": "creatine"}))
+    model = ScriptedChatModel(replies=[both, AIMessage("A [S1].")], search_first=False)
+    plans = [
+        plan_json(REWRITES, ["protein"]),
+        plan_json(["creatine a", "creatine b", "creatine c"]),
+    ]
+    _use_model(monkeypatch, model, ScriptedTranslator(plans=plans))
+    at = _ask(_start(), "Protein per meal, and creatine?")
+    assert _badges(_card(at)) == [":blue-badge[:material/sell: Protein]"]
+
+
 def test_details_follows_the_last_question(monkeypatch):
     """After two questions the Details tab shows the second one's search."""
     plans = [plan_json(REWRITES), plan_json(["creatine a", "creatine b", "creatine c"])]

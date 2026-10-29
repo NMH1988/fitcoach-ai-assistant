@@ -183,11 +183,39 @@ def test_rounds_follow_each_other_and_the_steps_show_them(index):
 def test_a_tool_error_returns_to_the_model_as_a_message(index, monkeypatch, tmp_path):
     """A missing foods table gives the fixed message as the tool result; the turn goes on."""
     monkeypatch.setattr(config, "USDA_FOODS_PATH", tmp_path / "missing.csv")
-    result, model = _turn(index, tool_reply((FOOD_TOOL, OATS)), AIMessage(ANSWER))
+    # After a search found passages: a failed tool alone is no basis (next test).
+    result, model = _turn(
+        index, tool_reply((FOOD_TOOL, OATS)), AIMessage(ANSWER), search_first=True
+    )
     [reply] = _tool_messages(model)
     assert reply.status == "error"
     assert _content(reply) == {"status": "error", "message": config.TOOL_FAILED_MESSAGE}
     assert (result.kind, result.tool_runs[0].status) == ("answer", "error")
+
+
+def test_a_failed_tool_alone_is_no_basis(index, monkeypatch, tmp_path):
+    """A tool that failed gives no basis: the next reply stays hidden, "not covered" (PR #46)."""
+    monkeypatch.setattr(config, "USDA_FOODS_PATH", tmp_path / "missing.csv")
+    shown = []
+    result, _ = _turn(
+        index,
+        tool_reply((FOOD_TOOL, OATS)),
+        AIMessage("Oats have about 380 kcal per 100 g."),
+        question=FOOD_QUESTION,
+        on_text=shown.append,
+    )
+    assert (result.kind, result.text) == ("no_sources", NO_SOURCES)
+    assert not [text for text in shown if text]
+    assert config.BASIS_TOOL_STATUSES == {"ok", "found", "not_found", "profile_needed"}
+
+
+def test_profile_needed_is_a_basis_so_the_answer_points_to_the_form(index):
+    """With no profile, the answer after "profile needed" is shown with its tool result (T3.5)."""
+    result, _ = _turn(
+        index, tool_reply((MACRO_TOOL, {})), AIMessage("Add your details."), user=None
+    )
+    assert (result.kind, result.text) == ("answer", "Add your details.")
+    assert [run.status for run in result.tool_runs] == ["profile_needed"]
 
 
 def test_invalid_arguments_return_to_the_model_as_a_message(index):

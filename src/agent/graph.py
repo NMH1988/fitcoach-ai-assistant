@@ -94,7 +94,7 @@ class LoopOutput(TypedDict):
 
 
 class TurnState(TurnInput, TurnOutput, LoopInput, LoopOutput, total=False):
-    """The whole state of a turn; every key but text, profile and result is private."""
+    """The whole state of a turn; every key but text and result is private."""
 
     # The cleaned text the guard accepted; the model gets it, never a search's rewrites.
     question: str
@@ -153,9 +153,12 @@ def _last_reply(messages: Sequence[AnyMessage]) -> AIMessage:
 
 
 def _has_basis(runs: Sequence[ToolRun], log: SearchLog | None) -> bool:
-    """Return True once an answer has something to rest on: a relevant chunk or a real tool run."""
-    # A refused call (an unknown tool, bad arguments, over a limit) does not count.
-    return any(run.status != "invalid" for run in runs) or bool(log is not None and log.chunks)
+    """Return True once an answer has something to rest on: a relevant chunk or a tool result."""
+    # A refused call (an unknown tool, bad arguments, over a limit) or a failed tool does not count
+    # (config.BASIS_TOOL_STATUSES).
+    return any(run.status in config.BASIS_TOOL_STATUSES for run in runs) or bool(
+        log is not None and log.chunks
+    )
 
 
 def _tools(context: TurnContext) -> list[StructuredTool]:

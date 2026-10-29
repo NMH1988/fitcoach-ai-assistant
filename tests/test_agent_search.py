@@ -6,6 +6,7 @@ come back inside a delimited `<sources>` block as data, the searches of a turn a
 [S#] labels stay unique across them, so the source cards list each cited source once.
 """
 
+import dataclasses
 import html
 
 import pytest
@@ -116,6 +117,14 @@ def test_the_query_length_comes_from_config():
     assert str(config.SEARCH_QUERY_MAX_CHARS) in config.INVALID_SEARCH_QUERY_MESSAGE
 
 
+def test_the_tool_description_keeps_personal_values_out_of_the_query():
+    """The model is told never to put the user's own values in a query (compliance, PR #46)."""
+    description = search.search_tool_definition().description
+    assert "Never put the user's own values" in description
+    for word in ("weight", "goal", "targets"):
+        assert word in description
+
+
 def test_the_tool_the_model_sees_takes_only_the_query():
     """The search tool's schema has one required string field, and its description says what."""
     tool = search.search_tool_definition()
@@ -198,6 +207,37 @@ def test_searches_past_the_cap_are_refused(index):
     assert (run.name, run.status) == (None, "invalid")
     assert config.TOO_MANY_SEARCHES_MESSAGE in message.content
     assert len(translator.calls) == len(log.searches) == config.MAX_SEARCHES_PER_TURN
+
+
+def test_a_refused_query_takes_no_search_place(index):
+    """A bad query is refused before the cap is counted, so the turn can still search twice."""
+    translator, log = ScriptedTranslator(), SearchLog()
+    context = _context(index, translator, log)
+    assert _search(context, "")[1] is not None
+    for number in range(config.MAX_SEARCHES_PER_TURN):
+        assert _search(context, QUESTION, f"s{number}")[1] is None
+    assert log.started == len(translator.calls) == config.MAX_SEARCHES_PER_TURN
+
+
+def test_the_search_cap_holds_when_the_calls_run_together(index):
+    """Without the turn's one-at-a-time setting, six searches in one reply still run only two."""
+    # The turn always runs a round's calls one at a time (graph.run_config()); the cap is counted
+    # before a search spends anything, so it holds even when they run in parallel (PR #46 review).
+    calls = [(SEARCH_TOOL, {"query": f"{QUESTION} {n}"}) for n in range(6)]
+    model = ScriptedChatModel(
+        replies=[tool_reply(*calls), AIMessage("A [S1].")], search_first=False
+    )
+    translator, log = ScriptedTranslator(), SearchLog()
+    context = dataclasses.replace(
+        _context(index, translator, log), chat_model=lambda: model, limiter=guard.RateLimiter()
+    )
+    output = graph.chat_graph().invoke(
+        {"text": QUESTION}, context=context, config={"recursion_limit": graph.MAX_STEPS + 1}
+    )
+    assert len(translator.calls) == len(log.searches) == config.MAX_SEARCHES_PER_TURN
+    assert len(output["result"].searches) == config.MAX_SEARCHES_PER_TURN
+    refused = [m for m in model.calls[-1] if isinstance(m, ToolMessage) and "Not run" in m.content]
+    assert len(refused) == 6 - config.MAX_SEARCHES_PER_TURN
 
 
 def test_labels_stay_unique_across_a_turns_searches(index):
