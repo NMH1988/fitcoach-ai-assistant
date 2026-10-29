@@ -255,7 +255,7 @@ def agent(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
         reply = chat.stream_reply(bound, state["messages"], on_text, record)
     except llm.ReplyCutOffError:
         if hidden:
-            # Nothing was shown and no tool ran: the turn ends as "not covered".
+            # Nothing was shown and no tool gave a result: the turn ends as "not covered".
             return {"answer": None}
         raise
     if not reply.tool_calls and not reply.invalid_tool_calls:
@@ -353,8 +353,9 @@ def end_round(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]
     runs = [*state.get("runs", []), *update["runs"]]
     if state.get("tools_only", False) and log is not None and log.searches:
         if not _has_basis(runs, log):
-            # The searches found nothing and no tool ran: "not covered", with no further model
-            # call (AC-2). A round of refused calls alone goes back to the model instead.
+            # The searches found nothing and no tool gave a result: "not covered", with no
+            # further model call (AC-2). A round of refused calls alone goes back to the model
+            # instead.
             return {**update, "stopped": True, "answer": None}
     context.on_step(Step.ANSWER)
     return update

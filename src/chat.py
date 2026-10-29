@@ -65,8 +65,8 @@ class Step(StrEnum):
     TOOLS = "Using the tools"
 
 
-# answer: the model's answer; no_sources: no search found a relevant chunk and no tool ran, so an
-# answer would rest on nothing (AC-2); rejected: the guard
+# answer: the model's answer; no_sources: no search found a relevant chunk and no tool gave a
+# result (BASIS_TOOL_STATUSES), so an answer would rest on nothing (AC-2); rejected: the guard
 # refused the input; guardrail: a domain guardrail refused or redirected it (AC-12); error: a
 # model, key or index problem.
 TurnKind = Literal["answer", "no_sources", "rejected", "guardrail", "error"]
