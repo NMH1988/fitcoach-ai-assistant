@@ -449,12 +449,26 @@ def _graph_turn(index, *replies, text=QUESTION, search_first=True, **extra):
     return output, model
 
 
-def test_the_caller_gets_only_the_result(index):
-    """The messages, chunks, plan and tool runs stay private: the output is the result alone."""
+def test_the_caller_gets_only_the_result_and_the_question(index):
+    """The messages, chunks, plan and tool runs stay private: the result and the question only."""
     output, _ = _graph_turn(index, tool_reply((TDEE_TOOL, {})), AIMessage(ANSWER))
-    assert set(output) == {"result"}
+    # The question the guard accepted, which the conversation keeps (T9.4).
+    assert set(output) == {"result", "question"}
+    assert output["question"] == QUESTION
     assert output["result"].kind == "answer"
     assert [run.name for run in output["result"].tool_runs] == [TDEE_TOOL]
+
+
+def test_a_rejected_turn_gives_back_no_question(index):
+    """A rejected text is not given back, so nothing can keep it (T9.4)."""
+    output, _ = _graph_turn(index, text=INJECTION)
+    assert set(output) == {"result"}
+    assert output["result"].kind == "rejected"
+
+
+def test_the_turn_graph_is_never_checkpointed():
+    """The turn's graph has no checkpointer of its own and refuses a parent's (T9.4)."""
+    assert graph.chat_graph().checkpointer is False
 
 
 def test_the_longest_turn_takes_max_steps(index):

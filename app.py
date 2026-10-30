@@ -3,6 +3,7 @@
 import streamlit as st
 
 from src import config, i18n, observability
+from src.agent import memory
 from views import about, chat, details, export, food, header, profile_form, sidebar, targets
 from views.text import t
 
@@ -23,10 +24,14 @@ st.set_page_config(
 # Session state: "profile" holds the UserProfile (kg and cm), "units" the unit system the user
 # chose, "language" the UI language (T7.1) and "messages" the chat history (questions, and
 # TurnResults with their priced TurnUsage under "usage", T5.1); "food_result" the Food lookup
-# tab's last result (USDA data only), with its inputs under "food_query" and "food_grams". All
-# live for the session only and are never logged (docs/SECURITY.md).
+# tab's last result (USDA data only), with its inputs under "food_query" and "food_grams";
+# "conversation" the chat's memory, the session's own checkpointer and thread (T9.4; never in
+# st.cache_resource, so sessions share nothing). All live for the session only and are never
+# logged (docs/SECURITY.md).
 st.session_state.setdefault("units", config.DEFAULT_UNIT_SYSTEM)
 st.session_state.setdefault("messages", [])
+if "conversation" not in st.session_state:
+    st.session_state["conversation"] = memory.Conversation()
 
 
 def _main_area() -> None:

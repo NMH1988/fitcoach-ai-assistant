@@ -133,6 +133,26 @@ def test_the_pdf_built_on_click_holds_the_turn_that_just_ran(monkeypatch):
     assert config.DISCLAIMER in text
 
 
+def test_after_new_chat_the_pdf_holds_only_the_new_chat(monkeypatch):
+    """ "New chat" starts the summary again: the PDF holds only the question asked after it."""
+    model = ScriptedChatModel(replies=[AIMessage("Four meals [S1]."), AIMessage("Creatine [S1].")])
+    monkeypatch.setattr(llm, "build_chat_model", lambda name=None, *a, **k: _pick(name, model))
+    built = _recorded_builds(monkeypatch)
+    at = _start(PROFILE)
+    at.chat_input(key="chat_input").set_value("How much protein per meal?").run(timeout=30)
+    at.button(key="new_chat").click().run(timeout=30)
+    at.chat_input(key="chat_input").set_value("Does creatine help?").run(timeout=30)
+    assert not at.exception
+    text = pdf_text(built[-1]())
+    assert "Question 1 Does creatine help?" in text
+    assert "How much protein per meal?" not in text
+
+
+def _pick(name: str | None, model: ScriptedChatModel):
+    """Return a fresh translator for the query translation model, else the answer model."""
+    return ScriptedTranslator() if name == config.QUERY_TRANSLATION_MODEL else model
+
+
 def _recorded_builds(monkeypatch) -> list:
     """Record the data function of every download button the app draws."""
     built = []
