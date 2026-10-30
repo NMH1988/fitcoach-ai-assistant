@@ -30,7 +30,7 @@ A chatbot that gives adults who lift weights clear, evidence-based nutrition ans
 9. **Token usage and cost** per answer and per session. Serves Medium 5.
 10. **Progress indicator** for each step of a turn. Serves core 5.
 11. **Security:** input validation, prompt injection protection, rate limit, the domain guardrails below. Serves core 3 and 4, Medium 3. Details in `docs/SECURITY.md`.
-12. **English and German** (extra). A language switch in the header (EN | DE, default from the browser); UI text and answers in the chosen language, sources and food names in English; the guard and the guardrails work in both languages. Serves Hard 4.
+12. **English and German** (extra). A language switch in the header (EN | DE, default from the browser; planned to move to the sidebar as "English | Deutsch", T9.23, owner's decision, 2026-10-30); UI text and answers in the chosen language, sources and food names in English; the guard and the guardrails work in both languages. Serves Hard 4.
 13. **Light and dark mode** (extra). Both themes are defined; users switch in Streamlit's built-in menu (top right), and a sidebar hint says where. Beyond the brief (owner's request).
 
 **Optional tasks for maximum points** (done first, with the core): Medium 3 and 6; Hard 1. **Extras** (after the core, still wanted): Medium 5, Medium 7, Hard 4 (English and German), and light and dark mode.
