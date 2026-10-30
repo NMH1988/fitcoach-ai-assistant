@@ -30,7 +30,7 @@ A chatbot that gives adults who lift weights clear, evidence-based nutrition ans
 9. **Token usage and cost** per answer and per session. Serves Medium 5.
 10. **Progress indicator** for each step of a turn. Serves core 5.
 11. **Security:** input validation, prompt injection protection, rate limit, the domain guardrails below. Serves core 3 and 4, Medium 3. Details in `docs/SECURITY.md`.
-12. **English and German** (extra). A language switch in the header (EN | DE, default from the browser); UI text and answers in the chosen language, sources and food names in English; the guard and the guardrails work in both languages. Serves Hard 4.
+12. **English and German** (extra). A language switch in the header (EN | DE, default from the browser; planned to move to the sidebar as "English | Deutsch", T9.23, owner's decision, 2026-10-30); UI text and answers in the chosen language, sources and food names in English; the guard and the guardrails work in both languages. Serves Hard 4.
 13. **Light and dark mode** (extra). Both themes are defined; users switch in Streamlit's built-in menu (top right), and a sidebar hint says where. Beyond the brief (owner's request).
 
 **Optional tasks for maximum points** (done first, with the core): Medium 3 and 6; Hard 1. **Extras** (after the core, still wanted): Medium 5, Medium 7, Hard 4 (English and German), and light and dark mode.
@@ -167,7 +167,7 @@ The coach role, invitations and sharing, the workout log and the dashboards. Nei
 
 ### Moved to the Capstone
 
-PostgreSQL (and pgvector instead of Chroma), a REST API, separate nutrition coach and personal trainer roles, accounts with several roles, email invitations, an admin role, asynchronous review jobs, meal plans, workout programs (personal training plans; Sprint 3 gives principles only, feature 26), exercise technique instruction, messaging, recipes and shopping lists, food scanning, health devices, billing, chat summaries in long-term memory, a 375 px phone layout and a WCAG 2.2 AA review, Docker and a staging environment, EU hosting, a GDPR assessment, and interviews and pilot metrics with real coaches. The frontend is open: the Sprint 3 brief allows Streamlit or Next.js, so another framework needs the Capstone brief's approval. Open Food Facts stays excluded at every stage (ODbL, `docs/SOURCES.md`).
+PostgreSQL (and pgvector instead of Chroma), a REST API, separate nutrition coach and personal trainer roles, accounts with several roles, email invitations, an admin role, asynchronous review jobs, meal plans, workout programs (personal training plans; Sprint 3 gives principles only, feature 26), exercise technique instruction, messaging, recipes and shopping lists, food scanning, health devices, billing, chat summaries in long-term memory, a 375 px phone layout (except the coach's client list, shown as cards on phones in Sprint 3: owner's decision, 2026-10-30, T9.15) and a WCAG 2.2 AA review, Docker and a staging environment, EU hosting, a GDPR assessment, and interviews and pilot metrics with real coaches. The frontend is open: the Sprint 3 brief allows Streamlit or Next.js, so another framework needs the Capstone brief's approval. Open Food Facts stays excluded at every stage (ODbL, `docs/SOURCES.md`).
 
 ## Content ownership
 
