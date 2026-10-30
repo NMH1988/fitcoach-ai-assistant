@@ -13,9 +13,11 @@ gave a result (`config.BASIS_TOOL_STATUSES`). A reply with no tool call before t
 whose searches found nothing with no tool result, ends the turn with the "not covered" message and
 no further model call (AC-2; owner's choice in T9.3, 2026-10-29).
 
-The caller passes the text and gets back only the `TurnResult`: the messages and the tool runs are
-private state. What cannot live in state (the index, the model clients, the UI's callbacks, the
-rate limiter, the turn's `UsageRecorder` and its `SearchLog`) is the run's context (`TurnContext`).
+The caller passes the text and the conversation's earlier messages (T9.4), and gets back only the
+`TurnResult` and the question the guard accepted: the messages and the tool runs are private state.
+The graph is never checkpointed (`src/agent/memory.py` keeps the conversation). What cannot live
+in state (the index, the model clients, the UI's callbacks, the rate limiter, the turn's
+`UsageRecorder` and its `SearchLog`) is the run's context (`TurnContext`).
 The recorder is there, not in state, because a node that raises loses its state update, and an
 error result must keep the tokens spent before it (T5.1, T1.8); the search log, because a round's
 searches must number their chunks one after another before the round's updates are applied. The
@@ -29,7 +31,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import cache, partial
 from pathlib import Path
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, Any, NotRequired, TypedDict
 
 from langchain_chroma import Chroma
 from langchain_core.language_models import BaseChatModel
@@ -66,15 +68,21 @@ MAX_STEPS = 3 * config.MAX_TOOL_ROUNDS + 4
 
 
 class TurnInput(TypedDict):
-    """What the caller gives the graph: the user's raw text (the profile is the tools' alone)."""
+    """What the caller gives the graph: the raw text and the conversation's earlier messages."""
 
+    # The profile is the tools' alone (T9.3).
     text: str
+    # The earlier questions and answers of the conversation (T9.4); the model gets the latest that
+    # fit config.HISTORY_MAX_TOKENS. Empty or left out for a turn on its own (the evaluation run).
+    history: NotRequired[list[AnyMessage]]
 
 
 class TurnOutput(TypedDict):
-    """What the caller gets back: the turn's result, nothing else."""
+    """What the caller gets back: the turn's result, and the question the guard accepted."""
 
     result: TurnResult
+    # Only when the guard accepted the text: the conversation keeps it with the answer (T9.4).
+    question: NotRequired[str]
 
 
 class LoopInput(TypedDict):
@@ -94,10 +102,10 @@ class LoopOutput(TypedDict):
 
 
 class TurnState(TurnInput, TurnOutput, LoopInput, LoopOutput, total=False):
-    """The whole state of a turn; every key but text and result is private."""
+    """The whole state of a turn; every key but text, history, result and question is private."""
 
-    # The cleaned text the guard accepted; the model gets it, never a search's rewrites.
-    question: str
+    # question (TurnOutput): the cleaned text the guard accepted; the model gets it, never a
+    # search's rewrites.
     system_prompt: str
     # The query translation prompt, read before any API call and used by every search.
     translation_prompt: str
@@ -225,8 +233,11 @@ def prepare(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
     return {
         "system_prompt": system,
         "translation_prompt": translation_prompt,
-        # The user's own question only; the chunks come in a search's tool message (T9.3).
-        "messages": chat.build_messages(state["question"], system),
+        # The conversation's latest questions and answers (T9.4), then the user's own question; the
+        # chunks come in a search's tool message (T9.3).
+        "messages": chat.build_messages(
+            state["question"], system, chat.trim_history(state.get("history") or [])
+        ),
         "tools_only": True,
     }
 
@@ -437,7 +448,10 @@ def chat_graph() -> CompiledStateGraph:
     builder.add_edge("prepare", "agent")
     _add_answer_loop(builder, "finish")
     builder.add_edge("finish", END)
-    return builder.compile()
+    # Never checkpointed, even inside the conversation graph that has a checkpointer (T9.4): the
+    # turn's text, tool calls, tool results (some hold profile values) and <sources> stay out of
+    # memory; the conversation keeps only the question and the answer (src/agent/memory.py).
+    return builder.compile(checkpointer=False)
 
 
 @cache

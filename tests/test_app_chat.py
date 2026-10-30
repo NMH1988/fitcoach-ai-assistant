@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 import streamlit as st
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from streamlit.testing.v1 import AppTest
 
 from src import chat, config, guard, guardrails, i18n, llm
@@ -276,6 +276,98 @@ def test_the_history_stays_across_turns(monkeypatch):
     assert first.expander[0].label == "Sources (1)"
     assert first.status[0].label == "Answered from the research"
     assert second.markdown[0].value == "Creatine [S3]."
+
+
+# --- Conversation memory and "New chat" (T9.4, AC-31) ---------------------------------------------
+
+
+def _earlier(call: list) -> list[str]:
+    """Return the contents of a model call's messages between the system prompt and the question."""
+    questions = [i for i, message in enumerate(call) if isinstance(message, HumanMessage)]
+    return [message.content for message in call[1 : questions[-1]]]
+
+
+def _new_chat(at: AppTest) -> AppTest:
+    """Click the "New chat" button."""
+    return at.button(key="new_chat").click().run(timeout=30)
+
+
+def test_a_second_question_reaches_the_model_with_the_first(monkeypatch):
+    """The chat remembers: the second turn's model gets the first question and its answer."""
+    model = _use_model(monkeypatch, _answers("Four meals [S1].", "Creatine [S3]."))
+    at = _ask(_ask(_start(), QUESTION), "And creatine with protein?")
+    assert not at.exception
+    second_turn = model.calls[-1]
+    assert _earlier(second_turn) == [chat.user_message(QUESTION).content, "Four meals."]
+
+
+def test_new_chat_is_off_until_there_is_a_chat():
+    """A new session shows the button switched off, with a line on what it does."""
+    at = _start()
+    button = at.button(key="new_chat")
+    assert (button.label, button.disabled) == ("New chat", True)
+    assert button.help == i18n.t("ask.new_chat_help", "en")
+
+
+def test_new_chat_clears_the_chat_and_forgets_the_conversation(monkeypatch):
+    """The chat is cleared, the old thread deleted, and the next question stands alone."""
+    model = _use_model(monkeypatch, _answers("Four meals [S1].", "Creatine [S3]."))
+    at = _ask(_start(), QUESTION)
+    conversation = at.session_state["conversation"]
+    old = conversation.config()
+    at = _new_chat(at)
+    assert not at.exception
+    assert not at.chat_message
+    assert any("Ask a question about nutrition" in c.value for c in at.caption)
+    assert at.button(key="new_chat").disabled
+    assert list(conversation.graph.get_state_history(old)) == []
+    assert conversation.config() != old
+    at = _ask(at, "And creatine with protein?")
+    assert _earlier(model.calls[-1]) == []
+    # The summary PDF and the session cost are built from these messages: the new chat only.
+    assert [m.get("text") for m in at.session_state["messages"]] == [
+        "And creatine with protein?",
+        None,
+    ]
+
+
+def test_new_chat_keeps_the_rate_limit(monkeypatch):
+    """Starting a new chat does not reset the session's rate limit."""
+    _use_model(monkeypatch, _answers("Four meals [S1]."))
+    at = _ask(_start(), QUESTION)
+    limiter = guard.session_limiter(at.session_state)
+    assert limiter.total == 1
+    at = _new_chat(at)
+    assert guard.session_limiter(at.session_state) is limiter
+    assert limiter.total == 1
+
+
+def test_two_sessions_do_not_see_each_others_conversation(monkeypatch):
+    """Each session has its own checkpointer: the other's question never reaches the model."""
+    model = _use_model(monkeypatch, _answers("Four meals [S1].", "Creatine [S3]."))
+    first = _ask(_start(), QUESTION)
+    second = _start()
+    assert second.session_state["conversation"] is not first.session_state["conversation"]
+    assert (
+        second.session_state["conversation"].checkpointer
+        is not first.session_state["conversation"].checkpointer
+    )
+    second = _ask(second, "And creatine with protein?")
+    assert not second.exception
+    assert _earlier(model.calls[-1]) == []
+    assert second.session_state["conversation"].messages()[0].content == (
+        chat.user_message("And creatine with protein?").content
+    )
+    assert len(first.session_state["conversation"].messages()) == 2
+
+
+def test_the_conversation_is_never_a_cached_resource():
+    """The memory lives in st.session_state only, never in st.cache_resource (shared by all)."""
+    for path in [APP, *sorted((APP.parent / "views").glob("*.py"))]:
+        source = path.read_text(encoding="utf-8")
+        for block in source.split("@st.cache_resource")[1:]:
+            assert "Conversation" not in block.split("\ndef ", 2)[1].split("\n\n")[0]
+    assert 'st.session_state["conversation"] = memory.Conversation()' in APP.read_text("utf-8")
 
 
 def _corrupt_index(path: Path) -> Path:

@@ -349,6 +349,12 @@ _EN: dict[str, str] = {
         "Ask a question about nutrition for strength training. Answers cite the research they use."
     ),
     "ask.placeholder": "Ask about nutrition for your training",
+    # The button that starts a new conversation (T9.4, AC-31).
+    "ask.new_chat": "New chat",
+    "ask.new_chat_help": (
+        "Start a new conversation. The assistant forgets this one, and the summary and the session "
+        "cost start again."
+    ),
     # What the answers are based on, and the credits (the sidebar button's dialog).
     "about.title": "About the answers",
     "about.articles": (
@@ -804,6 +810,11 @@ _DE: dict[str, str] = {
         "Forschung, die sie nutzen."
     ),
     "ask.placeholder": "Fragen Sie zur Ernährung für Ihr Training",
+    "ask.new_chat": "Neuer Chat",
+    "ask.new_chat_help": (
+        "Ein neues Gespräch beginnen. Der Assistent vergisst dieses, und die Zusammenfassung und "
+        "die Kosten der Sitzung beginnen neu."
+    ),
     "about.title": "Über die Antworten",
     "about.articles": (
         "**{articles} frei zugängliche Forschungsartikel**: {stands} ISSN-Positionspapiere und "

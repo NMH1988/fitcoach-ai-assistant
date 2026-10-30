@@ -126,6 +126,7 @@ T7.1 built the control and the German UI; T7.2 adds German answers and the Germa
 
 #### Ask
 
+- **New chat (T9.4, AC-31):** an `st.button` "New chat" ("Neuer Chat") with `:material/add_comment:` above the messages, switched off while the chat is empty, its help line saying the assistant forgets this conversation and the summary and session cost start again. A click deletes the session's conversation from memory, starts a new thread and clears the chat (the rate limit is kept). The model sees the earlier questions and answers of the current chat (the latest that fit `HISTORY_MAX_TOKENS`); the page shows the whole chat as before.
 - Messages in `st.container(height=...)` so the input stays in view; `st.chat_input("Ask about nutrition for your training")` directly below it, inside the tab (inline, not pinned).
 - User messages: `st.chat_message("user")`.
 - Assistant messages: `st.chat_message("assistant", avatar=":material/nutrition:")`, containing in order:
@@ -218,6 +219,7 @@ The Vega-Lite specs of the bar and the donut (`views/charts.py`) and the table r
 | Language control, German UI text | T7.1 (extra) |
 | German answers, English rewrites for retrieval | T7.2 (extra) |
 | Code split into `views/`, same look (Sprint 2 review, point 2) | T8.1 |
+| "New chat" button and the chat's memory | T9.4 |
 | Empty-state suggestions, colour tuning, final polish | UI polish ticket (extra, beyond the brief, owner's request) |
 | The new name (planned) | T9.22 (beyond the brief, owner's request) |
 | Brand sidebar, language control in the sidebar, the custom CSS layer (planned) | T9.23 |
