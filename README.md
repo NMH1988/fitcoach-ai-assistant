@@ -1,4 +1,4 @@
-# Nutrition AI Assistant for Gym Enthusiasts
+# Fitcoach AI Assistant
 
 A chatbot that answers nutrition questions for adults who do recreational strength training. It combines retrieval-augmented generation over open-licensed sports nutrition research with tools for personal calculations (energy needs, macro targets, a day's meal plan) and food lookups. Answers cite the research passages they use; when the sources do not cover a question, the app says so.
 
@@ -112,7 +112,9 @@ These are not needed to run the app:
 | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Deployment notes and the transfer checklist |
 | [`docs/PROGRESS.md`](docs/PROGRESS.md) | What each change did and why |
 
-Numbers such as `#76` in the docs and commit messages are issues and pull requests in the repository where the work was done, https://github.com/NMH1988/nutrition-ai-assistant; a source number such as "#18a" is a row in `docs/SOURCES.md`. Issue and PR numbers in the course repository, if it has any, are unrelated.
+The app was called "Nutrition AI Assistant" until 2026-10-30 (T9.22), so the history and earlier commit messages use that name. The work started in https://github.com/NMH1988/nutrition-ai-assistant and continues, since 2026-10-26, in https://github.com/NMH1988/fitcoach-ai-assistant, whose issues and pull requests are mostly written with the repository name (e.g. NMH1988/fitcoach-ai-assistant#52). Not always: in text and commit messages written since 2026-10-26, a bare PR or issue number next to work of that repository may be one of its numbers (e.g. "PR #37" for T1.10, "PR #35" for T9.6, and every "Merge pull request #n" from T8.3's #29 on (T8.2's #121, merged the same morning, is the old repository's)); the `docs/PROGRESS.md` entry's heading names the repository of its PR.
+
+Otherwise, and always before 2026-10-26, numbers such as `#76` in the docs and commit messages are issues and pull requests in the repository where the work started, https://github.com/NMH1988/nutrition-ai-assistant; a source number such as "#18a" is a row in `docs/SOURCES.md`. Issue and PR numbers in the course repository, if it has any, are unrelated.
 
 Stack: Python, Streamlit, LangChain, OpenRouter, Chroma, rank-bm25, reportlab, USDA FoodData Central.
 

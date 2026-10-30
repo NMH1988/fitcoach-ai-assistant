@@ -510,11 +510,9 @@ _EN: dict[str, str] = {
     "turn.error": config.TURN_ERROR_MESSAGE,
 }
 
-# The app's German name, also in the summary PDF's title and footer (T7.2).
-_DE_APP_TITLE = "KI-Ernährungsassistent"
-
 _DE: dict[str, str] = {
-    "app.title": _DE_APP_TITLE,
+    # A name is not translated: the German UI and PDF show the English one (T9.22).
+    "app.title": config.APP_TITLE,
     "app.intro": (
         "Evidenzbasierte Antworten zur Ernährung für Erwachsene, die Krafttraining machen, mit "
         "der Forschung dahinter."
@@ -857,7 +855,7 @@ _DE: dict[str, str] = {
         "erstellt; nicht auf dem Server gespeichert."
     ),
     "pdf.empty_help": "Geben Sie zuerst Ihre Angaben ein oder stellen Sie eine Frage.",
-    "pdf.title": f"{_DE_APP_TITLE}: Zusammenfassung der Sitzung",
+    "pdf.title": f"{config.APP_TITLE}: Zusammenfassung der Sitzung",
     "pdf.created": "Erstellt am {date}",
     "pdf.disclaimer": "Keine medizinische Beratung.",
     "pdf.profile": "Ihr Profil",
@@ -889,7 +887,7 @@ _DE: dict[str, str] = {
         "(https://github.com/dejavu-fonts/dejavu-fonts/releases/tag/version_2_37). Ihre Lizenz, "
         "wie sie mit den Schriften veröffentlicht wurde:"
     ),
-    "pdf.footer": f"{_DE_APP_TITLE} · Keine medizinische Beratung · Seite {{page}}",
+    "pdf.footer": f"{config.APP_TITLE} · Keine medizinische Beratung · Seite {{page}}",
     "guard.empty": "Geben Sie zuerst eine Frage ein.",
     "guard.too_long": (
         f"Ihre Nachricht ist zu lang. Sie darf höchstens {_MAX_CHARS} Zeichen haben."

@@ -187,7 +187,10 @@ def test_fetch_sends_a_descriptive_user_agent_and_a_timeout(urlopen_spy):
     assert request.get_method() == "GET"
     agent = request.get_header("User-agent")
     assert agent == config.DOWNLOAD_USER_AGENT
-    assert "nutrition-ai-assistant" in agent and "github.com" in agent
+    # The project's current name and repository (T9.22), not the old ones.
+    assert agent.startswith("fitcoach-ai-assistant/")
+    assert "https://github.com/NMH1988/fitcoach-ai-assistant" in agent
+    assert "nutrition-ai-assistant" not in agent
     assert urlopen_spy["timeout"] == config.DOWNLOAD_TIMEOUT_SECONDS
 
 

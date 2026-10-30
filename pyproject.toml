@@ -3,7 +3,7 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nutrition-ai-assistant"
+name = "fitcoach-ai-assistant"
 version = "0.1.0"
 description = "RAG and tool-calling nutrition assistant for gym enthusiasts (Streamlit, LangChain, OpenRouter, Chroma)"
 readme = "README.md"

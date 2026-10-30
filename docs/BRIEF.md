@@ -39,7 +39,7 @@ The brief sets **no minimum number of documents** for the knowledge base; it ask
 
 ### Submission
 
-Through the GitHub repository the course provides, followed by a scheduled review. **Our approach:** the work is done in the owner's personal repo `NMH1988/nutrition-ai-assistant`; when it is finished, the repo (files and commit history) is copied into the course repository, where the reviewers read it. Issues, pull requests and their comments do not travel with the copy, so everything a reviewer needs must be in files (see the transfer checklist in `docs/DEPLOYMENT.md`).
+Through the GitHub repository the course provides, followed by a scheduled review. **Our approach:** the work is done in the owner's personal repos: it started in `NMH1988/nutrition-ai-assistant` and continues, since 2026-10-26, in `NMH1988/fitcoach-ai-assistant`; when it is finished, the repo (files and commit history) is copied into the course repository, where the reviewers read it. Issues, pull requests and their comments do not travel with the copy, so everything a reviewer needs must be in files (see the transfer checklist in `docs/DEPLOYMENT.md`).
 
 ## Using this file
 
