@@ -115,7 +115,7 @@ Deadline: **2026-11-02** (Sprint 2, already submitted by the owner, 2026-10-28).
 | T9.21 | NMH1988/fitcoach-ai-assistant#44 | Checks: the manifest's authors against the article, and the evaluated code's git state (follow-up of T9.19's reviews, owner's choice, 2026-10-29) | S | T2.1, T8.4 | 10-30 | done |
 | T9.3 | #98 | Agentic RAG: searching the knowledge base is the agent's tool | M | T9.2, T8.4, O8 | 10-31 | done |
 | T9.4 | #99 | Short-term memory: a conversation that remembers earlier turns | M | T9.2, O8 | 10-31 | todo |
-| T9.22 | NMH1988/fitcoach-ai-assistant#52 | The app's new name: Fitcoach AI Assistant (owner's decision, 2026-10-30; beyond the brief) | S | - | 10-31 | in review |
+| T9.22 | NMH1988/fitcoach-ai-assistant#52 | The app's new name: Fitcoach AI Assistant (owner's decision, 2026-10-30; beyond the brief) | S | - | 10-31 | done |
 | T9.23 | NMH1988/fitcoach-ai-assistant#53 | Brand sidebar, language control in the sidebar and a custom CSS layer (owner's decisions, 2026-10-30; beyond the brief in part) | M | T9.22 | 11-01 (before T9.5; the dates after it were not moved) | todo |
 | T9.6 | #101 | The SQLite store and the authorisation layer | L | T9.1, T8.2 | 11-02 | done |
 | T9.5 | #100 | Sign in with Google, roles, guest and demo mode, My data | L | T9.6, T8.1, O9 | 11-03 | todo |
@@ -923,7 +923,7 @@ Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this 
 
 Made by the owner while reviewing the T9.15 dashboard mockups on a Claude Design canvas (outside the repo, so this section carries them): (1) the app is renamed "Fitcoach AI Assistant"; (2) the language control moves from the header to the sidebar, labelled "Language", with the options "English" and "Deutsch" and no icon; (3) a custom CSS layer is allowed for the whole app: one fixed stylesheet in the repo, loaded with `st.html`, aimed at the classes `st.container(key=...)` gives (`st-key-<key>`) and a few stable test ids, never a CDN or any external CSS (visitors' IPs stay off third-party hosts, as with the fonts); this replaces the "native first" principle of `docs/UI_DESIGN.md` and widens the single `st.html` exception in `docs/SECURITY.md`; (4) a brand sidebar: a deep green background with light text through the sidebar theme of `.streamlit/config.toml`, and `st.logo`; (5) on phones the coach's client list shows as cards, while tablets and desktops keep the table (a CSS media query, as Streamlit cannot read the screen width). The owner's answers of the same day, after the draft: a week in progress says "4 of 7 days logged" (AC-26's wording, unchanged); the German UI keeps the same name, the language label is "Sprache" in German, the PDF's file name stays, the stylesheet sets no colours, and the cut order below stands. The planned look is described in `docs/UI_DESIGN.md`, "Planned: the owner's UI decisions of 2026-10-30".
 
-### T9.22 The app's new name: Fitcoach AI Assistant (S) · status: in review · issue NMH1988/fitcoach-ai-assistant#52
+### T9.22 The app's new name: Fitcoach AI Assistant (S) · status: done · issue NMH1988/fitcoach-ai-assistant#52
 **Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): none; Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request): the new name, which says the app now covers coaching and training as well as nutrition (Sprint 3 core 1 asks for a clear purpose, not for a name).
 **Depends on:** -
 **Acceptance criteria**
