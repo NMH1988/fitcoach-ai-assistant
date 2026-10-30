@@ -563,8 +563,9 @@ MAX_MEAL_PLAN_CALLS_PER_ROUND = 1
 # (what is stored); the model gets the latest of them that fit HISTORY_MAX_TOKENS, counted
 # approximately without a network call (what the model sees). Both bound the cost: each earlier
 # message is sent again with every model call of a turn. Kept after the owner's live check (O13,
-# 2026-10-30): a meal plan exchange, the longest answer measured, added about 300 tokens to each
-# call, so 2000 holds the last four to six exchanges (docs/TESTING.md, "Conversation memory").
+# 2026-10-30): a meal plan exchange, the longest answer measured, is an estimated 450-500 tokens of
+# history a call, so 2000 holds the last three or four such exchanges, more of shorter ones
+# (docs/TESTING.md, "Conversation memory").
 HISTORY_MAX_MESSAGES = 20
 HISTORY_MAX_TOKENS = 2000
 # Tool messages are data for the model, in English (docs/UI_DESIGN.md, "Language"); the UI shows
