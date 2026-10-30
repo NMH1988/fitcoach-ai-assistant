@@ -17,6 +17,13 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-30 · Plan: two more criteria for T9.11 (agent types, error scenarios) · NMH1988/fitcoach-ai-assistant#49 (closes NMH1988/fitcoach-ai-assistant#48)
+- **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 5 (documentation), evaluation: core concepts (the differences between agent types; error scenarios and edge cases). Sprint 2 (`docs/BRIEF.md`): none.
+- **What:** `docs/IMPLEMENTATION_PLAN.md`, T9.11: two acceptance criteria added and its **Serves** line names the two evaluation items. `docs/ARCHITECTURE.md` will name the kinds of agent the course describes and say which kind each part of the app is (the guard, the chat, the weekly review) and which kinds it does not use; and its section 10 (Error handling) will cover every error path the Sprint 3 tickets add, with what the user sees and the test that shows it.
+- **Why:** the owner checked every Sprint 3 requirement against the tickets (2026-10-30). Each core requirement and the optional tasks for maximum points already had a ticket; two evaluation items did not: T9.11 compared our design with other designs, but not with the kinds of agent the course teaches, and section 10 still describes Sprint 2's errors only.
+- **Decisions & gotchas:** docs-only; no code or test changes. The course text is not copied: the criteria name the kinds of agent in our own words.
+- **Follow-ups:** T9.11 writes both sections once the P0 tickets are done.
+
 ## 2026-10-29 · T9.19 Training sources and indexing · NMH1988/fitcoach-ai-assistant#43 (closes NMH1988/fitcoach-ai-assistant#30)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 2 (the agent's main tasks), evaluation: technical (a relevant knowledge base). Sprint 2 (`docs/BRIEF.md`): core 1 (RAG: a knowledge base relevant to the domain), core 3 (a focused knowledge base), evaluation: technical (a relevant knowledge base). Beyond the brief (owner's request): training content (PRD feature 26). AC-40.
 - **What:**
