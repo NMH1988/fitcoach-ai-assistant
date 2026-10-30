@@ -79,17 +79,19 @@ def test_the_pdf_has_the_title_date_and_disclaimer():
     """The first page names the app, the day it was made and the full disclaimer."""
     text = pdf_text(_pdf())
     assert export_pdf.TEXT["title"] in text
+    assert "Fitcoach AI Assistant: session summary" in text
     assert "Created on 2026-10-20" in text
     assert f"Not medical advice. {config.DISCLAIMER}" in text
 
 
 def test_every_page_has_the_disclaimer_in_its_footer():
-    """Each page's footer says "Not medical advice" and its page number."""
+    """Each page's footer names the app and says "Not medical advice" and its page number."""
     turns = [(f"Question {n}?", _answer("A long answer. " * 120)) for n in range(4)]
     reader = PdfReader(io.BytesIO(_pdf(turns)))
     assert len(reader.pages) > 1
     for number, page in enumerate(reader.pages, start=1):
-        assert f"Not medical advice · Page {number}" in page.extract_text()
+        footer = f"Fitcoach AI Assistant · Not medical advice · Page {number}"
+        assert footer in page.extract_text()
 
 
 @pytest.mark.parametrize(
@@ -735,7 +737,8 @@ def test_the_german_pdf_reads_back_its_german_headings():
         [("Wie viel Protein?", _answer("Vier Mahlzeiten [S1].", _card(HMB), runs=(run,)))]
     )
     for heading in (
-        "KI-Ernährungsassistent: Zusammenfassung der Sitzung",
+        # A name is not translated (T9.22).
+        "Fitcoach AI Assistant: Zusammenfassung der Sitzung",
         "Erstellt am 20.10.2026",
         f"Keine medizinische Beratung. {_de('app.disclaimer')}",
         "Ihr Profil",
@@ -756,13 +759,14 @@ def test_the_german_pdf_reads_back_its_german_headings():
 
 
 def test_every_page_of_the_german_pdf_has_the_german_footer():
-    """Each page's footer says "Keine medizinische Beratung" and "Seite" with its number."""
+    """Each page's footer names the app and says "Keine medizinische Beratung" and "Seite"."""
     turns = [(f"Frage {n}?", _answer("Eine lange Antwort. " * 120)) for n in range(4)]
     data = export_pdf.build_summary_pdf(turns, PROFILE, "metric", MANIFEST, TODAY, "de")
     reader = PdfReader(io.BytesIO(data))
     assert len(reader.pages) > 1
     for number, page in enumerate(reader.pages, start=1):
-        assert f"Keine medizinische Beratung · Seite {number}" in page.extract_text()
+        footer = f"Fitcoach AI Assistant · Keine medizinische Beratung · Seite {number}"
+        assert footer in page.extract_text()
 
 
 @pytest.mark.parametrize(

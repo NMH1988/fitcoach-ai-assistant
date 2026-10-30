@@ -99,7 +99,8 @@ def test_a_german_browser_starts_in_german(monkeypatch):
     """A de-DE browser gets the German header, disclaimer, tabs and sidebar on its first run."""
     at = _start(monkeypatch, "de-DE")
     assert at.session_state[i18n.SESSION_KEY] == "de"
-    assert at.title[0].value == i18n.t("app.title", "de")
+    # A name is not translated: the German header shows the English one (T9.22).
+    assert at.title[0].value == config.APP_TITLE == "Fitcoach AI Assistant"
     disclaimer = f"**Keine medizinische Beratung.** {i18n.t('app.disclaimer', 'de')}"
     assert disclaimer in [w.value for w in at.warning]
     assert [tab.label for tab in at.tabs] == [
@@ -116,12 +117,15 @@ def test_a_german_browser_starts_in_german(monkeypatch):
 
 def test_the_choice_is_kept_for_the_session(monkeypatch):
     """Switching to German changes the page and stays German on later runs; back to English too."""
+    # The title is the same name in both languages (T9.22), so the intro shows the language.
     at = _switch(_start(monkeypatch), "de")
-    assert at.title[0].value == i18n.t("app.title", "de")
+    assert i18n.t("app.intro", "de") in [m.value for m in at.markdown]
     at.run(timeout=30)
     assert at.session_state[i18n.SESSION_KEY] == "de"
-    assert at.title[0].value == i18n.t("app.title", "de")
+    assert i18n.t("app.intro", "de") in [m.value for m in at.markdown]
+    assert at.title[0].value == config.APP_TITLE
     at = _switch(at, "en")
+    assert i18n.t("app.intro", "en") in [m.value for m in at.markdown]
     assert at.title[0].value == config.APP_TITLE
 
 

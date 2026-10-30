@@ -7,7 +7,7 @@ import streamlit as st
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-APP_TITLE = "Nutrition AI Assistant"
+APP_TITLE = "Fitcoach AI Assistant"
 APP_INTRO = (
     "Evidence-based nutrition answers for adults who lift weights, with the research behind them."
 )
@@ -403,8 +403,8 @@ PAGE_COLUMN_WEIGHTS = (1, 6, 1)
 # (copyright policy rule 10); the PMC, Europe PMC and publisher websites are never scripted.
 EUROPE_PMC_FULLTEXT_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/{pmcid}/fullTextXML"
 DOWNLOAD_USER_AGENT = (
-    "nutrition-ai-assistant/0.1 (study project; source download; "
-    "https://github.com/NMH1988/nutrition-ai-assistant)"
+    "fitcoach-ai-assistant/0.1 (study project; source download; "
+    "https://github.com/NMH1988/fitcoach-ai-assistant)"
 )
 # Wait between two requests, to be polite to the API.
 DOWNLOAD_PAUSE_SECONDS = 1.0

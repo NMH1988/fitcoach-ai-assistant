@@ -36,14 +36,14 @@ Either way:
 ## Deploy steps (Streamlit Community Cloud, first time)
 
 1. Sign in at https://share.streamlit.io with the GitHub account that owns the repo.
-2. Create an app: repo `NMH1988/nutrition-ai-assistant`, branch `main`, main file `app.py`.
+2. Create an app: repo `NMH1988/fitcoach-ai-assistant`, branch `main`, main file `app.py`.
 3. In advanced settings: choose the Python version; paste secrets only if option 2 above is used.
 4. Deploy, open the URL, and run the checks below.
 5. Optional: set the repo variable `APP_URL` and add the Sprint 1 style CD workflow that waits for CI on `main` and then calls `<APP_URL>/_stcore/health`.
 
 ## Copying the repo to the course repository
 
-The work happens in `NMH1988/nutrition-ai-assistant`; when it is finished, it is copied into the repository the course provides, where the reviewers read it. Only files and commit history travel; issues, pull requests, PR descriptions and review comments stay behind.
+The work happens in `NMH1988/fitcoach-ai-assistant` (since 2026-10-26; it started in `NMH1988/nutrition-ai-assistant`, where the earlier `#<n>` numbers live); when it is finished, it is copied into the repository the course provides, where the reviewers read it. Only files and commit history travel; issues, pull requests, PR descriptions and review comments stay behind.
 
 Before copying:
 1. `docs/IMPLEMENTATION_PLAN.md` shows every ticket's final status, and `docs/PROGRESS.md` has an entry for every merged PR.
@@ -68,7 +68,7 @@ Updating the course repository later (allowed before the deadline):
    git fetch origin
    git fetch course
    git switch --detach course/main
-   git merge origin/main -m "T<x.y> Update from NMH1988/nutrition-ai-assistant"
+   git merge origin/main -m "T<x.y> Update from NMH1988/fitcoach-ai-assistant"
    git log --oneline -1 HEAD^2    # must be the merged PR's commit on main
    git push course HEAD:main
    git switch main
