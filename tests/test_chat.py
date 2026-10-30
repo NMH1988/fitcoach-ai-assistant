@@ -1671,6 +1671,9 @@ def test_the_answer_prompt_holds_the_training_rules():
     assert [phrase for phrase in expected_sources if phrase not in sources] == []
     numbers = _prompt_section(text, "Personal numbers written in the question")
     assert "This applies to nutrition rules only. Never scale or divide a training range" in numbers
+    # After the owner's nutrition runs of 2026-10-29/30: a query asking for a "review" made the
+    # planner set a tier 2 filter that left out q9's ISSN position stand.
+    assert "Do not add study-type words (review, meta-analysis, systematic review" in text
     tools = _prompt_section(text, "When to use the tools")
     assert "For questions solely about resistance-training principles" in tools
     assert "no stored profile is required" in tools
