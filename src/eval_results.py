@@ -302,6 +302,9 @@ def _code(document: Mapping) -> str:
 def tolerance_for(baseline: Mapping) -> float:
     """Return the baseline's tolerance: its questions file's own, else the default (T9.20)."""
     questions_file = baseline.get("questions_file")
+    # A hand-edited file may hold anything there; only a name can select a tolerance.
+    if not isinstance(questions_file, str):
+        return config.EVAL_TOLERANCE
     return config.EVAL_TOLERANCES_BY_QUESTIONS_FILE.get(questions_file, config.EVAL_TOLERANCE)
 
 

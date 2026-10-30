@@ -248,11 +248,16 @@ EVAL_TOLERANCE = 0.06
 # The training questions' baseline (T9.20, taking over T9.19's deferred part): an owner's run of
 # `data/eval_questions_training.json` with `--repeat 3`, compared with `--baseline`.
 EVAL_TRAINING_BASELINE_PATH = PROJECT_ROOT / "data" / "eval_baseline_training.json"
-# Its own tolerance, by T8.4's rule (the largest distance of one asking from the average, rounded
-# up): the owner's training run of 2026-10-29 found 13, 16 and 13 of 19 expected sources (0.6842,
-# 0.8421, 0.6842; average 0.7368, so 0.1053) and cited 12, 15 and 13 (0.0877). One source is
-# 0.0526 of a single asking, so the training askings vary by about two sources (owner's choice,
-# 2026-10-29). A baseline whose questions file is not listed uses EVAL_TOLERANCE.
+# Its own tolerance (owner's choice, 2026-10-29), set by T8.4's rule (the largest distance of one
+# asking from the average, rounded up) on the owner's first training run (b22a375): found 13, 16
+# and 13 of 19 expected sources (0.6842, 0.8421, 0.6842; average 0.7368, so 0.1053), cited 12, 15
+# and 13 (0.0877). The committed baseline's own askings (8394573: 15, 15 and 14 of 19) are only
+# 0.0351 from their average, but the owner kept 0.11 as the training runs vary more from run to
+# run: cde5dcf's run, one prompt line earlier, (0.7018 / 0.6842) would fail 0.06 (lowest allowed
+# 0.7119). Limits: one source is 0.0526 of a single asking and 0.0175 of an average of three, so
+# losing six expected sources over the three askings (38 of 57, 0.6667, against a lowest allowed
+# 0.6619) still passes and only seven fail. A baseline whose questions file is not listed uses
+# EVAL_TOLERANCE.
 EVAL_TRAINING_TOLERANCE = 0.11
 EVAL_TOLERANCES_BY_QUESTIONS_FILE: dict[str, float] = {
     EVAL_QUESTIONS_TRAINING_PATH.name: EVAL_TRAINING_TOLERANCE,

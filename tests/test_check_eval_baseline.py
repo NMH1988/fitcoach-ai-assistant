@@ -116,6 +116,13 @@ def test_the_training_tolerance_is_listed_by_its_questions_file():
     assert eval_results.tolerance_for(nutrition) == config.EVAL_TOLERANCE
 
 
+@pytest.mark.parametrize("questions_file", [None, ["eval_questions_training.json"], {"a": 1}])
+def test_a_questions_file_that_is_not_a_name_gets_the_default_tolerance(questions_file):
+    """A missing or hand-edited questions file never breaks the check: the default tolerance."""
+    baseline = _results(questions_file=questions_file)
+    assert eval_results.tolerance_for(baseline) == config.EVAL_TOLERANCE
+
+
 def test_the_baseline_defaults_to_the_committed_file(tmp_path, monkeypatch):
     """With no --baseline the check reads config.EVAL_BASELINE_PATH."""
     path = tmp_path / "committed.json"
