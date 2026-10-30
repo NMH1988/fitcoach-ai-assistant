@@ -36,7 +36,7 @@ dependencies = [
 # Dependabot proposes upgrades.
 dev = [
     # The OpenAI SDK's HTTP library; the tests use its MockTransport.
-    "httpx2==2.14.0",
+    "httpx2==2.16.0",
     "pip-audit==2.10.1",
     # Reads the session summary PDF's text back in the tests (T5.2).
     "pypdf==6.21.1",
