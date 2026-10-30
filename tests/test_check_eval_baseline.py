@@ -96,6 +96,33 @@ def test_the_tolerance_comes_from_the_config(tmp_path, monkeypatch):
     assert _check(tmp_path, _results(found=0.8, cited=0.8)) == 0
 
 
+def test_a_baseline_of_the_training_questions_uses_their_own_tolerance(tmp_path, monkeypatch):
+    """The training baseline's tolerance comes from its questions file, not the default (T9.20)."""
+    training = config.EVAL_QUESTIONS_TRAINING_PATH.name
+    monkeypatch.setitem(config.EVAL_TOLERANCES_BY_QUESTIONS_FILE, training, 0.1)
+    run = _results(found=0.8, cited=0.8, questions_file=training)
+    baseline = _results(questions_file=training)
+    assert _check(tmp_path, run, baseline) == 0
+    # The same rates against a nutrition baseline use the default and fail.
+    assert _check(tmp_path, _results(found=0.8, cited=0.8)) == 1
+
+
+def test_the_training_tolerance_is_listed_by_its_questions_file():
+    """The config gives the training questions their own tolerance, wider than the default."""
+    tolerance = config.EVAL_TOLERANCES_BY_QUESTIONS_FILE[config.EVAL_QUESTIONS_TRAINING_PATH.name]
+    assert tolerance == config.EVAL_TRAINING_TOLERANCE
+    assert config.EVAL_TOLERANCE < tolerance < 1
+    nutrition = eval_results.load_results(config.EVAL_BASELINE_PATH)
+    assert eval_results.tolerance_for(nutrition) == config.EVAL_TOLERANCE
+
+
+@pytest.mark.parametrize("questions_file", [None, ["eval_questions_training.json"], {"a": 1}])
+def test_a_questions_file_that_is_not_a_name_gets_the_default_tolerance(questions_file):
+    """A missing or hand-edited questions file never breaks the check: the default tolerance."""
+    baseline = _results(questions_file=questions_file)
+    assert eval_results.tolerance_for(baseline) == config.EVAL_TOLERANCE
+
+
 def test_the_baseline_defaults_to_the_committed_file(tmp_path, monkeypatch):
     """With no --baseline the check reads config.EVAL_BASELINE_PATH."""
     path = tmp_path / "committed.json"
@@ -371,4 +398,24 @@ def test_the_committed_baseline_reads_back_and_its_own_runs_stay_within_the_tole
         assert row["cited_rate"] >= summary["cited_rate"] - config.EVAL_TOLERANCE
     # And the check passes the baseline against itself, through the default path.
     assert check_eval_baseline.main([str(config.EVAL_BASELINE_PATH)]) == 0
+    assert "BELOW" not in capsys.readouterr().out
+
+
+def test_the_committed_training_baseline_passes_against_itself_within_its_tolerance(
+    monkeypatch, capsys
+):
+    """The training baseline (T9.20): three English askings, each within its own tolerance."""
+    monkeypatch.undo()
+    baseline = eval_results.load_results(config.EVAL_TRAINING_BASELINE_PATH)
+    assert baseline["questions_file"] == config.EVAL_QUESTIONS_TRAINING_PATH.name
+    assert (baseline["language"], baseline["repeat"]) == ("en", 3)
+    tolerance = eval_results.tolerance_for(baseline)
+    assert tolerance == config.EVAL_TRAINING_TOLERANCE
+    summary = baseline["summary"]
+    assert len(summary["runs"]) == baseline["repeat"]
+    for row in summary["runs"]:
+        assert row["found_rate"] >= summary["found_rate"] - tolerance
+        assert row["cited_rate"] >= summary["cited_rate"] - tolerance
+    path = str(config.EVAL_TRAINING_BASELINE_PATH)
+    assert check_eval_baseline.main([path, "--baseline", path]) == 0
     assert "BELOW" not in capsys.readouterr().out

@@ -182,6 +182,9 @@ def test_the_about_button_and_dialog_are_german(monkeypatch):
     [dialog] = at.get("dialog")
     assert dialog.proto.dialog.title == "Über die Antworten"
     assert "**:material/license: Quellen und Nachweise**" in [m.value for m in dialog.markdown]
+    # What the answers cover and that a model writes them, in German (AC-41, T9.20).
+    [notes] = [m.value for m in dialog.markdown if i18n.t("about.scope", "de") in m.value]
+    assert i18n.t("about.ai", "de") in notes
     assert [c.value for c in dialog.caption][0].startswith("An jedem Artikel geändert")
 
 
