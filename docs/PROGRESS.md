@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-30 · Plan: the owner's UI decisions (T9.22, T9.23, T9.15's phone cards) · PR and issue to be created
+## 2026-10-30 · Plan: the owner's UI decisions (T9.22, T9.23, T9.15's phone cards) · NMH1988/fitcoach-ai-assistant#51 (closes NMH1988/fitcoach-ai-assistant#50)
 - **Brief:** T9.22: beyond the brief (owner's request), Sprint 3 none, Sprint 2 none. T9.23: Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 3 (a user-friendly interface), evaluation: technical (use of the front-end library); Sprint 2 (`docs/BRIEF.md`): core 5 in part; beyond the brief (owner's request): the brand look and the custom CSS. T9.15's cards: as T9.15 (Sprint 3 core 3), beyond the brief (owner's request).
 - **What:** `docs/IMPLEMENTATION_PLAN.md`: a section recording the five decisions; T9.22 (the new name, S) and T9.23 (the brand sidebar, the language control in the sidebar and a custom CSS layer, M) proposed with acceptance criteria, rows in the overview (before T9.5) and a cut rule; T9.15 gains a criterion for cards on phones, a dependency on T9.23, the open question on the logged-days wording and a note on the mockups. `docs/UI_DESIGN.md`: a "Planned" section with the five decisions marked as not built, pointers in the principles, the header and "Language", rows in "Built in which ticket", and the open question. `docs/PRD.md`: the Capstone's 375 px phone layout excepts the client list's cards.
 - **Why:** the owner chose these on 2026-10-30 while reviewing the T9.15 dashboard mockups on a Claude Design canvas outside the repo; the repo must carry the decisions, as the canvas does not travel with it to the course repository.
