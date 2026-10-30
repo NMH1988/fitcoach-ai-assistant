@@ -1,6 +1,7 @@
 """Compare an evaluation run's results with the committed baseline (T8.4).
 
     python -m scripts.check_eval_baseline data/eval_runs/run-<date>-<time>.json [--baseline FILE]
+    python -m scripts.check_eval_baseline <run>.json --baseline data/eval_baseline_training.json
 
 Run it with -m from the checkout you mean to test: a plain `python scripts/...` can
 import `src`, and so the baseline path and the tolerance, from another checkout.
@@ -8,12 +9,14 @@ import `src`, and so the baseline path and the tolerance, from another checkout.
 The results file is the one scripts/run_evaluation.py writes next to its report. The check reads
 two JSON files and calls nothing: no key, no index, no network. It prints the found rate and the
 cited rate (the share of the expected sources found among the chunks the answer model got, and
-cited by its answer) with the baseline's and the lowest rate allowed, `config.EVAL_TOLERANCE`
-below the baseline's. Exit code 0: neither rate is below its limit. 1: a rate is below. 2: a file
-is missing or broken (including a hand-edited run entry), or the run cannot be compared: a
-scored run ended in an error (no credit, an outage: rerun the results, or take a new baseline
-when the error is the baseline's), or another language, schema, scored questions or expected
-sources (a new owner run is needed to make a new baseline).
+cited by its answer) with the baseline's and the lowest rate allowed, the baseline's tolerance
+below the baseline's (`config.EVAL_TOLERANCE`, or its questions file's own in
+`config.EVAL_TOLERANCES_BY_QUESTIONS_FILE`: the training baseline, T9.20). Exit code 0: neither
+rate is below its limit. 1: a rate is below. 2: a file is missing or broken (including a
+hand-edited run entry), or the run cannot be compared: a scored run ended in an error (no credit, an
+outage: rerun the results, or take a new baseline when the error is the baseline's), or another
+language, schema, scored questions or expected sources (a new owner run is needed to make a new
+baseline).
 """
 
 import argparse
@@ -36,7 +39,7 @@ def main(args: Sequence[str] | None = None) -> int:
     try:
         results = eval_results.load_results(options.results)
         baseline = eval_results.load_results(options.baseline)
-        comparison = eval_results.compare(results, baseline, config.EVAL_TOLERANCE)
+        comparison = eval_results.compare(results, baseline, eval_results.tolerance_for(baseline))
     except eval_results.ResultsFileError as exc:
         print(exc, file=sys.stderr)
         return 2

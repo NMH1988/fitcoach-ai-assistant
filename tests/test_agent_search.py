@@ -125,6 +125,13 @@ def test_the_tool_description_keeps_personal_values_out_of_the_query():
         assert word in description
 
 
+def test_the_tool_description_names_the_training_principles():
+    """The model learns that the knowledge base holds training reviews too (T9.19, T9.20)."""
+    description = search.search_tool_definition().description
+    assert "nutrition for strength training" in description
+    assert "resistance training principles" in description
+
+
 def test_the_tool_the_model_sees_takes_only_the_query():
     """The search tool's schema has one required string field, and its description says what."""
     tool = search.search_tool_definition()

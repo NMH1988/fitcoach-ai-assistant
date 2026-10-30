@@ -299,6 +299,15 @@ def _code(document: Mapping) -> str:
     return text + (" (code changed during the run)" if document.get("changed_during_run") else "")
 
 
+def tolerance_for(baseline: Mapping) -> float:
+    """Return the baseline's tolerance: its questions file's own, else the default (T9.20)."""
+    questions_file = baseline.get("questions_file")
+    # A hand-edited file may hold anything there; only a name can select a tolerance.
+    if not isinstance(questions_file, str):
+        return config.EVAL_TOLERANCE
+    return config.EVAL_TOLERANCES_BY_QUESTIONS_FILE.get(questions_file, config.EVAL_TOLERANCE)
+
+
 def compare(results: Mapping, baseline: Mapping, tolerance: float) -> Comparison:
     """Compare a run's average rates with the baseline's; raise ResultsFileError if unlike."""
     # The run and the baseline must have the same schema, the same answer language and the same

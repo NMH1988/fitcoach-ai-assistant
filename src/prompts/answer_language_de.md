@@ -18,6 +18,7 @@ In the German interface, use these names:
 - "Add your details" → „Angaben eingeben“
 - "Tool results" → „Werkzeugergebnisse“
 - "My targets" → „Meine Ziele“
+- Fixed app statement: "This app does not create personalized workout programs." → „Diese App erstellt keine personalisierten Trainingspläne.“ Always use this exact German translation in German answers instead of the English sentence.
 
 Keep each numerical value exactly. You may format decimal and thousands separators the German way, for example 20.2 g as 20,2 g or 3035 kcal as 3.035 kcal, but you must not round, change, or recalculate values.
 
