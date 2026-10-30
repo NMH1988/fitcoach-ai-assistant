@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-10-30 · T9.22 The app's new name: Fitcoach AI Assistant · NMH1988/fitcoach-ai-assistant#<PR> (closes NMH1988/fitcoach-ai-assistant#52)
+## 2026-10-30 · T9.22 The app's new name: Fitcoach AI Assistant · NMH1988/fitcoach-ai-assistant#54 (closes NMH1988/fitcoach-ai-assistant#52)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): none; Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request): the new name, which says the app now covers coaching and training as well as nutrition.
 - **What:** `src/config.py` `APP_TITLE` is "Fitcoach AI Assistant"; `src/i18n.py` drops `_DE_APP_TITLE` ("KI-Ernährungsassistent"), so the German header, tab, PDF title and footer show the same name. The Europe PMC User-Agent names `fitcoach-ai-assistant` and its GitHub URL; `pyproject.toml`'s `name` is `fitcoach-ai-assistant`. The current text names the app by its new name: `README.md` (title, and a history line in "Documentation"), `CLAUDE.md`, `src/__init__.py`, the three agents' descriptions and opening lines, `docs/UI_DESIGN.md` (page config line, the "Planned" rows). `docs/SECURITY.md`: the compliance Low on the old repository name is fixed. Tests: `tests/test_app_name.py` (new: the name in both languages, the `st.set_page_config` source check, the old-name scan of `src/`, `views/`, `app.py`, `.claude/agents/` and `README.md`); `tests/test_app_smoke.py`, `tests/test_app_language.py`, `tests/test_export_pdf.py`, `tests/test_download_sources.py` updated.
 - **Why:** the owner's decision of 2026-10-30. A name is not translated, so German reuses `config.APP_TITLE` instead of keeping a second constant.
