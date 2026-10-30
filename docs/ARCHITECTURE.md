@@ -145,13 +145,14 @@ scripts/
   live_check_retrieval.py   owner's live check: distances of the nearest chunks, to set the limit
   compare_retrieval.py      owner's live check: vector-only, keyword-only and hybrid hit rates (T3.3; run in T3.6)
   run_evaluation.py         owner's live check: the evaluation questions through the app's whole chat turn (T6.1); also writes the results file (T8.4)
-  check_eval_baseline.py    compares a results file with data/eval_baseline.json; exit 1 below the baseline minus the tolerance, 2 when it cannot compare (T8.4; needs no key)
+  check_eval_baseline.py    compares a results file with data/eval_baseline.json (or `--baseline` data/eval_baseline_training.json, T9.20); exit 1 below the baseline minus the tolerance, 2 when it cannot compare (T8.4; needs no key)
 data/
   sources.json              manifest of approved sources (committed)
   usda_foods.csv            trimmed USDA table (committed, CC0)
   eval_questions.json       the owner's evaluation questions and expected sources (O2; T3.6, T6.1; loaded by src/eval_questions.py)
   eval_runs/                full reports of the evaluation run, each with its results .json beside it (gitignored: the report holds article text, T6.1)
   eval_baseline.json        the results of the owner's baseline run, committed: IDs and counts only (T8.4)
+  eval_baseline_training.json  the training questions' baseline, same layout, with its own tolerance (T9.20)
   raw/                      downloaded article XML (gitignored)
   store/                    the SQLite store of signed-in users' data (gitignored, T9.6)
 chroma/                     vector index (gitignored, rebuilt by the script)

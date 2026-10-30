@@ -392,3 +392,23 @@ def test_the_committed_baseline_reads_back_and_its_own_runs_stay_within_the_tole
     # And the check passes the baseline against itself, through the default path.
     assert check_eval_baseline.main([str(config.EVAL_BASELINE_PATH)]) == 0
     assert "BELOW" not in capsys.readouterr().out
+
+
+def test_the_committed_training_baseline_passes_against_itself_within_its_tolerance(
+    monkeypatch, capsys
+):
+    """The training baseline (T9.20): three English askings, each within its own tolerance."""
+    monkeypatch.undo()
+    baseline = eval_results.load_results(config.EVAL_TRAINING_BASELINE_PATH)
+    assert baseline["questions_file"] == config.EVAL_QUESTIONS_TRAINING_PATH.name
+    assert (baseline["language"], baseline["repeat"]) == ("en", 3)
+    tolerance = eval_results.tolerance_for(baseline)
+    assert tolerance == config.EVAL_TRAINING_TOLERANCE
+    summary = baseline["summary"]
+    assert len(summary["runs"]) == baseline["repeat"]
+    for row in summary["runs"]:
+        assert row["found_rate"] >= summary["found_rate"] - tolerance
+        assert row["cited_rate"] >= summary["cited_rate"] - tolerance
+    path = str(config.EVAL_TRAINING_BASELINE_PATH)
+    assert check_eval_baseline.main([path, "--baseline", path]) == 0
+    assert "BELOW" not in capsys.readouterr().out

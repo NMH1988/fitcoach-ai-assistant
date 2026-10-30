@@ -1,0 +1,728 @@
+{
+  "schema_version": 1,
+  "commit": "8394573a9c7183d0730caacf6edc8376908a72f9",
+  "dirty": false,
+  "commit_at_end": "8394573a9c7183d0730caacf6edc8376908a72f9",
+  "dirty_at_end": false,
+  "changed_during_run": false,
+  "models": {
+    "answer": "openai/gpt-5-mini",
+    "query_translation": "openai/gpt-5-nano",
+    "embedding": "qwen/qwen3-embedding-8b"
+  },
+  "language": "en",
+  "repeat": 3,
+  "date": "2026-10-30T10:52:26+01:00",
+  "questions_file": "eval_questions_training.json",
+  "summary": {
+    "runs": [
+      {
+        "run": 1,
+        "expected_sources": 19,
+        "found": 15,
+        "found_rate": 0.7895,
+        "cited": 15,
+        "cited_rate": 0.7895
+      },
+      {
+        "run": 2,
+        "expected_sources": 19,
+        "found": 15,
+        "found_rate": 0.7895,
+        "cited": 15,
+        "cited_rate": 0.7895
+      },
+      {
+        "run": 3,
+        "expected_sources": 19,
+        "found": 14,
+        "found_rate": 0.7368,
+        "cited": 14,
+        "cited_rate": 0.7368
+      }
+    ],
+    "found_rate": 0.7719,
+    "cited_rate": 0.7719
+  },
+  "runs": [
+    {
+      "id": "t1",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "24",
+        "32"
+      ],
+      "expected_found": [
+        "24",
+        "32"
+      ],
+      "expected_cited": [
+        "24",
+        "32"
+      ],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 20489,
+      "cost_usd": "0.002208410"
+    },
+    {
+      "id": "t1",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "24",
+        "32"
+      ],
+      "expected_found": [
+        "24",
+        "32"
+      ],
+      "expected_cited": [
+        "24",
+        "32"
+      ],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 20455,
+      "cost_usd": "0.001976420"
+    },
+    {
+      "id": "t1",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "24",
+        "32"
+      ],
+      "expected_found": [
+        "24",
+        "32"
+      ],
+      "expected_cited": [
+        "24",
+        "32"
+      ],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 20699,
+      "cost_usd": "0.002309370"
+    },
+    {
+      "id": "t2",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "25",
+        "24"
+      ],
+      "expected_found": [
+        "25",
+        "24"
+      ],
+      "expected_cited": [
+        "25",
+        "24"
+      ],
+      "unexpected_citations": [
+        "32",
+        "26"
+      ],
+      "tools": [],
+      "tokens": 20661,
+      "cost_usd": "0.002023440"
+    },
+    {
+      "id": "t2",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "25",
+        "24"
+      ],
+      "expected_found": [
+        "25",
+        "24"
+      ],
+      "expected_cited": [
+        "25",
+        "24"
+      ],
+      "unexpected_citations": [
+        "32",
+        "26"
+      ],
+      "tools": [],
+      "tokens": 20729,
+      "cost_usd": "0.002294930"
+    },
+    {
+      "id": "t2",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "25",
+        "24"
+      ],
+      "expected_found": [
+        "25"
+      ],
+      "expected_cited": [
+        "25"
+      ],
+      "unexpected_citations": [
+        "32",
+        "26"
+      ],
+      "tools": [],
+      "tokens": 20672,
+      "cost_usd": "0.002160280"
+    },
+    {
+      "id": "t3",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "26",
+        "29",
+        "24"
+      ],
+      "expected_found": [
+        "26"
+      ],
+      "expected_cited": [
+        "26"
+      ],
+      "unexpected_citations": [
+        "31",
+        "33",
+        "32"
+      ],
+      "tools": [],
+      "tokens": 20668,
+      "cost_usd": "0.002314360"
+    },
+    {
+      "id": "t3",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "26",
+        "29",
+        "24"
+      ],
+      "expected_found": [
+        "26",
+        "29",
+        "24"
+      ],
+      "expected_cited": [
+        "26",
+        "29",
+        "24"
+      ],
+      "unexpected_citations": [
+        "33"
+      ],
+      "tools": [],
+      "tokens": 20707,
+      "cost_usd": "0.002342860"
+    },
+    {
+      "id": "t3",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "26",
+        "29",
+        "24"
+      ],
+      "expected_found": [
+        "26",
+        "29"
+      ],
+      "expected_cited": [
+        "26",
+        "29"
+      ],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 20631,
+      "cost_usd": "0.002180900"
+    },
+    {
+      "id": "t4",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "27",
+        "32"
+      ],
+      "expected_found": [
+        "27",
+        "32"
+      ],
+      "expected_cited": [
+        "27",
+        "32"
+      ],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 20347,
+      "cost_usd": "0.002217810"
+    },
+    {
+      "id": "t4",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "27",
+        "32"
+      ],
+      "expected_found": [
+        "27",
+        "32"
+      ],
+      "expected_cited": [
+        "27",
+        "32"
+      ],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 20311,
+      "cost_usd": "0.002049590"
+    },
+    {
+      "id": "t4",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "27",
+        "32"
+      ],
+      "expected_found": [
+        "27",
+        "32"
+      ],
+      "expected_cited": [
+        "27",
+        "32"
+      ],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 20513,
+      "cost_usd": "0.002001020"
+    },
+    {
+      "id": "t5",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "28",
+        "24"
+      ],
+      "expected_found": [
+        "28",
+        "24"
+      ],
+      "expected_cited": [
+        "28",
+        "24"
+      ],
+      "unexpected_citations": [
+        "32"
+      ],
+      "tools": [],
+      "tokens": 20386,
+      "cost_usd": "0.001912410"
+    },
+    {
+      "id": "t5",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "28",
+        "24"
+      ],
+      "expected_found": [
+        "28"
+      ],
+      "expected_cited": [
+        "28"
+      ],
+      "unexpected_citations": [
+        "32"
+      ],
+      "tools": [],
+      "tokens": 20511,
+      "cost_usd": "0.002164570"
+    },
+    {
+      "id": "t5",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "28",
+        "24"
+      ],
+      "expected_found": [
+        "28"
+      ],
+      "expected_cited": [
+        "28"
+      ],
+      "unexpected_citations": [
+        "32"
+      ],
+      "tools": [],
+      "tokens": 20488,
+      "cost_usd": "0.002115180"
+    },
+    {
+      "id": "t6",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "31",
+        "33",
+        "24"
+      ],
+      "expected_found": [
+        "31",
+        "33",
+        "24"
+      ],
+      "expected_cited": [
+        "31",
+        "33",
+        "24"
+      ],
+      "unexpected_citations": [
+        "32"
+      ],
+      "tools": [],
+      "tokens": 36151,
+      "cost_usd": "0.004061290"
+    },
+    {
+      "id": "t6",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "31",
+        "33",
+        "24"
+      ],
+      "expected_found": [
+        "31",
+        "33"
+      ],
+      "expected_cited": [
+        "31",
+        "33"
+      ],
+      "unexpected_citations": [
+        "26"
+      ],
+      "tools": [],
+      "tokens": 20924,
+      "cost_usd": "0.002591080"
+    },
+    {
+      "id": "t6",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "31",
+        "33",
+        "24"
+      ],
+      "expected_found": [
+        "31",
+        "33"
+      ],
+      "expected_cited": [
+        "31",
+        "33"
+      ],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 21234,
+      "cost_usd": "0.002755050"
+    },
+    {
+      "id": "t7",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "24",
+        "30",
+        "32"
+      ],
+      "expected_found": [
+        "24"
+      ],
+      "expected_cited": [
+        "24"
+      ],
+      "unexpected_citations": [
+        "26",
+        "27"
+      ],
+      "tools": [],
+      "tokens": 20796,
+      "cost_usd": "0.002417380"
+    },
+    {
+      "id": "t7",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "24",
+        "30",
+        "32"
+      ],
+      "expected_found": [
+        "24",
+        "32"
+      ],
+      "expected_cited": [
+        "24",
+        "32"
+      ],
+      "unexpected_citations": [
+        "26",
+        "33"
+      ],
+      "tools": [],
+      "tokens": 20898,
+      "cost_usd": "0.002553450"
+    },
+    {
+      "id": "t7",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "24",
+        "30",
+        "32"
+      ],
+      "expected_found": [
+        "24",
+        "32"
+      ],
+      "expected_cited": [
+        "24",
+        "32"
+      ],
+      "unexpected_citations": [
+        "26",
+        "27"
+      ],
+      "tools": [],
+      "tokens": 21007,
+      "cost_usd": "0.002927770"
+    },
+    {
+      "id": "t8",
+      "run": 1,
+      "with_profile": false,
+      "kind": "guardrail",
+      "code": "guardrail.injury",
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 0,
+      "cost_usd": "0"
+    },
+    {
+      "id": "t8",
+      "run": 2,
+      "with_profile": false,
+      "kind": "guardrail",
+      "code": "guardrail.injury",
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 0,
+      "cost_usd": "0"
+    },
+    {
+      "id": "t8",
+      "run": 3,
+      "with_profile": false,
+      "kind": "guardrail",
+      "code": "guardrail.injury",
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 0,
+      "cost_usd": "0"
+    },
+    {
+      "id": "t9",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [
+        "29",
+        "31",
+        "32",
+        "27"
+      ],
+      "tools": [],
+      "tokens": 20384,
+      "cost_usd": "0.001803120"
+    },
+    {
+      "id": "t9",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 20341,
+      "cost_usd": "0.001754460"
+    },
+    {
+      "id": "t9",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [],
+      "expected_found": [],
+      "expected_cited": [],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 20367,
+      "cost_usd": "0.001691830"
+    },
+    {
+      "id": "t10",
+      "run": 1,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "30",
+        "24"
+      ],
+      "expected_found": [
+        "30",
+        "24"
+      ],
+      "expected_cited": [
+        "30",
+        "24"
+      ],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 20265,
+      "cost_usd": "0.001797310"
+    },
+    {
+      "id": "t10",
+      "run": 2,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "30",
+        "24"
+      ],
+      "expected_found": [
+        "30"
+      ],
+      "expected_cited": [
+        "30"
+      ],
+      "unexpected_citations": [
+        "29",
+        "28"
+      ],
+      "tools": [],
+      "tokens": 20460,
+      "cost_usd": "0.002012560"
+    },
+    {
+      "id": "t10",
+      "run": 3,
+      "with_profile": false,
+      "kind": "answer",
+      "code": null,
+      "expected": [
+        "30",
+        "24"
+      ],
+      "expected_found": [
+        "30",
+        "24"
+      ],
+      "expected_cited": [
+        "30",
+        "24"
+      ],
+      "unexpected_citations": [],
+      "tools": [],
+      "tokens": 20315,
+      "cost_usd": "0.001910470"
+    }
+  ]
+}
