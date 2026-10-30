@@ -1,6 +1,6 @@
 # UI design
 
-How the Streamlit app looks and where each piece of information lives. Accepted by the owner on 2026-10-19 as the working design (mockup v5, `docs/ui/mockup-v5.html`); it may change later. Built with Streamlit 1.66 native elements and `.streamlit/config.toml`, not custom CSS. The owner's decisions of 2026-10-30 (a new name, a brand sidebar, the language control in the sidebar, a custom CSS layer, cards on phones) are planned, not built: see "Planned: the owner's UI decisions of 2026-10-30" below. Until their tickets merge, the rest of this file describes the app as it is.
+How the Streamlit app looks and where each piece of information lives. Accepted by the owner on 2026-10-19 as the working design (mockup v5, `docs/ui/mockup-v5.html`); it may change later. Built with Streamlit 1.66 native elements and `.streamlit/config.toml`, not custom CSS. Of the owner's decisions of 2026-10-30, the new name, "Fitcoach AI Assistant", is built (T9.22); the others (a brand sidebar, the language control in the sidebar, a custom CSS layer, cards on phones) are planned, not built: see "Planned: the owner's UI decisions of 2026-10-30" below. Until their tickets merge, the rest of this file describes the app as it is.
 
 **Serves:** core 5 (intuitive UI that shows sources, tool results and progress), Medium 5 and 6, AC-1, AC-3, AC-6, AC-10. Colours, the empty-state suggestions and other visual polish are beyond the brief (owner's request) and belong to the extras group in `docs/IMPLEMENTATION_PLAN.md`.
 
@@ -16,11 +16,11 @@ How the Streamlit app looks and where each piece of information lives. Accepted 
 
 ## Planned: the owner's UI decisions of 2026-10-30
 
-Not built yet. Chosen by the owner while reviewing the T9.15 dashboard mockups (Clients, a client's week, My week, dark mode, tablet 820 px and phone 390 px) on a Claude Design canvas, which is outside the repo; the tickets are in `docs/IMPLEMENTATION_PLAN.md` ("The owner's UI decisions of 2026-10-30"). The sections below this one change when each ticket merges.
+Not built yet, except the new name (T9.22). Chosen by the owner while reviewing the T9.15 dashboard mockups (Clients, a client's week, My week, dark mode, tablet 820 px and phone 390 px) on a Claude Design canvas, which is outside the repo; the tickets are in `docs/IMPLEMENTATION_PLAN.md` ("The owner's UI decisions of 2026-10-30"). The sections below this one change when each ticket merges.
 
 | Decision | What changes | Ticket |
 |---|---|---|
-| The app's name becomes "Fitcoach AI Assistant" | `config.APP_TITLE` (the page title, the header, the summary PDF's title and footer), the German title too (a name is not translated; owner's choice), the README and the agents' descriptions. The PDF's file name and the records (PROGRESS, done tickets, screenshots) stay as written | T9.22 |
+| The app's name becomes "Fitcoach AI Assistant" | `config.APP_TITLE` (the page title, the header, the summary PDF's title and footer), the German title too (a name is not translated; owner's choice), the README and the agents' descriptions. The PDF's file name and the records (PROGRESS, done tickets, screenshots) stay as written | T9.22 (built) |
 | The language control moves to the sidebar | `st.segmented_control` labelled "Language" ("Sprache" in German; owner's choice), options "English" and "Deutsch", no icon, values still `en`/`de`; the header row keeps only the "Not medical advice" badge. Replaces "Control" under "Language" | T9.23 |
 | A custom CSS layer for the whole app | One stylesheet of our own, `assets/app.css`, loaded once per run with `st.html(config.APP_CSS_PATH)` (a style-only `st.html` takes no space). Rules aim at `.st-key-<key>` classes (from `st.container(key=...)`) and a few `data-testid` values on a tested list; nothing is loaded from another host (no `@import`, no `url(`, no CDN), so visitors' IPs stay off third-party hosts, as with the system font; no colours in it (owner's choice), so light and dark mode come from the theme; every rule changes only layout, spacing or visibility, so the page still works if Streamlit renames a class. Replaces "Native first" and its one exception | T9.23 |
 | A brand sidebar | `[theme.light.sidebar]` and `[theme.dark.sidebar]` in `.streamlit/config.toml`: deep green background, light text, the sidebar's own primary, secondary and border colours (values from the Design system when built; contrast tested in both modes); `st.logo(":material/<name>:")`, an icon, not an image file. The sidebar's donut card needs a decision, as the macro colours cannot keep 3:1 on deep green | T9.23 |
@@ -68,7 +68,7 @@ Macro colours (charts, set in the Vega-Lite spec): protein `#168A6C`, carbohydra
 
 ## Page layout
 
-`st.set_page_config(page_title="Nutrition AI Assistant", page_icon=":material/nutrition:", layout="wide")`, with the header and tabs in the middle of three columns weighted `PAGE_COLUMN_WEIGHTS` = (1, 6, 1). The content takes about three quarters of the main area (about 1,050 px on a 1920 px screen with the sidebar open, instead of about 700 px with the centered layout) without lines too long to read; on a laptop it is about as wide as before (owner's request, 2026-10-20, T3.1).
+`st.set_page_config(page_title="Fitcoach AI Assistant", page_icon=":material/nutrition:", layout="wide")` (the title is `config.APP_TITLE`, the same in both languages since T9.22; the icon stays, owner's choice, 2026-10-30), with the header and tabs in the middle of three columns weighted `PAGE_COLUMN_WEIGHTS` = (1, 6, 1). The content takes about three quarters of the main area (about 1,050 px on a 1920 px screen with the sidebar open, instead of about 700 px with the centered layout) without lines too long to read; on a laptop it is about as wide as before (owner's request, 2026-10-20, T3.1).
 
 ### Sidebar: the profile
 
@@ -219,7 +219,7 @@ The Vega-Lite specs of the bar and the donut (`views/charts.py`) and the table r
 | German answers, English rewrites for retrieval | T7.2 (extra) |
 | Code split into `views/`, same look (Sprint 2 review, point 2) | T8.1 |
 | Empty-state suggestions, colour tuning, final polish | UI polish ticket (extra, beyond the brief, owner's request) |
-| The new name (planned) | T9.22 (beyond the brief, owner's request) |
+| The new name, "Fitcoach AI Assistant" | T9.22 (beyond the brief, owner's request) |
 | Brand sidebar, language control in the sidebar, the custom CSS layer (planned) | T9.23 |
 | Cards for the coach's client list on phones (planned) | T9.15 |
 

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Nutrition AI Assistant for Gym Enthusiasts: a domain-specialised RAG chatbot with tool calling (Turing College, Sprint 2 project, deadline 2026-11-02). Status: in development; see `docs/IMPLEMENTATION_PLAN.md`.
+Fitcoach AI Assistant (called Nutrition AI Assistant for Gym Enthusiasts until 2026-10-30, T9.22): a domain-specialised RAG chatbot with tool calling (Turing College, Sprint 2 project, deadline 2026-11-02). Status: in development; see `docs/IMPLEMENTATION_PLAN.md`.
 
 The owner writes in Vietnamese: reply in Vietnamese. Everything in the repo is in English: code, comments, docstrings, documentation, commit messages, issues and PRs.
 
