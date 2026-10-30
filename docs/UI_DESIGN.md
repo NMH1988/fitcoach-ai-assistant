@@ -1,6 +1,6 @@
 # UI design
 
-How the Streamlit app looks and where each piece of information lives. Accepted by the owner on 2026-10-19 as the working design (mockup v5, `docs/ui/mockup-v5.html`); it may change later. Built with Streamlit 1.66 native elements and `.streamlit/config.toml`, not custom CSS.
+How the Streamlit app looks and where each piece of information lives. Accepted by the owner on 2026-10-19 as the working design (mockup v5, `docs/ui/mockup-v5.html`); it may change later. Built with Streamlit 1.66 native elements and `.streamlit/config.toml`, not custom CSS. The owner's decisions of 2026-10-30 (a new name, a brand sidebar, the language control in the sidebar, a custom CSS layer, cards on phones) are planned, not built: see "Planned: the owner's UI decisions of 2026-10-30" below. Until their tickets merge, the rest of this file describes the app as it is.
 
 **Serves:** core 5 (intuitive UI that shows sources, tool results and progress), Medium 5 and 6, AC-1, AC-3, AC-6, AC-10. Colours, the empty-state suggestions and other visual polish are beyond the brief (owner's request) and belong to the extras group in `docs/IMPLEMENTATION_PLAN.md`.
 
@@ -11,7 +11,22 @@ How the Streamlit app looks and where each piece of information lives. Accepted 
 - **Readable text:** body 17 px (Streamlit's default is 16 px); captions for labels and meta lines. The owner found 14 px too small to read in the chat (2026-10-20, T3.1).
 - **Native first:** `st.chat_message`, `st.metric`, `st.badge`, `st.tabs`, `st.status`, `st.dialog`. No `unsafe_allow_html`, no `st.html` styling. If a detail of the mockup needs CSS, the native look wins.
   - **One exception (owner's approval, T4.6, 2026-10-20):** inside the "Your details" dialog, `st.html(config.PROFILE_DIALOG_CSS)` hides Streamlit's in-field "Press Enter to apply" (`[data-testid="InputInstructions"]`, scoped to `[data-testid="stDialog"]`), and the dialog's first line is the hint `config.PROFILE_FORM_HINT` ("Type your values, then press Save. Values are checked when you save."). Why: the text inside the field looked wrong; Streamlit 1.66 hides it only inside `st.form(enter_to_submit=False)`, and the dialog is not a form so the units switch can convert typed values. A typed number is applied when the field loses focus, so Save right after typing keeps it (checked in the browser, metric and imperial). The style is drawn only while the dialog is open (a style-only `st.html` goes to Streamlit's event container and takes no space). Risk: a later Streamlit may rename the test id; the text would then come back and nothing would break. No other custom CSS.
+  - **Planned (T9.23, owner's decision, 2026-10-30):** this principle is replaced by a custom CSS layer for the whole app (see "Planned" below); the dialog's rule moves into its stylesheet.
 - **Sentence case**, Material Symbols icons (`:material/name:`), no emoji in the UI.
+
+## Planned: the owner's UI decisions of 2026-10-30
+
+Not built yet. Chosen by the owner while reviewing the T9.15 dashboard mockups (Clients, a client's week, My week, dark mode, tablet 820 px and phone 390 px) on a Claude Design canvas, which is outside the repo; the tickets are in `docs/IMPLEMENTATION_PLAN.md` ("The owner's UI decisions of 2026-10-30"). The sections below this one change when each ticket merges.
+
+| Decision | What changes | Ticket |
+|---|---|---|
+| The app's name becomes "Fitcoach AI Assistant" | `config.APP_TITLE` (the page title, the header, the summary PDF's title and footer), the German title too (a name is not translated; proposed default), the README and the agents' descriptions. The PDF's file name and the records (PROGRESS, done tickets, screenshots) stay as written | T9.22 |
+| The language control moves to the sidebar | `st.segmented_control` labelled "Language" ("Sprache" in German; proposed default), options "English" and "Deutsch", no icon, values still `en`/`de`; the header row keeps only the "Not medical advice" badge. Replaces "Control" under "Language" | T9.23 |
+| A custom CSS layer for the whole app | One stylesheet of our own, `assets/app.css`, loaded once per run with `st.html(config.APP_CSS_PATH)` (a style-only `st.html` takes no space). Rules aim at `.st-key-<key>` classes (from `st.container(key=...)`) and a few `data-testid` values on a tested list; nothing is loaded from another host (no `@import`, no `url(`, no CDN), so visitors' IPs stay off third-party hosts, as with the system font; no colours in it (proposed default), so light and dark mode come from the theme; every rule changes only layout, spacing or visibility, so the page still works if Streamlit renames a class. Replaces "Native first" and its one exception | T9.23 |
+| A brand sidebar | `[theme.light.sidebar]` and `[theme.dark.sidebar]` in `.streamlit/config.toml`: deep green background, light text, the sidebar's own primary, secondary and border colours (values from the Design system when built; contrast tested in both modes); `st.logo(":material/<name>:")`, an icon, not an image file. The sidebar's donut card needs a decision, as the macro colours cannot keep 3:1 on deep green | T9.23 |
+| Cards for the coach's client list on phones | Both the table and the cards are drawn (containers keyed `client_cards` and `client_table`); the stylesheet's media query at `config.PHONE_MAX_WIDTH_PX` shows the cards on phones and the table on tablets and desktops, as Streamlit cannot read the screen width. Only this list: the rest of a phone layout stays in the Capstone (`docs/PRD.md`) | T9.15 |
+
+Still open: for a week in progress, "4 of 7 days logged" (AC-26's wording) or "4 of 5 days so far" (T9.15).
 
 ## Theme (`.streamlit/config.toml`)
 
@@ -76,11 +91,11 @@ Before a profile exists, the sidebar shows a short invitation and the "Add your 
 
 ### Header
 
-App name with icon on the left; `st.badge("Not medical advice", icon=":material/info:", color="orange")` and the language control (T7.1) together in a small row after it (`st.container(horizontal=True)`); at desktop width that row sits under the title, in both languages (before T7.1 the badge sat right of the title; the owner kept the new layout in the review of PR #74, 2026-10-21). Below it the intro as plain text and the full disclaimer in `st.warning`, starting with a bold "Not medical advice.", so it is large and easy to notice (owner's request, 2026-10-20; a badge's text size is fixed in Streamlit 1.66). Always visible (AC-12). Tab labels are bold; their size is fixed too. The language control is described under "Language".
+App name with icon on the left; `st.badge("Not medical advice", icon=":material/info:", color="orange")` and the language control (T7.1) together in a small row after it (`st.container(horizontal=True)`); at desktop width that row sits under the title, in both languages (before T7.1 the badge sat right of the title; the owner kept the new layout in the review of PR #74, 2026-10-21). Below it the intro as plain text and the full disclaimer in `st.warning`, starting with a bold "Not medical advice.", so it is large and easy to notice (owner's request, 2026-10-20; a badge's text size is fixed in Streamlit 1.66). Always visible (AC-12). Tab labels are bold; their size is fixed too. The language control is described under "Language". **Planned (T9.22, T9.23):** the title becomes "Fitcoach AI Assistant", and the language control leaves the header for the sidebar.
 
 ### Language (T7.1, T7.2, extra)
 
-T7.1 built the control and the German UI; T7.2 adds German answers and the German PDF.
+T7.1 built the control and the German UI; T7.2 adds German answers and the German PDF. **Planned (T9.23):** the control moves to the sidebar, labelled "Language", with the options "English" and "Deutsch" and no icon; the default and what changes stay as below.
 
 - **Control:** in the header, after the badge, a small `:material/translate:` icon (`st.markdown`) followed by `st.segmented_control(label="Language", options=["EN", "DE"], key="language", required=True, label_visibility="collapsed")`, both in the header's `st.container(horizontal=True)`. `required=True` stops a click on the selected option from deselecting it (the value would become `None`). The collapsed label keeps "Language" as the accessible name: checked in the browser in T7.1 (a `radiogroup` with `aria-label="Language"` and `aria-required="true"`; the visible label is `display: none`).
 - **Default:** from the browser (`st.context.locale`): `de*` gives German, anything else (including `None`, as under AppTest) English. It is written to `st.session_state["language"]` once, before the widget is drawn (no `default=` together with the key); after that the user's choice is kept for the session; nothing is stored. Checked in the browser in T7.1: `st.context.locale` is already set on a new session's first run (`en-US` in the browser pane, read by a temporary print that was removed).
@@ -204,8 +219,12 @@ The Vega-Lite specs of the bar and the donut (`views/charts.py`) and the table r
 | German answers, English rewrites for retrieval | T7.2 (extra) |
 | Code split into `views/`, same look (Sprint 2 review, point 2) | T8.1 |
 | Empty-state suggestions, colour tuning, final polish | UI polish ticket (extra, beyond the brief, owner's request) |
+| The new name (planned) | T9.22 (beyond the brief, owner's request) |
+| Brand sidebar, language control in the sidebar, the custom CSS layer (planned) | T9.23 |
+| Cards for the coach's client list on phones (planned) | T9.15 |
 
 ## Open questions
 
 - Height of the message container: `CHAT_HEIGHT_PX` = 750 (owner's requests, 2026-10-20: 650, then 750 to fill a tall window), which keeps the input in view in a 1200 px window (checked: the input ends at 1030 px); on a shorter window the page scrolls to the input. Streamlit has no height relative to the window, and it advises at most 500 px for phones: revisit in the UI polish ticket.
+- For a week in progress, "4 of 7 days logged" (AC-26's wording) or "4 of 5 days so far": the owner decides before T9.15 (2026-10-30).
 - Whether `baseFontSize = 17` and the wide layout read well on a phone: check during the UI polish ticket. At 17 px the sidebar goal control wraps "Maintain" onto a second line (checked 2026-10-20).
