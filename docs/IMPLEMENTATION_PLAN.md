@@ -114,7 +114,7 @@ Deadline: **2026-11-02** (Sprint 2, already submitted by the owner, 2026-10-28).
 | T9.19 | NMH1988/fitcoach-ai-assistant#30 | Training sources and indexing (moved before T9.3 by the owner, 2026-10-28; the dates after it were not moved; its injury guard split into T9.19a the same day) | M | T8.4, T9.19a, O7, O16, O17 | 11-08 (merges right before T9.20) | done |
 | T9.21 | NMH1988/fitcoach-ai-assistant#44 | Checks: the manifest's authors against the article, and the evaluated code's git state (follow-up of T9.19's reviews, owner's choice, 2026-10-29) | S | T2.1, T8.4 | 10-30 | done |
 | T9.3 | #98 | Agentic RAG: searching the knowledge base is the agent's tool | M | T9.2, T8.4, O8 | 10-31 | done |
-| T9.4 | #99 | Short-term memory: a conversation that remembers earlier turns | M | T9.2, O8 | 10-31 | in review |
+| T9.4 | #99 | Short-term memory: a conversation that remembers earlier turns | M | T9.2, O8 | 10-31 | done |
 | T9.22 | NMH1988/fitcoach-ai-assistant#52 | The app's new name: Fitcoach AI Assistant (owner's decision, 2026-10-30; beyond the brief) | S | - | 10-31 | done |
 | T9.23 | NMH1988/fitcoach-ai-assistant#53 | Brand sidebar, language control in the sidebar and a custom CSS layer (owner's decisions, 2026-10-30; beyond the brief in part) | M | T9.22 | 11-01 (before T9.5; the dates after it were not moved) | todo |
 | T9.6 | #101 | The SQLite store and the authorisation layer | L | T9.1, T8.2 | 11-02 | done |
@@ -740,7 +740,7 @@ Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this 
 - [x] `docs/SECURITY.md` covers the new path (a model-written search query is data; retrieved text stays inside `<sources>`) - review; the `security-reviewer` agent run on the PR. Done: written ("A model-written search query", and the rows on injection, cost, evidence and personal data); the `security-reviewer` agent on PR #46 (three Low, all fixed in 913a82e) and Claude Code's `/security-review` (no finding).
 **Notes:** the owner wrote the prompt's rules on when to search (O8, 2026-10-29); the PR merges after the owner's run (O13). Serves AC-32. Owner's choices (2026-10-29, Question phase): the model's first call decides (AC-2 as above), and the profile is never sent as a block, as the tools read it from the app (T3.5's `needs_profile`, the `<profile>` block and the "Profile block sent" badge go; the query plan's two flags stay until the owner drops them from O7). Started while T9.19 waits as a draft PR that merges right before T9.20 (owner's request, 2026-10-29), so the training sources are not in the index yet.
 
-### T9.4 Short-term memory: a conversation that remembers earlier turns (M) · status: in review · issue #99 (NMH1988/fitcoach-ai-assistant#7)
+### T9.4 Short-term memory: a conversation that remembers earlier turns (M) · status: done · issue #99 (NMH1988/fitcoach-ai-assistant#7)
 **Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Medium 2; Sprint 2 (`docs/BRIEF.md`): Easy 1 (conversation history).
 **Depends on:** T9.2, O8
 **Owner's choices (2026-10-30, Question phase):** the thread keeps each answered turn's question and answer only, never its tool calls, tool results or `<sources>` (so criteria 5 and 6 are worded for that below; before: "tool arguments with profile values" and "the cap falling inside a tool exchange"); each turn still needs its own basis (AC-2), so a follow-up resting on the conversation alone gets "not covered"; the stored answer drops its `[S#]` citations; the owner writes O8's T9.4 part from Claude's list of points.
