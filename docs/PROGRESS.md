@@ -17,6 +17,13 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-10-31 · T9.4 Record T9.4 as done in the plan · PR not opened yet (closes NMH1988/fitcoach-ai-assistant#56)
+- **Brief:** as T9.4: Sprint 3 (`docs/BRIEF_SPRINT3.md`): Medium 2; Sprint 2 (`docs/BRIEF.md`): Easy 1. Records only.
+- **What:** `docs/IMPLEMENTATION_PLAN.md`: T9.4 is done, in the overview and in the ticket's header.
+- **Why:** NMH1988/fitcoach-ai-assistant#55 merged T9.4 with every acceptance criterion met (code-review round 3: ready to merge; CI green on 24a5703), but without the "done" commit, so CI did not have to run again before the merge (owner's request to merge when CI was green, 2026-10-31).
+- **Decisions & gotchas:** docs only; no code or test change, nothing the compliance rule covers.
+- **Follow-ups:** none for T9.4; T9.7 builds on its conversation graph (its plan notes).
+
 ## 2026-10-30 · T9.4 Short-term memory: a conversation that remembers earlier turns · NMH1988/fitcoach-ai-assistant#55 (closes NMH1988/fitcoach-ai-assistant#7)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Medium 2 (short-term memory in LangGraph). Sprint 2 (`docs/BRIEF.md`): Easy 1 (conversation history). PRD feature 21, AC-31; AC-39 (a rejected message never reaches a later turn).
 - **What:**
