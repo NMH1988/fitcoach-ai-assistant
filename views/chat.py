@@ -123,7 +123,7 @@ def run_turn(question: str, turn: int) -> None:
         # The energy tools read the session's profile; the model cannot change it.
         user=st.session_state.get("profile"),
         keyword_index=resources.keyword_index,
-        # The answer is written in the language chosen in the header when the question is asked
+        # The answer is written in the language chosen in the sidebar when the question is asked
         # (T7.2); the question's own language does not change it.
         language=lang(),
         # Only the prices already read, so the turn's log line never waits for the network.

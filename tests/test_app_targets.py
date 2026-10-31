@@ -229,14 +229,18 @@ def test_every_targets_chart_has_a_text_alternative_naming_its_values():
     assert "20% of kcal · 1.9 g/kg" in captions
 
 
-def test_the_targets_charts_use_the_macro_colours():
-    """The donut and the bar take their colours from config.MACRO_COLORS."""
+def test_the_targets_charts_use_their_macro_colours():
+    """The bar takes config.MACRO_COLORS; the sidebar's donut the sidebar palette (T9.23)."""
     at = _start()
     [donut] = at.sidebar.get("vega_lite_chart")
     [bar] = at.tabs[TARGETS_TAB].get("vega_lite_chart")
-    expected = {"domain": list(config.MACRO_COLORS), "range": list(config.MACRO_COLORS.values())}
-    assert _spec(donut)["layer"][0]["encoding"]["color"]["scale"] == expected
-    assert _spec(bar)["encoding"]["color"]["scale"] == expected
+    main = {"domain": list(config.MACRO_COLORS), "range": list(config.MACRO_COLORS.values())}
+    sidebar = {
+        "domain": list(config.SIDEBAR_MACRO_COLORS),
+        "range": list(config.SIDEBAR_MACRO_COLORS.values()),
+    }
+    assert _spec(donut)["layer"][0]["encoding"]["color"]["scale"] == sidebar
+    assert _spec(bar)["encoding"]["color"]["scale"] == main
 
 
 # --- Per body weight in the chosen units (AC 8) ---------------------------------------------------

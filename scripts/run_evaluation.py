@@ -14,7 +14,7 @@ translation and hybrid search; T9.3: the agent decides whether to search). The m
 are the app's own (`llm.build_chat_model()`). A question with a "profile" (q13) runs twice: with
 that fixed session profile, then with none. Other questions run with no profile, as a new visitor
 asks them. `--repeat N` runs every question N times (default 1). `--language` is the answer
-language the app's EN | DE control would set (default en, T7.2); the questions keep their own
+language the app's language control would set (default en, T7.2); the questions keep their own
 language either way.
 
 For each run the script prints how the turn ended, the searches the agent ran with their filters,
@@ -363,7 +363,7 @@ def main(args: Sequence[str] | None = None) -> int:
         "--language",
         choices=i18n.LANGUAGES,
         default="en",
-        help="the answer language, as the app's EN | DE control sets it (T7.2)",
+        help="the answer language, as the app's language control sets it (T7.2)",
     )
     options = parser.parse_args(sys.argv[1:] if args is None else args)
     if options.repeat < 1:

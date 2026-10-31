@@ -1,4 +1,4 @@
-"""UI tests for the language switch (T7.1): the header control, the default, German everywhere."""
+"""UI tests for the language switch (T7.1; in the sidebar since T9.23): the control, German UI."""
 
 import json
 import re
@@ -64,7 +64,7 @@ def _start(monkeypatch, locale: str | None = None, profile=None) -> AppTest:
 
 
 def _switch(at: AppTest, language: str) -> AppTest:
-    """Pick a language in the header's control."""
+    """Pick a language in the sidebar's control."""
     return at.segmented_control(key=i18n.SESSION_KEY).set_value(language).run(timeout=30)
 
 
@@ -76,15 +76,35 @@ def _ask(at: AppTest, text: str) -> AppTest:
 # --- The control and the default (AC 2, AC 3) -----------------------------------------------------
 
 
-def test_the_header_has_the_language_control(monkeypatch):
-    """An EN | DE segmented control labelled "Language", label collapsed, that cannot be empty."""
-    at = _start(monkeypatch)
-    control = at.segmented_control(key=i18n.SESSION_KEY)
-    assert control.label == "Language"
-    assert control.proto.label_visibility.value == control.proto.label_visibility.COLLAPSED
-    assert control.options == ["EN", "DE"]
+@pytest.mark.parametrize(("language", "label"), [("en", "Language"), ("de", "Sprache")])
+def test_the_sidebar_has_the_language_control(monkeypatch, language, label):
+    """A visible "Language" ("Sprache") control in the sidebar, English | Deutsch, never empty."""
+    at = _switch(_start(monkeypatch), language)
+    [control] = [c for c in at.sidebar.segmented_control if c.key == i18n.SESSION_KEY]
+    assert control.label == label
+    assert control.proto.label_visibility.value == control.proto.label_visibility.VISIBLE
+    # The same option texts in both UIs; the stored values stay "en" and "de" (T9.23).
+    assert control.options == ["English", "Deutsch"]
+    assert control.value == language
     assert control.proto.required
-    assert ":material/translate:" in [m.value for m in at.markdown]
+    assert ":material/translate:" not in [m.value for m in at.markdown]
+
+
+def test_the_language_control_is_the_sidebars_last_widget(monkeypatch):
+    """It sits at the end of the sidebar, after "About the answers" (owner's choice, T9.23)."""
+    at = _start(monkeypatch, profile=PROFILE)
+    widgets = [n for n in at.sidebar if n.type in {"button_group", "button"}]
+    assert widgets[-1].key == i18n.SESSION_KEY
+    assert widgets[-2].label == "About the answers"
+
+
+def test_the_header_has_no_language_control(monkeypatch):
+    """The main area holds no language control; the header row keeps only the badge (T9.23)."""
+    at = _start(monkeypatch)
+    assert [c.key for c in at.main.segmented_control] == []
+    # st.badge is Markdown with a badge directive; before any question it is the header's only one.
+    [badge] = [m.value for m in at.main.markdown if "-badge[" in m.value]
+    assert "Not medical advice" in badge
 
 
 def test_with_no_known_locale_the_app_starts_in_english(monkeypatch):
@@ -318,10 +338,10 @@ def config_message(at: AppTest) -> str:
     ("locale", "switch_to", "lang"),
     [(None, None, "en"), ("de-DE", None, "de"), ("de-DE", "en", "en"), (None, "de", "de")],
 )
-def test_the_answer_model_gets_the_language_chosen_in_the_header(
+def test_the_answer_model_gets_the_language_chosen_in_the_control(
     monkeypatch, locale, switch_to, lang
 ):
-    """The language part the model gets follows the header's choice, from the locale or a switch."""
+    """The language part the model gets follows the control: the locale's or a switch's choice."""
     model = _use_model(monkeypatch, _answers(ANSWER))
     at = _start(monkeypatch, locale)
     if switch_to is not None:
@@ -332,7 +352,7 @@ def test_the_answer_model_gets_the_language_chosen_in_the_header(
 
 
 def test_an_english_question_in_the_german_ui_gets_the_german_part(monkeypatch):
-    """The question's own language does not pick the answer's: the header's choice does."""
+    """The question's own language does not pick the answer's: the control's choice does."""
     model = _use_model(monkeypatch, _answers(ANSWER))
     _ask(_start(monkeypatch, "de-DE"), "How much protein should I eat per meal? Answer in English.")
     system = model.calls[-1][0]

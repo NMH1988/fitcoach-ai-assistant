@@ -1,6 +1,7 @@
 """UI tests for the session summary download button in the sidebar (T5.2, AC-9)."""
 
 import ast
+import re
 from pathlib import Path
 
 import pytest
@@ -202,10 +203,40 @@ IMAGE_ATTRIBUTES = frozenset(
 REPORTLAB_IMAGE_NAMES = frozenset({"Image", "ImageReader", "ImageAndFlowables"})
 
 
+# st.logo with a Material Symbols icon draws the icon font and opens no image (T9.23).
+MATERIAL_ICON = re.compile(r":material/[a-z0-9_]+:")
+
+
+def _material_icon(node: ast.expr) -> bool:
+    """Return True for a string literal that is exactly one :material/<name>: icon."""
+    return (
+        isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and MATERIAL_ICON.fullmatch(node.value) is not None
+    )
+
+
+def _icon_logo(node: ast.Call) -> bool:
+    """Return True for logo(":material/x:") with, at most, icon_image=":material/y:"."""
+    return (
+        isinstance(node.func, ast.Attribute)
+        and node.func.attr == "logo"
+        and len(node.args) == 1
+        and _material_icon(node.args[0])
+        and all(k.arg == "icon_image" and _material_icon(k.value) for k in node.keywords)
+    )
+
+
 def _image_inputs(source: str) -> list[str]:
     """Return the image inputs in Python source: widgets, Pillow, reportlab images, <img> tags."""
     found = []
-    for node in ast.walk(ast.parse(source)):
+    tree = ast.parse(source)
+    icon_logos = {
+        id(node.func) for node in ast.walk(tree) if isinstance(node, ast.Call) and _icon_logo(node)
+    }
+    for node in ast.walk(tree):
+        if id(node) in icon_logos:
+            continue
         if isinstance(node, ast.Attribute) and node.attr in IMAGE_ATTRIBUTES:
             found.append(f"line {node.lineno}: .{node.attr}")
         elif isinstance(node, ast.Import):
@@ -234,6 +265,14 @@ def _pillow(module: str) -> bool:
         "st.sidebar.image(x)",
         "col.image(x)",
         "st.logo(x)",
+        "st.logo('assets/logo.png')",
+        "st.logo(':material/nutrition:', link='https://example.com')",
+        "st.logo(':material/nutrition:', icon_image='logo.png')",
+        "st.logo(':material/nutrition:', icon_image=path)",
+        "st.logo(':material/nutrition: and more')",
+        "st.logo(f':material/{name}:')",
+        "st.logo(image=':material/nutrition:')",
+        "logo = st.logo",
         "st.pyplot(fig)",
         "st.file_uploader('a')",
         "st.camera_input('a')",
@@ -253,10 +292,16 @@ def test_the_image_scan_finds_every_way_to_open_an_image(code):
 
 @pytest.mark.parametrize(
     "code",
-    ["st.markdown(x)", "from reportlab.platypus import Paragraph, Table", "remove_images(text)"],
+    [
+        "st.markdown(x)",
+        "from reportlab.platypus import Paragraph, Table",
+        "remove_images(text)",
+        "st.logo(':material/nutrition:')",
+        "st.logo(':material/nutrition:', icon_image=':material/fitness_center:')",
+    ],
 )
 def test_the_image_scan_ignores_other_code(code):
-    """Text, tables and the answer's image remover are not image inputs."""
+    """Text, tables, the answer's image remover and an icon logo (T9.23) are not image inputs."""
     assert _image_inputs(code) == []
 
 

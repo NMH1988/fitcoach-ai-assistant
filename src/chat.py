@@ -10,9 +10,9 @@ the app (owner's choice in T9.3, 2026-10-29). The rewrites from query translatio
 the search and shown in the app. Tool results reach the model only as tool messages (T4.4). Every
 error a user can cause or meet ends as a TurnResult with a fixed message, so the app shows it in
 the answer and keeps the chat history (AC-13). The answer's
-language is the app's EN | DE choice, passed in as a fixed value: the code joins that language's
-part of the owner's prompt to the end of the system prompt, and nothing the user types picks it
-(T7.2).
+language is the app's language control (en or de), passed in as a fixed value: the code joins
+that language's part of the owner's prompt to the end of the system prompt, and nothing the user
+types picks it (T7.2).
 """
 
 import logging
@@ -646,8 +646,8 @@ def run_turn(
     # keyword_index(index) gives the BM25 index of the opened index; the app passes a cached one.
     # on_chunks(chunks) gets each search's newly labelled chunks, in [S#] order, so all its calls
     # together give the turn's chunks in label order; only the evaluation run uses it (T6.1, T9.3).
-    # language is the app's EN | DE choice (T7.2), never taken from the text; an unknown one is a
-    # bug in the caller, refused before any call.
+    # language is the app's language control (en or de) (T7.2), never taken from the text; an
+    # unknown one is a bug in the caller, refused before any call.
     # prices() gives the model prices already known, never reading them (T8.2): only the turn's log
     # line uses them, and the cost is null when there are none.
     # conversation is the session's memory (T9.4): the turn sees its earlier questions and answers

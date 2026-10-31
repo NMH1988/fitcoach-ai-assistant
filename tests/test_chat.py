@@ -1661,6 +1661,17 @@ def test_the_german_part_names_the_german_ui_labels():
     assert f"„{i18n.t('tool.results', 'de', count=0).split(' (')[0]}“" in text
 
 
+@pytest.mark.parametrize("lang", ["en", "de"])
+def test_each_language_part_names_the_language_control_as_the_ui_shows_it(lang):
+    """Where to change the language: the control's label, the button above it, both options."""
+    # The owner's lines (T9.23): a renamed label or button fails here, so the owner rewords them.
+    text = chat.load_system_prompt(PROMPTS / f"answer_language_{lang}.md")
+    assert f"{i18n.t('language.label', lang)} selector" in text
+    assert f"directly below {i18n.t('about.title', lang)}" in text
+    for label in i18n.LANGUAGE_LABELS.values():
+        assert label in text
+
+
 def _prompt_section(text: str, heading: str) -> str:
     """Return the text of one `## ` section of a prompt, without its heading."""
     return text.split(f"## {heading}\n", 1)[1].split("\n## ", 1)[0]

@@ -4,7 +4,7 @@ from typing import get_args
 
 import streamlit as st
 
-from src import config, profile, units
+from src import profile, units
 from views.text import label_of, lang, t
 
 FORM_FIELDS = tuple(profile.form_values(None, "metric"))
@@ -50,8 +50,7 @@ def switch_units() -> None:
 
 def show() -> None:
     """Show the profile form; Save checks it and keeps the profile for this session."""
-    # Drawn only while the dialog is open: a style-only st.html takes no space (T4.6).
-    st.html(config.PROFILE_DIALOG_CSS)
+    # The stylesheet (assets/app.css) hides "Press Enter to apply" in this dialog (T4.6, T9.23).
     st.caption(f":material/info: {t('profile.form_hint')}")
     st.segmented_control(
         t("profile.units"),

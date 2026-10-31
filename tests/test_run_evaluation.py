@@ -341,7 +341,7 @@ def test_main_refuses_bad_arguments(real_pieces, tmp_path, monkeypatch, capsys, 
 
 @pytest.mark.parametrize("language", ["en", "de"])
 def test_each_run_asks_in_the_answer_language_given(index, language):
-    """The language reaches the app's turn as the EN | DE control would set it (T7.2)."""
+    """The language reaches the app's turn as the language control would set it (T7.2)."""
     model = ScriptedChatModel(replies=[AIMessage(ANSWER)])
     run_evaluation.evaluate(
         [_item("de1", "Wie viel Protein pro Mahlzeit?")],

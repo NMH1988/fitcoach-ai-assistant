@@ -81,7 +81,7 @@ def macro_bar(kcal: dict[str, int], lang: Language) -> Chart:
 
 
 def macro_donut(kcal: dict[str, int], total: int, lang: Language) -> Chart:
-    """Return the energy split as a donut in the macro colours, the daily kcal in the middle."""
+    """Return the energy split as a donut in the sidebar's macro colours, the kcal in the middle."""
     names = list(kcal)
     labels = [tables.macro_label(name, lang) for name in names]
     parts = ", ".join(
@@ -126,7 +126,8 @@ def macro_donut(kcal: dict[str, int], total: int, lang: Language) -> Chart:
                         "sort": labels,
                         "scale": {
                             "domain": labels,
-                            "range": [config.MACRO_COLORS[n] for n in names],
+                            # Drawn only in the deep green sidebar (T9.23).
+                            "range": [config.SIDEBAR_MACRO_COLORS[n] for n in names],
                         },
                         "legend": {"orient": "right", "title": None},
                     },

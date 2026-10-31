@@ -15,8 +15,8 @@ from src import config
 
 Language = Literal["en", "de"]
 LANGUAGES: tuple[Language, ...] = ("en", "de")
-# What the header's segmented control shows for each language.
-LANGUAGE_LABELS: dict[Language, str] = {"en": "EN", "de": "DE"}
+# What the sidebar's language control shows for each language, the same in both UIs (T9.23).
+LANGUAGE_LABELS: dict[Language, str] = {"en": "English", "de": "Deutsch"}
 # Key of the chosen language in st.session_state (docs/UI_DESIGN.md, "Language").
 SESSION_KEY = "language"
 
