@@ -128,6 +128,8 @@ def run_turn(question: str, turn: int) -> None:
         language=lang(),
         # Only the prices already read, so the turn's log line never waits for the network.
         prices=usage.PRICES.peek,
+        # The session's own memory: the turn sees this chat's earlier questions and answers (T9.4).
+        conversation=st.session_state["conversation"],
     )
     if result.index_not_ready:
         # Open the index again on the next turn, e.g. once the owner has rebuilt it.
@@ -150,9 +152,19 @@ def run_turn(question: str, turn: int) -> None:
         usage_view.caption(message["usage"])
 
 
+def new_chat() -> None:
+    """Forget the conversation and clear the chat, so the summary and the cost start again."""
+    # The old thread is deleted from the session's checkpointer (T9.4, AC-31); the rate limit is
+    # kept, so a new chat is no way around it.
+    st.session_state["conversation"].new_chat()
+    st.session_state["messages"].clear()
+
+
 def tab() -> None:
     """Show the chat: the history, then the input; a new question runs one turn."""
     history = st.session_state["messages"]
+    # Filled once, after a new question's turn, so the button is on as soon as the chat has one.
+    button_slot = st.empty()
     box = st.container(height=config.CHAT_HEIGHT_PX)
     with box:
         invitation = st.empty()
@@ -161,11 +173,18 @@ def tab() -> None:
         for turn, message in enumerate(history):
             show_message(message, turn)
     question = st.chat_input(t("ask.placeholder"), key="chat_input")
-    if not question:
-        return
-    invitation.empty()
-    history.append({"role": "user", "text": question})
-    with box:
-        show_message(history[-1], len(history) - 1)
-        with st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
-            run_turn(question, len(history))
+    if question:
+        invitation.empty()
+        history.append({"role": "user", "text": question})
+        with box:
+            show_message(history[-1], len(history) - 1)
+            with st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
+                run_turn(question, len(history))
+    button_slot.button(
+        t("ask.new_chat"),
+        key="new_chat",
+        icon=":material/add_comment:",
+        help=t("ask.new_chat_help"),
+        on_click=new_chat,
+        disabled=not history,
+    )

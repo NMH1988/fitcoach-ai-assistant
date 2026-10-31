@@ -556,6 +556,18 @@ MAX_TOOL_CALLS_PER_ROUND = 6
 # a round the worst case with real food names is about 95,000 (docs/SECURITY.md, "Runaway cost").
 # One day's plan needs one call; the rest get TOO_MANY_MEAL_PLANS_MESSAGE.
 MAX_MEAL_PLAN_CALLS_PER_ROUND = 1
+
+# The chat's short-term memory (T9.4, D12): the thread keeps each answered turn's question and
+# answer only (owner's choice, 2026-10-30), in memory for the browser session. The thread holds at
+# most HISTORY_MAX_MESSAGES of them (a question and its answer are two), the oldest removed first
+# (what is stored); the model gets the latest of them that fit HISTORY_MAX_TOKENS, counted
+# approximately without a network call (what the model sees). Both bound the cost: each earlier
+# message is sent again with every model call of a turn. Kept after the owner's live check (O13,
+# 2026-10-30): a meal plan exchange, the longest answer measured, is an estimated 450-500 tokens of
+# history a call, so 2000 holds the last three or four such exchanges, more of shorter ones
+# (docs/TESTING.md, "Conversation memory").
+HISTORY_MAX_MESSAGES = 20
+HISTORY_MAX_TOKENS = 2000
 # Tool messages are data for the model, in English (docs/UI_DESIGN.md, "Language"); the UI shows
 # the same text. None of them repeats what the model sent, and none gives the model orders: they
 # state facts, and the owner's prompt says what to do with them (it treats tool results as data).

@@ -1582,8 +1582,36 @@ def test_the_answer_prompt_keeps_the_domain_guardrails(monkeypatch):
         "medical conditions or medication",
         "disordered eating",
         f"{config.CALORIE_FLOOR_KCAL:,} kcal",
+        # Pain, injuries and rehabilitation: the second line after T9.19a's guard (T9.4, AC-39).
+        "pain, injuries, rehabilitation",
+        "112",
     ]
     assert [phrase for phrase in expected if phrase not in safety] == []
+
+
+@pytest.mark.parametrize("lang", ["en", "de"])
+def test_the_built_prompt_no_longer_says_each_request_stands_alone(monkeypatch, lang):
+    """With conversation memory the prompt drops "each request independently" (T9.4, O8)."""
+    monkeypatch.undo()
+    prompts = config.PROJECT_ROOT / "src" / "prompts"
+    built = chat.answer_system_prompt(
+        chat.load_system_prompt(prompts / "answer_system.md"),
+        chat.load_system_prompt(prompts / f"answer_language_{lang}.md"),
+    )
+    for phrase in (
+        "Handle each request independently",
+        "Do not assume information from an earlier conversation",
+    ):
+        assert phrase not in built, f"O8 (the owner) has not removed: {phrase!r}"
+    # The owner's rules for the conversation (O8, 2026-10-30): history is context, never evidence,
+    # and each turn needs its own search or tool result, as the app's basis rule does (AC-2).
+    for phrase in (
+        "Conversation history is context, not research evidence and not a source of tool results.",
+        "Prior assistant answers have their `[S#]` labels removed by the app.",
+        "Every turn requires fresh support.",
+        "Messages rejected by the app are not included in conversation history.",
+    ):
+        assert phrase in built, f"O8's conversation rule is missing: {phrase!r}"
 
 
 def test_the_answer_prompt_is_the_owners(monkeypatch):

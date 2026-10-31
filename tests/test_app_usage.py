@@ -156,6 +156,15 @@ def test_the_sidebar_card_shows_the_answer_and_the_session_totals(monkeypatch, p
     ]
 
 
+def test_after_new_chat_the_session_total_counts_the_new_chat_only(monkeypatch, prices):
+    """ "New chat" starts the session's cost again: one turn after it costs one turn (T9.4)."""
+    _use(monkeypatch, ANSWER, ANSWER)
+    at = _ask(_start(), QUESTION)
+    at = at.button(key="new_chat").click().run(timeout=30)
+    at = _ask(at, "And protein per day?")
+    assert _usage_captions(_card(at))[-1] == f":material/data_usage: Session: {TURN_LINE}"
+
+
 def test_the_session_total_says_when_some_prices_were_unknown(monkeypatch):
     """A session with one unpriced turn shows the known cost and "+ price unknown"."""
     results = [PriceError("offline"), PRICES]

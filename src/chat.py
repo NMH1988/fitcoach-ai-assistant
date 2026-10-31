@@ -26,17 +26,19 @@ from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from functools import cache, partial
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from langchain_chroma import Chroma
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import (
+    AIMessage,
     AIMessageChunk,
     BaseMessage,
     HumanMessage,
     SystemMessage,
 )
 from langchain_core.messages.ai import UsageMetadata
+from langchain_core.messages.utils import count_tokens_approximately, trim_messages
 from langchain_core.runnables import Runnable
 from langchain_core.tools import StructuredTool
 
@@ -51,6 +53,10 @@ from src.rag.store import IndexNotReadyError
 from src.tools import registry
 from src.tools.registry import ToolRun
 from src.usage import CallUsage, ModelPrice, UsageRecorder
+
+if TYPE_CHECKING:
+    # The memory builds on this module, so it is imported here for the annotation only.
+    from src.agent.memory import Conversation
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +160,8 @@ class TurnResult:
 # A citation is one bracket holding labels or ranges: [S1], [S1, S3], [S2; S4], [S1 and S2],
 # [S1, S2, and S3], [S1 & S2], [S1-S3], [S1–S3], and in a German answer [S1 und S2] (T7.2).
 _BRACKET = re.compile(r"\[([^\[\]]{1,80})\]")
+# A bracket with the spaces before it, so a removed citation leaves no space before a full stop.
+_BRACKET_WITH_SPACE = re.compile(r"[ \t]*\[([^\[\]]{1,80})\]")
 _CITED_ITEM = r"S\d+(?:\s*[-–]\s*S?\d+)?"
 _CITATION_SEPARATOR = r"\s*(?:[,;]\s*(?:(?:and|und)\s+|&\s*)?|(?:and|und)\s+|&\s*)"
 _CITATION_BODY = re.compile(rf"\s*{_CITED_ITEM}(?:{_CITATION_SEPARATOR}{_CITED_ITEM})*\s*")
@@ -334,13 +342,53 @@ def sources_block(chunks: Sequence[RetrievedChunk], labels: Sequence[int] | None
     return f"<sources>\n{format_sources(chunks, labels)}\n</sources>"
 
 
-def build_messages(question: str, system_prompt: str) -> list[BaseMessage]:
-    """Return the system prompt and a user message holding only <user_input>."""
-    # Plain string content, never a prompt template: braces in the question stay as typed. The
-    # chunks come only in a search's tool message (T9.3); the profile is never sent: the tools
-    # read it from the app (owner's choice in T9.3, 2026-10-29).
-    user = f"<user_input>\n{escape_prompt_data(question)}\n</user_input>"
-    return [SystemMessage(system_prompt), HumanMessage(user)]
+def user_message(question: str) -> HumanMessage:
+    """Return the user message of a question: <user_input> holding the escaped question only."""
+    # Plain string content, never a prompt template: braces in the question stay as typed.
+    return HumanMessage(f"<user_input>\n{escape_prompt_data(question)}\n</user_input>")
+
+
+def build_messages(
+    question: str, system_prompt: str, history: Sequence[BaseMessage] = ()
+) -> list[BaseMessage]:
+    """Return the system prompt, the conversation's earlier messages, then the question."""
+    # The chunks come only in a search's tool message (T9.3); the profile is never sent: the tools
+    # read it from the app (owner's choice in T9.3, 2026-10-29). history: the earlier questions and
+    # answers the model may see (T9.4, trim_history()).
+    return [SystemMessage(system_prompt), *history, user_message(question)]
+
+
+def strip_citations(answer: str) -> str:
+    """Return the answer without its [S#] citations, as the conversation keeps it (T9.4)."""
+
+    # A later turn labels its own chunks from S1 again, so an old label could stand for another
+    # source (copyright policy rule 7; owner's choice, 2026-10-30). A bracket that is not a
+    # citation stays.
+    def remove(bracket: re.Match[str]) -> str:
+        """Return "" for a citation bracket, else the bracket as written."""
+        return "" if _CITATION_BODY.fullmatch(bracket.group(1)) else bracket.group(0)
+
+    return _BRACKET_WITH_SPACE.sub(remove, answer)
+
+
+def exchange_messages(question: str, answer: str) -> list[BaseMessage]:
+    """Return what the conversation keeps of an answered turn: the question and the answer."""
+    # The same <user_input> the model got, and the shown answer without its citations; never the
+    # turn's tool calls, tool results or <sources> (owner's choice, 2026-10-30).
+    return [user_message(question), AIMessage(strip_citations(answer))]
+
+
+def trim_history(history: Sequence[BaseMessage]) -> list[BaseMessage]:
+    """Return the latest earlier messages that fit HISTORY_MAX_TOKENS, starting on a question."""
+    # Counted approximately (about four characters a token), with no network call. What the
+    # conversation stores is capped apart, by HISTORY_MAX_MESSAGES (src/agent/memory.py).
+    return trim_messages(
+        list(history),
+        max_tokens=config.HISTORY_MAX_TOKENS,
+        token_counter=count_tokens_approximately,
+        strategy="last",
+        start_on="human",
+    )
 
 
 def cited_labels(answer: str, count: int) -> list[int]:
@@ -589,6 +637,7 @@ def run_turn(
     on_chunks: Callable[[Sequence[RetrievedChunk]], None] | None = None,
     language: i18n.Language = "en",
     prices: Callable[[], Mapping[str, ModelPrice] | None] | None = None,
+    conversation: Conversation | None = None,
 ) -> TurnResult:
     """Run one chat turn: guard, agent, tools; never raise for an error a user can cause."""
     # on_step(step) is called as each step starts; on_text(text) as the answer streams in. `user`
@@ -601,6 +650,8 @@ def run_turn(
     # bug in the caller, refused before any call.
     # prices() gives the model prices already known, never reading them (T8.2): only the turn's log
     # line uses them, and the cost is null when there are none.
+    # conversation is the session's memory (T9.4): the turn sees its earlier questions and answers
+    # and, when answered, is kept in it. None: the turn stands alone (the evaluation run).
     if language not in config.ANSWER_LANGUAGE_PROMPT_PATHS:
         raise ValueError(f"Unknown answer language: {language!r}")
     turn_id = str(uuid.uuid4())
@@ -646,10 +697,16 @@ def run_turn(
             search_log=search_log,
             turn_id=turn_id,
         )
-        state = graph.chat_graph().invoke(
-            {"text": text}, context=context, config=graph.run_config()
-        )
-        return state["result"]
+
+        def turn_graph(history: list[BaseMessage]) -> Mapping[str, Any]:
+            """Run the turn's graph after these earlier messages and return its output."""
+            return graph.chat_graph().invoke(
+                {"text": text, "history": history}, context=context, config=graph.run_config()
+            )
+
+        if conversation is None:
+            return turn_graph([])["result"]
+        return conversation.run(turn_graph)
 
     def failed(message: str, code: str, *, index_not_ready: bool = False) -> TurnResult:
         """Return an error result with the steps run and the tokens spent before the error."""
