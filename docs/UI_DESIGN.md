@@ -98,7 +98,7 @@ Sidebar donut colours (T9.23, owner's choice, 2026-10-31): protein `#5DCAA5`, ca
 
 ### Sidebar: the profile
 
-The sidebar is the brand sidebar (T9.23): deep green with light text in both modes ("Theme"), with `st.logo(":material/nutrition:")` at its top (the same icon as the page icon; also shown in the header while the sidebar is collapsed). A Material Symbols icon, not an image file, so no image is opened (`docs/SECURITY.md`, Pillow).
+The sidebar is the brand sidebar (T9.23): deep green with light text in both modes ("Theme"), with `st.logo(":material/nutrition:")` at its top (the same icon as the page icon; also shown in the header while the sidebar is collapsed). A Material Symbols icon, not an image file, so no image is opened (`docs/SECURITY.md`, Pillow). Screenshots (made-up profile): `docs/ui/t9.23-sidebar-light.jpg` and `docs/ui/t9.23-sidebar-dark.jpg`.
 
 | Element | Streamlit | Notes |
 |---|---|---|
