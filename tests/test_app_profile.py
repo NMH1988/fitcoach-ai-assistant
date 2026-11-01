@@ -1,5 +1,6 @@
 """UI tests for the profile sidebar and the "Your details" dialog (T4.1, AC-5, AC-8)."""
 
+import ast
 import logging
 from pathlib import Path
 
@@ -307,47 +308,80 @@ def test_the_hint_is_the_first_line_of_the_dialog():
     )
 
 
-def test_the_css_is_drawn_only_while_the_dialog_is_open():
-    """The style rule exists with the dialog open, not before it opens or after Save closes it."""
+def _stylesheets(at: AppTest) -> list[str]:
+    """Return the body of every st.html element the run drew."""
+    return [h.value for h in at.html]
+
+
+def test_the_stylesheet_is_drawn_once_on_every_run():
+    """The app's stylesheet is on the page before, while and after the dialog is open (T9.23)."""
+    sheet = f"<style>{config.APP_CSS_PATH.read_text(encoding='utf-8')}</style>"
     at = _start()
-    assert [h.value for h in at.html] == []
+    assert _stylesheets(at) == [sheet]
     _button(at, "Add your details").click().run(timeout=30)
-    assert [h.value for h in at.html] == [config.PROFILE_DIALOG_CSS]
+    assert _stylesheets(at) == [sheet]
     at = _save(_fill_metric(at))
     assert "profile" in at.session_state
-    assert [h.value for h in at.html] == []
+    assert _stylesheets(at) == [sheet]
 
 
-def test_the_css_is_gone_after_the_dialog_is_dismissed():
-    """Closing the dialog with X, Esc or a click outside also removes the style rule."""
-    at = _open_dialog()
-    at.number_input(key=_key("weight")).set_value(81.5).run(timeout=30)
-    assert [h.value for h in at.html] == [config.PROFILE_DIALOG_CSS]
-    at.session_state["profile_form_open"] = False  # what the dialog's on_dismiss callback does
-    at.run(timeout=30)
-    assert not at.get("dialog")
-    assert [h.value for h in at.html] == []
-
-
-def test_the_dialog_css_is_one_fixed_rule_scoped_to_the_dialog():
-    """The CSS hides only the input instructions inside the dialog and holds nothing else."""
-    css = config.PROFILE_DIALOG_CSS
-    assert css == (
-        '<style>[data-testid="stDialog"] [data-testid="InputInstructions"] '
-        "{ display: none; }</style>"
+def _only_the_stylesheet(call: ast.Call) -> bool:
+    """Return True for <x>.html(config.APP_CSS_PATH) with no other argument."""
+    return (
+        isinstance(call.func, ast.Attribute)
+        and call.func.attr == "html"
+        and len(call.args) == 1
+        and ast.unparse(call.args[0]) == "config.APP_CSS_PATH"
+        and not call.keywords
     )
-    assert css.count("{") == css.count("}") == 1
-    for unsafe in ("<script", "javascript:", "@import", "url(", "{{"):
-        assert unsafe not in css.lower()
 
 
-def test_st_html_is_used_only_with_the_fixed_dialog_css():
-    """The app calls st.html once, with the constant: never with user or model text."""
+def _html_uses(source: str) -> tuple[int, list[str]]:
+    """Return how many calls load the stylesheet, and every other use of st.html in the source."""
+    tree = ast.parse(source)
+    allowed = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and _only_the_stylesheet(n)]
+    allowed_funcs = {id(call.func) for call in allowed}
+    others = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr == "html":
+            if id(node) in allowed_funcs:
+                continue
+            others.append(f"line {node.lineno}: {ast.unparse(node)}")
+        elif isinstance(node, ast.ImportFrom) and (node.module or "").startswith("streamlit"):
+            if any(alias.name == "html" for alias in node.names):
+                others.append(f"line {node.lineno}: from {node.module} import html")
+    return len(allowed), others
+
+
+@pytest.mark.parametrize(
+    ("code", "allowed"),
+    [
+        ("st.html(config.APP_CSS_PATH)", True),
+        ("st.html(answer)", False),
+        ("st.sidebar.html(config.APP_CSS_PATH, unsafe_allow_javascript=True)", False),
+        ("col.html(f'<style>{css}</style>')", False),
+        ("render = st.html\nrender(answer)", False),
+        ("from streamlit import html\nhtml(answer)", False),
+        ("from streamlit import html as show\nshow(config.APP_CSS_PATH)", False),
+        ("st.html(config.APP_CSS_PATH)\nst.html(answer)", False),
+    ],
+)
+def test_the_html_scan_allows_only_the_stylesheet(code, allowed):
+    """The scan finds st.html on any container, as an alias or an import; only the sheet passes."""
+    _, others = _html_uses(code)
+    assert (others == []) is allowed
+
+
+def test_st_html_is_used_only_with_the_stylesheet():
+    """Every st.html use loads the stylesheet constant: never user or model text (T9.23)."""
     root = APP.parent
     files = [APP, *sorted((root / "views").rglob("*.py")), *sorted((root / "src").rglob("*.py"))]
+    found = {
+        str(path.relative_to(root)): _html_uses(path.read_text(encoding="utf-8")) for path in files
+    }
+    assert sum(count for count, _ in found.values()) == 1
+    assert {path: others for path, (_, others) in found.items() if others} == {}
     source = "\n".join(path.read_text(encoding="utf-8") for path in files)
-    assert source.count("st.html(") == 1
-    assert "st.html(config.PROFILE_DIALOG_CSS)" in source
     assert "unsafe_allow_javascript" not in source
 
 

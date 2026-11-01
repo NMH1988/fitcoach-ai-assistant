@@ -281,7 +281,7 @@ STORE_JSON_MAX_CHARS = 100_000
 ANSWER_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "answer_system.md"
 # The language part of the answer prompt, one file per UI language, written by the owner (O1, T7.2).
 # The code joins the chosen language's file to the end of the answer prompt: the language comes from
-# the app's EN | DE control, never from the user's text.
+# the app's language control (en or de), never from the user's text.
 ANSWER_LANGUAGE_PROMPT_PATHS = {
     "en": PROJECT_ROOT / "src" / "prompts" / "answer_language_en.md",
     "de": PROJECT_ROOT / "src" / "prompts" / "answer_language_de.md",
@@ -422,16 +422,16 @@ DEFAULT_UNIT_SYSTEM = "metric"
 # The first line of the "Your details" dialog (T4.6). A typed number is applied when the field
 # loses focus, so pressing Save right after typing keeps it (checked in the browser).
 PROFILE_FORM_HINT = "Type your values, then press Save. Values are checked when you save."
-# Hides Streamlit's in-field "Press Enter to apply" inside the dialog only; the hint above replaces
-# it. The one exception to "no custom CSS" in docs/UI_DESIGN.md, approved by the owner (T4.6):
-# Streamlit 1.66 has no option for it outside st.form, and the form is not an st.form so the units
-# switch can convert typed values. A fixed string, never built from user or model text. If a later
-# Streamlit renames the test id, the text comes back and nothing breaks.
-# The same test id also shows a text_input's max_chars counter: a text field with max_chars added to
-# this dialog would lose its counter too.
-PROFILE_DIALOG_CSS = (
-    '<style>[data-testid="stDialog"] [data-testid="InputInstructions"] { display: none; }</style>'
-)
+# The app's own stylesheet (T9.23; docs/UI_DESIGN.md, "The custom CSS layer"): layout, spacing and
+# visibility rules only, loaded once per run with st.html, which wraps a .css file in <style> and
+# sends it to the event container, so it takes no space. A Path built from PROJECT_ROOT: st.html
+# reads a relative path from the working directory. Since T9.23 it holds the dialog's rule that hid
+# "Press Enter to apply" (T4.6), which until then was its own fixed string.
+APP_CSS_PATH = PROJECT_ROOT / "assets" / "app.css"
+# The widest screen the stylesheet treats as a phone: each @media (max-width: Npx) in it uses this
+# value (tests/test_stylesheet.py). Streamlit 1.66 stacks st.columns below 640 px; a tablet (about
+# 820 px) keeps the desktop layout. T9.15's client cards use it.
+PHONE_MAX_WIDTH_PX = 640
 # The sidebar caption on where to switch light or dark mode (T7.3): Streamlit 1.66 cannot change the
 # theme from the script, so users pick System, Light or Dark at the top of Streamlit's own menu
 # (there is no Settings entry in 1.66).
@@ -607,6 +607,15 @@ MACRO_COLORS: dict[str, str] = {
     "Protein": "#168A6C",
     "Carbohydrate": "#7A6FD0",
     "Fat": "#B87318",
+}
+# The sidebar donut's macro colours (T9.23, owner's choice, 2026-10-31): the palette above cannot
+# keep 3:1 on the deep green sidebar (protein is 2.1:1 on its light-mode secondary background), so
+# the donut uses the dark theme's green, violet and orange, which keep it on both sidebar
+# backgrounds in both modes (tests/test_theme.py). The same hue per macro as MACRO_COLORS.
+SIDEBAR_MACRO_COLORS: dict[str, str] = {
+    "Protein": "#5DCAA5",
+    "Carbohydrate": "#AFA9EC",
+    "Fat": "#EF9F27",
 }
 
 # The session summary PDF (T5.2; docs/ARCHITECTURE.md section 7). DejaVu Sans 2.37, committed with

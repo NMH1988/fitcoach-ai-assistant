@@ -1,0 +1,13 @@
+/* The app's own stylesheet (T9.23; docs/UI_DESIGN.md, "The custom CSS layer"), loaded once per run
+   with st.html(config.APP_CSS_PATH). Layout, spacing and visibility only: no colour (light and dark
+   mode come from the theme), nothing loaded from another host, and selectors only on st-key classes
+   and the test ids listed in tests/test_stylesheet.py. If Streamlit renames a test id, its rule stops
+   applying and the page falls back to Streamlit's own layout. */
+
+/* The "Your details" dialog (T4.6): hides Streamlit's in-field "Press Enter to apply", as the
+   dialog's first line (config.PROFILE_FORM_HINT) says how values are applied and saved. Scoped to the
+   dialog. The same test id also shows a text field's character counter, so a text field with
+   max_chars added to this dialog would lose its counter too. */
+[data-testid="stDialog"] [data-testid="InputInstructions"] {
+  display: none;
+}

@@ -55,3 +55,27 @@ borderColor = "#2C3633"
 greenColor = "#5DCAA5"
 orangeColor = "#EF9F27"
 violetColor = "#AFA9EC"
+
+# The brand sidebar (T9.23, owner's decision, 2026-10-30): deep green with light text in both modes,
+# values from the T9.15 mockups. Text, captions (60% opacity) and the primary colour as text (a
+# selected option) meet WCAG AA on both sidebar backgrounds (tests/test_theme.py). White text on
+# this primary is 2.0:1, so no primary button goes in the sidebar without a new colour check. The
+# blue badges (the last answer's filters) get a lighter text colour on their blue fill, as
+# Streamlit's own is 3.2:1 there; their fill is blueColor at 20% (measured in the browser).
+[theme.light.sidebar]
+primaryColor = "#5DCAA5"
+backgroundColor = "#0D3B2F"
+secondaryBackgroundColor = "#124538"
+textColor = "#EEF6F3"
+borderColor = "#2F5E50"
+blueColor = "#3D9DF3"
+blueTextColor = "#9CCBF7"
+
+[theme.dark.sidebar]
+primaryColor = "#5DCAA5"
+backgroundColor = "#0A2219"
+secondaryBackgroundColor = "#11322A"
+textColor = "#EEF6F3"
+borderColor = "#2A4A40"
+blueColor = "#3D9DF3"
+blueTextColor = "#9CCBF7"

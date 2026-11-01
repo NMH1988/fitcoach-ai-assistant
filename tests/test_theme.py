@@ -1,4 +1,4 @@
-"""Tests for the light and dark themes and the toolbar setting in .streamlit/config.toml (T7.3)."""
+"""Tests for the light and dark themes, the brand sidebar (T9.23) and the toolbar setting (T7.3)."""
 
 import re
 import tomllib
@@ -138,7 +138,7 @@ def test_the_toolbar_keeps_the_theme_switch():
 @pytest.mark.parametrize("background", ["backgroundColor", "secondaryBackgroundColor"])
 @pytest.mark.parametrize("macro", list(config.MACRO_COLORS))
 def test_macro_colours_stand_out_on_both_backgrounds(mode, background, macro):
-    """Each macro colour has 3:1 against the main and sidebar backgrounds in each mode (T4.7)."""
+    """Each macro colour has 3:1 against both main backgrounds in each mode (T4.7)."""
     # One palette for both modes: the charts cannot follow a theme switch reliably in Streamlit
     # 1.66 (st.context.theme can be wrong right after one), so each colour works on all four.
     colours = _config()["theme"][mode]
@@ -152,4 +152,114 @@ def test_the_macro_colours_match_the_ui_design_doc():
     doc = UI_DESIGN.read_text(encoding="utf-8")
     line = next(line for line in doc.splitlines() if line.startswith("Macro colours"))
     for macro, colour in config.MACRO_COLORS.items():
+        assert f"{macro.lower()} `{colour}`" in line
+
+
+# --- The brand sidebar (T9.23) -----------------------------------------------------------------
+
+SIDEBAR_BACKGROUNDS = ["backgroundColor", "secondaryBackgroundColor"]
+SIDEBAR_COLOURS = (
+    "primaryColor",
+    *SIDEBAR_BACKGROUNDS,
+    "textColor",
+    "borderColor",
+    "blueColor",
+    "blueTextColor",
+)
+
+
+def _sidebar(mode: str) -> dict:
+    """Return the sidebar's colours in this mode."""
+    return _config()["theme"][mode]["sidebar"]
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_each_mode_sets_the_sidebar_colours_as_hex(mode):
+    """Both modes set the sidebar's accent, backgrounds, text, border and blues as #RRGGBB."""
+    colours = _sidebar(mode)
+    for name in SIDEBAR_COLOURS:
+        assert HEX_COLOUR.fullmatch(colours[name]), f"theme.{mode}.sidebar.{name}"
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_the_sidebar_is_deep_green_with_light_text(mode):
+    """A dark green background (green the strongest channel) under a light text colour."""
+    colours = _sidebar(mode)
+    red, green, blue = (int(colours["backgroundColor"][i : i + 2], 16) for i in (1, 3, 5))
+    assert green > max(red, blue)
+    assert _luminance(colours["backgroundColor"]) < 0.05 < 0.8 < _luminance(colours["textColor"])
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("background", SIDEBAR_BACKGROUNDS)
+def test_sidebar_text_is_readable_on_both_sidebar_backgrounds(mode, background):
+    """Sidebar text meets WCAG AA on the sidebar's background and its widgets' background."""
+    colours = _sidebar(mode)
+    assert _contrast(colours["textColor"], colours[background]) >= MIN_TEXT_CONTRAST
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("background", SIDEBAR_BACKGROUNDS)
+def test_sidebar_captions_are_readable_on_both_sidebar_backgrounds(mode, background):
+    """Sidebar captions (its text at 60% opacity) meet WCAG AA on both sidebar backgrounds."""
+    colours = _sidebar(mode)
+    caption = _blend(colours["textColor"], colours[background], CAPTION_OPACITY)
+    assert _contrast(caption, colours[background]) >= MIN_TEXT_CONTRAST
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("background", SIDEBAR_BACKGROUNDS)
+def test_sidebar_accent_text_is_readable_on_both_sidebar_backgrounds(mode, background):
+    """The sidebar's primary as text (the goal's and the language's selected option) meets AA."""
+    colours = _sidebar(mode)
+    assert _contrast(colours["primaryColor"], colours[background]) >= MIN_TEXT_CONTRAST
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("background", SIDEBAR_BACKGROUNDS)
+@pytest.mark.parametrize("macro", list(config.SIDEBAR_MACRO_COLORS))
+def test_sidebar_macro_colours_stand_out_on_both_sidebar_backgrounds(mode, background, macro):
+    """Each colour of the sidebar's donut has 3:1 on both sidebar backgrounds in each mode."""
+    colour = config.SIDEBAR_MACRO_COLORS[macro]
+    assert HEX_COLOUR.fullmatch(colour)
+    assert _contrast(colour, _sidebar(mode)[background]) >= MIN_GRAPHIC_CONTRAST
+
+
+# Streamlit 1.66 fills a badge in the sidebar with its colour at this opacity, in both modes, as it
+# treats the deep green sidebar as dark (measured in the browser, T9.23).
+BADGE_FILL_OPACITY = 0.2
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_sidebar_blue_badges_are_readable(mode):
+    """The last answer's filter badges: blue text meets AA on its blue fill in the sidebar."""
+    colours = _sidebar(mode)
+    fill = _blend(colours["blueColor"], colours["backgroundColor"], BADGE_FILL_OPACITY)
+    assert _contrast(colours["blueTextColor"], fill) >= MIN_TEXT_CONTRAST
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_the_selected_option_is_readable_on_its_tint(mode):
+    """A selected option is the primary on the primary at 10% over the sidebar (browser, T9.23)."""
+    colours = _sidebar(mode)
+    tint = _blend(colours["primaryColor"], colours["backgroundColor"], 0.1)
+    assert _contrast(colours["primaryColor"], tint) >= MIN_TEXT_CONTRAST
+
+
+def test_the_sidebar_palette_names_the_same_macros_in_the_same_order():
+    """The donut's palette covers exactly the macros of the main palette, in its order."""
+    assert list(config.SIDEBAR_MACRO_COLORS) == list(config.MACRO_COLORS)
+
+
+def test_the_main_palette_cannot_keep_3_to_1_on_the_sidebar():
+    """Why the donut has its own palette: protein fails 3:1 on the light sidebar (T9.23)."""
+    light = _sidebar("light")
+    assert _contrast(config.MACRO_COLORS["Protein"], light["secondaryBackgroundColor"]) < 3.0
+
+
+def test_the_sidebar_macro_colours_match_the_ui_design_doc():
+    """docs/UI_DESIGN.md names the sidebar donut's colours."""
+    doc = UI_DESIGN.read_text(encoding="utf-8")
+    line = next(line for line in doc.splitlines() if line.startswith("Sidebar donut colours"))
+    for macro, colour in config.SIDEBAR_MACRO_COLORS.items():
         assert f"{macro.lower()} `{colour}`" in line

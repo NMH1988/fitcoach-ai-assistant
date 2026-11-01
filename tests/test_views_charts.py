@@ -67,11 +67,11 @@ def test_the_donut_has_the_arc_and_two_lines_of_text_in_the_middle():
     assert total["mark"]["color"] == unit["mark"]["color"] == "currentColor"
 
 
-def test_the_donut_keeps_the_macro_colours_and_the_german_total():
-    """The legend sits on the right; German writes the total with a point."""
+def test_the_donut_uses_the_sidebar_colours_and_the_german_total():
+    """The sidebar's macro colours (T9.23), the legend on the right, German writes a point."""
     chart = charts.macro_donut(KCAL, 2950, "de")
     arc = chart.spec["layer"][0]["encoding"]
-    assert arc["color"]["scale"]["range"] == [config.MACRO_COLORS[name] for name in KCAL]
+    assert arc["color"]["scale"]["range"] == [config.SIDEBAR_MACRO_COLORS[name] for name in KCAL]
     assert arc["color"]["legend"]["orient"] == "right"
     assert chart.spec["layer"][1]["data"]["values"] == [{"line": "2.950"}]
     assert "2.950" in chart.alt

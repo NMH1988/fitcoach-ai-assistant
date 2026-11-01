@@ -1,10 +1,10 @@
-"""The sidebar's profile: the goal control, the profile tiles, and the button that edits them."""
+"""The sidebar: the profile (goal control, tiles, Edit details) and the language control."""
 
 from typing import get_args
 
 import streamlit as st
 
-from src import profile, units
+from src import i18n, profile, units
 from views import profile_form, targets
 from views.text import label_of, lang, t
 
@@ -66,3 +66,18 @@ def show_profile() -> None:
     )
     targets.sidebar_card(system)
     st.caption(f":material/lock: {t('profile.kept')}")
+
+
+def language_control() -> None:
+    """Show the language control: "Language" ("Sprache"), with English and Deutsch (T9.23)."""
+    # required=True: a click on the chosen language cannot deselect it to None. The value is the
+    # session's language, written before the control is drawn (no default here); the stored values
+    # stay "en" and "de", and the options read the same in both UIs.
+    st.segmented_control(
+        t("language.label"),
+        i18n.LANGUAGES,
+        format_func=i18n.LANGUAGE_LABELS.get,
+        required=True,
+        key=i18n.SESSION_KEY,
+        width="stretch",
+    )
