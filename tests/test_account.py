@@ -269,8 +269,9 @@ def test_load_profile_is_none_until_there_is_an_entry_and_a_weight(store_conn, g
 def test_a_coach_profile_is_never_stored(store_conn):
     """The store keeps records for gymers only, so a coach's save is refused (never asked)."""
     users.create_user(store_conn, "coach-1", "coach", "Alex")
-    with pytest.raises(account.AccountError):
+    with pytest.raises(account.AccountError) as raised:
         account.save_profile(store_conn, "coach-1", PROFILE, with_weight=True)
+    assert raised.value.code == "account.gone"  # the views never ask for a coach
     assert store_conn.execute("SELECT COUNT(*) FROM profile_entries").fetchone()[0] == 0
 
 

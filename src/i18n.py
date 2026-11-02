@@ -524,8 +524,9 @@ _EN: dict[str, str] = {
         "as a guest; nothing is stored."
     ),
     "account.not_set_up": (
-        "Sign-in is not fully set up: a secret in `.streamlit/secrets.toml` is missing or still "
-        "the example's. You can use the chat as a guest; nothing is stored."
+        "Sign-in is not fully set up: a secret in `.streamlit/secrets.toml` is missing, shorter "
+        "than 32 characters or still the example's. You can use the chat as a guest; nothing is "
+        "stored."
     ),
     "account.demo_user": "Demo user",
     "account.guest": "Guest (nothing stored)",
@@ -541,7 +542,7 @@ _EN: dict[str, str] = {
         "Choose your role and the name the app shows (a made-up one is fine). The app's data file "
         "stores only an ID made from your Google account (never its name, e-mail address or "
         "picture), your role and this name. The sign-in cookie in your browser keeps your Google "
-        "name and e-mail address until you sign out (at most 30 days)."
+        "name, e-mail address and picture link until you sign out (at most 30 days)."
     ),
     "account.role": "Your role",
     "account.role_once": "The role is chosen once and cannot be changed in the app.",
@@ -1171,8 +1172,8 @@ _DE: dict[str, str] = {
     ),
     "account.not_set_up": (
         "Die Anmeldung ist nicht vollständig eingerichtet: Ein Geheimnis in "
-        "`.streamlit/secrets.toml` fehlt oder ist noch das aus dem Beispiel. Sie können den Chat "
-        "als Gast nutzen; nichts wird gespeichert."
+        "`.streamlit/secrets.toml` fehlt, ist kürzer als 32 Zeichen oder ist noch das aus dem "
+        "Beispiel. Sie können den Chat als Gast nutzen; nichts wird gespeichert."
     ),
     "account.demo_user": "Demo-Nutzer",
     "account.guest": "Gast (nichts wird gespeichert)",
@@ -1190,8 +1191,8 @@ _DE: dict[str, str] = {
         "Wählen Sie Ihre Rolle und den Namen, den die App anzeigt (ein erfundener genügt). Die "
         "Datendatei der App speichert nur eine aus Ihrem Google-Konto gebildete ID (nie dessen "
         "Namen, E-Mail-Adresse oder Bild), Ihre Rolle und diesen Namen. Das Anmelde-Cookie in "
-        "Ihrem Browser behält Ihren Google-Namen und Ihre E-Mail-Adresse, bis Sie sich abmelden "
-        "(höchstens 30 Tage)."
+        "Ihrem Browser behält Ihren Google-Namen, Ihre E-Mail-Adresse und den Link zu Ihrem Bild, "
+        "bis Sie sich abmelden (höchstens 30 Tage)."
     ),
     "account.role": "Ihre Rolle",
     "account.role_once": "Die Rolle wird einmal gewählt und kann in der App nicht geändert werden.",

@@ -155,7 +155,8 @@ def save_profile(
     try:
         _write_profile(conn, user_id, profile, targets, day, with_weight)
     except NotFound:
-        # The account was deleted in another tab since this session's last run.
+        # The account was deleted in another tab since this session's last run (the store's
+        # NotFound for a coach is not reached: the views save only a gymer's profile).
         raise AccountError("account.gone") from None
 
 

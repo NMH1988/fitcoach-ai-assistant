@@ -813,6 +813,7 @@ Added by the owner on 2026-10-25 for the Sprint 3 project, which builds on this 
 - [ ] `src/metrics.py` (pure, no streamlit) computes a week's logged days, averages over the logged days against the active target and the weight change; weeks run Monday to Sunday in `Europe/Berlin`, also across a daylight-saving change - known-answer tests, including 3 logged days out of 7 (AC-25, AC-26).
 - [ ] A `get_my_week` tool, for signed-in gymers only, returns the week's metrics of `src/metrics.py` for the acting user (never an ID the model writes) - unit tests on the tools built per role.
 - [ ] A guest has no diary - AppTest.
+**Notes:** from T9.5's code review (round 1): a gymer's Save writes the profile entry, the weight and the target in three store transactions (`src/account.save_profile()`); before the metrics read the active target, add a store function in `src/store/records.py` that writes them in one `transaction()`, so a profile entry never goes without its target.
 
 ### T9.14 Workout log and the weekly training metrics (M) · status: todo · issue #114
 **Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 2, core 3; Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request): training tracking.

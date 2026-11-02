@@ -498,7 +498,7 @@ def test_a_failed_goal_change_keeps_the_old_goal(monkeypatch):
     at = start(monkeypatch, user=signed_in())
     _fail_after(monkeypatch, 0)  # the callback's write is the first opening of the run
     at.segmented_control(key="sidebar_goal").set_value("lose_fat").run(timeout=30)
-    assert "cannot be opened right now" in texts(at)
+    assert "cannot be opened right now" in "".join(str(e.value) for e in at.sidebar.error)
     assert at.session_state["profile"].goal == PROFILE.goal
 
 
@@ -510,6 +510,11 @@ def test_a_goal_change_after_the_account_was_deleted_elsewhere(monkeypatch):
     at.segmented_control(key="sidebar_goal").set_value("lose_fat").run(timeout=30)
     assert not at.exception
     assert "Set up your account" in texts(at)
+    assert "no longer exists" in texts(at)  # said on the welcome page, where it is needed
+    assert "profile" not in at.session_state
+    at = _create(at, "gymer", "Sam")
+    assert "no longer exists" not in texts(at)
+    assert at.session_state["profile"] is None
 
 
 # --- Compliance run 1's fixes ---------------------------------------------------------------------
@@ -538,7 +543,7 @@ def test_a_goal_change_after_every_entry_was_deleted_writes_nothing(monkeypatch)
     with db.connect() as conn:
         conn.execute("DELETE FROM profile_entries WHERE user_id = ?", (USER_ID,))
     at.segmented_control(key="sidebar_goal").set_value("lose_fat").run(timeout=30)
-    assert "kept for this session only" in texts(at)
+    assert "kept for this session only" in "".join(str(w.value) for w in at.sidebar.warning)
     assert at.session_state["profile"].goal == "lose_fat"
     with db.connect() as conn:
         assert conn.execute("SELECT COUNT(*) FROM profile_entries").fetchone()[0] == 0

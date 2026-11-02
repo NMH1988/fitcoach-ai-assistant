@@ -19,6 +19,8 @@ DEMO_KEY = "demo_user"
 # Kept when the user changes: the language and the session's rate limit (a sign-out is no way
 # around it), and the demo picker's own value.
 KEPT_KEYS = frozenset({i18n.SESSION_KEY, guard.SESSION_LIMITER_KEY, DEMO_KEY})
+# Where the sidebar's goal control leaves a message for the next run (views/sidebar.py).
+PROFILE_NOTICE_KEY = "profile_save_failed"
 # The display name's length limits, for the texts that name them.
 NAME_LIMITS = {"low": config.DISPLAY_NAME_CHARS[0], "high": config.DISPLAY_NAME_CHARS[1]}
 
@@ -67,6 +69,11 @@ def resolve() -> dict | None:
                 # A demo user deleted through My data: a guest until the app restarts, so no
                 # visitor can make a new account under a demo ID.
                 return None
+            if found is None:
+                # No account (a first sign-in, or deleted in another tab): nothing of an earlier
+                # account's profile stays in the session, and its profile is loaded afresh later.
+                st.session_state.pop("account_loaded_for", None)
+                st.session_state.pop("profile", None)
             loaded = st.session_state.get("account_loaded_for")
             if found is not None and found["role"] == "gymer" and loaded != user_id:
                 # Once per sign-in, so an edit made in this session is not replaced on each run.
@@ -166,6 +173,10 @@ def welcome_page() -> None:
     with header.main_column():
         header.show()
         store_notice()
+        # A save that found the account deleted elsewhere says why this page appeared, here.
+        failed = st.session_state.pop(PROFILE_NOTICE_KEY, None)
+        if failed is not None:
+            st.warning(t(failed), icon=":material/info:")
         st.subheader(t("account.welcome_title"))
         st.markdown(t("account.welcome_text"))
         st.radio(

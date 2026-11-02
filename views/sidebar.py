@@ -16,7 +16,9 @@ GOAL_ICONS = {
 }
 
 
-SAVE_FAILED_KEY = "profile_save_failed"
+SAVE_FAILED_KEY = account.PROFILE_NOTICE_KEY
+# A notice, not a failure: the goal was kept for the session (shown as a warning).
+NOT_SAVED = "profile.goal_not_saved"
 
 
 def change_goal() -> None:
@@ -35,7 +37,7 @@ def change_goal() -> None:
         try:
             with accounts.open_store(account.store_path()) as conn:
                 if not accounts.has_profile_entries(conn, user["id"]):
-                    st.session_state[SAVE_FAILED_KEY] = "profile.goal_not_saved"
+                    st.session_state[SAVE_FAILED_KEY] = NOT_SAVED
                     st.session_state["profile"] = updated
                     return
                 accounts.save_profile(conn, user["id"], updated, with_weight=False)
@@ -65,7 +67,9 @@ def show_profile() -> None:
     """Show the profile in the sidebar, in the chosen units, with a button to edit it."""
     st.header(f":material/person: {t('profile.your_profile')}")
     failed = st.session_state.pop(SAVE_FAILED_KEY, None)
-    if failed is not None:
+    if failed == NOT_SAVED:
+        st.warning(t(failed), icon=":material/info:")
+    elif failed is not None:
         st.error(t(failed), icon=":material/error:")
     current = st.session_state.get("profile")
     if current is None:
