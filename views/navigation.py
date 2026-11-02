@@ -4,7 +4,8 @@ Only the pages listed for the user's role are registered in a run, so a page of 
 signed-in user's page for a guest) cannot be opened even by its URL: Streamlit shows the role's
 home instead. A new session sees only the start page (sign in, or continue as a guest) when sign-in
 is set up or in demo mode. A guest has one page, the chat with today's tabs, so no menu shows. A
-user signed in with Google who has no account yet ("pending") sees only the welcome page.
+user signed in with Google who has no account yet ("pending") sees only the welcome page. A
+coach has the chat and My data; a gymer My profile and My data, no chat (owner's choice).
 """
 
 import streamlit as st
@@ -13,6 +14,7 @@ from views import account, my_data, pages
 from views.text import t
 
 CHAT = "chat"
+PROFILE = "profile"
 MY_DATA = my_data.URL_PATH
 WELCOME = "welcome"
 START = "start"
@@ -23,10 +25,12 @@ PAGES_BY_ROLE: dict[str | None, tuple[str, ...]] = {
     START: (START,),
     PENDING: (WELCOME,),
     "coach": (CHAT, MY_DATA),
-    "gymer": (CHAT, MY_DATA),
+    # No chat for a gymer (owner's choice, 2026-11-02): the profile and their data.
+    "gymer": (PROFILE, MY_DATA),
 }
 _PAGES = {
     CHAT: (pages.chat_page, "page.chat", ":material/chat:"),
+    PROFILE: (pages.profile_page, "page.profile", ":material/person:"),
     MY_DATA: (my_data.page, "page.my_data", ":material/folder_shared:"),
     WELCOME: (account.welcome_page, "page.welcome", ":material/waving_hand:"),
     START: (account.start_page, "page.start", ":material/login:"),

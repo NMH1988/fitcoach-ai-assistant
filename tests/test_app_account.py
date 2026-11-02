@@ -204,13 +204,28 @@ def _create(at: AppTest, role: str, name: str) -> AppTest:
 
 
 def test_creating_a_gymer_account_stores_the_keyed_id_role_and_name(monkeypatch):
-    """The account is stored under the keyed hash with the role and name, and the chat follows."""
+    """The account is stored under the keyed hash with the role and name; My profile follows."""
     at = _create(start(monkeypatch, user=signed_in()), "gymer", "  Sam  ")
     with db.connect() as conn:
         assert users.find_user(conn, USER_ID)["role"] == "gymer"
         assert users.find_user(conn, USER_ID)["display_name"] == "Sam"
-    assert len(at.tabs) == 4
-    assert "**Sam** · Gymer" in texts(at)
+    assert on_profile_page(at)
+    assert "Sam · Gymer" in texts(at)
+
+
+def on_profile_page(at: AppTest) -> bool:
+    """Return True if the run drew a gymer's My profile page: the targets, and no chat."""
+    return not at.tabs and not at.chat_input and ":material/target: My targets" in texts(at)
+
+
+def test_a_gymer_has_no_chat(monkeypatch):
+    """A gymer's pages are My profile and My data; the chat's URL shows My profile (T9.5)."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    assert on_profile_page(at)
+    at._page_hash = calc_hash(navigation.CHAT)
+    at.run(timeout=30)
+    assert on_profile_page(at)
 
 
 def test_a_bad_display_name_is_refused_and_nothing_is_stored(monkeypatch):
@@ -290,6 +305,8 @@ def test_a_page_of_another_role_cannot_be_reached_by_its_url(monkeypatch, role):
         at.run(timeout=30)
         if home == navigation.CHAT:
             assert len(at.tabs) == 4, url_path
+        elif home == navigation.PROFILE:
+            assert on_profile_page(at), url_path
         elif home == navigation.START:
             assert "Sign in or continue as a guest" in texts(at), url_path
         else:
@@ -445,12 +462,13 @@ def test_the_privacy_note_per_user(monkeypatch, language, guest, gymer, coach, l
     real = "do not enter real health data" if language == "en" else "keine echten Gesundheitsdaten"
     assert real in texts(at)
     chat = "earlier questions and answers" if language == "en" else "früheren Fragen und Antworten"
-    assert chat in texts(at)
+    assert chat not in texts(at)  # a gymer has no chat
     _reset_store()
     store_account("coach")
     at = start(monkeypatch, user=signed_in(), language=language)
     assert coach in texts(at)
     assert real in texts(at)
+    assert chat in texts(at)
     assert link in page_links(at)
 
 
@@ -576,10 +594,10 @@ def test_a_goal_change_after_the_account_was_deleted_elsewhere(monkeypatch):
     ],
 )
 def test_the_texts_name_the_cookie_and_openrouter(monkeypatch, language, cookie, openrouter):
-    """The welcome page names the sign-in cookie; a gymer's note names OpenRouter as a recipient."""
+    """The welcome page names the sign-in cookie; a coach's note names OpenRouter as a recipient."""
     at = start(monkeypatch, user=signed_in(), language=language)
     assert cookie in texts(at)
-    store_account("gymer", profile=PROFILE)
+    store_account("coach")
     at = start(monkeypatch, user=signed_in(), language=language)
     assert openrouter in texts(at)
 

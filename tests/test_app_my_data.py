@@ -63,7 +63,7 @@ def test_my_data_lists_what_is_stored(monkeypatch, gymer_with_records):
     assert "**Weights** · 2 stored" in page
     assert "**Daily targets** · 1 stored" in page
     assert "**Food log** · 0 stored" in page
-    assert "**Sam** · Gymer" in page
+    assert "Sam · Gymer" in page
     assert len(at.dataframe) == 3
 
 
@@ -133,7 +133,7 @@ def test_a_coach_sees_the_account_and_the_export(monkeypatch):
     store_account("coach", name="Alex")
     at = open_my_data(start(monkeypatch, user=signed_in()))
     page = texts(at)
-    assert "**Alex** · Coach" in page
+    assert "Alex · Coach" in page
     assert "Profile entries" not in page
     button(at, "Prepare the export").click().run(timeout=30)
     assert json.loads(at.session_state["my_data_export"])["user"]["role"] == "coach"
@@ -194,7 +194,7 @@ def test_picking_a_demo_gymer_loads_their_profile_from_the_demo_database(
     at = start_demo(monkeypatch)
     at.selectbox(key="demo_user_start").set_value(demo.SHARING_GYMER.id).run(timeout=30)
     assert at.session_state["profile"] == demo.PROFILES[demo.SHARING_GYMER.id]
-    assert "**Demo gymer Sam** · Gymer" in texts(at)
+    assert "Demo gymer Sam · Gymer" in texts(at)
     assert resources.demo_store() != config.STORE_PATH
     assert not config.STORE_PATH.exists()
 
@@ -204,7 +204,7 @@ def test_a_demo_coach_reaches_my_data(monkeypatch, demo_store_is_fresh):
     at = start_demo(monkeypatch)
     at.selectbox(key="demo_user_start").set_value(demo.COACH.id).run(timeout=30)
     at = open_my_data(at)
-    assert "**Demo coach Alex** · Coach" in texts(at)
+    assert "Demo coach Alex · Coach" in texts(at)
 
 
 def test_demo_mode_is_off_by_default(monkeypatch, demo_store_is_fresh):
@@ -269,7 +269,7 @@ def test_leaving_a_demo_user_returns_to_the_start_page(monkeypatch, demo_store_i
     at = start_demo(monkeypatch)
     button(at, "Continue as guest").click().run(timeout=30)
     at.selectbox(key="demo_user").set_value(demo.SHARING_GYMER.id).run(timeout=30)
-    assert len(at.tabs) == 4
+    assert "Demo gymer Sam · Gymer" in texts(at)
     at.selectbox(key="demo_user").set_value(None).run(timeout=30)
     assert not at.tabs
     assert "pick a made-up user below to try" in texts(at)

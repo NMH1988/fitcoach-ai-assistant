@@ -449,6 +449,9 @@ PROFILE_HEIGHT_CM_RANGE = (120.0, 230.0)
 PROFILE_AGE_RANGE = (18, 100)
 # The units the profile form and the sidebar start in; the user can switch to imperial.
 DEFAULT_UNIT_SYSTEM = "metric"
+# The language a session starts in (owner's choice, 2026-11-02: English for everyone; from T7.1 to
+# T9.5 it followed the browser's locale); the user can switch to German.
+DEFAULT_LANGUAGE = "en"
 # The first line of the "Your details" dialog (T4.6). A typed number is applied when the field
 # loses focus, so pressing Save right after typing keeps it (checked in the browser).
 PROFILE_FORM_HINT = "Type your values, then press Save. Values are checked when you save."
@@ -458,11 +461,12 @@ PROFILE_FORM_HINT = "Type your values, then press Save. Values are checked when 
 # reads a relative path from the working directory. Since T9.23 it holds the dialog's rule that hid
 # "Press Enter to apply" (T4.6), which until then was its own fixed string.
 APP_CSS_PATH = PROJECT_ROOT / "assets" / "app.css"
-# The start page's title (T9.5, owner's choice of 2026-11-02): the one rule of app.css that may set
+# The app's title (T9.5, owner's choices of 2026-11-02: the start page's, then every page's): the
+# one rule of app.css that may set
 # colour, a teal-to-green gradient around the theme's greens, every stop at least 3:1 (large text)
 # on both modes' backgrounds, with a solid fallback (tests/test_stylesheet.py checks both).
-START_TITLE_GRADIENT = ("#0F7F8C", "#1D9E75", "#4E9A28")
-START_TITLE_FALLBACK = "#168563"
+TITLE_GRADIENT = ("#0F7F8C", "#1D9E75", "#4E9A28")
+TITLE_FALLBACK = "#168563"
 # The widest screen the stylesheet treats as a phone: each @media (max-width: Npx) in it uses this
 # value (tests/test_stylesheet.py). Streamlit 1.66 stacks st.columns below 640 px; a tablet (about
 # 820 px) keeps the desktop layout. T9.15's client cards use it.

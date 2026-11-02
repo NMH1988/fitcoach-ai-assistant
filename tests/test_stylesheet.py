@@ -4,7 +4,7 @@ AppTest draws no CSS, so these read the file: it loads nothing, runs nothing, se
 only at st-key classes and listed test ids, and changes only layout, so a renamed class or test id
 leaves Streamlit's own layout in place. The one exception is the start page's title (T9.5, owner's
 choice of 2026-11-02): one selector, a short list of type properties, and only the gradient colours
-of config.START_TITLE_GRADIENT and its fallback, each readable on both modes' backgrounds. The
+of config.TITLE_GRADIENT and its fallback, each readable on both modes' backgrounds. The
 browser checks are in docs/TESTING.md.
 """
 
@@ -52,11 +52,9 @@ COLOUR = re.compile(r"#[0-9a-f]{3,8}\b|\b(rgba?|hsla?|hwb|lab|lch|oklab|oklch|co
 # A selector part: an st-key class, a listed test id, or a combinator.
 SELECTOR_PART = re.compile(r'\.st-key-[a-z0-9_-]+|\[data-testid="(?P<id>[A-Za-z]+)"\]|\s+|\s*>\s*')
 MEDIA = re.compile(r"@media \(max-width: (\d+)px\)")
-# The start page's title (T9.5): the only rule that may set colour or type, outside any @media.
-TITLE_SELECTOR = ".st-key-start_title h1"
-TITLE_COLOURS = frozenset(
-    c.lower() for c in (*config.START_TITLE_GRADIENT, config.START_TITLE_FALLBACK)
-)
+# The app's title (T9.5): the only rule that may set colour or type, outside any @media.
+TITLE_SELECTOR = ".st-key-app_title h1"
+TITLE_COLOURS = frozenset(c.lower() for c in (*config.TITLE_GRADIENT, config.TITLE_FALLBACK))
 GRADIENT = re.compile(r"linear-gradient\(\d{1,3}deg((?:, #[0-9a-f]{6})+)\)")
 HEX = re.compile(r"#[0-9a-f]{6}")
 TITLE_VALUES = {
@@ -69,6 +67,10 @@ TITLE_VALUES = {
     "background-clip": re.compile(r"text"),
     "-webkit-text-fill-color": re.compile(r"transparent"),
 }
+# The sidebar's page menu (T9.5, owner's choice): one exact selector on two test ids (a link's
+# label), a font size in rem, nothing else. Not on ALLOWED_TEST_IDS: no other rule may use them.
+NAV_SELECTOR = '[data-testid="stSidebarNavLink"] [data-testid="stMarkdownContainer"]'
+NAV_VALUES = {"font-size": re.compile(r"1(\.\d{1,2})?rem")}
 # Large text (the title is over 24 px) needs 3:1 against the page (WCAG 1.4.3).
 MIN_TITLE_CONTRAST = 3.0
 
@@ -135,6 +137,13 @@ def problems(css: str) -> list[str]:
     for selector, body, media in _rules(css):
         if selector == TITLE_SELECTOR:
             found += _title_problems(body, media)
+            continue
+        if selector == NAV_SELECTOR:
+            found += [
+                f"{NAV_SELECTOR}: {prop}: {value!r} is not allowed"
+                for prop, value in _declarations(body)
+                if prop not in NAV_VALUES or not NAV_VALUES[prop].fullmatch(value)
+            ]
             continue
         for part in selector.split(","):
             left = part.strip()
@@ -281,15 +290,13 @@ def test_the_check_accepts_layout_rules_and_the_phone_query():
     assert problems(css) == []
 
 
-def test_the_start_title_rule_is_the_only_colour_rule():
+def test_the_title_rule_is_the_only_colour_rule():
     """The title's rule exists once, outside @media, with the gradient and fallback from config."""
     rules = [rule for rule in _rules(_css()) if rule[0] == TITLE_SELECTOR]
     assert len(rules) == 1 and rules[0][2] is None
     values = dict(_declarations(rules[0][1]))
-    assert HEX.findall(values["background-image"]) == [
-        c.lower() for c in config.START_TITLE_GRADIENT
-    ]
-    assert values["color"] == config.START_TITLE_FALLBACK.lower()
+    assert HEX.findall(values["background-image"]) == [c.lower() for c in config.TITLE_GRADIENT]
+    assert values["color"] == config.TITLE_FALLBACK.lower()
     assert values["-webkit-text-fill-color"] == "transparent"
 
 
@@ -307,7 +314,7 @@ def _contrast(first: str, second: str) -> float:
 
 
 @pytest.mark.parametrize("mode", ["light", "dark"])
-@pytest.mark.parametrize("colour", [*config.START_TITLE_GRADIENT, config.START_TITLE_FALLBACK])
+@pytest.mark.parametrize("colour", [*config.TITLE_GRADIENT, config.TITLE_FALLBACK])
 def test_every_title_colour_is_readable_in_both_modes(mode, colour):
     """Each gradient stop and the fallback reach 3:1 (large text) on the mode's background."""
     theme = tomllib.loads((config.PROJECT_ROOT / ".streamlit" / "config.toml").read_text("utf-8"))
@@ -318,16 +325,39 @@ def test_every_title_colour_is_readable_in_both_modes(mode, colour):
 @pytest.mark.parametrize(
     "css",
     [
-        ".st-key-start_title h1 { color: #ff0000; }",
-        ".st-key-start_title h1 { background-image: linear-gradient(90deg, #127a5f, #ff00ff); }",
-        ".st-key-start_title h1 { background-image: url(x.png); }",
-        ".st-key-start_title h1 { position: absolute; }",
-        ".st-key-start_title h1 { font-size: 99px; }",
-        ".st-key-start_title h1 { font-size: 99rem; }",
+        ".st-key-app_title h1 { color: #ff0000; }",
+        ".st-key-app_title h1 { background-image: linear-gradient(90deg, #127a5f, #ff00ff); }",
+        ".st-key-app_title h1 { background-image: url(x.png); }",
+        ".st-key-app_title h1 { position: absolute; }",
+        ".st-key-app_title h1 { font-size: 99px; }",
+        ".st-key-app_title h1 { font-size: 99rem; }",
         ".st-key-other h1 { color: #127a5f; }",
-        "@media (max-width: 640px) { .st-key-start_title h1 { font-size: 2rem; } }",
+        "@media (max-width: 640px) { .st-key-app_title h1 { font-size: 2rem; } }",
     ],
 )
 def test_the_check_refuses_anything_else_in_the_title_rule(css):
     """Another colour, a load, another property or unit, another selector or a media rule fail."""
+    assert problems(css)
+
+
+def test_the_menu_rule_sets_only_a_font_size():
+    """The page menu's rule exists once and sets only its font size (T9.5, owner's choice)."""
+    rules = [rule for rule in _rules(_css()) if rule[0] == NAV_SELECTOR]
+    assert len(rules) == 1 and rules[0][2] is None
+    assert [prop for prop, _ in _declarations(rules[0][1])] == ["font-size"]
+
+
+@pytest.mark.parametrize(
+    "css",
+    [
+        f"{NAV_SELECTOR} {{ color: #127a5f; }}",
+        f"{NAV_SELECTOR} {{ font-size: 3rem; }}",
+        f"{NAV_SELECTOR} {{ font-size: 20px; }}",
+        f"{NAV_SELECTOR} {{ display: none; }}",
+        '[data-testid="stSidebarNavLink"] { font-size: 1.2rem; }',
+        '[data-testid="stMarkdownContainer"] { font-size: 1.2rem; }',
+    ],
+)
+def test_the_check_refuses_anything_else_in_the_menu_rule(css):
+    """The menu's rule may set a font size between 1 and 2 rem, nothing else."""
     assert problems(css)

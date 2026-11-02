@@ -1,4 +1,4 @@
-"""The chat page (every user's home, T9.5): the profile in the sidebar and the four tabs."""
+"""The chat page (a guest's and a coach's home) and a gymer's My profile page (T9.5)."""
 
 import streamlit as st
 
@@ -26,6 +26,30 @@ def _tabs() -> None:
         details.tab()
 
 
+def _profile_dialog() -> None:
+    """Open the "Your details" dialog when the profile form is open."""
+    if st.session_state.get("profile_form_open"):
+        # Built on each run, so the dialog's title is in the language chosen now.
+        st.dialog(t("profile.dialog_title"), on_dismiss=profile_form.close_form)(
+            profile_form.show
+        )()
+
+
+def profile_page() -> None:
+    """Show a gymer's home: the profile in the sidebar and the daily targets (no chat, T9.5)."""
+    # A gymer does not talk to the AI (owner's choice, 2026-11-02): the coach's AI drafts reviews,
+    # and the gymer reads what the coach approved (T9.15, T9.16).
+    with st.sidebar:
+        st.divider()
+        sidebar.show_profile()
+        st.caption(t("theme.hint"))
+    _profile_dialog()
+    with header.main_column():
+        header.show()
+        account.store_notice()
+        targets.tab()
+
+
 def chat_page() -> None:
     """Show the chat page: profile and last answer in the sidebar, the tabs in the middle."""
     with st.sidebar:
@@ -38,11 +62,7 @@ def chat_page() -> None:
         # twice in one run keeps the first draw's extra elements (e.g. a badge the new turn lacks).
         download_slot = st.empty()
         last_answer_slot = st.empty()
-    if st.session_state.get("profile_form_open"):
-        # Built on each run, so the dialog's title is in the language chosen now.
-        st.dialog(t("profile.dialog_title"), on_dismiss=profile_form.close_form)(
-            profile_form.show
-        )()
+    _profile_dialog()
     with header.main_column():
         header.show()
         account.store_notice()

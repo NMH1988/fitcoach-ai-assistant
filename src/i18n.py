@@ -9,8 +9,6 @@ our own writing, in the formal "Sie", and the owner reviews them before merge (T
 
 from typing import Literal
 
-import streamlit as st
-
 from src import config
 
 Language = Literal["en", "de"]
@@ -22,16 +20,6 @@ SESSION_KEY = "language"
 
 # German swaps the thousands and decimal marks: 2,500.5 (en) is 2.500,5 (de).
 _DE_MARKS = str.maketrans({",": ".", ".": ","})
-
-
-def language_for_locale(locale: str | None) -> Language:
-    """Return German for a browser locale starting with "de", else English (also for None)."""
-    return "de" if locale and locale.casefold().startswith("de") else "en"
-
-
-def browser_locale() -> str | None:
-    """Return the browser's locale (navigator.language), or None when it is not known."""
-    return st.context.locale
 
 
 def number(value: float, lang: Language) -> str:
@@ -517,6 +505,7 @@ _EN: dict[str, str] = {
     # Pages, the account block, the welcome page and My data (T9.5).
     "page.chat": "Chat",
     "page.my_data": "My data",
+    "page.profile": "My profile",
     "page.welcome": "Welcome",
     "page.start": "Start",
     "start.title": "Sign in or continue as a guest",
@@ -604,10 +593,8 @@ _EN: dict[str, str] = {
     # The privacy notes of the sidebar and the profile form for signed-in users (T9.5).
     "profile.note_gymer": (
         "Saved for your account: when you press Save (or change the goal), your details, weight "
-        "and daily targets are stored in this app's data file on this computer. Your details also "
-        "go to the AI model, through OpenRouter, when a question needs them. Chats are never "
-        "stored, but this chat's earlier questions and answers go to the AI model with each new "
-        "question. Use made-up data only: do not enter real health data."
+        "and daily targets are stored in this app's data file on this computer. Use made-up data "
+        "only: do not enter real health data."
     ),
     "profile.note_coach": (
         "Kept for this session only: a coach's details are not stored, but they go to the AI "
@@ -629,8 +616,7 @@ _EN: dict[str, str] = {
     ),
     "my_data.intro_gymer": (
         "Everything the app stores about you: your account and your records below; your coach "
-        "relationships, sharing choices and your coach's reads of your data are in the export. "
-        "Nothing of your chats is stored."
+        "relationships, sharing choices and your coach's reads of your data are in the export."
     ),
     "my_data.intro_coach": (
         "Everything the app stores about you: your account, and your clients and their reviews "
@@ -1201,6 +1187,7 @@ _DE: dict[str, str] = {
     # Seiten, Kontobereich, Willkommensseite und Meine Daten (T9.5).
     "page.chat": "Chat",
     "page.my_data": "Meine Daten",
+    "page.profile": "Mein Profil",
     "page.welcome": "Willkommen",
     "page.start": "Start",
     "start.title": "Anmelden oder als Gast weiter",
@@ -1298,10 +1285,8 @@ _DE: dict[str, str] = {
     "profile.note_gymer": (
         "Für Ihr Konto gespeichert: Wenn Sie auf Speichern klicken (oder das Ziel ändern), werden "
         "Ihre Angaben, Ihr Gewicht und Ihre Tagesziele in der Datendatei dieser App auf diesem "
-        "Computer gespeichert. Ihre Angaben gehen außerdem über OpenRouter an das KI-Modell, wenn "
-        "eine Frage sie braucht. Chats werden nie gespeichert, aber die früheren Fragen und "
-        "Antworten dieses Chats gehen mit jeder neuen Frage an das KI-Modell. Verwenden Sie nur "
-        "erfundene Daten: Geben Sie keine echten Gesundheitsdaten ein."
+        "Computer gespeichert. Verwenden Sie nur erfundene Daten: Geben Sie keine echten "
+        "Gesundheitsdaten ein."
     ),
     "profile.note_coach": (
         "Nur für diese Sitzung: Die Angaben eines Coachs werden nicht gespeichert, gehen aber über "
@@ -1329,7 +1314,7 @@ _DE: dict[str, str] = {
     "my_data.intro_gymer": (
         "Alles, was die App über Sie speichert: Ihr Konto und unten Ihre Einträge; Ihre "
         "Coach-Beziehungen, Ihre Freigaben und die Zugriffe Ihres Coachs auf Ihre Daten stehen im "
-        "Export. Von Ihren Chats wird nichts gespeichert."
+        "Export."
     ),
     "my_data.intro_coach": (
         "Alles, was die App über Sie speichert: Ihr Konto und, sobald Sie welche haben, Ihre "

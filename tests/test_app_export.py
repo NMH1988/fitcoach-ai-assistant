@@ -57,10 +57,12 @@ def fakes(tmp_path, monkeypatch, index_path):
     st.cache_resource.clear()
 
 
-def _start(profile=None) -> AppTest:
-    """Run the app once, with this profile in the session (None: no profile)."""
+def _start(profile=None, language=None) -> AppTest:
+    """Run the app once, with this profile in the session (None: no profile), in a language."""
     at = AppTest.from_file(str(APP))
     at.secrets["UNRELATED"] = "x"
+    if language is not None:
+        at.session_state["language"] = language
     if profile is not None:
         at.session_state["profile"] = profile
     return at.run(timeout=30)
@@ -173,8 +175,7 @@ def _recorded_builds(monkeypatch) -> list:
 def test_the_german_ui_downloads_a_german_pdf(monkeypatch):
     """In German the button builds the PDF in German; the answer stays as the model wrote it."""
     built = _recorded_builds(monkeypatch)
-    monkeypatch.setattr(i18n, "browser_locale", lambda: "de-DE")
-    at = _start(PROFILE)
+    at = _start(PROFILE, language="de")
     at.chat_input(key="chat_input").set_value("Wie viel Protein pro Mahlzeit?").run(timeout=30)
     assert not at.exception
     assert _button(at).label == i18n.t("pdf.label", "de")

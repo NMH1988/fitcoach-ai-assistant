@@ -26,8 +26,8 @@ DEMO_KEY = "demo_user"
 START_DEMO_KEY = "demo_user_start"
 # Set when a visitor chose "Continue as guest" on the start page; a sign-out clears it.
 GUEST_KEY = "guest_chosen"
-# The start page's title container, which assets/app.css styles (`.st-key-start_title h1`).
-START_TITLE_KEY = "start_title"
+# The title's container, which assets/app.css styles (`.st-key-app_title h1`).
+TITLE_KEY = header.TITLE_KEY
 # Kept when the user changes: the language and the session's rate limit (a sign-out is no way
 # around it), and the demo picker's own value.
 KEPT_KEYS = frozenset({i18n.SESSION_KEY, guard.SESSION_LIMITER_KEY, DEMO_KEY})
@@ -176,12 +176,14 @@ def _demo_picker(key: str = DEMO_KEY, on_change=clear_session) -> None:
 
 def _signed_in(user: dict) -> None:
     """Show who is signed in (the display name, escaped) and the sign-out button."""
+    # A subheader, so the account reads at the size of the sidebar's other headings (owner's
+    # choice, 2026-11-02).
     if user["display_name"] is None:
-        st.markdown(f":material/account_circle: {t('account.signed_in_google')}")
+        st.subheader(f":material/account_circle: {t('account.signed_in_google')}", anchor=False)
     else:
         role = t(f"role.{user['role']}")
         name = chat.escape_markdown(user["display_name"])
-        st.markdown(f":material/account_circle: **{name}** · {role}")
+        st.subheader(f":material/account_circle: {name} · {role}", anchor=False)
     if not config.demo_mode():
         st.button(
             t("account.sign_out"), icon=":material/logout:", width="stretch", on_click=sign_out
@@ -227,7 +229,7 @@ def start_page() -> None:
     # 2026-11-02; AC-12 keeps it on every page).
     with header.main_column():
         _language_link()
-        with st.container(key=START_TITLE_KEY):
+        with st.container(key=TITLE_KEY):
             # assets/app.css gives this title its size and green gradient.
             st.title(t("app.title"), anchor=False)
         store_notice()

@@ -2,7 +2,7 @@
    with st.html(config.APP_CSS_PATH). Layout, spacing and visibility only: no colour (light and dark
    mode come from the theme), nothing loaded from another host, and selectors only on st-key classes
    and the test ids listed in tests/test_stylesheet.py. The one exception is the start page's title
-   (T9.5, owner's choice): its gradient colours come from config.START_TITLE_GRADIENT. If Streamlit
+   (T9.5, owner's choice): its gradient colours come from config.TITLE_GRADIENT. If Streamlit
    renames a test id, its rule stops applying and the page falls back to Streamlit's own layout. */
 
 /* The "Your details" dialog (T4.6): hides Streamlit's in-field "Press Enter to apply", as the
@@ -13,11 +13,12 @@
   display: none;
 }
 
-/* The start page's title (T9.5, owner's choice of 2026-11-02): larger, with a teal-to-green gradient
+/* The app's title on every page (T9.5, owner's choices of 2026-11-02): larger, with a teal-to-green
+   gradient
    clipped to the text. The solid colour is used by a browser that ignores -webkit-text-fill-color;
    one that keeps the transparent fill but drops background-clip would hide the text
    (docs/UI_DESIGN.md, the custom CSS layer). */
-.st-key-start_title h1 {
+.st-key-app_title h1 {
   display: inline-block;
   font-size: 3.4rem;
   font-weight: 800;
@@ -26,4 +27,11 @@
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+/* The sidebar's page menu (Chat, My data, My profile) in larger type (T9.5, owner's choice of
+   2026-11-02): a font size only, on the label's Markdown inside Streamlit's nav link (the link's
+   own span sets the label's size, so the link itself cannot be used). */
+[data-testid="stSidebarNavLink"] [data-testid="stMarkdownContainer"] {
+  font-size: 1.15rem;
 }

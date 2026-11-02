@@ -9,11 +9,11 @@ from views import about, account, navigation, sidebar
 # One JSON log handler for the app's lines, set up on every rerun (it keeps a single handler, T8.2).
 observability.configure_logging()
 
-# The language: the browser's at the start of a session, then the user's choice in the sidebar
-# (T7.1, moved from the header in T9.23) or the start page's link (T9.5). Written once, before the
-# control is drawn, so it is kept for the session.
+# The language: English at the start of a session (owner's choice, T9.5; the browser's before),
+# then the user's choice in the sidebar (T7.1, moved from the header in T9.23) or the start page's
+# link (T9.5). Written once, before the control is drawn, so it is kept for the session.
 if i18n.SESSION_KEY not in st.session_state:
-    st.session_state[i18n.SESSION_KEY] = i18n.language_for_locale(i18n.browser_locale())
+    st.session_state[i18n.SESSION_KEY] = config.DEFAULT_LANGUAGE
 # Kept as the session's own value, so a run that draws no language control (the start page) does
 # not drop it with the widget's state (T9.5).
 st.session_state[i18n.SESSION_KEY] = st.session_state[i18n.SESSION_KEY]

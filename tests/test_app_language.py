@@ -51,11 +51,13 @@ def food_table(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "USDA_FOODS_PATH", write_food_table(tmp_path / "foods.csv"))
 
 
-def _start(monkeypatch, locale: str | None = None, profile=None) -> AppTest:
-    """Run the app as a browser with this locale (None: unknown), optionally with a profile."""
-    monkeypatch.setattr(i18n, "browser_locale", lambda: locale)
+def _start(monkeypatch, language: str | None = None, profile=None) -> AppTest:
+    """Run the app in a language (None: the default), optionally with a profile."""
     at = AppTest.from_file(str(APP))
     at.secrets["UNRELATED"] = "x"
+    if language is not None:
+        # As a switch in the control leaves it (English is every session's start since T9.5).
+        at.session_state[i18n.SESSION_KEY] = language
     if profile is not None:
         at.session_state["profile"] = profile
     at.run(timeout=30)
@@ -107,17 +109,17 @@ def test_the_header_has_no_language_control(monkeypatch):
     assert "Not medical advice" in badge
 
 
-def test_with_no_known_locale_the_app_starts_in_english(monkeypatch):
-    """None (as under AppTest by default) gives English, as before T7.1."""
+def test_the_app_starts_in_english(monkeypatch):
+    """Every session starts in English (owner's choice, 2026-11-02; T7.1 followed the browser)."""
     at = _start(monkeypatch)
     assert at.session_state[i18n.SESSION_KEY] == "en"
     assert at.title[0].value == config.APP_TITLE
     assert f"**Not medical advice.** {config.DISCLAIMER}" in [w.value for w in at.warning]
 
 
-def test_a_german_browser_starts_in_german(monkeypatch):
-    """A de-DE browser gets the German header, disclaimer, tabs and sidebar on its first run."""
-    at = _start(monkeypatch, "de-DE")
+def test_the_german_ui_has_the_german_header_tabs_and_sidebar(monkeypatch):
+    """In German the header, disclaimer, tabs and sidebar are German on the first run."""
+    at = _start(monkeypatch, "de")
     assert at.session_state[i18n.SESSION_KEY] == "de"
     # A name is not translated: the German header shows the English one (T9.22).
     assert at.title[0].value == config.APP_TITLE == "Fitcoach AI Assistant"
@@ -149,10 +151,12 @@ def test_the_choice_is_kept_for_the_session(monkeypatch):
     assert at.title[0].value == config.APP_TITLE
 
 
-def test_the_browser_locale_is_read_only_at_the_start(monkeypatch):
-    """A German browser that switches to English stays English on the next run."""
-    at = _switch(_start(monkeypatch, "de-AT"), "en")
-    at.run(timeout=30)
+def test_the_browser_locale_is_not_read(monkeypatch):
+    """A German browser starts in English too: app.py never reads st.context.locale (T9.5)."""
+    source = APP.read_text(encoding="utf-8")
+    assert "locale" not in source
+    assert config.DEFAULT_LANGUAGE == "en"
+    at = _start(monkeypatch)
     assert at.session_state[i18n.SESSION_KEY] == "en"
 
 
@@ -161,7 +165,7 @@ def test_the_browser_locale_is_read_only_at_the_start(monkeypatch):
 
 def test_the_profile_and_targets_are_german_with_german_numbers(monkeypatch):
     """The sidebar's labels and values, the targets and the tab use German words and marks."""
-    at = _start(monkeypatch, "de-DE", profile=PROFILE)
+    at = _start(monkeypatch, "de", profile=PROFILE)
     metrics = {metric.label: metric.value for metric in at.sidebar.metric}
     assert metrics["Gewicht"] == "80 kg"
     assert metrics["Geschlecht"] == "Männlich"
@@ -186,7 +190,7 @@ def test_the_profile_and_targets_are_german_with_german_numbers(monkeypatch):
 
 def test_the_profile_form_and_its_errors_are_german(monkeypatch):
     """The dialog's labels and its error messages follow the language."""
-    at = _start(monkeypatch, "de-DE")
+    at = _start(monkeypatch, "de")
     [add] = [b for b in at.sidebar.button if b.label == "Angaben eingeben"]
     at = add.click().run(timeout=30)
     assert at.number_input(key="profile_form_age").label == "Alter (Jahre)"
@@ -200,7 +204,7 @@ def test_the_profile_form_and_its_errors_are_german(monkeypatch):
 
 def test_the_about_button_and_dialog_are_german(monkeypatch):
     """The sidebar button, the dialog's title and its text follow the language (T3.9)."""
-    at = _start(monkeypatch, "de-DE")
+    at = _start(monkeypatch, "de")
     [about] = [b for b in at.sidebar.button if b.label == "Über die Antworten"]
     at = about.click().run(timeout=30)
     [dialog] = at.get("dialog")
@@ -214,7 +218,7 @@ def test_the_about_button_and_dialog_are_german(monkeypatch):
 
 def test_the_food_lookup_is_german_with_english_food_names(monkeypatch):
     """The tab's texts are German and say the names are English; the USDA name stays English."""
-    at = _start(monkeypatch, "de-DE")
+    at = _start(monkeypatch, "de")
     tab = at.tabs[FOOD_TAB]
     assert i18n.t("food.caption", "de") in [c.value for c in tab.caption]
     assert "auf Englisch" in i18n.t("food.caption", "de")
@@ -240,7 +244,7 @@ def _look_up(at: AppTest, food: str) -> AppTest:
 
 def test_an_invalid_lookup_shows_the_german_message(monkeypatch):
     """The tab's own invalid text is German (not expected: the widgets keep both in range)."""
-    at = _start(monkeypatch, "de-DE")
+    at = _start(monkeypatch, "de")
     at.session_state["food_result"] = registry.run_chosen_food_lookup(OATS, 0)
     at = at.run(timeout=30)
     [warning] = at.tabs[FOOD_TAB].warning
@@ -250,14 +254,14 @@ def test_an_invalid_lookup_shows_the_german_message(monkeypatch):
 def test_a_missing_foods_table_shows_the_german_error(monkeypatch, tmp_path):
     """Without the foods table the German tab shows its own fixed error, never a traceback."""
     monkeypatch.setattr(config, "USDA_FOODS_PATH", tmp_path / "missing.csv")
-    at = _start(monkeypatch, "de-DE")
+    at = _start(monkeypatch, "de")
     assert not at.exception
     assert [e.value for e in at.tabs[FOOD_TAB].error] == [i18n.t("food.tab.error", "de")]
 
 
 def test_a_lookup_that_fails_shows_the_german_error(monkeypatch):
     """A lookup that fails after the dropdown was drawn shows the German fixed error."""
-    at = _start(monkeypatch, "de-DE")
+    at = _start(monkeypatch, "de")
     at.session_state["food_result"] = registry.ToolNotice(
         status="error", message=config.TOOL_FAILED_MESSAGE
     )
@@ -279,7 +283,7 @@ def test_the_english_food_lookup_keeps_the_lookup_s_messages(monkeypatch):
 
 def test_a_guard_rejection_is_shown_in_german(monkeypatch):
     """An injection attempt gets the guard's German message and the German status."""
-    at = _ask(_start(monkeypatch, "de-DE"), INJECTION)
+    at = _ask(_start(monkeypatch, "de"), INJECTION)
     [warning] = [w for w in at.warning if w.value == i18n.t("guard.injection", "de")]
     assert warning.icon == ":material/block:"
     assert [s.label for s in at.status][:1] == [i18n.t("status.rejected", "de")]
@@ -287,7 +291,7 @@ def test_a_guard_rejection_is_shown_in_german(monkeypatch):
 
 def test_a_guardrail_redirect_is_shown_in_german(monkeypatch):
     """A German pregnancy question gets the German redirect."""
-    at = _ask(_start(monkeypatch, "de-DE"), "Ich bin schwanger, wie viel Protein brauche ich?")
+    at = _ask(_start(monkeypatch, "de"), "Ich bin schwanger, wie viel Protein brauche ich?")
     assert i18n.t("guardrail.pregnancy", "de") in [i.value for i in at.info]
 
 
@@ -305,7 +309,7 @@ def test_guardrail_refusals_and_redirects_follow_the_chosen_language(
 ):
     """A German high-risk question gets its guardrail message in the UI's language, no call."""
     model = _use_model(monkeypatch, _answers())
-    at = _start(monkeypatch, "de-DE")
+    at = _start(monkeypatch, "de")
     if lang == "en":
         at = _switch(at, "en")
     at = _ask(at, text)
@@ -335,15 +339,15 @@ def config_message(at: AppTest) -> str:
 
 
 @pytest.mark.parametrize(
-    ("locale", "switch_to", "lang"),
-    [(None, None, "en"), ("de-DE", None, "de"), ("de-DE", "en", "en"), (None, "de", "de")],
+    ("start_in", "switch_to", "lang"),
+    [(None, None, "en"), ("de", None, "de"), ("de", "en", "en"), (None, "de", "de")],
 )
 def test_the_answer_model_gets_the_language_chosen_in_the_control(
-    monkeypatch, locale, switch_to, lang
+    monkeypatch, start_in, switch_to, lang
 ):
-    """The language part the model gets follows the control: the locale's or a switch's choice."""
+    """The language part the model gets follows the control: the session's or a switch's choice."""
     model = _use_model(monkeypatch, _answers(ANSWER))
-    at = _start(monkeypatch, locale)
+    at = _start(monkeypatch, start_in)
     if switch_to is not None:
         at = _switch(at, switch_to)
     _ask(at, QUESTION)
@@ -354,7 +358,7 @@ def test_the_answer_model_gets_the_language_chosen_in_the_control(
 def test_an_english_question_in_the_german_ui_gets_the_german_part(monkeypatch):
     """The question's own language does not pick the answer's: the control's choice does."""
     model = _use_model(monkeypatch, _answers(ANSWER))
-    _ask(_start(monkeypatch, "de-DE"), "How much protein should I eat per meal? Answer in English.")
+    _ask(_start(monkeypatch, "de"), "How much protein should I eat per meal? Answer in English.")
     system = model.calls[-1][0]
     assert system.content.endswith(TEST_LANGUAGE_PARTS["de"])
 
@@ -362,7 +366,7 @@ def test_an_english_question_in_the_german_ui_gets_the_german_part(monkeypatch):
 def test_an_answer_keeps_its_text_and_its_sources_stay_english(monkeypatch):
     """The model's answer is shown as written; the source card's title and licence stay English."""
     _use_model(monkeypatch, _answers(ANSWER))
-    at = _ask(_start(monkeypatch, "de-DE"), QUESTION)
+    at = _ask(_start(monkeypatch, "de"), QUESTION)
     assert ANSWER.split(" [")[0] in " ".join(m.value for m in at.markdown)
     sources = [e for e in at.expander if e.label.startswith("Quellen (")]
     assert sources
@@ -409,7 +413,7 @@ def test_the_details_tab_usage_and_tool_results_are_german(monkeypatch):
     _use_model(
         monkeypatch, ScriptedChatModel(replies=replies), ScriptedTranslator(usage=REWRITE_USAGE)
     )
-    at = _ask(_start(monkeypatch, "de-DE", profile=PROFILE), QUESTION)
+    at = _ask(_start(monkeypatch, "de", profile=PROFILE), QUESTION)
     assert not at.exception
     details = at.tabs[DETAILS_TAB]
     assert [s.value for s in details.subheader] == [
@@ -442,6 +446,6 @@ def app_columns() -> tuple[str, ...]:
 def test_the_not_covered_message_is_german(monkeypatch):
     """An off-topic question with no source and no tool gets the German "not covered" text."""
     _use_model(monkeypatch, _answers(ANSWER), _off_topic_plan())
-    at = _ask(_start(monkeypatch, "de-DE"), OFF_TOPIC)
+    at = _ask(_start(monkeypatch, "de"), OFF_TOPIC)
     assert i18n.t("answer.no_sources", "de") in [m.value for m in at.markdown]
     assert i18n.t("status.no_sources", "de") in [s.label for s in at.status]
