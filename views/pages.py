@@ -29,6 +29,8 @@ def _tabs() -> None:
 def chat_page() -> None:
     """Show the chat page: profile and last answer in the sidebar, the tabs in the middle."""
     with st.sidebar:
+        # Below the account block; on the other pages About's own divider follows it.
+        st.divider()
         sidebar.show_profile()
         st.caption(t("theme.hint"))
         # Both slots are filled after the main area, so they hold the turn that just ran (the PDF

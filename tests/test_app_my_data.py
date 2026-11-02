@@ -247,3 +247,24 @@ def test_my_data_says_where_the_relationships_are(monkeypatch, gymer_with_record
     """The gymer's intro says the relationships, sharing and the coach's reads are in the export."""
     at = open_my_data(start(monkeypatch, user=signed_in()))
     assert "sharing choices and your coach's reads of your data are in the export" in texts(at)
+
+
+def test_demo_mode_opens_on_the_start_page(monkeypatch, demo_store_is_fresh):
+    """A new demo session sees the start page, with no Google button; "Continue as guest" chats."""
+    at = start_demo(monkeypatch)
+    assert "pick a made-up user in the sidebar to try" in texts(at)
+    assert not at.tabs
+    assert not [item for item in at.button if item.label == "Sign in with Google"]
+    button(at, "Continue as guest").click().run(timeout=30)
+    assert len(at.tabs) == 4
+
+
+def test_leaving_a_demo_user_returns_to_the_start_page(monkeypatch, demo_store_is_fresh):
+    """Picking a demo user, then the guest again, shows the start page (the choice is cleared)."""
+    at = start_demo(monkeypatch)
+    button(at, "Continue as guest").click().run(timeout=30)
+    at.selectbox(key="demo_user").set_value(demo.SHARING_GYMER.id).run(timeout=30)
+    assert len(at.tabs) == 4
+    at.selectbox(key="demo_user").set_value(None).run(timeout=30)
+    assert not at.tabs
+    assert "pick a made-up user in the sidebar to try" in texts(at)

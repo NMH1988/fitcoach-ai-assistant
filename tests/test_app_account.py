@@ -596,3 +596,27 @@ def test_a_goal_change_after_every_entry_was_deleted_writes_nothing(monkeypatch)
     with db.connect() as conn:
         assert conn.execute("SELECT COUNT(*) FROM profile_entries").fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM nutrition_targets").fetchone()[0] == 1
+
+
+def test_auth_not_ready_offers_no_way_to_a_useless_sign_in(monkeypatch):
+    """With [auth] not ready, the start page has no sign-in button and a guest gets the note."""
+    monkeypatch.setattr(st, "user", FakeUser())
+    at = AppTest.from_file(str(APP))
+    at.secrets["auth"] = {**AUTH, "cookie_secret": config.COOKIE_SECRET_PLACEHOLDER}
+    at.secrets["account"] = {"user_key_secret": SECRET}
+    at.run(timeout=30)
+    assert not [item for item in at.button if item.label == "Sign in with Google"]
+    at = continue_as_guest(at)
+    assert len(at.tabs) == 4
+    assert not [item for item in at.sidebar.button if item.label == "Sign in"]
+    assert "not fully set up" in texts(at)
+
+
+def test_each_page_draws_one_divider_under_the_account_block(monkeypatch):
+    """The start page and the chat never show two dividers in a row in the sidebar."""
+    at = start(monkeypatch)
+    start_dividers = len(at.sidebar.get("divider"))
+    at = continue_as_guest(at)
+    chat_dividers = len(at.sidebar.get("divider"))
+    assert start_dividers == 1  # About's own
+    assert chat_dividers == 2  # under the account block, and About's

@@ -515,17 +515,22 @@ _EN: dict[str, str] = {
     "page.start": "Start",
     "start.title": "Sign in or continue as a guest",
     "start.text": (
-        "Sign in with Google to keep your profile and daily targets (a gymer) or to work with "
-        "clients (a coach). Or continue as a guest: the chat works the same, and nothing is "
-        "stored."
+        "Sign in with Google to keep your profile and daily targets (as a gymer) or to use the app "
+        "as a coach. Or continue as a guest: the chat works the same, and nothing is stored."
     ),
     "start.guest": "Continue as guest",
-    "start.demo": "Demo mode: pick a made-up user in the sidebar, or continue as a guest.",
+    "start.guest_only": "Continue as a guest: the chat works the same, and nothing is stored.",
+    "start.demo": (
+        "Demo mode: pick a made-up user in the sidebar to try a coach's or a gymer's pages (what "
+        "they save is deleted when the app stops), or continue as a guest: the chat works the "
+        "same, and nothing is stored."
+    ),
     "account.guest_note": "You are using the app as a guest: nothing is stored.",
     "account.start_page": "Sign in",
     "account.secrets_broken": (
         "Sign-in is off: `.streamlit/secrets.toml` could not be read (a TOML syntax error?). Fix "
-        "the file and restart the app. You can use the chat as a guest; nothing is stored."
+        "the file and restart the app. Until then nothing is stored, and the chat answers only if "
+        "the API key is set as an environment variable."
     ),
     "role.coach": "Coach",
     "role.gymer": "Gymer",
@@ -1178,20 +1183,26 @@ _DE: dict[str, str] = {
     "start.title": "Anmelden oder als Gast weiter",
     "start.text": (
         "Melden Sie sich mit Google an, um Ihr Profil und Ihre Tagesziele zu behalten (als Gymer) "
-        "oder mit Kunden zu arbeiten (als Coach). Oder machen Sie als Gast weiter: Der Chat "
-        "funktioniert genauso, und nichts wird gespeichert."
+        "oder die App als Coach zu nutzen. Oder machen Sie als Gast weiter: Der Chat funktioniert "
+        "genauso, und nichts wird gespeichert."
     ),
     "start.guest": "Als Gast weiter",
+    "start.guest_only": (
+        "Machen Sie als Gast weiter: Der Chat funktioniert genauso, und nichts wird gespeichert."
+    ),
     "start.demo": (
-        "Demo-Modus: Wählen Sie in der Seitenleiste einen erfundenen Nutzer, oder machen Sie als "
-        "Gast weiter."
+        "Demo-Modus: Wählen Sie in der Seitenleiste einen erfundenen Nutzer, um die Seiten eines "
+        "Coachs oder Gymers auszuprobieren (was sie speichern, wird beim Beenden der App "
+        "gelöscht), oder machen Sie als Gast weiter: Der Chat funktioniert genauso, und nichts "
+        "wird gespeichert."
     ),
     "account.guest_note": "Sie nutzen die App als Gast: Nichts wird gespeichert.",
     "account.start_page": "Anmelden",
     "account.secrets_broken": (
         "Die Anmeldung ist aus: `.streamlit/secrets.toml` konnte nicht gelesen werden "
-        "(ein TOML-Syntaxfehler?). Korrigieren Sie die Datei und starten Sie die App neu. Sie "
-        "können den Chat als Gast nutzen; nichts wird gespeichert."
+        "(ein TOML-Syntaxfehler?). Korrigieren Sie die Datei und starten Sie die App neu. Bis "
+        "dahin wird nichts gespeichert, und der Chat antwortet nur, wenn der API-Schlüssel als "
+        "Umgebungsvariable gesetzt ist."
     ),
     "role.coach": "Coach",
     "role.gymer": "Gymer",

@@ -188,8 +188,8 @@ def sidebar_block(user: dict | None) -> None:
             t("account.sign_out"), icon=":material/logout:", width="stretch", on_click=sign_out
         )
     elif needs_start(user):
-        return  # the start page itself offers sign-in and the guest choice; nothing to divide
-    elif start_offered():
+        pass  # the start page itself offers sign-in and the guest choice
+    elif config.sign_in_ready():
         # A guest who chose to be one: no sign-in here, only the way back to the start page.
         st.caption(f":material/person: {t('account.guest_note')}")
         st.button(
@@ -198,11 +198,13 @@ def sidebar_block(user: dict | None) -> None:
             width="stretch",
             on_click=back_to_start,
         )
+    elif config.auth_configured():
+        # [auth] that is not ready: the start page could not sign anyone in either.
+        st.caption(f":material/info: {t('account.not_set_up')}")
     elif config.secrets_file_broken():
         st.caption(f":material/error: {t('account.secrets_broken')}")
     else:
         st.caption(f":material/info: {t('account.sign_in_off')}")
-    st.divider()
 
 
 def start_page() -> None:
@@ -211,17 +213,19 @@ def start_page() -> None:
         header.show()
         store_notice()
         st.subheader(t("start.title"))
-        st.markdown(t("start.text"))
+        if config.demo_mode():
+            st.markdown(t("start.demo"))
+        elif config.sign_in_ready():
+            st.markdown(t("start.text"))
+        else:
+            st.caption(f":material/info: {t('account.not_set_up')}")
+            st.markdown(t("start.guest_only"))
         with st.container(horizontal=True):
-            if config.demo_mode():
-                st.caption(f":material/science: {t('start.demo')}")
-            elif config.sign_in_ready():
+            if config.sign_in_ready():
                 # The main theme's primary, not the sidebar's (T9.23's 2.0:1 note is the sidebar).
                 st.button(
                     t("account.sign_in"), type="primary", icon=":material/login:", on_click=st.login
                 )
-            else:
-                st.caption(f":material/info: {t('account.not_set_up')}")
             st.button(t("start.guest"), icon=":material/person:", on_click=continue_as_guest)
 
 

@@ -704,10 +704,8 @@ def get_api_key() -> str:
     try:
         value = st.secrets.get(API_KEY_NAME)
     except FileNotFoundError as exc:
-        # Streamlit raises this for a missing secrets.toml, and chains the TOML error
-        # as the cause when the file exists but cannot be parsed.
         value = None
-        file_broken = exc.__cause__ is not None
+        file_broken = _parse_failed(exc)
     secret = value.strip() if isinstance(value, str) else ""
     key = secret or os.environ.get(API_KEY_NAME, "").strip()
     if not key:
@@ -726,13 +724,19 @@ def _secret(name: str) -> object:
         return None
 
 
+def _parse_failed(exc: FileNotFoundError) -> bool:
+    """Return True if st.secrets' error means the file exists but cannot be parsed."""
+    # Streamlit raises FileNotFoundError for a missing secrets.toml, and chains the TOML error as
+    # the cause when the file exists but cannot be parsed.
+    return exc.__cause__ is not None
+
+
 def secrets_file_broken() -> bool:
     """Return True if secrets.toml exists but cannot be parsed (every secret then reads missing)."""
     try:
         st.secrets.get(API_KEY_NAME)
     except FileNotFoundError as exc:
-        # Streamlit chains the TOML error as the cause when the file exists but is broken.
-        return exc.__cause__ is not None
+        return _parse_failed(exc)
     return False
 
 
