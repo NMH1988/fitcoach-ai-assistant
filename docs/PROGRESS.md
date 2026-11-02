@@ -12,6 +12,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 - **What:** files/behaviour changed.
 - **Why:** reason for the approach chosen.
 - **Decisions & gotchas:** anything a future session must know.
+- **Code review** (round 3, on 3e5d8c3, posted on the PR): round 2 and compliance run 1 all resolved; the issues match their plan sections (checked line by line). Its Should fix taken: T9.17 gains a docs criterion, as T9.25 has (the privacy rule, SECURITY and ARCHITECTURE match a coach's write into a client's records and `target_set`; a compliance run on that PR). Nits taken: the write's share check, insert and audit row in one transaction; "the next migration" instead of `MIGRATIONS[1]`; the rebuilt `audit_log` keeps `STRICT`, both foreign keys and the `created_at` check, tested against `_V1`'s SQL; T9.24's criterion 5 names T9.8 (#11). Its questions are open items in the Notes: whether T9.7's name check reads names through an audited read (decided with T9.12), and the gymer's "set by your coach" naming no coach (T9.17). Issues #20 and #10 synced again.
 - **Follow-ups:** what is left, with ticket numbers.
 ```
 
