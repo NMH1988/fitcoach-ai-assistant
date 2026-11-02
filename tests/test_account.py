@@ -267,9 +267,9 @@ def test_load_profile_is_none_until_there_is_an_entry_and_a_weight(store_conn, g
 
 
 def test_a_coach_profile_is_never_stored(store_conn):
-    """The store keeps records for gymers only, so a coach's save is refused."""
+    """The store keeps records for gymers only, so a coach's save is refused (never asked)."""
     users.create_user(store_conn, "coach-1", "coach", "Alex")
-    with pytest.raises(NotFound):
+    with pytest.raises(account.AccountError):
         account.save_profile(store_conn, "coach-1", PROFILE, with_weight=True)
     assert store_conn.execute("SELECT COUNT(*) FROM profile_entries").fetchone()[0] == 0
 
@@ -299,3 +299,38 @@ def test_the_demo_users_are_made_up():
         assert user.id.startswith("demo-")
         assert user.display_name.startswith("Demo ")
         account.check_display_name(user.display_name)
+
+
+def test_a_second_create_in_a_race_is_still_account_exists(store_conn, monkeypatch):
+    """Another tab's account written between the check and the write gives account.exists."""
+    account.create_account(store_conn, "u1", "gymer", "Sam")
+    monkeypatch.setattr(account.users, "find_user", lambda conn, user_id: None)
+    with pytest.raises(account.AccountError) as raised:
+        account.create_account(store_conn, "u1", "coach", "Sam")
+    assert raised.value.code == "account.exists"
+
+
+def test_a_deleted_account_gives_account_gone(store_conn, gymer):
+    """A save or opt-in check for an account deleted elsewhere is account.gone, not NotFound."""
+    store_conn.execute("DELETE FROM users WHERE id = ?", (gymer,))
+    with pytest.raises(account.AccountError) as raised:
+        account.save_profile(store_conn, gymer, PROFILE, with_weight=True)
+    assert raised.value.code == "account.gone"
+    with pytest.raises(account.AccountError) as raised:
+        account.has_profile_entries(store_conn, gymer)
+    assert raised.value.code == "account.gone"
+
+
+def test_a_profile_without_a_target_writes_nothing(store_conn, gymer, monkeypatch):
+    """If no target can be worked out, nothing is written (the target is computed first)."""
+    from src.tools import registry
+
+    monkeypatch.setattr(
+        account.registry,
+        "macro_targets",
+        lambda profile: registry.ToolNotice(status="error", message="x"),
+    )
+    with pytest.raises(account.AccountError) as raised:
+        account.save_profile(store_conn, gymer, PROFILE, with_weight=True)
+    assert raised.value.code == "account.no_target"
+    assert not account.has_profile_entries(store_conn, gymer)

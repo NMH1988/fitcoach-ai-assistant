@@ -557,6 +557,7 @@ _EN: dict[str, str] = {
     ),
     "account.name_refused": "This display name cannot be used. Choose another one.",
     "account.exists": "This account exists already. Reload the page.",
+    "account.gone": "Your account no longer exists (it was deleted). Reload the page.",
     "account.no_identity": "The sign-in did not give an account ID. Sign out and sign in again.",
     "account.no_target": "No daily target could be worked out from these details.",
     # The privacy notes of the sidebar and the profile form for signed-in users (T9.5).
@@ -1199,6 +1200,7 @@ _DE: dict[str, str] = {
         "Dieser Anzeigename kann nicht verwendet werden. Wählen Sie einen anderen."
     ),
     "account.exists": "Dieses Konto gibt es schon. Laden Sie die Seite neu.",
+    "account.gone": "Ihr Konto gibt es nicht mehr (es wurde gelöscht). Laden Sie die Seite neu.",
     "account.no_identity": (
         "Die Anmeldung hat keine Konto-ID geliefert. Melden Sie sich ab und wieder an."
     ),

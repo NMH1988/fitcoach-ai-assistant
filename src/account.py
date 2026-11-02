@@ -23,7 +23,9 @@ from zoneinfo import ZoneInfo
 from src import config, guard
 from src.profile import UserProfile
 from src.store import db, records, users
+from src.store.access import NotFound
 from src.tools import registry
+from src.tools.energy import MacroTargetsResult
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +102,11 @@ def create_account(conn: sqlite3.Connection, user_id: str, role: str, display_na
     if users.find_user(conn, user_id) is not None:
         # The role is chosen once: a second form (another tab) never changes it.
         raise AccountError("account.exists")
-    users.create_user(conn, user_id, role, name)
+    try:
+        users.create_user(conn, user_id, role, name)
+    except sqlite3.IntegrityError:
+        # Another tab created it between the check and the write: the same answer.
+        raise AccountError("account.exists") from None
 
 
 def today() -> date:
@@ -110,7 +116,11 @@ def today() -> date:
 
 def has_profile_entries(conn: sqlite3.Connection, user_id: str) -> bool:
     """Return True if the gymer has saved a profile before (so they agreed to storing it then)."""
-    return bool(records.list_profile_entries(conn, user_id, user_id))
+    try:
+        return bool(records.list_profile_entries(conn, user_id, user_id))
+    except NotFound:
+        # The account was deleted in another tab since this session's last run.
+        raise AccountError("account.gone") from None
 
 
 def load_profile(conn: sqlite3.Connection, user_id: str) -> UserProfile | None:
@@ -142,6 +152,22 @@ def save_profile(
         raise AccountError("account.no_target")
     targets = result.targets
     day = today()
+    try:
+        _write_profile(conn, user_id, profile, targets, day, with_weight)
+    except NotFound:
+        # The account was deleted in another tab since this session's last run.
+        raise AccountError("account.gone") from None
+
+
+def _write_profile(
+    conn: sqlite3.Connection,
+    user_id: str,
+    profile: UserProfile,
+    targets: MacroTargetsResult,
+    day: date,
+    with_weight: bool,
+) -> None:
+    """Write the profile entry, the weight (if asked) and the target, in that order."""
     records.add_profile_entry(
         conn,
         user_id,

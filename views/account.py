@@ -63,6 +63,10 @@ def resolve() -> dict | None:
     try:
         with account.open_store(store_path()) as conn:
             found = account.find_account(conn, user_id)
+            if found is None and config.demo_mode():
+                # A demo user deleted through My data: a guest until the app restarts, so no
+                # visitor can make a new account under a demo ID.
+                return None
             loaded = st.session_state.get("account_loaded_for")
             if found is not None and found["role"] == "gymer" and loaded != user_id:
                 # Once per sign-in, so an edit made in this session is not replaced on each run.
@@ -142,6 +146,11 @@ def sidebar_block(user: dict | None) -> None:
             _signed_in(user)
     elif user is not None:
         _signed_in(user)
+    elif identity() is not None:
+        # Signed in to Google, but the store failed: no sign-in button, and a way to sign out.
+        st.button(
+            t("account.sign_out"), icon=":material/logout:", width="stretch", on_click=sign_out
+        )
     elif config.sign_in_ready():
         # A secondary button: white text on the sidebar's primary is only 2.0:1 (T9.23).
         st.button(t("account.sign_in"), icon=":material/login:", width="stretch", on_click=st.login)

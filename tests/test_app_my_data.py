@@ -218,3 +218,16 @@ def test_demo_mode_is_ignored_when_auth_exists(monkeypatch, demo_store_is_fresh)
     at = start_demo(monkeypatch, auth=True)
     assert not [box for box in at.selectbox if box.key == "demo_user"]
     assert button(at, "Sign in with Google")
+
+
+def test_a_deleted_demo_user_is_a_guest(monkeypatch, demo_store_is_fresh):
+    """After a demo user is deleted, picking them gives a guest, never a new account's form."""
+    at = start_demo(monkeypatch)
+    from src.store import my_data
+
+    with db.connect(resources.demo_store()) as conn:
+        my_data.delete_user_data(conn, demo.OTHER_GYMER.id)
+    at.selectbox(key="demo_user").set_value(demo.OTHER_GYMER.id).run(timeout=30)
+    assert "Set up your account" not in texts(at)
+    assert len(at.tabs) == 4
+    assert "Demo gymer Kim** ·" not in texts(at)

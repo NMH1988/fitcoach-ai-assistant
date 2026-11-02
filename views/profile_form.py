@@ -50,8 +50,8 @@ def _opt_in_needed() -> bool:
     try:
         with accounts.open_store(account.store_path()) as conn:
             return not accounts.has_profile_entries(conn, account.current_user()["id"])
-    except accounts.StoreUnavailable:
-        return True
+    except accounts.StoreUnavailable, accounts.AccountError:
+        return True  # Save then shows why it cannot store
 
 
 def _store(saved: profile.UserProfile) -> bool:

@@ -286,6 +286,9 @@ AUTH_SECTION = "auth"
 ACCOUNT_SECTION = "account"
 USER_KEY_SECRET_NAME = "user_key_secret"
 USER_KEY_SECRET_MIN_CHARS = 32
+# Streamlit signs the identity cookie with [auth] cookie_secret; a guessable one would let anyone
+# forge a sign-in, so sign-in is not offered with a shorter one.
+COOKIE_SECRET_MIN_CHARS = 32
 # The placeholders in .streamlit/secrets.toml.example: a copied example is "not set up", so no
 # one signs in with a secret that is public in the repo (tests/test_config.py reads the example).
 USER_KEY_SECRET_PLACEHOLDER = "replace-with-a-long-random-secret-for-user-ids"
@@ -740,11 +743,14 @@ def user_key_secret() -> str | None:
 
 
 def sign_in_ready() -> bool:
-    """Return True if sign-in can be offered: [auth] with a real cookie secret, and the user key."""
+    """Return True if sign-in can be offered: [auth] with a long, real cookie secret and the key."""
     if not auth_configured():
         return False
-    cookie = _secret(AUTH_SECTION).get("cookie_secret")
-    return cookie != COOKIE_SECRET_PLACEHOLDER and user_key_secret() is not None
+    value = _secret(AUTH_SECTION).get("cookie_secret")
+    cookie = value.strip() if isinstance(value, str) else ""
+    if len(cookie) < COOKIE_SECRET_MIN_CHARS or cookie == COOKIE_SECRET_PLACEHOLDER:
+        return False
+    return user_key_secret() is not None
 
 
 def demo_mode() -> bool:

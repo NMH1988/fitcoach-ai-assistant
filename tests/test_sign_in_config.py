@@ -155,3 +155,10 @@ def test_demo_mode_is_ignored_when_auth_exists(secrets_from_file, monkeypatch):
     secrets_from_file("DEMO_MODE = true\n" + AUTH + _account(REAL_SECRET))
     monkeypatch.setenv(config.DEMO_MODE_NAME, "1")
     assert not config.demo_mode()
+
+
+def test_a_short_cookie_secret_is_refused(secrets_from_file):
+    """A guessable cookie secret would let anyone forge a sign-in, so sign-in stays off."""
+    short = "c" * (config.COOKIE_SECRET_MIN_CHARS - 1)
+    secrets_from_file(AUTH.replace(REAL_COOKIE, short) + _account(REAL_SECRET))
+    assert not config.sign_in_ready()

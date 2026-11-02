@@ -33,8 +33,11 @@ def change_goal() -> None:
         try:
             with accounts.open_store(account.store_path()) as conn:
                 accounts.save_profile(conn, user["id"], updated, with_weight=False)
-        except accounts.StoreUnavailable, accounts.AccountError:
-            st.session_state[SAVE_FAILED_KEY] = True
+        except accounts.StoreUnavailable:
+            st.session_state[SAVE_FAILED_KEY] = "account.store_unavailable"
+            return
+        except accounts.AccountError as error:
+            st.session_state[SAVE_FAILED_KEY] = error.code
             return
     st.session_state["profile"] = updated
 
@@ -55,8 +58,9 @@ def privacy_note() -> None:
 def show_profile() -> None:
     """Show the profile in the sidebar, in the chosen units, with a button to edit it."""
     st.header(f":material/person: {t('profile.your_profile')}")
-    if st.session_state.pop(SAVE_FAILED_KEY, False):
-        st.error(t("account.store_unavailable"), icon=":material/error:")
+    failed = st.session_state.pop(SAVE_FAILED_KEY, None)
+    if failed is not None:
+        st.error(t(failed), icon=":material/error:")
     current = st.session_state.get("profile")
     if current is None:
         st.caption(t("profile.add_caption"))

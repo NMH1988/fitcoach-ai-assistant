@@ -238,6 +238,8 @@ def test_a_page_of_another_role_cannot_be_reached_by_its_url(monkeypatch, role):
     for url_path in sorted(others - set(navigation.PAGES_BY_ROLE[role])):
         # What a browser sends for /<url_path>: the page hash Streamlit derives from it. AppTest
         # has no public way to request a callable page by URL, so its page hash is set directly.
+        # If a Streamlit version stopped reading it, these cases would pass without testing
+        # anything: test_a_signed_in_user_reaches_my_data, which uses it too, would then fail.
         at._page_hash = calc_hash(url_path)
         at.run(timeout=30)
         if home == navigation.CHAT:
@@ -410,3 +412,101 @@ def _reset_store() -> None:
 
     with db.connect() as conn:
         my_data.delete_user_data(conn, USER_ID)
+
+
+# --- Failures after sign-in (code review round 1) -------------------------------------------------
+
+
+def _fail_from_now(monkeypatch) -> None:
+    """Make every later store opening fail, as a locked or unreadable file would."""
+
+    def failing(path=None):
+        """Fail as connect() does."""
+        raise db.StoreError("C:/private/folder")
+
+    monkeypatch.setattr(db, "connect", failing)
+
+
+def _fail_after(monkeypatch, opens: int) -> None:
+    """Let the next `opens` store openings work and make every later one fail."""
+    real = db.connect
+    count = {"opens": 0}
+
+    def counting(path=None):
+        """Open the store as usual until the count is reached, then fail as connect() does."""
+        count["opens"] += 1
+        if count["opens"] > opens:
+            raise db.StoreError("C:/private/folder")
+        return real(path)
+
+    monkeypatch.setattr(db, "connect", counting)
+
+
+def test_a_signed_in_user_whose_store_fails_can_still_sign_out(monkeypatch, login_calls):
+    """With the store down, a signed-in user gets Sign out and no sign-in button."""
+    _fail_from_now(monkeypatch)
+    at = start(monkeypatch, user=signed_in())
+    assert not [item for item in at.button if item.label == "Sign in with Google"]
+    button(at, "Sign out").click().run(timeout=30)
+    assert login_calls == ["logout"]
+
+
+def test_a_failed_save_keeps_the_profile_and_the_dialog(monkeypatch):
+    """A gymer's Save that cannot be stored shows the message; nothing in the session changes."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    button(at, "Edit details").click().run(timeout=30)
+    at.number_input(key="profile_form_weight").set_value(70.0)
+    _fail_after(monkeypatch, 1)  # the run's resolve() works; the Save's write fails
+    button(at, "Save").click().run(timeout=30)
+    assert "cannot be opened right now" in texts(at)
+    assert at.session_state["profile"] == PROFILE
+    assert at.session_state["profile_form_open"]
+    assert _counts_unchecked() == (1, 1, 1)
+
+
+def _counts_unchecked() -> tuple[int, int, int]:
+    """Return the canary user's rows per table, read past any faked connect()."""
+    import sqlite3
+
+    with sqlite3.connect(config.STORE_PATH) as conn:
+        return tuple(
+            conn.execute(query, (USER_ID,)).fetchone()[0]
+            for query in (
+                "SELECT COUNT(*) FROM profile_entries WHERE user_id = ?",
+                "SELECT COUNT(*) FROM body_measurements WHERE user_id = ?",
+                "SELECT COUNT(*) FROM nutrition_targets WHERE user_id = ?",
+            )
+        )
+
+
+def test_with_the_store_down_a_gymer_runs_as_a_guest(monkeypatch):
+    """The store down for the whole run: the fixed message, a guest's note, nothing written."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    _fail_from_now(monkeypatch)
+    at.run(timeout=30)
+    assert "cannot be opened right now" in texts(at)
+    assert "Kept for this session only" in texts(at)
+    assert "Saved for your account" not in texts(at)
+    assert _counts_unchecked() == (1, 1, 1)
+
+
+def test_a_failed_goal_change_keeps_the_old_goal(monkeypatch):
+    """A goal change that cannot be stored shows the message and keeps the stored goal."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    _fail_after(monkeypatch, 0)  # the callback's write is the first opening of the run
+    at.segmented_control(key="sidebar_goal").set_value("lose_fat").run(timeout=30)
+    assert "cannot be opened right now" in texts(at)
+    assert at.session_state["profile"].goal == PROFILE.goal
+
+
+def test_a_goal_change_after_the_account_was_deleted_elsewhere(monkeypatch):
+    """Deleted in another tab: the goal change says so instead of failing, then the welcome page."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    _reset_store()
+    at.segmented_control(key="sidebar_goal").set_value("lose_fat").run(timeout=30)
+    assert not at.exception
+    assert "Set up your account" in texts(at)
