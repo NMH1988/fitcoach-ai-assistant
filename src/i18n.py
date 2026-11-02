@@ -180,7 +180,7 @@ _EN: dict[str, str] = {
     "macro.carbohydrate": "Carbohydrate",
     "macro.fat": "Fat",
     "targets.protein_lowered": "Protein was lowered to fit the target: see My targets.",
-    "targets.more": "More in the My targets tab.",
+    "targets.more": "More under My targets.",
     "targets.at_maintenance": "{goal}: at maintenance",
     "targets.above_maintenance": "{goal}: {kcal} kcal above maintenance",
     "targets.below_maintenance": "{goal}: {kcal} kcal below maintenance",
@@ -510,10 +510,10 @@ _EN: dict[str, str] = {
     "page.start": "Start",
     "start.title": "Sign in or continue as a guest",
     "start.text": (
-        "Sign in with Google to keep your profile and daily targets (as a gymer) or to use the app "
-        "as a coach. Or continue as a guest: the chat works the same, and this app stores nothing. "
-        "Either way, your questions (and your details, when a question needs them) go to the AI "
-        "model through OpenRouter."
+        "Sign in with Google to keep your profile and daily targets (as a gymer) or to use the "
+        "app's AI assistant (as a coach). Or continue as a guest to use the chat; this app stores "
+        "nothing. A guest's or coach's questions (and details, when a question needs them) go to "
+        "the AI model through OpenRouter."
     ),
     "start.guest": "Continue as guest",
     "start.guest_only": (
@@ -521,10 +521,10 @@ _EN: dict[str, str] = {
         "(and your details, when a question needs them) go to the AI model through OpenRouter."
     ),
     "start.demo": (
-        "Demo mode: pick a made-up user below to try a coach's or a gymer's pages (what "
-        "they save is deleted when the app stops), or continue as a guest: the chat works the "
-        "same, and this app stores nothing. Questions (and details, when a question needs them) "
-        "go to the AI model through OpenRouter."
+        "Demo mode: pick a made-up user below to try a coach's or a gymer's pages (what they save "
+        "is deleted when the app stops), or continue as a guest to use the chat; this app stores "
+        "nothing. Questions (and details, when a question needs them) go to the AI model through "
+        "OpenRouter."
     ),
     "account.guest_note": (
         "You are using the app as a guest: this app stores nothing; your questions (and your "
@@ -561,8 +561,8 @@ _EN: dict[str, str] = {
         "Demo mode: made-up users on a temporary database that is deleted when the app stops."
     ),
     "account.store_unavailable": (
-        "Your saved data cannot be opened right now, so nothing is read or saved. You can still "
-        "use the chat. Try again later, or restart the app."
+        "Your saved data cannot be opened right now, so nothing is read or saved. Try again "
+        "later, or restart the app."
     ),
     "account.welcome_title": "Set up your account",
     "account.welcome_text": (
@@ -800,7 +800,7 @@ _DE: dict[str, str] = {
     "targets.protein_lowered": (
         "Protein wurde gesenkt, damit es zum Ziel passt: siehe „Meine Ziele“."
     ),
-    "targets.more": "Mehr im Tab „Meine Ziele“.",
+    "targets.more": "Mehr unter „Meine Ziele“.",
     "targets.at_maintenance": "{goal}: auf Erhaltungsbedarf",
     "targets.above_maintenance": "{goal}: {kcal} kcal über dem Erhaltungsbedarf",
     "targets.below_maintenance": "{goal}: {kcal} kcal unter dem Erhaltungsbedarf",
@@ -1193,9 +1193,9 @@ _DE: dict[str, str] = {
     "start.title": "Anmelden oder als Gast weiter",
     "start.text": (
         "Melden Sie sich mit Google an, um Ihr Profil und Ihre Tagesziele zu behalten (als Gymer) "
-        "oder die App als Coach zu nutzen. Oder machen Sie als Gast weiter: Der Chat funktioniert "
-        "genauso, und diese App speichert nichts. In beiden Fällen gehen Ihre Fragen (und Ihre "
-        "Angaben, wenn eine Frage sie braucht) über OpenRouter an das KI-Modell."
+        "oder den KI-Assistenten der App zu nutzen (als Coach). Oder machen Sie als Gast weiter, "
+        "um den Chat zu nutzen; diese App speichert nichts. Die Fragen eines Gasts oder Coachs "
+        "(und Angaben, wenn eine Frage sie braucht) gehen über OpenRouter an das KI-Modell."
     ),
     "start.guest": "Als Gast weiter",
     "start.guest_only": (
@@ -1204,11 +1204,10 @@ _DE: dict[str, str] = {
         "an das KI-Modell."
     ),
     "start.demo": (
-        "Demo-Modus: Wählen Sie unten einen erfundenen Nutzer, um die Seiten eines "
-        "Coachs oder Gymers auszuprobieren (was sie speichern, wird beim Beenden der App "
-        "gelöscht), oder machen Sie als Gast weiter: Der Chat funktioniert genauso, und diese App "
-        "speichert nichts. Fragen (und Angaben, wenn eine Frage sie braucht) gehen über OpenRouter "
-        "an das KI-Modell."
+        "Demo-Modus: Wählen Sie unten einen erfundenen Nutzer, um die Seiten eines Coachs oder "
+        "Gymers auszuprobieren (was sie speichern, wird beim Beenden der App gelöscht), oder "
+        "machen Sie als Gast weiter, um den Chat zu nutzen; diese App speichert nichts. Fragen "
+        "(und Angaben, wenn eine Frage sie braucht) gehen über OpenRouter an das KI-Modell."
     ),
     "account.guest_note": (
         "Sie nutzen die App als Gast: Diese App speichert nichts; Ihre Fragen (und Ihre Angaben, "
@@ -1248,8 +1247,7 @@ _DE: dict[str, str] = {
     ),
     "account.store_unavailable": (
         "Ihre gespeicherten Daten können gerade nicht geöffnet werden, daher wird nichts gelesen "
-        "oder gespeichert. Den Chat können Sie weiter nutzen. Versuchen Sie es später erneut "
-        "oder starten Sie die App neu."
+        "oder gespeichert. Versuchen Sie es später erneut oder starten Sie die App neu."
     ),
     "account.welcome_title": "Konto einrichten",
     "account.welcome_text": (

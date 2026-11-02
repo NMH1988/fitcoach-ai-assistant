@@ -2,9 +2,10 @@
 
 AppTest draws no CSS, so these read the file: it loads nothing, runs nothing, sets no colour, aims
 only at st-key classes and listed test ids, and changes only layout, so a renamed class or test id
-leaves Streamlit's own layout in place. The one exception is the start page's title (T9.5, owner's
-choice of 2026-11-02): one selector, a short list of type properties, and only the gradient colours
-of config.TITLE_GRADIENT and its fallback, each readable on both modes' backgrounds. The
+leaves Streamlit's own layout in place. Two exceptions (T9.5, owner's choices of 2026-11-02): the
+app's title, one selector with a short list of type properties and only the gradient colours of
+config.TITLE_GRADIENT and its fallback, each readable on both modes' backgrounds; and the page
+menu's labels, one selector with a font size only. The
 browser checks are in docs/TESTING.md.
 """
 
@@ -139,6 +140,8 @@ def problems(css: str) -> list[str]:
             found += _title_problems(body, media)
             continue
         if selector == NAV_SELECTOR:
+            if media is not None:
+                found.append(f"{NAV_SELECTOR} inside {media!r}")
             found += [
                 f"{NAV_SELECTOR}: {prop}: {value!r} is not allowed"
                 for prop, value in _declarations(body)
@@ -164,7 +167,7 @@ def problems(css: str) -> list[str]:
 
 
 def _title_problems(body: str, media: str | None) -> list[str]:
-    """Return how the start page title's rule breaks its own narrower rules."""
+    """Return how the app title's rule breaks its own narrower rules."""
     found = [] if media is None else [f"{TITLE_SELECTOR} inside {media!r}"]
     for prop, value in _declarations(body):
         pattern = TITLE_VALUES.get(prop)
@@ -361,3 +364,16 @@ def test_the_menu_rule_sets_only_a_font_size():
 def test_the_check_refuses_anything_else_in_the_menu_rule(css):
     """The menu's rule may set a font size between 1 and 2 rem, nothing else."""
     assert problems(css)
+
+
+def test_the_title_rule_aims_at_the_header_s_container():
+    """The CSS selector names the key views/header.py gives the title, so the gradient applies."""
+    from views import header
+
+    assert TITLE_SELECTOR == f".st-key-{header.TITLE_KEY} h1"
+
+
+def test_the_check_refuses_the_menu_rule_in_a_media_query():
+    """The menu's rule holds outside @media only, as the title's does."""
+    width = config.PHONE_MAX_WIDTH_PX
+    assert problems(f"@media (max-width: {width}px) {{ {NAV_SELECTOR} {{ font-size: 1.2rem; }} }}")

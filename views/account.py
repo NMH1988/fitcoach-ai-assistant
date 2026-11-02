@@ -26,8 +26,6 @@ DEMO_KEY = "demo_user"
 START_DEMO_KEY = "demo_user_start"
 # Set when a visitor chose "Continue as guest" on the start page; a sign-out clears it.
 GUEST_KEY = "guest_chosen"
-# The title's container, which assets/app.css styles (`.st-key-app_title h1`).
-TITLE_KEY = header.TITLE_KEY
 # Kept when the user changes: the language and the session's rate limit (a sign-out is no way
 # around it), and the demo picker's own value.
 KEPT_KEYS = frozenset({i18n.SESSION_KEY, guard.SESSION_LIMITER_KEY, DEMO_KEY})
@@ -229,7 +227,7 @@ def start_page() -> None:
     # 2026-11-02; AC-12 keeps it on every page).
     with header.main_column():
         _language_link()
-        with st.container(key=TITLE_KEY):
+        with st.container(key=header.TITLE_KEY):
             # assets/app.css gives this title its size and green gradient.
             st.title(t("app.title"), anchor=False)
         store_notice()

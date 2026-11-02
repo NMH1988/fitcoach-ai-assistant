@@ -701,3 +701,13 @@ def test_the_start_page_disclaimer_in_german(monkeypatch):
 
     at = start(monkeypatch, language="de")
     assert i18n.t("app.disclaimer", "de") in "".join(str(c.value) for c in at.caption)
+
+
+def test_no_text_promises_a_gymer_the_chat(monkeypatch):
+    """The start page offers the chat to guests and coaches; the store's message offers no chat."""
+    from src import i18n
+
+    at = start(monkeypatch)
+    assert "continue as a guest to use the chat" in texts(at)
+    for lang in i18n.LANGUAGES:
+        assert "chat" not in i18n.t("account.store_unavailable", lang).lower()
