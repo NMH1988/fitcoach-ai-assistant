@@ -30,7 +30,10 @@ dependencies = [
     # docs/SECURITY.md); Dependabot proposes bumps.
     "pillow==13.0.0",
     "reportlab==5.0.1",
-    "streamlit==1.66.1",
+    # The auth extra brings Authlib (and httpx), which st.login needs for sign-in with Google (T9.5).
+    "streamlit[auth]==1.66.1",
+    # Pinned on its own too, so its version moves only through a reviewed bump (T9.5).
+    "authlib==1.9.2",
 ]
 
 [project.optional-dependencies]
