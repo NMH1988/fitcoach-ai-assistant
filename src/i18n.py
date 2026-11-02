@@ -152,8 +152,14 @@ _EN: dict[str, str] = {
     "activity_short.extra_active": "Extra active",
     "profile.save": "Save",
     "profile.check_these": "Check these",
-    "profile.kept_never_stored": "Kept for this session only, never stored.",
-    "profile.kept": "Kept for this session only",
+    "profile.kept_never_stored": (
+        "Kept for this session only, never stored; sent to the AI model through OpenRouter when a "
+        "question needs it."
+    ),
+    "profile.kept": (
+        "Kept for this session only; sent to the AI model through OpenRouter when a question "
+        "needs it"
+    ),
     "profile.your_profile": "Your profile",
     "profile.add_caption": "Add your details to get personal targets.",
     "profile.add": "Add your details",
@@ -516,16 +522,25 @@ _EN: dict[str, str] = {
     "start.title": "Sign in or continue as a guest",
     "start.text": (
         "Sign in with Google to keep your profile and daily targets (as a gymer) or to use the app "
-        "as a coach. Or continue as a guest: the chat works the same, and nothing is stored."
+        "as a coach. Or continue as a guest: the chat works the same, and this app stores nothing. "
+        "Either way, your questions (and your details, when a question needs them) go to the AI "
+        "model through OpenRouter."
     ),
     "start.guest": "Continue as guest",
-    "start.guest_only": "Continue as a guest: the chat works the same, and nothing is stored.",
+    "start.guest_only": (
+        "Continue as a guest: the chat works the same, and this app stores nothing. Your questions "
+        "(and your details, when a question needs them) go to the AI model through OpenRouter."
+    ),
     "start.demo": (
         "Demo mode: pick a made-up user in the sidebar to try a coach's or a gymer's pages (what "
         "they save is deleted when the app stops), or continue as a guest: the chat works the "
-        "same, and nothing is stored."
+        "same, and nothing is stored. Questions (and details, when a question needs them) go to "
+        "the AI model through OpenRouter."
     ),
-    "account.guest_note": "You are using the app as a guest: nothing is stored.",
+    "account.guest_note": (
+        "You are using the app as a guest: this app stores nothing; your questions go to the AI "
+        "model through OpenRouter."
+    ),
     "account.start_page": "Sign in",
     "account.secrets_broken": (
         "Sign-in is off: `.streamlit/secrets.toml` could not be read (a TOML syntax error?). Fix "
@@ -757,8 +772,13 @@ _DE: dict[str, str] = {
     "activity_short.extra_active": "Extrem aktiv",
     "profile.save": "Speichern",
     "profile.check_these": "Zu prüfen",
-    "profile.kept_never_stored": "Nur für diese Sitzung behalten, nie gespeichert.",
-    "profile.kept": "Nur für diese Sitzung",
+    "profile.kept_never_stored": (
+        "Nur für diese Sitzung behalten, nie gespeichert; geht über OpenRouter an das KI-Modell, "
+        "wenn eine Frage es braucht."
+    ),
+    "profile.kept": (
+        "Nur für diese Sitzung; geht über OpenRouter an das KI-Modell, wenn eine Frage es braucht"
+    ),
     "profile.your_profile": "Ihr Profil",
     "profile.add_caption": "Geben Sie Ihre Angaben ein, um persönliche Ziele zu erhalten.",
     "profile.add": "Angaben eingeben",
@@ -1184,19 +1204,26 @@ _DE: dict[str, str] = {
     "start.text": (
         "Melden Sie sich mit Google an, um Ihr Profil und Ihre Tagesziele zu behalten (als Gymer) "
         "oder die App als Coach zu nutzen. Oder machen Sie als Gast weiter: Der Chat funktioniert "
-        "genauso, und nichts wird gespeichert."
+        "genauso, und diese App speichert nichts. In beiden Fällen gehen Ihre Fragen (und Ihre "
+        "Angaben, wenn eine Frage sie braucht) über OpenRouter an das KI-Modell."
     ),
     "start.guest": "Als Gast weiter",
     "start.guest_only": (
-        "Machen Sie als Gast weiter: Der Chat funktioniert genauso, und nichts wird gespeichert."
+        "Machen Sie als Gast weiter: Der Chat funktioniert genauso, und diese App speichert "
+        "nichts. Ihre Fragen (und Ihre Angaben, wenn eine Frage sie braucht) gehen über OpenRouter "
+        "an das KI-Modell."
     ),
     "start.demo": (
         "Demo-Modus: Wählen Sie in der Seitenleiste einen erfundenen Nutzer, um die Seiten eines "
         "Coachs oder Gymers auszuprobieren (was sie speichern, wird beim Beenden der App "
         "gelöscht), oder machen Sie als Gast weiter: Der Chat funktioniert genauso, und nichts "
-        "wird gespeichert."
+        "wird gespeichert. Fragen (und Angaben, wenn eine Frage sie braucht) gehen über OpenRouter "
+        "an das KI-Modell."
     ),
-    "account.guest_note": "Sie nutzen die App als Gast: Nichts wird gespeichert.",
+    "account.guest_note": (
+        "Sie nutzen die App als Gast: Diese App speichert nichts; Ihre Fragen gehen über "
+        "OpenRouter an das KI-Modell."
+    ),
     "account.start_page": "Anmelden",
     "account.secrets_broken": (
         "Die Anmeldung ist aus: `.streamlit/secrets.toml` konnte nicht gelesen werden "

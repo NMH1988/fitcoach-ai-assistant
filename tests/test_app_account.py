@@ -620,3 +620,18 @@ def test_each_page_draws_one_divider_under_the_account_block(monkeypatch):
     chat_dividers = len(at.sidebar.get("divider"))
     assert start_dividers == 1  # About's own
     assert chat_dividers == 2  # under the account block, and About's
+
+
+@pytest.mark.parametrize(
+    ("language", "clause"), [("en", "through OpenRouter"), ("de", "über OpenRouter")]
+)
+def test_the_guest_texts_name_openrouter(monkeypatch, language, clause):
+    """The start page, a guest's note and the guest's profile caption name the model's route."""
+    at = start(monkeypatch, language=language)
+    assert clause in texts(at)  # the start page
+    at = continue_as_guest(at, language)
+    assert clause in texts(at)  # the guest's sidebar note
+    at.session_state["profile"] = PROFILE
+    at.run(timeout=30)
+    captions = [str(item.value) for item in at.sidebar.caption]
+    assert any(clause in text for text in captions if ":material/lock:" in text)
