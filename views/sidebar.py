@@ -54,7 +54,7 @@ def privacy_note() -> None:
     """Say what happens to the profile: kept for the session, or saved for a gymer (T9.5)."""
     user = account.current_user()
     if user is None or user["role"] not in ("coach", "gymer"):
-        # A guest's text is unchanged (it fits the profile card's last line).
+        # A guest's: kept for the session, and sent to the model when a question needs it.
         st.caption(f":material/lock: {t('profile.kept')}")
         return
     st.caption(f":material/lock: {t(f'profile.note_{user["role"]}')}")

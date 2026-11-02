@@ -635,3 +635,12 @@ def test_the_guest_texts_name_openrouter(monkeypatch, language, clause):
     at.run(timeout=30)
     captions = [str(item.value) for item in at.sidebar.caption]
     assert any(clause in text for text in captions if ":material/lock:" in text)
+
+
+@pytest.mark.parametrize(
+    ("language", "clause"), [("en", "through OpenRouter"), ("de", "über OpenRouter")]
+)
+def test_a_guest_of_a_copy_without_sign_in_is_told_too(monkeypatch, language, clause):
+    """With no [auth] (the usual clone) the sidebar's only account text names OpenRouter."""
+    at = start(monkeypatch, auth=False, language=language)
+    assert clause in "".join(str(item.value) for item in at.sidebar.caption)

@@ -534,18 +534,19 @@ _EN: dict[str, str] = {
     "start.demo": (
         "Demo mode: pick a made-up user in the sidebar to try a coach's or a gymer's pages (what "
         "they save is deleted when the app stops), or continue as a guest: the chat works the "
-        "same, and nothing is stored. Questions (and details, when a question needs them) go to "
-        "the AI model through OpenRouter."
+        "same, and this app stores nothing. Questions (and details, when a question needs them) "
+        "go to the AI model through OpenRouter."
     ),
     "account.guest_note": (
-        "You are using the app as a guest: this app stores nothing; your questions go to the AI "
-        "model through OpenRouter."
+        "You are using the app as a guest: this app stores nothing; your questions (and your "
+        "details, when a question needs them) go to the AI model through OpenRouter."
     ),
     "account.start_page": "Sign in",
     "account.secrets_broken": (
         "Sign-in is off: `.streamlit/secrets.toml` could not be read (a TOML syntax error?). Fix "
-        "the file and restart the app. Until then nothing is stored, and the chat answers only if "
-        "the API key is set as an environment variable."
+        "the file and restart the app. Until then this app stores nothing, and the chat answers "
+        "only if the API key is set as an environment variable (your questions then go to the AI "
+        "model through OpenRouter)."
     ),
     "role.coach": "Coach",
     "role.gymer": "Gymer",
@@ -555,13 +556,15 @@ _EN: dict[str, str] = {
     "account.sign_out": "Sign out",
     "account.signed_in_google": "Signed in with Google",
     "account.sign_in_off": (
-        "Sign-in is off: this copy of the app has no Google sign-in set up. You can use the chat "
-        "as a guest; nothing is stored."
+        "Sign-in is off: this copy of the app has no Google sign-in set up. "
+        "You can use the chat as a guest: this app stores nothing, and your questions (and your "
+        "details, when a question needs them) go to the AI model through OpenRouter."
     ),
     "account.not_set_up": (
         "Sign-in is not fully set up: a secret in `.streamlit/secrets.toml` is missing, shorter "
-        "than 32 characters or still the example's. You can use the chat as a guest; nothing is "
-        "stored."
+        "than 32 characters or still the example's. "
+        "You can use the chat as a guest: this app stores nothing, and your questions (and your "
+        "details, when a question needs them) go to the AI model through OpenRouter."
     ),
     "account.demo_user": "Demo user",
     "account.guest": "Guest (nothing stored)",
@@ -1216,20 +1219,20 @@ _DE: dict[str, str] = {
     "start.demo": (
         "Demo-Modus: Wählen Sie in der Seitenleiste einen erfundenen Nutzer, um die Seiten eines "
         "Coachs oder Gymers auszuprobieren (was sie speichern, wird beim Beenden der App "
-        "gelöscht), oder machen Sie als Gast weiter: Der Chat funktioniert genauso, und nichts "
-        "wird gespeichert. Fragen (und Angaben, wenn eine Frage sie braucht) gehen über OpenRouter "
+        "gelöscht), oder machen Sie als Gast weiter: Der Chat funktioniert genauso, und diese App "
+        "speichert nichts. Fragen (und Angaben, wenn eine Frage sie braucht) gehen über OpenRouter "
         "an das KI-Modell."
     ),
     "account.guest_note": (
-        "Sie nutzen die App als Gast: Diese App speichert nichts; Ihre Fragen gehen über "
-        "OpenRouter an das KI-Modell."
+        "Sie nutzen die App als Gast: Diese App speichert nichts; Ihre Fragen (und Ihre Angaben, "
+        "wenn eine Frage sie braucht) gehen über OpenRouter an das KI-Modell."
     ),
     "account.start_page": "Anmelden",
     "account.secrets_broken": (
         "Die Anmeldung ist aus: `.streamlit/secrets.toml` konnte nicht gelesen werden "
         "(ein TOML-Syntaxfehler?). Korrigieren Sie die Datei und starten Sie die App neu. Bis "
-        "dahin wird nichts gespeichert, und der Chat antwortet nur, wenn der API-Schlüssel als "
-        "Umgebungsvariable gesetzt ist."
+        "dahin speichert diese App nichts, und der Chat antwortet nur, wenn der API-Schlüssel als "
+        "Umgebungsvariable gesetzt ist (Ihre Fragen gehen dann über OpenRouter an das KI-Modell)."
     ),
     "role.coach": "Coach",
     "role.gymer": "Gymer",
@@ -1240,12 +1243,15 @@ _DE: dict[str, str] = {
     "account.signed_in_google": "Mit Google angemeldet",
     "account.sign_in_off": (
         "Die Anmeldung ist aus: In dieser Kopie der App ist keine Google-Anmeldung eingerichtet. "
-        "Sie können den Chat als Gast nutzen; nichts wird gespeichert."
+        "Sie können den Chat als Gast nutzen: Diese App speichert nichts, und Ihre Fragen (und "
+        "Ihre Angaben, wenn eine Frage sie braucht) gehen über OpenRouter an das KI-Modell."
     ),
     "account.not_set_up": (
         "Die Anmeldung ist nicht vollständig eingerichtet: Ein Geheimnis in "
         "`.streamlit/secrets.toml` fehlt, ist kürzer als 32 Zeichen oder ist noch das aus dem "
-        "Beispiel. Sie können den Chat als Gast nutzen; nichts wird gespeichert."
+        "Beispiel. "
+        "Sie können den Chat als Gast nutzen: Diese App speichert nichts, und Ihre Fragen (und "
+        "Ihre Angaben, wenn eine Frage sie braucht) gehen über OpenRouter an das KI-Modell."
     ),
     "account.demo_user": "Demo-Nutzer",
     "account.guest": "Gast (nichts wird gespeichert)",

@@ -255,6 +255,7 @@ def test_demo_mode_opens_on_the_start_page(monkeypatch, demo_store_is_fresh):
     assert "pick a made-up user in the sidebar to try" in texts(at)
     assert not at.tabs
     assert not [item for item in at.button if item.label == "Sign in with Google"]
+    assert "go to the AI model through OpenRouter" in texts(at)
     button(at, "Continue as guest").click().run(timeout=30)
     assert len(at.tabs) == 4
 
