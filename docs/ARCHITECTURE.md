@@ -322,7 +322,7 @@ Planned for Sprint 3 (section 16), each pinned and its licence checked in its ti
 
 Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 7.1.0 (MIT), ruff 0.17.1 (MIT), pip-audit 2.10.1 (Apache-2.0), httpx2 2.14.0 (BSD-3-Clause; the OpenAI SDK's HTTP library, whose `MockTransport` the T1.2 tests use), and pypdf 6.21.1 (BSD-3-Clause, no dependencies; reads the summary PDF's text back in the T5.2 tests; checked 2026-10-20). Not chosen: fpdf2 (LGPL-3.0, not permissive). Python **3.14** as in Sprint 1; every package above has a wheel or pure-Python build for it.
 
-## 13. Decisions (D1-D8 approved by the owner on 2026-10-19, D9-D21 on 2026-10-25, D22 on 2026-10-26)
+## 13. Decisions (D1-D8 approved by the owner on 2026-10-19, D9-D21 on 2026-10-25, D22 on 2026-10-26; D11 changed on 2026-11-02, T9.24)
 
 | # | Decision | Alternative considered | Why |
 |---|---|---|---|
@@ -336,8 +336,8 @@ Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 
 | D8 | Python 3.14 | 3.13 | Same as Sprint 1; all dependencies support it. Check the host's Python options at deploy time |
 | D9 | **A hand-built LangGraph `StateGraph`** (`TypedDict` state, `add_messages`, `ToolNode`, `tools_condition`) for the chat (T9.2; as built, the edge after the agent is our own `after_agent()`, as a reply whose only calls are not JSON is a round too, and the `ToolNode` runs each call through the registry with `wrap_tool_call`) | `create_agent` with middleware | The guard must end the run before any paid call, and approvals pause at a node we choose; each node and edge is tested with fake models; the course teaches both, and the docs explain the choice |
 | D10 | **Agentic RAG:** `search_knowledge_base` is a tool the agent calls when it needs to (T9.3) | Always retrieve (D1) | A food or calculator question sends no research passages (the Sprint 2 review, point 3); Hard 1 |
-| D11 | **One graph builder, a tool set per role** (guest, gymer, coach) | A separate agent per role | One guard and one loop to test; a guest is never offered a write tool; every coach tool checks access in the store |
-| D12 | **Checkpointers:** an `InMemorySaver` per browser session for chats (T9.4; as built, it checkpoints a conversation graph that keeps only each answered turn's question and answer, and the turn's own graph runs inside it with `checkpointer=False`, section 2); a `SqliteSaver` in a gitignored directory for weekly review threads | A `SqliteSaver` for everything | Chats are never written to disk (the owner's "level 2" rule: a returning user is remembered only through what they saved or approved, never through stored chats); a review waiting for the coach survives a restart and holds metrics, not chat messages |
+| D11 | **One graph builder, a tool set per role.** As of T9.24 (owner's decision, 2026-11-02) the roles with a chat are the guest and the coach; a gymer has no chat and no tool set (the AI serves the coach, and the gymer reads the reviews the coach approved); until then the gymer had a tool set too | A separate agent per role | One guard and one loop to test; a guest is never offered a write tool; every coach tool checks access in the store; the one write tool, `remember_preference`, is the coach's and pauses for the coach's approval (T9.7) |
+| D12 | **Checkpointers:** an `InMemorySaver` per browser session for chats (T9.4; as built, it checkpoints a conversation graph that keeps only each answered turn's question and answer, and the turn's own graph runs inside it with `checkpointer=False`, section 2); a `SqliteSaver` in a gitignored directory for weekly review threads | A `SqliteSaver` for everything | Chats are never written to disk (the owner's "level 2" rule: a returning user is remembered only through what they saved or approved, never through stored chats; from T9.24 the long-term memory a model reads is the coach's approved working preferences, T9.7); a review waiting for the coach survives a restart and holds metrics, not chat messages |
 | D13 | **The store:** the standard library's `sqlite3` behind `src/store/`, parameterised queries only, authorisation inside the store functions (T9.6; as built: every query a module constant, checked by an AST scan; the authorisation in `access.authorised_read()`) | SQLAlchemy with PostgreSQL now | Taught in the course, no server to run, local only; the Capstone moves to PostgreSQL by replacing one module |
 | D14 | **Sign-in:** `st.login` with Google (OIDC); the user is a keyed hash of the issuer and `sub`; a display name the user picks; one role per account (T9.5) | Email and password; a managed auth service | No passwords to store; free; built into Streamlit; the Google name, email and picture are never stored |
 | D15 | **Invitations:** a single-use code with an expiry, stored as a hash and passed on by the coach by hand (T9.12) | Invitation emails | No mail service and no email address to keep |
@@ -378,7 +378,7 @@ Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 
 | Brief item | Where |
 |---|---|
 | Core 1 purpose and users; evaluation: problem definition | `docs/PRD.md`, "Sprint 3" |
-| Core 2 core functionality and interactions | section 16; `docs/PRD.md` features 14-23 and 26 (training principles, D22) |
+| Core 2 core functionality and interactions | section 16; `docs/PRD.md` features 14-23, 25 and 26 (training principles, D22), and, P1, 27; feature 24 moved to the Capstone (T9.24) |
 | Core 3 a UI for every function | section 16 (pages per role, D20) |
 | Core 4 tools, error handling, real-world use | D9-D17; section 10; T8.2 |
 | Core 5 documentation | this file (D9-D22), T9.11 |
@@ -397,12 +397,12 @@ The plan for Epic 9; each part is built and described in sections 1-12 by its ti
 | Role | Tools |
 |---|---|
 | Guest | the four Sprint 2 tools, `search_knowledge_base` |
-| Gymer | the guest's tools, `get_my_week`, `remember_preference` (pauses for approval); P1: `propose_log_entry` |
-| Coach | `search_knowledge_base`; P1: `list_my_clients`, `get_client_week` |
+| Gymer | no chat (T9.24, owner's decision, 2026-11-02; was the guest's tools, `get_my_week`, `remember_preference` and, P1, `propose_log_entry`, now in the Capstone) |
+| Coach | `search_knowledge_base`, `remember_preference` (pauses for the coach's approval, T9.7); should: `list_my_clients`, `get_client_week` (T9.17) |
 
 A tool never trusts an ID the model writes: a client ID is checked against the coach's active clients in the store.
 
-**Memory (D12).** Short-term: an `InMemorySaver` per browser session and its `thread_id` in `st.session_state`; `trim_messages` limits what the model sees, and `RemoveMessage` deletes the oldest messages of the stored thread beyond a cap from config (what is stored); "New chat" discards any pending proposal, deletes the old thread from the checkpointer and starts a new `thread_id` (T9.4, owner's choice of 2026-10-25). Built in T9.4 as section 2, "The conversation", describes: the thread keeps each answered turn's question and answer only, never tool results or `<sources>` (owner's choice, 2026-10-30), so a T9.7 proposal paused for the user's answer belongs to the conversation graph, whose state is checkpointed, not to the turn's graph, which is not. Long-term: the store below, read by the tools; approved preferences reach the model in a delimited `<memories>` block (T9.7).
+**Memory (D12).** Short-term: an `InMemorySaver` per browser session and its `thread_id` in `st.session_state`; `trim_messages` limits what the model sees, and `RemoveMessage` deletes the oldest messages of the stored thread beyond a cap from config (what is stored); "New chat" discards any pending proposal, deletes the old thread from the checkpointer and starts a new `thread_id` (T9.4, owner's choice of 2026-10-25). Built in T9.4 as section 2, "The conversation", describes: the thread keeps each answered turn's question and answer only, never tool results or `<sources>` (owner's choice, 2026-10-30), so a T9.7 proposal paused for the user's answer belongs to the conversation graph, whose state is checkpointed, not to the turn's graph, which is not. Long-term (T9.7; for the coach since T9.24, owner's decision, 2026-11-02): the coach's own working preferences ("keep answers short", "most of my clients are vegetarian"), proposed by `remember_preference`, saved in the store's `preferences` table only after the coach approves them, and given to the model of the coach's chat in a delimited `<memories>` block; never a client's personal or health data; guests and gymers have none.
 
 **The weekly review (D17).**
 
@@ -440,8 +440,9 @@ The metrics are computed in Python with no model: logged days, averages over log
 | `preferences` | id, user_id, text, created_at |
 | `ai_reviews`, `ai_evidence_refs` | id, client_id, coach_id, period_start, metrics, data_quality, draft, final, status, edited_by_coach, model_version, reviewed_by, reviewed_at; review_id, source_id, chunk_id |
 | `audit_log` | id, actor_id, subject_id, action, resource_type, resource_id, created_at (no values) |
+| `review_questions` (P1, T9.25; planned by T9.24) | id, review_id, author_id, kind (question, answer), text, created_at |
 | `invite_attempts` | user_id, day, count (T9.12's daily limit) |
 
 Snapshots and profile entries are never changed in place, and a new target is a new row; as built, a trigger refuses an UPDATE on every record table and on the audit log, so an edit is a delete and a new row. Every read of another user's data takes the acting user and checks the role, an active relationship and the scope.
 
-**UI (D20).** Guest: today's tabs. Gymer: Today (log food and weight), Workouts, My week, Chat, Coach and sharing, My data. Coach: Clients, a client's week, Reviews, Chat. Demo mode adds a user picker (D18).
+**UI (D20).** Guest: today's tabs. Gymer (no chat since T9.24): My profile, Today (log food and weight), Workouts, My week (with the approved reviews and, P1, the questions to the coach, T9.25), Coach and sharing, My data. Coach: Clients, a client's week, Reviews, Chat, My data. Demo mode adds a user picker (D18).
