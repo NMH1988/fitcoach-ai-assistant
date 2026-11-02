@@ -14,7 +14,9 @@
 }
 
 /* The start page's title (T9.5, owner's choice of 2026-11-02): larger, with a teal-to-green gradient
-   clipped to the text. The solid colour is the fallback where background-clip: text is missing. */
+   clipped to the text. The solid colour is used by a browser that ignores -webkit-text-fill-color;
+   one that keeps the transparent fill but drops background-clip would hide the text
+   (docs/UI_DESIGN.md, the custom CSS layer). */
 .st-key-start_title h1 {
   display: inline-block;
   font-size: 3.4rem;

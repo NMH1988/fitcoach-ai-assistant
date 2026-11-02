@@ -9,6 +9,7 @@ browser checks are in docs/TESTING.md.
 """
 
 import re
+import tomllib
 
 import pytest
 
@@ -60,7 +61,7 @@ GRADIENT = re.compile(r"linear-gradient\(\d{1,3}deg((?:, #[0-9a-f]{6})+)\)")
 HEX = re.compile(r"#[0-9a-f]{6}")
 TITLE_VALUES = {
     "display": re.compile(r"inline-block"),
-    "font-size": re.compile(r"\d+(\.\d+)?rem"),
+    "font-size": re.compile(r"[1-5](\.\d)?rem"),
     "font-weight": re.compile(r"[1-9]00"),
     "color": HEX,
     "background-image": GRADIENT,
@@ -309,8 +310,6 @@ def _contrast(first: str, second: str) -> float:
 @pytest.mark.parametrize("colour", [*config.START_TITLE_GRADIENT, config.START_TITLE_FALLBACK])
 def test_every_title_colour_is_readable_in_both_modes(mode, colour):
     """Each gradient stop and the fallback reach 3:1 (large text) on the mode's background."""
-    import tomllib
-
     theme = tomllib.loads((config.PROJECT_ROOT / ".streamlit" / "config.toml").read_text("utf-8"))
     background = theme["theme"][mode]["backgroundColor"]
     assert _contrast(colour, background) >= MIN_TITLE_CONTRAST
@@ -324,6 +323,7 @@ def test_every_title_colour_is_readable_in_both_modes(mode, colour):
         ".st-key-start_title h1 { background-image: url(x.png); }",
         ".st-key-start_title h1 { position: absolute; }",
         ".st-key-start_title h1 { font-size: 99px; }",
+        ".st-key-start_title h1 { font-size: 99rem; }",
         ".st-key-other h1 { color: #127a5f; }",
         "@media (max-width: 640px) { .st-key-start_title h1 { font-size: 2rem; } }",
     ],

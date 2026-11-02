@@ -664,3 +664,22 @@ def test_the_start_page_language_link_switches_the_language(monkeypatch):
     at = continue_as_guest(at, "de")
     assert at.session_state["language"] == "de"
     assert len(at.tabs) == 4
+
+
+def test_a_language_chosen_in_the_sidebar_survives_the_start_page(monkeypatch):
+    """German picked with the sidebar control stays after the start page, which draws no control."""
+    at = continue_as_guest(start(monkeypatch))
+    at.segmented_control(key="language").set_value("de").run(timeout=30)
+    button(at, "Anmelden").click().run(timeout=30)
+    assert "Anmelden oder als Gast weiter" in texts(at)
+    at = continue_as_guest(at, "de")
+    assert at.session_state["language"] == "de"
+    assert at.segmented_control(key="language").value == "de"
+
+
+def test_the_start_page_disclaimer_in_german(monkeypatch):
+    """The one-line disclaimer follows the language (AC-12 in both languages)."""
+    from src import i18n
+
+    at = start(monkeypatch, language="de")
+    assert i18n.t("app.disclaimer", "de") in "".join(str(c.value) for c in at.caption)

@@ -6,8 +6,9 @@ chosen. With no [auth] section the app opens as a guest, with a note in the side
 
 The session's user is worked out again on every run (`resolve()`): from the signed-in Google
 account (`st.user`, hashed with the secret into the user ID; its name, email and picture are
-never read) or, in demo mode, from the demo user picked in the sidebar (a closed list). It is never
-taken from a form, a URL or a model argument (docs/SECURITY.md). A guest never opens the store.
+never read) or, in demo mode, from the demo user picked on the start page or in the sidebar (a
+closed list). It is never taken from a form, a URL or a model argument (docs/SECURITY.md). A
+guest never opens the store.
 """
 
 from pathlib import Path
@@ -78,7 +79,8 @@ def resolve() -> dict | None:
             found = account.find_account(conn, user_id)
             if found is None and config.demo_mode():
                 # A demo user deleted through My data: a guest until the app restarts, so no
-                # visitor can make a new account under a demo ID.
+                # visitor can make a new account under a demo ID; the pickers show the guest too.
+                st.session_state[DEMO_KEY] = None
                 return None
             if found is None:
                 # No account (a first sign-in, or deleted in another tab): nothing of an earlier
@@ -188,9 +190,8 @@ def _signed_in(user: dict) -> None:
 
 def sidebar_block(user: dict | None) -> None:
     """Show the account block at the top of the sidebar: the demo picker, the user or a note."""
+    # Not drawn on the start page: app.py draws no sidebar there (owner's choice, 2026-11-02).
     if config.demo_mode():
-        if needs_start(user):
-            return  # the start page shows the picker itself, and the page has no sidebar
         _demo_picker()
         if user is not None:
             _signed_in(user)
@@ -201,8 +202,6 @@ def sidebar_block(user: dict | None) -> None:
         st.button(
             t("account.sign_out"), icon=":material/logout:", width="stretch", on_click=sign_out
         )
-    elif needs_start(user):
-        pass  # the start page itself offers sign-in and the guest choice
     elif config.sign_in_ready():
         # A guest who chose to be one: no sign-in here, only the way back to the start page.
         st.caption(f":material/person: {t('account.guest_note')}")

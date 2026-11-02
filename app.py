@@ -10,8 +10,8 @@ from views import about, account, navigation, sidebar
 observability.configure_logging()
 
 # The language: the browser's at the start of a session, then the user's choice in the sidebar
-# (T7.1, moved from the header in T9.23). Written once, before the control is drawn, so it is kept
-# for the session.
+# (T7.1, moved from the header in T9.23) or the start page's link (T9.5). Written once, before the
+# control is drawn, so it is kept for the session.
 if i18n.SESSION_KEY not in st.session_state:
     st.session_state[i18n.SESSION_KEY] = i18n.language_for_locale(i18n.browser_locale())
 # Kept as the session's own value, so a run that draws no language control (the start page) does
