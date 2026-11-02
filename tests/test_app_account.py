@@ -12,6 +12,7 @@ from streamlit.util import calc_hash
 from src import account, config, observability
 from src.profile import UserProfile
 from src.store import db, records, users
+from views import account as views_account
 from views import navigation
 
 APP = Path(__file__).resolve().parent.parent / "app.py"
@@ -103,9 +104,8 @@ def test_without_auth_the_button_is_hidden_and_a_note_says_why(monkeypatch):
 def test_with_auth_a_new_session_opens_on_the_start_page(monkeypatch, login_calls):
     """With sign-in set up, a new session sees only the start page; its button starts st.login."""
     at = start(monkeypatch)
-    assert "Sign in or continue as a guest" in texts(at)
+    assert "Sign in to continue" in texts(at)
     assert not at.tabs
-    assert button(at, "Continue as guest")
     button(at, "Sign in with Google").click().run(timeout=30)
     assert login_calls == ["login"]
 
@@ -114,34 +114,26 @@ def test_the_sign_in_button_is_on_the_start_page_not_in_the_sidebar(monkeypatch)
     """Sign-in is the start page's (owner's choice, 2026-11-02): the sidebar has no such button."""
     at = start(monkeypatch)
     assert not [item for item in at.sidebar.button if item.label == "Sign in with Google"]
-    assert button(at, "Sign in with Google").proto.type == "primary"
+    found = button(at, "Sign in with Google")
+    assert found.proto.type == "primary"
+    assert found.key == views_account.SIGN_IN_KEY  # the key assets/app.css styles
 
 
-GUEST_LABELS = {"en": "Continue as guest", "de": "Als Gast weiter"}
-
-
-def continue_as_guest(at: AppTest, language: str = "en") -> AppTest:
-    """Press "Continue as guest" on the start page and return the handle."""
-    return button(at, GUEST_LABELS[language]).click().run(timeout=30)
-
-
-def test_continue_as_guest_opens_the_chat_with_a_way_back(monkeypatch):
-    """A guest gets today's chat, a sidebar note and a "Sign in" button back to the start page."""
-    at = continue_as_guest(start(monkeypatch))
-    assert len(at.tabs) == 4
-    assert "You are using the app as a guest" in texts(at)
-    button(at, "Sign in").click().run(timeout=30)
-    assert "Sign in or continue as a guest" in texts(at)
+def test_with_sign_in_set_up_there_is_no_guest(monkeypatch):
+    """The start page offers only the language link and sign-in: no way in as a guest."""
+    at = start(monkeypatch)
+    assert [item.label for item in at.button] == ["Deutsch", "Sign in with Google"]
+    assert "guest" not in texts(at).lower()
     assert not at.tabs
 
 
-def test_the_chat_cannot_be_reached_before_a_choice(monkeypatch):
-    """Requesting the chat's URL before choosing shows the start page."""
+def test_the_chat_cannot_be_reached_without_signing_in(monkeypatch):
+    """Requesting the chat's URL before signing in shows the start page."""
     at = start(monkeypatch)
     at._page_hash = calc_hash(navigation.CHAT)
     at.run(timeout=30)
     assert not at.tabs
-    assert "Sign in or continue as a guest" in texts(at)
+    assert "Sign in to continue" in texts(at)
 
 
 @pytest.mark.parametrize(
@@ -168,8 +160,8 @@ def test_with_example_placeholders_sign_in_is_not_offered(monkeypatch):
 
 
 def test_a_guest_writes_nothing_to_disk(monkeypatch):
-    """A guest who saves a profile and opens the app's pages never creates the store file."""
-    at = continue_as_guest(start(monkeypatch))
+    """A guest (no [auth]) who saves a profile and opens the app's pages never creates the store."""
+    at = start(monkeypatch, auth=False)
     button(at, "Add your details").click().run(timeout=30)
     at.number_input(key="profile_form_weight").set_value(80.0)
     at.number_input(key="profile_form_height_cm").set_value(180)
@@ -308,7 +300,7 @@ def test_a_page_of_another_role_cannot_be_reached_by_its_url(monkeypatch, role):
         elif home == navigation.PROFILE:
             assert on_profile_page(at), url_path
         elif home == navigation.START:
-            assert "Sign in or continue as a guest" in texts(at), url_path
+            assert "Sign in to continue" in texts(at), url_path
         else:
             assert "Set up your account" in texts(at), url_path
         assert "Delete everything" not in texts(at), url_path
@@ -449,7 +441,7 @@ def test_a_coach_profile_stays_in_the_session(monkeypatch):
 )
 def test_the_privacy_note_per_user(monkeypatch, language, guest, gymer, coach, link):
     """A guest keeps today's text; a gymer and a coach get theirs, a My data link and the ask."""
-    at = continue_as_guest(start(monkeypatch, language=language), language)
+    at = start(monkeypatch, auth=False, language=language)
     at.session_state["profile"] = PROFILE
     at.run(timeout=30)
     assert guest in texts(at)
@@ -641,26 +633,24 @@ def test_a_goal_change_after_every_entry_was_deleted_writes_nothing(monkeypatch)
         assert conn.execute("SELECT COUNT(*) FROM nutrition_targets").fetchone()[0] == 1
 
 
-def test_auth_not_ready_offers_no_way_to_a_useless_sign_in(monkeypatch):
-    """With [auth] not ready, the start page has no sign-in button and a guest gets the note."""
+def test_auth_not_ready_fails_closed(monkeypatch):
+    """With [auth] not ready, the start page has only its note: no sign-in, no guest, no chat."""
     monkeypatch.setattr(st, "user", FakeUser())
     at = AppTest.from_file(str(APP))
     at.secrets["auth"] = {**AUTH, "cookie_secret": config.COOKIE_SECRET_PLACEHOLDER}
     at.secrets["account"] = {"user_key_secret": SECRET}
     at.run(timeout=30)
-    assert not [item for item in at.button if item.label == "Sign in with Google"]
-    at = continue_as_guest(at)
-    assert len(at.tabs) == 4
-    assert not [item for item in at.sidebar.button if item.label == "Sign in"]
-    assert "not fully set up" in texts(at)
+    assert [item.label for item in at.button] == ["Deutsch"]
+    assert "not fully set up" in texts(at) and "restart the app" in texts(at)
+    at._page_hash = calc_hash(navigation.CHAT)
+    at.run(timeout=30)
+    assert not at.tabs
 
 
 def test_each_page_draws_one_divider_under_the_account_block(monkeypatch):
     """The start page draws no sidebar; the chat shows no two dividers in a row in it."""
-    at = start(monkeypatch)
-    start_dividers = len(at.sidebar.get("divider"))
-    at = continue_as_guest(at)
-    chat_dividers = len(at.sidebar.get("divider"))
+    start_dividers = len(start(monkeypatch).sidebar.get("divider"))
+    chat_dividers = len(start(monkeypatch, auth=False).sidebar.get("divider"))
     assert start_dividers == 0  # the start page has no sidebar
     assert chat_dividers == 2  # under the account block, and About's
 
@@ -670,9 +660,8 @@ def test_each_page_draws_one_divider_under_the_account_block(monkeypatch):
 )
 def test_the_guest_texts_name_openrouter(monkeypatch, language, clause):
     """The start page, a guest's note and the guest's profile caption name the model's route."""
-    at = start(monkeypatch, language=language)
-    assert clause in texts(at)  # the start page
-    at = continue_as_guest(at, language)
+    assert clause in texts(start(monkeypatch, language=language))  # the start page
+    at = start(monkeypatch, auth=False, language=language)
     assert clause in texts(at)  # the guest's sidebar note
     at.session_state["profile"] = PROFILE
     at.run(timeout=30)
@@ -699,23 +688,25 @@ def test_the_start_page_has_no_sidebar_and_a_short_disclaimer(monkeypatch):
 
 
 def test_the_start_page_language_link_switches_the_language(monkeypatch):
-    """The top-right link shows the other language and switches to it, kept after the choice."""
+    """The top-right link shows the other language and switches the page and the button to it."""
     at = start(monkeypatch)
     button(at, "Deutsch").click().run(timeout=30)
-    assert "Anmelden oder als Gast weiter" in texts(at)
+    assert "Melden Sie sich an, um fortzufahren" in texts(at)
     assert button(at, "English")
-    at = continue_as_guest(at, "de")
+    assert button(at, "Mit Google anmelden")
     assert at.session_state["language"] == "de"
-    assert len(at.tabs) == 4
 
 
 def test_a_language_chosen_in_the_sidebar_survives_the_start_page(monkeypatch):
     """German picked with the sidebar control stays after the start page, which draws no control."""
-    at = continue_as_guest(start(monkeypatch))
+    store_account("coach")
+    at = start(monkeypatch, user=signed_in())
     at.segmented_control(key="language").set_value("de").run(timeout=30)
-    button(at, "Anmelden").click().run(timeout=30)
-    assert "Anmelden oder als Gast weiter" in texts(at)
-    at = continue_as_guest(at, "de")
+    monkeypatch.setattr(st, "user", FakeUser())  # signed out: the start page
+    at.run(timeout=30)
+    assert "Melden Sie sich an, um fortzufahren" in texts(at)
+    monkeypatch.setattr(st, "user", signed_in())
+    at.run(timeout=30)
     assert at.session_state["language"] == "de"
     assert at.segmented_control(key="language").value == "de"
 
@@ -729,11 +720,12 @@ def test_the_start_page_disclaimer_in_german(monkeypatch):
 
 
 def test_no_text_promises_a_gymer_the_chat(monkeypatch):
-    """The start page offers the chat to guests and coaches; the store's message offers no chat."""
+    """The start page names only a coach's questions; the store's message offers no chat."""
     from src import i18n
 
     at = start(monkeypatch)
-    assert "continue as a guest to use the chat" in texts(at)
+    assert "A coach's questions" in texts(at)
+    assert "chat" not in texts(at).lower()
     for lang in i18n.LANGUAGES:
         assert "chat" not in i18n.t("account.store_unavailable", lang).lower()
 

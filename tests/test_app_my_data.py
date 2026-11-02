@@ -179,10 +179,11 @@ def start_demo(monkeypatch, *, auth=False) -> AppTest:
 
 
 def test_demo_mode_offers_the_synthetic_users(monkeypatch, demo_store_is_fresh):
-    """With DEMO_MODE on and no [auth], the picker lists a guest and the demo users only."""
+    """With DEMO_MODE on and no [auth], the start picker lists the demo users only, none picked."""
     at = start_demo(monkeypatch)
     picker = at.selectbox(key="demo_user_start")
-    assert picker.options == ["Guest (nothing stored)", *(u.display_name for u in demo.DEMO_USERS)]
+    assert picker.options == [u.display_name for u in demo.DEMO_USERS]
+    assert picker.value is None
     assert not [item for item in at.button if item.label == "Sign in with Google"]
     assert "Demo mode" in texts(at)
 
@@ -220,8 +221,8 @@ def test_demo_mode_is_ignored_when_auth_exists(monkeypatch, demo_store_is_fresh)
     assert button(at, "Sign in with Google")
 
 
-def test_a_deleted_demo_user_is_a_guest(monkeypatch, demo_store_is_fresh):
-    """After a demo user is deleted, picking them gives a guest, never a new account's form."""
+def test_a_deleted_demo_user_stays_on_the_start_page(monkeypatch, demo_store_is_fresh):
+    """After a demo user is deleted, picking them shows the start page, never an account form."""
     at = start_demo(monkeypatch)
     from src.store import my_data
 
@@ -229,12 +230,10 @@ def test_a_deleted_demo_user_is_a_guest(monkeypatch, demo_store_is_fresh):
         my_data.delete_user_data(conn, demo.OTHER_GYMER.id)
     at.selectbox(key="demo_user_start").set_value(demo.OTHER_GYMER.id).run(timeout=30)
     assert "Set up your account" not in texts(at)
-    assert "Sign in or continue as a guest" in texts(at)  # a guest who has not chosen yet
+    assert "pick a made-up user below to try" in texts(at)
+    assert not at.tabs
     assert "Demo gymer Kim** ·" not in texts(at)
-    # The deleted pick is dropped, so the sidebar's picker shows the guest after the choice.
-    assert at.session_state["demo_user"] is None
-    button(at, "Continue as guest").click().run(timeout=30)
-    assert at.selectbox(key="demo_user").value is None
+    assert at.session_state["demo_user"] is None  # the deleted pick is dropped
 
 
 def test_deleting_an_entry_reloads_the_profile_from_the_store(monkeypatch, gymer_with_records):
@@ -276,22 +275,22 @@ def test_my_data_says_where_the_relationships_are(monkeypatch, gymer_with_record
 
 
 def test_demo_mode_opens_on_the_start_page(monkeypatch, demo_store_is_fresh):
-    """A new demo session sees the start page, with no Google button; "Continue as guest" chats."""
+    """A new demo session sees the start page: the picker, no Google button and no guest."""
     at = start_demo(monkeypatch)
     assert "pick a made-up user below to try" in texts(at)
     assert not at.tabs
-    assert not [item for item in at.button if item.label == "Sign in with Google"]
+    assert [item.label for item in at.button] == ["Deutsch"]  # only the language link
     assert "go to the AI model through OpenRouter" in texts(at)
-    button(at, "Continue as guest").click().run(timeout=30)
-    assert len(at.tabs) == 4
+    assert "guest" not in texts(at).lower()
 
 
 def test_leaving_a_demo_user_returns_to_the_start_page(monkeypatch, demo_store_is_fresh):
-    """Picking a demo user, then the guest again, shows the start page (the choice is cleared)."""
+    """Picking a demo user, then none in the sidebar, shows the start page (the pick is cleared)."""
     at = start_demo(monkeypatch)
-    button(at, "Continue as guest").click().run(timeout=30)
-    at.selectbox(key="demo_user").set_value(demo.SHARING_GYMER.id).run(timeout=30)
+    at.selectbox(key="demo_user_start").set_value(demo.SHARING_GYMER.id).run(timeout=30)
     assert "Demo gymer Sam · Gymer" in texts(at)
-    at.selectbox(key="demo_user").set_value(None).run(timeout=30)
+    picker = at.selectbox(key="demo_user")
+    assert picker.options[0] == "None (back to the start page)"
+    picker.set_value(None).run(timeout=30)
     assert not at.tabs
     assert "pick a made-up user below to try" in texts(at)

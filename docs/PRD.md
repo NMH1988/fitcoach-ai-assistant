@@ -81,7 +81,7 @@ Decided by the owner on 2026-10-25 for the Sprint 3 project (`docs/BRIEF_SPRINT3
 
 - **Coach:** one role for nutrition coaches and personal trainers. Qualifications are not verified, and the app says so.
 - **Gymer:** the client, a healthy adult (18+) doing recreational strength training, as in Sprint 2.
-- **Guest:** no account; the agent's chat (session memory, agentic search, the Sprint 2 tools) with nothing stored.
+- **Guest:** no account; the agent's chat (session memory, agentic search, the Sprint 2 tools) with nothing stored. Only in a copy with no Google sign-in set up (a clone run with just the API key); once sign-in is set up, every visitor signs in (owner's choice, 2026-11-02, T9.5).
 - **Demo users:** a synthetic coach and gymers, for a clone with no Google client (`DEMO_MODE`, off unless set, and only without an `[auth]` section).
 
 One role per account, chosen at the first sign-in; no admin role. Out of scope as in Sprint 2, plus real client data (demos and tests use synthetic data only), any public deployment, and for training: personal programs, exercise technique coaching, and pain, injury or rehabilitation (feature 26).

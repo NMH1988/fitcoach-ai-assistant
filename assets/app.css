@@ -1,8 +1,9 @@
 /* The app's own stylesheet (T9.23; docs/UI_DESIGN.md, "The custom CSS layer"), loaded once per run
    with st.html(config.APP_CSS_PATH). Layout, spacing and visibility only: no colour (light and dark
    mode come from the theme), nothing loaded from another host, and selectors only on st-key classes
-   and the test ids listed in tests/test_stylesheet.py. Two exceptions (T9.5, owner's choices): the
-   app's title on every page (colours from config.TITLE_GRADIENT) and the page menu's font size.
+   and the test ids listed in tests/test_stylesheet.py. Three exceptions (T9.5, owner's choices): the
+   app's title on every page (colours from config.TITLE_GRADIENT), the page menu's font size, and the
+   start page's sign-in button (the same colours, moving, with a glow).
    If Streamlit renames a test id, its rule stops applying and the page falls back to Streamlit's
    own layout. */
 
@@ -35,4 +36,42 @@
    own span sets the label's size, so the link itself cannot be used). */
 [data-testid="stSidebarNavLink"] [data-testid="stMarkdownContainer"] {
   font-size: 1.15rem;
+}
+
+/* The start page's sign-in button (T9.5, owner's choice of 2026-11-02): a larger pill with the
+   title's gradient sliding slowly across it and a soft glow that grows and fades. White text on
+   every part of the gradient is at least 3:1, as the label is large bold text. The glow is a filter,
+   not a box-shadow, so Streamlit's keyboard focus ring still shows. Nothing moves for a visitor
+   whose system asks for less motion. */
+.st-key-sign_in button {
+  padding: 0.9rem 2.75rem;
+  border: none;
+  border-radius: 999px;
+  color: #ffffff;
+  background-image: linear-gradient(100deg, #0f7f8c, #1d9e75, #4e9a28, #1d9e75, #0f7f8c);
+  background-size: 300% 100%;
+  filter: drop-shadow(0 0 0.5rem #1d9e75);
+  animation: sign-in-glow 6s ease-in-out infinite;
+}
+
+.st-key-sign_in button p {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+@keyframes sign-in-glow {
+  0%, 100% {
+    background-position: 0% 50%;
+    filter: drop-shadow(0 0 0.4rem #1d9e75);
+  }
+  50% {
+    background-position: 100% 50%;
+    filter: drop-shadow(0 0 1.4rem #1d9e75);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-key-sign_in button {
+    animation: none;
+  }
 }

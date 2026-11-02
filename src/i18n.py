@@ -508,29 +508,23 @@ _EN: dict[str, str] = {
     "page.profile": "My profile",
     "page.welcome": "Welcome",
     "page.start": "Start",
-    "start.title": "Sign in or continue as a guest",
+    "start.title": "Sign in to continue",
     "start.text": (
         "Sign in with Google to keep your profile and daily targets (as a gymer) or to use the "
-        "app's AI assistant (as a coach). Or continue as a guest to use the chat; this app stores "
-        "nothing. A guest's or coach's questions (and details, when a question needs them) go to "
-        "the AI model through OpenRouter."
+        "app's AI assistant (as a coach). A coach's questions (and the coach's own details, when a "
+        "question needs them) go to the AI model through OpenRouter."
     ),
-    "start.guest": "Continue as guest",
-    "start.guest_only": (
-        "Continue as a guest: the chat works the same, and this app stores nothing. Your questions "
-        "(and your details, when a question needs them) go to the AI model through OpenRouter."
-    ),
+    "start.demo_title": "Try a made-up user",
     "start.demo": (
         "Demo mode: pick a made-up user below to try a coach's or a gymer's pages (what they save "
-        "is deleted when the app stops), or continue as a guest to use the chat; this app stores "
-        "nothing. Questions (and details, when a question needs them) go to the AI model through "
-        "OpenRouter."
+        "is deleted when the app stops). A coach's questions (and the coach's own details, when a "
+        "question needs them) go to the AI model through OpenRouter."
     ),
+    "start.demo_placeholder": "Choose a demo user",
     "account.guest_note": (
         "You are using the app as a guest: this app stores nothing; your questions (and your "
         "details, when a question needs them) go to the AI model through OpenRouter."
     ),
-    "account.start_page": "Sign in",
     "account.secrets_broken": (
         "Sign-in is off: `.streamlit/secrets.toml` could not be read (a TOML syntax error?). Fix "
         "the file and restart the app. Until then this app stores nothing, and the chat answers "
@@ -551,12 +545,10 @@ _EN: dict[str, str] = {
     ),
     "account.not_set_up": (
         "Sign-in is not fully set up: a secret in `.streamlit/secrets.toml` is missing, shorter "
-        "than 32 characters or still the example's. "
-        "You can use the chat as a guest: this app stores nothing, and your questions (and your "
-        "details, when a question needs them) go to the AI model through OpenRouter."
+        "than 32 characters or still the example's. Fix the file and restart the app."
     ),
     "account.demo_user": "Demo user",
-    "account.guest": "Guest (nothing stored)",
+    "account.demo_none": "None (back to the start page)",
     "account.demo_note": (
         "Demo mode: made-up users on a temporary database that is deleted when the app stops."
     ),
@@ -1190,30 +1182,24 @@ _DE: dict[str, str] = {
     "page.profile": "Mein Profil",
     "page.welcome": "Willkommen",
     "page.start": "Start",
-    "start.title": "Anmelden oder als Gast weiter",
+    "start.title": "Melden Sie sich an, um fortzufahren",
     "start.text": (
         "Melden Sie sich mit Google an, um Ihr Profil und Ihre Tagesziele zu behalten (als Gymer) "
-        "oder den KI-Assistenten der App zu nutzen (als Coach). Oder machen Sie als Gast weiter, "
-        "um den Chat zu nutzen; diese App speichert nichts. Die Fragen eines Gasts oder Coachs "
-        "(und Angaben, wenn eine Frage sie braucht) gehen über OpenRouter an das KI-Modell."
+        "oder den KI-Assistenten der App zu nutzen (als Coach). Die Fragen eines Coachs (und seine "
+        "eigenen Angaben, wenn eine Frage sie braucht) gehen über OpenRouter an das KI-Modell."
     ),
-    "start.guest": "Als Gast weiter",
-    "start.guest_only": (
-        "Machen Sie als Gast weiter: Der Chat funktioniert genauso, und diese App speichert "
-        "nichts. Ihre Fragen (und Ihre Angaben, wenn eine Frage sie braucht) gehen über OpenRouter "
-        "an das KI-Modell."
-    ),
+    "start.demo_title": "Einen erfundenen Nutzer ausprobieren",
     "start.demo": (
         "Demo-Modus: Wählen Sie unten einen erfundenen Nutzer, um die Seiten eines Coachs oder "
-        "Gymers auszuprobieren (was sie speichern, wird beim Beenden der App gelöscht), oder "
-        "machen Sie als Gast weiter, um den Chat zu nutzen; diese App speichert nichts. Fragen "
-        "(und Angaben, wenn eine Frage sie braucht) gehen über OpenRouter an das KI-Modell."
+        "Gymers auszuprobieren (was sie speichern, wird beim Beenden der App gelöscht). Die Fragen "
+        "eines Coachs (und seine eigenen Angaben, wenn eine Frage sie braucht) gehen über "
+        "OpenRouter an das KI-Modell."
     ),
+    "start.demo_placeholder": "Demo-Nutzer wählen",
     "account.guest_note": (
         "Sie nutzen die App als Gast: Diese App speichert nichts; Ihre Fragen (und Ihre Angaben, "
         "wenn eine Frage sie braucht) gehen über OpenRouter an das KI-Modell."
     ),
-    "account.start_page": "Anmelden",
     "account.secrets_broken": (
         "Die Anmeldung ist aus: `.streamlit/secrets.toml` konnte nicht gelesen werden "
         "(ein TOML-Syntaxfehler?). Korrigieren Sie die Datei und starten Sie die App neu. Bis "
@@ -1235,12 +1221,10 @@ _DE: dict[str, str] = {
     "account.not_set_up": (
         "Die Anmeldung ist nicht vollständig eingerichtet: Ein Geheimnis in "
         "`.streamlit/secrets.toml` fehlt, ist kürzer als 32 Zeichen oder ist noch das aus dem "
-        "Beispiel. "
-        "Sie können den Chat als Gast nutzen: Diese App speichert nichts, und Ihre Fragen (und "
-        "Ihre Angaben, wenn eine Frage sie braucht) gehen über OpenRouter an das KI-Modell."
+        "Beispiel. Korrigieren Sie die Datei und starten Sie die App neu."
     ),
     "account.demo_user": "Demo-Nutzer",
-    "account.guest": "Gast (nichts wird gespeichert)",
+    "account.demo_none": "Keiner (zurück zur Startseite)",
     "account.demo_note": (
         "Demo-Modus: erfundene Nutzer in einer temporären Datenbank, die beim Beenden der App "
         "gelöscht wird."

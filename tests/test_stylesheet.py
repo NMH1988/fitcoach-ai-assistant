@@ -2,11 +2,12 @@
 
 AppTest draws no CSS, so these read the file: it loads nothing, runs nothing, sets no colour, aims
 only at st-key classes and listed test ids, and changes only layout, so a renamed class or test id
-leaves Streamlit's own layout in place. Two exceptions (T9.5, owner's choices of 2026-11-02): the
+leaves Streamlit's own layout in place. Three exceptions (T9.5, owner's choices of 2026-11-02): the
 app's title, one selector with a short list of type properties and only the gradient colours of
-config.TITLE_GRADIENT and its fallback, each readable on both modes' backgrounds; and the page
-menu's labels, one selector with a font size only. The
-browser checks are in docs/TESTING.md.
+config.TITLE_GRADIENT and its fallback, each readable on both modes' backgrounds; the page menu's
+labels, one selector with a font size only; and the start page's sign-in button, two selectors, the
+one @keyframes and the one reduced-motion query, with the same colours and white text. The browser
+checks are in docs/TESTING.md.
 """
 
 import re
@@ -74,6 +75,35 @@ NAV_SELECTOR = '[data-testid="stSidebarNavLink"] [data-testid="stMarkdownContain
 NAV_VALUES = {"font-size": re.compile(r"1(\.\d{1,2})?rem")}
 # Large text (the title is over 24 px) needs 3:1 against the page (WCAG 1.4.3).
 MIN_TITLE_CONTRAST = 3.0
+# The start page's sign-in button (T9.5, owner's choice): the only animation. Its colours are the
+# title's gradient and white text; its label is large bold text (at least 1.2rem and 700, so over
+# 18.66 px bold), which needs 3:1 too; the one @keyframes slides the gradient and the glow; a
+# visitor who asks for less motion gets none.
+SIGN_IN_SELECTOR = ".st-key-sign_in button"
+SIGN_IN_LABEL_SELECTOR = ".st-key-sign_in button p"
+SIGN_IN_TEXT = "#ffffff"
+# The gradient and the glow use the title gradient's colours only (white is the text's alone).
+SIGN_IN_GRADIENT = frozenset(c.lower() for c in config.TITLE_GRADIENT)
+KEYFRAMES = "@keyframes sign-in-glow"
+REDUCED_MOTION = "@media (prefers-reduced-motion: reduce)"
+GLOW = re.compile(r"drop-shadow\(0 0 \d*\.?\d+rem #[0-9a-f]{6}\)")
+POSITION = re.compile(r"\d{1,3}% \d{1,3}%")
+SIGN_IN_VALUES = {
+    "padding": re.compile(r"\d*\.?\d+rem( \d*\.?\d+rem)?"),
+    "border": re.compile(r"none"),
+    "border-radius": re.compile(r"\d+px"),
+    "color": re.compile(SIGN_IN_TEXT),
+    "background-image": GRADIENT,
+    "background-size": POSITION,
+    "filter": GLOW,
+    "animation": re.compile(r"sign-in-glow \d{1,2}s ease-in-out infinite"),
+}
+SIGN_IN_LABEL_VALUES = {
+    "font-size": re.compile(r"(1\.[2-9]\d?|2(\.\d{1,2})?)rem"),
+    "font-weight": re.compile(r"[7-9]00"),
+}
+KEYFRAME_SELECTOR = re.compile(r"\d{1,3}%(, \d{1,3}%)*")
+KEYFRAME_VALUES = {"background-position": POSITION, "filter": GLOW}
 
 
 def _css() -> str:
@@ -129,13 +159,20 @@ def problems(css: str) -> list[str]:
     found = [f"forbidden {text!r}" for text in FORBIDDEN if text in css.lower()]
     if found:
         return found
-    for prelude, _ in _blocks(_without_comments(css)):
+    for prelude, body in _blocks(_without_comments(css)):
         media = MEDIA.fullmatch(prelude)
-        if prelude.startswith("@") and not media:
+        if prelude == KEYFRAMES:
+            found += _keyframe_problems(body)
+        elif prelude == REDUCED_MOTION:
+            continue  # its rules are checked with the others below
+        elif prelude.startswith("@") and not media:
             found.append(f"at-rule {prelude!r}: only @media (max-width: Npx)")
         elif media and int(media.group(1)) != config.PHONE_MAX_WIDTH_PX:
             found.append(f"{prelude!r}: the width is not config.PHONE_MAX_WIDTH_PX")
     for selector, body, media in _rules(css):
+        if selector in (SIGN_IN_SELECTOR, SIGN_IN_LABEL_SELECTOR) or media == REDUCED_MOTION:
+            found += _sign_in_problems(selector, body, media)
+            continue
         if selector == TITLE_SELECTOR:
             found += _title_problems(body, media)
             continue
@@ -177,6 +214,43 @@ def _title_problems(body: str, media: str | None) -> list[str]:
             found.append(f"{TITLE_SELECTOR}: {prop}: {value!r} is not an allowed value")
         elif any(colour not in TITLE_COLOURS for colour in HEX.findall(value)):
             found.append(f"{TITLE_SELECTOR}: {prop}: {value!r} uses a colour not in config")
+    return found
+
+
+def _values_problems(where: str, body: str, allowed: dict[str, re.Pattern]) -> list[str]:
+    """Return how a rule's declarations leave the allowed properties, values or gradient colours."""
+    found = []
+    for prop, value in _declarations(body):
+        pattern = allowed.get(prop)
+        if pattern is None:
+            found.append(f"{where}: property {prop!r} is not allowed")
+        elif not pattern.fullmatch(value):
+            found.append(f"{where}: {prop}: {value!r} is not an allowed value")
+        elif prop != "color" and any(c not in SIGN_IN_GRADIENT for c in HEX.findall(value)):
+            found.append(f"{where}: {prop}: {value!r} uses a colour not in config")
+    return found
+
+
+def _sign_in_problems(selector: str, body: str, media: str | None) -> list[str]:
+    """Return how a sign-in button rule, or a rule in the reduced-motion query, breaks its rules."""
+    if media == REDUCED_MOTION:
+        if selector != SIGN_IN_SELECTOR or _declarations(body) != [("animation", "none")]:
+            return [f"{REDUCED_MOTION}: only {SIGN_IN_SELECTOR} {{ animation: none }}"]
+        return []
+    if media is not None:
+        return [f"{selector} inside {media!r}"]
+    if selector == SIGN_IN_LABEL_SELECTOR:
+        return _values_problems(selector, body, SIGN_IN_LABEL_VALUES)
+    return _values_problems(selector, body, SIGN_IN_VALUES)
+
+
+def _keyframe_problems(body: str) -> list[str]:
+    """Return how the one @keyframes breaks its rules: percent steps, the gradient and glow only."""
+    found = []
+    for step, declarations in _blocks(body):
+        if not KEYFRAME_SELECTOR.fullmatch(step):
+            found.append(f"{KEYFRAMES}: step {step!r} is not a percentage")
+        found += _values_problems(f"{KEYFRAMES} {step}", declarations, KEYFRAME_VALUES)
     return found
 
 
@@ -371,6 +445,57 @@ def test_the_title_rule_aims_at_the_header_s_container():
     from views import header
 
     assert TITLE_SELECTOR == f".st-key-{header.TITLE_KEY} h1"
+
+
+def test_the_sign_in_rules_aim_at_the_start_page_s_button():
+    """The CSS selector names the key views/account.py gives the sign-in button."""
+    from views import account
+
+    assert SIGN_IN_SELECTOR == f".st-key-{account.SIGN_IN_KEY} button"
+
+
+def test_the_sign_in_button_moves_only_when_motion_is_welcome():
+    """The button animates, and the reduced-motion query stops it (T9.5, owner's choice)."""
+    rules = {(selector, media): body for selector, body, media in _rules(_css())}
+    assert "animation" in dict(_declarations(rules[(SIGN_IN_SELECTOR, None)]))
+    assert _declarations(rules[(SIGN_IN_SELECTOR, REDUCED_MOTION)]) == [("animation", "none")]
+    assert KEYFRAMES in [prelude for prelude, _ in _blocks(_without_comments(_css()))]
+
+
+@pytest.mark.parametrize("colour", config.TITLE_GRADIENT)
+def test_the_sign_in_label_is_readable_on_every_gradient_stop(colour):
+    """White label text reaches 3:1 (large bold text) on each colour the gradient passes."""
+    assert _contrast(SIGN_IN_TEXT, colour) >= MIN_TITLE_CONTRAST
+
+
+@pytest.mark.parametrize(
+    "css",
+    [
+        f"{SIGN_IN_SELECTOR} {{ color: #000000; }}",
+        f"{SIGN_IN_SELECTOR} {{ background-image: linear-gradient(90deg, #0f7f8c, #ff00ff); }}",
+        f"{SIGN_IN_SELECTOR} {{ position: fixed; }}",
+        f"{SIGN_IN_SELECTOR} {{ filter: drop-shadow(0 0 1rem #ff00ff); }}",
+        f"{SIGN_IN_SELECTOR} {{ background-image: linear-gradient(100deg, #ffffff, #ffffff); }}",
+        f"{SIGN_IN_SELECTOR} {{ filter: drop-shadow(0 0 1rem #ffffff); }}",
+        f"{SIGN_IN_SELECTOR} {{ animation: other 6s ease-in-out infinite; }}",
+        f"{SIGN_IN_LABEL_SELECTOR} {{ font-size: 0.8rem; }}",
+        f"{SIGN_IN_LABEL_SELECTOR} {{ font-weight: 400; }}",
+        f"{SIGN_IN_LABEL_SELECTOR} {{ font-size: 25rem; }}",
+        "@keyframes other { 0% { background-position: 0% 50%; } }",
+        f"{KEYFRAMES} {{ 0% {{ color: #ffffff; }} }}",
+        f"{KEYFRAMES} {{ from {{ background-position: 0% 50%; }} }}",
+        f"{KEYFRAMES} {{ 50% {{ filter: drop-shadow(0 0 1rem #ff00ff); }} }}",
+        f"{KEYFRAMES} {{ 50% {{ filter: drop-shadow(0 0 1rem #ffffff); }} }}",
+        f"{REDUCED_MOTION} {{ .st-key-other {{ display: none; }} }}",
+        f"{REDUCED_MOTION} {{ {SIGN_IN_SELECTOR} {{ animation: sign-in-glow 1s ease-in-out "
+        "infinite; } }",
+        f"@media (max-width: {config.PHONE_MAX_WIDTH_PX}px) {{ {SIGN_IN_SELECTOR} "
+        "{ border: none; } }",
+    ],
+)
+def test_the_check_refuses_anything_else_in_the_sign_in_rules(css):
+    """Another colour, property, step, animation, keyframes name or rule in the query fails."""
+    assert problems(css)
 
 
 def test_the_check_refuses_the_menu_rule_in_a_media_query():

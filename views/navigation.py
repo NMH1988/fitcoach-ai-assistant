@@ -2,10 +2,11 @@
 
 Only the pages listed for the user's role are registered in a run, so a page of another role (or a
 signed-in user's page for a guest) cannot be opened even by its URL: Streamlit shows the role's
-home instead. A new session sees only the start page (sign in, or continue as a guest) when sign-in
-is set up or in demo mode. A guest has one page, the chat with today's tabs, so no menu shows. A
-user signed in with Google who has no account yet ("pending") sees only the welcome page. A
-coach has the chat and My data; a gymer My profile and My data, no chat (owner's choice).
+home instead. A new session sees only the start page (sign in, or in demo mode a made-up user; no
+guest) when sign-in is set up or in demo mode. A guest (a copy with no [auth]) has one page, the
+chat with today's tabs, so no menu shows. A user signed in with Google who has no account yet
+("pending") sees only the welcome page. A coach has the chat and My data; a gymer My profile and
+My data, no chat (owner's choice).
 """
 
 import streamlit as st
