@@ -102,6 +102,8 @@ The sidebar is the brand sidebar (T9.23): deep green with light text in both mod
 
 | Element | Streamlit | Notes |
 |---|---|---|
+| Pages menu (T9.5) | `st.navigation` in the sidebar, at its top | Only when the role has more than one page (a coach or a gymer: Chat and My data); a guest has one page, so no menu |
+| Account block (T9.5) | Under the menu, then `st.divider` | A guest: "Sign in with Google" (`st.button(..., icon=":material/login:")`, secondary: white on the sidebar's primary is 2.0:1, T9.23), or a caption when sign-in is off or not set up; demo mode: a "Demo user" `st.selectbox` (Guest and the demo users) with a caption; signed in: the display name, escaped, in bold with the role, and "Sign out" (not in demo mode). At the top, so the language control stays last, as the answer prompt says |
 | "Your profile" heading | `st.header` with `:material/person:` | Larger than `st.subheader` (owner's request, 2026-10-20) |
 | Goal | `st.segmented_control` (Build muscle / Lose fat / Maintain, with icons), `width="stretch"` | Changing it recalculates the targets |
 | Weight, height, age, sex | `st.columns(2)` of `st.metric(..., border=True)` | Values large, labels small; shown in the chosen units |
@@ -109,7 +111,7 @@ The sidebar is the brand sidebar (T9.23): deep green with light text in both mod
 | Edit details | `st.button("Edit details", icon=":material/edit:", width="stretch")` | Opens the profile form in an `st.dialog` (owner's choice in T4.1): a Metric / Imperial switch, then plain inputs and a Save button, not an `st.form`, so switching units converts the values already typed. Validation messages come from `src/profile.py` |
 | Daily target | `st.metric("Daily target", "3,035 kcal", border=True)`, after Edit details | Always visible, whatever tab is open; built in T4.7 (split from T4.4 by the owner on 2026-10-20). Computed on every run from the session profile with `registry.macro_targets()`, the same function the macro tool uses, so it follows the goal control at once and makes no model call |
 | My targets (summary card) | `st.container(border=True)`: "My targets", a donut of the energy split in the sidebar donut colours (T9.23; "Theme") (`st.vega_lite_chart`, an `arc` mark with `innerRadius`, gaps between the parts, `MACRO_DONUT_HEIGHT_PX` = 150 with the legend on its right) with the daily kcal in the middle, then one caption per macro ("**Protein** 152 g · 20% · 1.9 g/kg", g/lb in imperial), a warning line when protein was lowered, and "More in the My targets tab." | The full view stays in the My targets tab. One donut, not one circle per value: the three macros are parts of the kcal total, and kcal is the total, not a fourth part. Text values carry the numbers, as angles are harder to compare than lengths and colour is never the only signal. Owner's choice, 2026-10-20 (built in T4.7). The lines sit under the donut, not beside it: the sidebar is too narrow for both. Streamlit's chart theme colours axes and legends but leaves text marks black (unreadable in dark mode), so the kcal in the middle uses `currentColor`, which follows the page's text colour, even right after a theme switch (checked in the browser) |
-| Privacy note | `st.caption(":material/lock: Kept for this session only")` | |
+| Privacy note | `st.caption(":material/lock: ...")`, then for a signed-in user `st.page_link` "See, export or delete it in My data" | A guest: "Kept for this session only" (unchanged). A gymer: what Save stores and where, that chats are never stored but go to the model with each question, and to use made-up data only; a coach: their details stay in the session, their account is stored, the same chat and made-up data lines (T9.5). For a signed-in user it shows under "Add your details" too |
 | Light or dark mode hint | `st.caption(config.THEME_HINT)` | Right after the privacy note (T7.3; its tests check the order) |
 | Download summary (PDF) | `st.download_button(config.PDF_BUTTON_LABEL, icon=":material/download:", width="stretch", on_click="ignore")` with `data` as a function | After the theme hint, before the last answer card (owner's choice in T5.2, 2026-10-20: always in view, whatever tab is open). Off, with the help "Add your details or ask a question first.", until the session has a profile or a question. The PDF is built only on a click, from the session as it stands after the turn that just ran (its `st.empty()` slot is filled after the main area, like the card's); file name `nutrition-summary-YYYY-MM-DD.pdf`. Screenshot (fake model): `docs/ui/t5.2-download-button.jpg`; the PDF itself: `docs/ui/t5.2-summary-pdf.jpg` |
 | Details, last answer (summary card) | `st.container(border=True)`: "Last answer", the question ("For: ..."), how many searches the model ran and how many queries they searched in all ("1 search of the research, 4 queries in all.", or "No search of the research."; T9.3) and each filter of the turn's searches once as badges (a grey "No filters" only when no search set one), a note when they were dropped (T3.2); the answer's tokens and cost and the session total as two captions with `:material/data_usage:` ("This answer: 3,700 tokens · $0.0074", "Session: 7,400 tokens · $0.0148", with "+ price unknown" when some turn could not be priced; T5.1). Before any turn has reached the model (e.g. the first one failed before it) the session line is shown alone, without the card | The full view stays in the Details tab. Owner's choice, 2026-10-20. Shown once a turn has reached the model (T9.3). Its `st.empty()` slot is filled once per run, after the main area, so it shows the turn that just ran: a slot filled twice in one run kept the first draw's extra badges in the browser (AppTest does not show this; found in T3.2's browser check) |
@@ -118,6 +120,12 @@ The sidebar is the brand sidebar (T9.23): deep green with light text in both mod
 | Language (T9.23) | `st.segmented_control` "Language" ("Sprache"), "English" / "Deutsch", after "About the answers" | The last element of the sidebar (owner's choice, 2026-10-31, as in the T9.15 mockups); see "Language" |
 
 Before a profile exists, the sidebar shows a short invitation and the "Add your details" button (same dialog) instead of the tiles.
+
+**The profile form for a signed-in gymer (T9.5):** the last caption says the details are saved to the account on Save; a gymer with no saved profile entry gets a checkbox above Save ("I understand that my details are stored in this app's data file on this computer, and I enter made-up data only"), which the first Save needs (owner's choice, 2026-11-02). The store's failure shows its one fixed message in the dialog, and the profile is not changed.
+
+**The welcome page (T9.5):** at the first sign-in, the only page: "Set up your account", the role as `st.radio` (no default; "Coach · I follow clients' nutrition and training" or "Gymer · I log my own nutrition and training") with the caption that it is chosen once, a display name `st.text_input` (40 characters at most, its rules in the help), and a primary "Create account" button in the main area.
+
+**My data (T9.5):** the account line, one bold line per kind of record with its count and a `st.dataframe` of the stored rows (in the user's units and language), "Delete one entry" (a picker and a button that is off until an entry is picked), "Export" ("Prepare the export", then "Download my data (JSON)"), and "Delete everything" (a confirmation checkbox, then the button, which deletes and signs out).
 
 ### Header
 
@@ -208,12 +216,15 @@ Built in T4.7, changed from a text box to a dropdown in T4.8 (owner's request, 2
 
 ## Code layout (T8.1)
 
-`app.py` composes the page (page config, session defaults, the sidebar block, the profile dialog, the three-column layout and the four tabs); each piece of the design lives in one module of `views/`. No behaviour or look changed in T8.1.
+`app.py` composes the page (page config, session defaults, the sidebar block, the profile dialog, the three-column layout and the four tabs); each piece of the design lives in one module of `views/`. No behaviour or look changed in T8.1. Since T9.5 `app.py` works out the user, draws the account block and runs `st.navigation`; the chat page (profile dialog, columns, tabs, the sidebar slots) is `views/pages.py`.
 
 | On screen | Module |
 |---|---|
 | Title, "Not medical advice" badge, disclaimer box | `views/header.py` |
-| Sidebar "Your profile": goal control, tiles, Edit details; the language control (T9.23) | `views/sidebar.py` |
+| Sidebar "Your profile": goal control, tiles, Edit details, the privacy note; the language control (T9.23) | `views/sidebar.py` |
+| The pages per role and the chat page (T9.5) | `views/navigation.py`, `views/pages.py` |
+| Account block, demo picker, welcome page (T9.5) | `views/account.py` |
+| My data page (T9.5) | `views/my_data.py` |
 | The stylesheet (layout rules only, loaded by `app.py`) | `assets/app.css` (T9.23) |
 | "Your details" dialog, units switch, Save | `views/profile_form.py` |
 | Ask tab: history, input, progress steps, the answer | `views/chat.py` |
@@ -254,6 +265,7 @@ The Vega-Lite specs of the bar and the donut (`views/charts.py`) and the table r
 | Empty-state suggestions, colour tuning, final polish | UI polish ticket (extra, beyond the brief, owner's request) |
 | The new name, "Fitcoach AI Assistant" | T9.22 (beyond the brief, owner's request) |
 | Brand sidebar, language control in the sidebar, the custom CSS layer | T9.23 (beyond the brief in part, owner's request) |
+| Pages per role, the account block, the welcome page, the privacy notes, My data, demo mode | T9.5 |
 | Cards for the coach's client list on phones (planned) | T9.15 |
 
 ## Open questions

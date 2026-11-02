@@ -13,9 +13,10 @@ A chatbot that answers nutrition questions for adults who do recreational streng
 - **Token use and cost:** under each answer, and in the Details tab per model call of the last answer and for the current chat ("New chat" starts the total again). The Details tab also shows how the last answer was found (each search the model ran, with its rewrites and filters, or that it ran none).
 - **Session summary as PDF:** your profile, targets, questions and answers with their sources, built in memory and downloaded; nothing is kept on the server.
 - **English and German:** the app starts in the browser's language (German for a German locale, otherwise English); the "Language" control at the end of the sidebar (English | Deutsch) changes it. The UI and the answers follow it, whatever language the question is in (the sources stay English). Light and dark mode through Streamlit's menu.
+- **Sign-in, roles and My data (optional, T9.5):** sign in with Google, choose Coach or Gymer once and a display name. A gymer's saved profile, weights and daily targets are kept in a local file, and the My data page lists them, exports them as JSON and deletes one entry or everything. Without a Google client the app runs for guests, and demo mode offers made-up users instead ("Sign-in and demo mode" below).
 - **Safety:** input validation, prompt injection protection, a per-session rate limit, and domain guardrails: no dosing advice on performance-enhancing drugs, a 1200 kcal/day calorie floor in the tools, and a redirect to a professional for under 18s, pregnancy, medical conditions and signs of disordered eating. A "not medical advice" disclaimer is always visible.
 
-Your profile is kept in the app's memory for this session only and sent to the model (through OpenRouter) only when a question needs it; it is never logged, written to disk or put in the knowledge base.
+A guest's profile is kept in the app's memory for this session only and sent to the model (through OpenRouter) only when a question needs it; it is never logged, written to disk or put in the knowledge base. A signed-in gymer's Save also writes it to the local store (`data/store/`, gitignored, not encrypted); the app stores an ID made from the Google account, never its name, e-mail address or picture, and never a chat. Use made-up data only ([`docs/PRD.md`](docs/PRD.md), "The privacy change").
 
 ## How it works
 
@@ -86,6 +87,12 @@ ruff format --check .     # format check
 ```
 
 The app runs locally only for now; a public deployment needs one of the options in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
+### Sign-in and demo mode (optional)
+
+- **Sign in with Google:** create a Google OAuth client for `http://localhost:8501/oauth2callback` in Testing mode, add the accounts that may sign in as test users, then fill the `[auth]` and `[account]` sections of `.streamlit/secrets.toml` (commented out in the example). Step by step: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md), "Sign-in with Google on localhost". At the first sign-in you choose Coach or Gymer (once) and a display name; a gymer's details are saved when they press Save (the first time after ticking that they understand they are stored), and My data shows, exports or deletes them.
+- **Demo mode:** with no `[auth]` section, set `DEMO_MODE = true` in `.streamlit/secrets.toml` (or `DEMO_MODE=1` in the environment). A "Demo user" picker offers a guest, a coach and two gymers, all made up, on a temporary database that is deleted when the app stops.
+- **Neither:** the app runs for guests; nothing is stored.
 
 ### Data and evaluation scripts
 

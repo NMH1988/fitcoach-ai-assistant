@@ -27,11 +27,28 @@ Either way:
 4. **Knowledge base on an ephemeral disk.** The host's disk is reset on restart. Decide in `docs/ARCHITECTURE.md` whether the Chroma index is rebuilt at startup (embedding cost on every cold start) or a built index is committed (allowed only under the copyright policy: approved CC BY sources, attribution in place).
 5. **USDA data.** A trimmed copy of the Foundation Foods CSV (CC0) is committed as `data/usda_foods.csv` (T4.3), so a deploy needs no download.
 6. **Limits.** Check the host's memory and CPU limits against Chroma, the embeddings and the PDF builder.
-7. **Personal data.** The profile and chat stay in the session only; logs contain no profile values or chat text.
+7. **Personal data.** A guest's profile and every chat stay in the session only; a signed-in user's data is in the local store (`data/store/`), which an ephemeral disk loses on restart and which is not encrypted; logs contain no profile values or chat text. Demo mode stays off.
 8. **Costs.** Default model `openai/gpt-5-mini`, `max_tokens` capped, rate limit on; the token and cost display works.
 9. **Legal text on the page.** The "not medical advice" disclaimer and a link to the sources and attribution are visible.
 10. **Server address.** `.streamlit/config.toml` sets `server.address = "localhost"` (T1.7), so a local run is reachable from this machine only. A host may need another address (e.g. `0.0.0.0` in a container); change it only together with option 1 or 2 above, never on its own. Keep `browser.gatherUsageStats = false` and `client.showErrorDetails = "none"`.
 11. **Compliance review.** The `compliance-reviewer` agent has run on the whole repo on `main` with no open Blocker or High finding and no open finding about personal data reaching a third party (such as the LangSmith one in `docs/SECURITY.md` "Compliance reviews"). A privacy notice, explicit consent for health data and a GDPR review with a DPIA are in place first (`docs/PRD.md` "The privacy change"); the owner, or a lawyer, decides how. The other items of the agent's "Before a public deployment" checklist (e.g. processors and transfers, controller roles with coaches, export and delete against GDPR Art. 15, 17 and 20, records, breach handling, encryption of the store) are done or decided by the owner (`.claude/rules/workflow.md`, T1.10).
+
+## Sign-in with Google on localhost (T9.5)
+
+Optional: without it the app runs for guests (and, with `DEMO_MODE`, in demo mode). The owner sets it up (O9); Claude never creates the Google client or enters credentials.
+
+1. In the Google Cloud console, create a project (free), then the **OAuth consent screen** (newer consoles call it Google Auth Platform, with Branding and Audience pages; the wording below may differ): user type External, publishing status **Testing**, scopes `openid`, `email` and `profile` only. Under **Test users**, add the Google accounts that will play the coach and the gymers: in Testing mode only they can sign in.
+2. **Credentials -> Create credentials -> OAuth client ID**, application type **Web application**, authorised redirect URI `http://localhost:8501/oauth2callback` (the app's port; `server.address = "localhost"` keeps it on this machine).
+3. In `.streamlit/secrets.toml` (gitignored), uncomment the `[auth]` and `[account]` sections copied from `.streamlit/secrets.toml.example` and fill them: the client ID and secret, a random `cookie_secret`, and a random `user_key_secret` of at least 32 characters (e.g. `python -c "import secrets; print(secrets.token_hex(32))"`, run once for each). The app offers sign-in only when no placeholder is left. Keep `user_key_secret` once set: a new one gives every user a new, empty account.
+4. Restart the app. The sidebar shows "Sign in with Google"; at the first sign-in the user chooses Coach or Gymer (once) and a display name.
+
+What is stored and who sees it: `docs/PRD.md` "The privacy change" and `docs/SECURITY.md`. Use made-up data only; screenshots of a signed-in page use demo mode or a test account, with the Google name, e-mail address and picture out of the picture (the app shows none of them itself).
+
+**A public deployment** needs its own redirect URI (the deployed URL with `/oauth2callback`) in both the Google client and the host's secrets, the consent screen published (Google's verification), and everything in the checklist above; Streamlit turns CORS and XSRF protection on when `[auth]` is set.
+
+## Demo mode (T9.5, D18)
+
+For a reviewer or a clone with no Google client: set `DEMO_MODE = true` in `.streamlit/secrets.toml` (or the environment variable `DEMO_MODE=1`) and leave the `[auth]` section out (with `[auth]` demo mode is ignored). A "Demo user" picker at the top of the sidebar offers a guest and three made-up users (`src/demo.py`: a coach, a gymer who shares body and nutrition with that coach, and a gymer with no coach), on a temporary database seeded when the app starts and deleted when it stops; `data/store/` is not touched. Never turn demo mode on for a deployment that real people use: anyone at the browser can pick any demo user.
 
 ## Deploy steps (Streamlit Community Cloud, first time)
 
