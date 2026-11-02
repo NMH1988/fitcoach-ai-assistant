@@ -98,6 +98,8 @@ def resolve() -> dict | None:
         st.session_state["store_unavailable"] = True
         if st.session_state.pop("account_loaded_for", None) is not None:
             st.session_state.pop("profile", None)
+            # An open "Your details" dialog would still hold the stored values.
+            st.session_state["profile_form_open"] = False
         return None
     user = found or {"id": user_id, "role": "pending", "display_name": None}
     st.session_state["account"] = user

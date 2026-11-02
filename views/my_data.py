@@ -77,8 +77,10 @@ def _delete_one(user: dict, stored: dict[str, list[dict]]) -> None:
             pass  # deleted already (e.g. in another tab): the list below is read again
         st.session_state.pop("my_data_entry", None)
         # The next run loads the profile from the store again, so a deleted entry does not live
-        # on in the sidebar (and cannot be saved back by the goal control).
+        # on in the sidebar (and cannot be saved back by the goal control); the profile leaves the
+        # session now, so a store that fails on that run leaves no stored profile behind.
         st.session_state.pop("account_loaded_for", None)
+        st.session_state.pop("profile", None)
         st.rerun()
 
 

@@ -247,6 +247,28 @@ def test_deleting_an_entry_reloads_the_profile_from_the_store(monkeypatch, gymer
     assert at.session_state["profile"] is None
 
 
+def test_a_delete_then_a_store_failure_leaves_no_stored_profile(monkeypatch, gymer_with_records):
+    """If the store fails on the rerun after a delete, no stored profile is left for the chat."""
+    at = open_my_data(start(monkeypatch, user=signed_in()))
+    with db.connect() as conn:
+        weights = records.list_body_measurements(conn, USER_ID, USER_ID)
+    at.selectbox(key="my_data_entry").set_value(("body_measurements", weights[0]["id"]))
+    at.run(timeout=30)
+    real = db.connect
+    count = {"opens": 0}
+
+    def failing_after_the_delete(path=None):
+        """Let the delete's own opening work, then fail as connect() does."""
+        count["opens"] += 1
+        if count["opens"] > 3:  # this run's resolve(), the page's list and the delete
+            raise db.StoreError("C:/private/folder")
+        return real(path)
+
+    monkeypatch.setattr(db, "connect", failing_after_the_delete)
+    button(at, "Delete this entry").click().run(timeout=30)
+    assert "profile" not in at.session_state
+
+
 def test_my_data_says_where_the_relationships_are(monkeypatch, gymer_with_records):
     """The gymer's intro says the relationships, sharing and the coach's reads are in the export."""
     at = open_my_data(start(monkeypatch, user=signed_in()))

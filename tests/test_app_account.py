@@ -566,12 +566,18 @@ def test_a_profile_typed_while_the_store_is_down_stays_for_the_session(monkeypat
     """Only a profile loaded from the store leaves; one typed in the guest state is kept."""
     store_account("gymer", profile=PROFILE)
     at = start(monkeypatch, user=signed_in())
+    real_connect = db.connect
     _fail_from_now(monkeypatch)
     at.run(timeout=30)
     typed = PROFILE.model_copy(update={"weight_kg": 70.0})
     at.session_state["profile"] = typed
     at.run(timeout=30)
     assert at.session_state["profile"] == typed
+    # When the store comes back, the saved profile replaces the typed one. (Not monkeypatch.undo():
+    # it would also undo conftest's temporary store path.)
+    monkeypatch.setattr(db, "connect", real_connect)
+    at.run(timeout=30)
+    assert at.session_state["profile"] == PROFILE
 
 
 def test_a_failed_goal_change_keeps_the_old_goal(monkeypatch):
