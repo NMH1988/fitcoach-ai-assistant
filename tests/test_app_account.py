@@ -48,15 +48,6 @@ def signed_in() -> FakeUser:
     )
 
 
-@pytest.fixture
-def calls(monkeypatch):
-    """Replace st.login and st.logout with recorders and return the list of calls."""
-    made = []
-    monkeypatch.setattr(st, "login", lambda *args: made.append("login"))
-    monkeypatch.setattr(st, "logout", lambda: made.append("logout"))
-    return made
-
-
 def start(monkeypatch, *, user=None, auth=True, language="en") -> AppTest:
     """Run app.py once with sign-in set up (or not) and st.user faked, and return the handle."""
     monkeypatch.setattr(st, "user", user if user is not None else FakeUser())
@@ -109,11 +100,11 @@ def test_without_auth_the_button_is_hidden_and_a_note_says_why(monkeypatch):
     assert len(at.tabs) == 4
 
 
-def test_with_auth_a_guest_sees_the_sign_in_button(monkeypatch, calls):
+def test_with_auth_a_guest_sees_the_sign_in_button(monkeypatch, login_calls):
     """With sign-in set up, a guest gets "Sign in with Google", which starts st.login."""
     at = start(monkeypatch)
     button(at, "Sign in with Google").click().run(timeout=30)
-    assert calls == ["login"]
+    assert login_calls == ["login"]
     assert len(at.tabs) == 4
 
 
@@ -214,14 +205,14 @@ def test_the_google_name_email_and_picture_are_never_stored_shown_or_logged(monk
         assert canary not in stream.getvalue()
 
 
-def test_sign_out_clears_the_session_and_calls_st_logout(monkeypatch, calls):
+def test_sign_out_clears_the_session_and_calls_st_logout(monkeypatch, login_calls):
     """Sign out forgets the profile and the chat, then signs out of Google."""
     store_account("gymer", profile=PROFILE)
     at = start(monkeypatch, user=signed_in())
     at.session_state["messages"] = [{"role": "user", "text": "canary question"}]
     at.session_state["my_data_export"] = '{"canary": 1}'
     button(at, "Sign out").click().run(timeout=30)
-    assert calls == ["logout"]
+    assert login_calls == ["logout"]
     # The fake st.user is still signed in after the rerun (a real sign-out starts a new session),
     # so the profile is loaded again; what the session held besides it is gone.
     assert at.session_state["messages"] == []
