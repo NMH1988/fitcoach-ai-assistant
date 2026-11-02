@@ -613,12 +613,12 @@ def test_auth_not_ready_offers_no_way_to_a_useless_sign_in(monkeypatch):
 
 
 def test_each_page_draws_one_divider_under_the_account_block(monkeypatch):
-    """The start page and the chat never show two dividers in a row in the sidebar."""
+    """The start page draws no sidebar; the chat shows no two dividers in a row in it."""
     at = start(monkeypatch)
     start_dividers = len(at.sidebar.get("divider"))
     at = continue_as_guest(at)
     chat_dividers = len(at.sidebar.get("divider"))
-    assert start_dividers == 1  # About's own
+    assert start_dividers == 0  # the start page has no sidebar
     assert chat_dividers == 2  # under the account block, and About's
 
 
@@ -644,3 +644,23 @@ def test_a_guest_of_a_copy_without_sign_in_is_told_too(monkeypatch, language, cl
     """With no [auth] (the usual clone) the sidebar's only account text names OpenRouter."""
     at = start(monkeypatch, auth=False, language=language)
     assert clause in "".join(str(item.value) for item in at.sidebar.caption)
+
+
+def test_the_start_page_has_no_sidebar_and_a_short_disclaimer(monkeypatch):
+    """No sidebar element, no badge or warning box, but the disclaimer as one line (AC-12)."""
+    at = start(monkeypatch)
+    assert not at.sidebar.button and not at.sidebar.caption and not at.sidebar.markdown
+    assert not at.warning
+    assert config.DISCLAIMER in "".join(str(c.value) for c in at.caption)
+    assert at.title[0].value == "Fitcoach AI Assistant"
+
+
+def test_the_start_page_language_link_switches_the_language(monkeypatch):
+    """The top-right link shows the other language and switches to it, kept after the choice."""
+    at = start(monkeypatch)
+    button(at, "Deutsch").click().run(timeout=30)
+    assert "Anmelden oder als Gast weiter" in texts(at)
+    assert button(at, "English")
+    at = continue_as_guest(at, "de")
+    assert at.session_state["language"] == "de"
+    assert len(at.tabs) == 4

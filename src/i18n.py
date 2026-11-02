@@ -532,7 +532,7 @@ _EN: dict[str, str] = {
         "(and your details, when a question needs them) go to the AI model through OpenRouter."
     ),
     "start.demo": (
-        "Demo mode: pick a made-up user in the sidebar to try a coach's or a gymer's pages (what "
+        "Demo mode: pick a made-up user below to try a coach's or a gymer's pages (what "
         "they save is deleted when the app stops), or continue as a guest: the chat works the "
         "same, and this app stores nothing. Questions (and details, when a question needs them) "
         "go to the AI model through OpenRouter."
@@ -1217,7 +1217,7 @@ _DE: dict[str, str] = {
         "an das KI-Modell."
     ),
     "start.demo": (
-        "Demo-Modus: Wählen Sie in der Seitenleiste einen erfundenen Nutzer, um die Seiten eines "
+        "Demo-Modus: Wählen Sie unten einen erfundenen Nutzer, um die Seiten eines "
         "Coachs oder Gymers auszuprobieren (was sie speichern, wird beim Beenden der App "
         "gelöscht), oder machen Sie als Gast weiter: Der Chat funktioniert genauso, und diese App "
         "speichert nichts. Fragen (und Angaben, wenn eine Frage sie braucht) gehen über OpenRouter "

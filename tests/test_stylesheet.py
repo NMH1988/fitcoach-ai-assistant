@@ -2,7 +2,10 @@
 
 AppTest draws no CSS, so these read the file: it loads nothing, runs nothing, sets no colour, aims
 only at st-key classes and listed test ids, and changes only layout, so a renamed class or test id
-leaves Streamlit's own layout in place. The browser checks are in docs/TESTING.md.
+leaves Streamlit's own layout in place. The one exception is the start page's title (T9.5, owner's
+choice of 2026-11-02): one selector, a short list of type properties, and only the gradient colours
+of config.START_TITLE_GRADIENT and its fallback, each readable on both modes' backgrounds. The
+browser checks are in docs/TESTING.md.
 """
 
 import re
@@ -48,6 +51,25 @@ COLOUR = re.compile(r"#[0-9a-f]{3,8}\b|\b(rgba?|hsla?|hwb|lab|lch|oklab|oklch|co
 # A selector part: an st-key class, a listed test id, or a combinator.
 SELECTOR_PART = re.compile(r'\.st-key-[a-z0-9_-]+|\[data-testid="(?P<id>[A-Za-z]+)"\]|\s+|\s*>\s*')
 MEDIA = re.compile(r"@media \(max-width: (\d+)px\)")
+# The start page's title (T9.5): the only rule that may set colour or type, outside any @media.
+TITLE_SELECTOR = ".st-key-start_title h1"
+TITLE_COLOURS = frozenset(
+    c.lower() for c in (*config.START_TITLE_GRADIENT, config.START_TITLE_FALLBACK)
+)
+GRADIENT = re.compile(r"linear-gradient\(\d{1,3}deg((?:, #[0-9a-f]{6})+)\)")
+HEX = re.compile(r"#[0-9a-f]{6}")
+TITLE_VALUES = {
+    "display": re.compile(r"inline-block"),
+    "font-size": re.compile(r"\d+(\.\d+)?rem"),
+    "font-weight": re.compile(r"[1-9]00"),
+    "color": HEX,
+    "background-image": GRADIENT,
+    "-webkit-background-clip": re.compile(r"text"),
+    "background-clip": re.compile(r"text"),
+    "-webkit-text-fill-color": re.compile(r"transparent"),
+}
+# Large text (the title is over 24 px) needs 3:1 against the page (WCAG 1.4.3).
+MIN_TITLE_CONTRAST = 3.0
 
 
 def _css() -> str:
@@ -109,7 +131,10 @@ def problems(css: str) -> list[str]:
             found.append(f"at-rule {prelude!r}: only @media (max-width: Npx)")
         elif media and int(media.group(1)) != config.PHONE_MAX_WIDTH_PX:
             found.append(f"{prelude!r}: the width is not config.PHONE_MAX_WIDTH_PX")
-    for selector, body, _ in _rules(css):
+    for selector, body, media in _rules(css):
+        if selector == TITLE_SELECTOR:
+            found += _title_problems(body, media)
+            continue
         for part in selector.split(","):
             left = part.strip()
             for match in SELECTOR_PART.finditer(left):
@@ -125,6 +150,20 @@ def problems(css: str) -> list[str]:
                 found.append(f"{prop}: {value!r} sets a colour")
             elif not all(LENGTH.fullmatch(word) or word in KEYWORDS for word in value.split()):
                 found.append(f"{prop}: {value!r} has a value outside the allowed ones")
+    return found
+
+
+def _title_problems(body: str, media: str | None) -> list[str]:
+    """Return how the start page title's rule breaks its own narrower rules."""
+    found = [] if media is None else [f"{TITLE_SELECTOR} inside {media!r}"]
+    for prop, value in _declarations(body):
+        pattern = TITLE_VALUES.get(prop)
+        if pattern is None:
+            found.append(f"{TITLE_SELECTOR}: property {prop!r} is not allowed")
+        elif not pattern.fullmatch(value):
+            found.append(f"{TITLE_SELECTOR}: {prop}: {value!r} is not an allowed value")
+        elif any(colour not in TITLE_COLOURS for colour in HEX.findall(value)):
+            found.append(f"{TITLE_SELECTOR}: {prop}: {value!r} uses a colour not in config")
     return found
 
 
@@ -239,3 +278,56 @@ def test_the_check_accepts_layout_rules_and_the_phone_query():
         '[data-testid="stDialog"] [data-testid="InputInstructions"] { margin: 0 auto; }\n'
     )
     assert problems(css) == []
+
+
+def test_the_start_title_rule_is_the_only_colour_rule():
+    """The title's rule exists once, outside @media, with the gradient and fallback from config."""
+    rules = [rule for rule in _rules(_css()) if rule[0] == TITLE_SELECTOR]
+    assert len(rules) == 1 and rules[0][2] is None
+    values = dict(_declarations(rules[0][1]))
+    assert HEX.findall(values["background-image"]) == [
+        c.lower() for c in config.START_TITLE_GRADIENT
+    ]
+    assert values["color"] == config.START_TITLE_FALLBACK.lower()
+    assert values["-webkit-text-fill-color"] == "transparent"
+
+
+def _luminance(colour: str) -> float:
+    """Return a hex colour's relative luminance (WCAG 2)."""
+    channels = [int(colour[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+    linear = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def _contrast(first: str, second: str) -> float:
+    """Return the WCAG contrast ratio of two hex colours."""
+    high, low = sorted((_luminance(first), _luminance(second)), reverse=True)
+    return (high + 0.05) / (low + 0.05)
+
+
+@pytest.mark.parametrize("mode", ["light", "dark"])
+@pytest.mark.parametrize("colour", [*config.START_TITLE_GRADIENT, config.START_TITLE_FALLBACK])
+def test_every_title_colour_is_readable_in_both_modes(mode, colour):
+    """Each gradient stop and the fallback reach 3:1 (large text) on the mode's background."""
+    import tomllib
+
+    theme = tomllib.loads((config.PROJECT_ROOT / ".streamlit" / "config.toml").read_text("utf-8"))
+    background = theme["theme"][mode]["backgroundColor"]
+    assert _contrast(colour, background) >= MIN_TITLE_CONTRAST
+
+
+@pytest.mark.parametrize(
+    "css",
+    [
+        ".st-key-start_title h1 { color: #ff0000; }",
+        ".st-key-start_title h1 { background-image: linear-gradient(90deg, #127a5f, #ff00ff); }",
+        ".st-key-start_title h1 { background-image: url(x.png); }",
+        ".st-key-start_title h1 { position: absolute; }",
+        ".st-key-start_title h1 { font-size: 99px; }",
+        ".st-key-other h1 { color: #127a5f; }",
+        "@media (max-width: 640px) { .st-key-start_title h1 { font-size: 2rem; } }",
+    ],
+)
+def test_the_check_refuses_anything_else_in_the_title_rule(css):
+    """Another colour, a load, another property or unit, another selector or a media rule fail."""
+    assert problems(css)

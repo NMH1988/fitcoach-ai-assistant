@@ -1,8 +1,9 @@
 /* The app's own stylesheet (T9.23; docs/UI_DESIGN.md, "The custom CSS layer"), loaded once per run
    with st.html(config.APP_CSS_PATH). Layout, spacing and visibility only: no colour (light and dark
    mode come from the theme), nothing loaded from another host, and selectors only on st-key classes
-   and the test ids listed in tests/test_stylesheet.py. If Streamlit renames a test id, its rule stops
-   applying and the page falls back to Streamlit's own layout. */
+   and the test ids listed in tests/test_stylesheet.py. The one exception is the start page's title
+   (T9.5, owner's choice): its gradient colours come from config.START_TITLE_GRADIENT. If Streamlit
+   renames a test id, its rule stops applying and the page falls back to Streamlit's own layout. */
 
 /* The "Your details" dialog (T4.6): hides Streamlit's in-field "Press Enter to apply", as the
    dialog's first line (config.PROFILE_FORM_HINT) says how values are applied and saved. Scoped to the
@@ -10,4 +11,17 @@
    max_chars added to this dialog would lose its counter too. */
 [data-testid="stDialog"] [data-testid="InputInstructions"] {
   display: none;
+}
+
+/* The start page's title (T9.5, owner's choice of 2026-11-02): larger, with a teal-to-green gradient
+   clipped to the text. The solid colour is the fallback where background-clip: text is missing. */
+.st-key-start_title h1 {
+  display: inline-block;
+  font-size: 3.4rem;
+  font-weight: 800;
+  color: #168563;
+  background-image: linear-gradient(100deg, #0f7f8c, #1d9e75, #4e9a28);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }

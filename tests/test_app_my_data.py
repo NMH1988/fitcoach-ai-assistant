@@ -181,7 +181,7 @@ def start_demo(monkeypatch, *, auth=False) -> AppTest:
 def test_demo_mode_offers_the_synthetic_users(monkeypatch, demo_store_is_fresh):
     """With DEMO_MODE on and no [auth], the picker lists a guest and the demo users only."""
     at = start_demo(monkeypatch)
-    picker = at.selectbox(key="demo_user")
+    picker = at.selectbox(key="demo_user_start")
     assert picker.options == ["Guest (nothing stored)", *(u.display_name for u in demo.DEMO_USERS)]
     assert not [item for item in at.button if item.label == "Sign in with Google"]
     assert "Demo mode" in texts(at)
@@ -192,7 +192,7 @@ def test_picking_a_demo_gymer_loads_their_profile_from_the_demo_database(
 ):
     """Sam's profile comes from the seeded temporary database; the real store file is untouched."""
     at = start_demo(monkeypatch)
-    at.selectbox(key="demo_user").set_value(demo.SHARING_GYMER.id).run(timeout=30)
+    at.selectbox(key="demo_user_start").set_value(demo.SHARING_GYMER.id).run(timeout=30)
     assert at.session_state["profile"] == demo.PROFILES[demo.SHARING_GYMER.id]
     assert "**Demo gymer Sam** · Gymer" in texts(at)
     assert resources.demo_store() != config.STORE_PATH
@@ -202,7 +202,7 @@ def test_picking_a_demo_gymer_loads_their_profile_from_the_demo_database(
 def test_a_demo_coach_reaches_my_data(monkeypatch, demo_store_is_fresh):
     """The demo coach has the coach's pages."""
     at = start_demo(monkeypatch)
-    at.selectbox(key="demo_user").set_value(demo.COACH.id).run(timeout=30)
+    at.selectbox(key="demo_user_start").set_value(demo.COACH.id).run(timeout=30)
     at = open_my_data(at)
     assert "**Demo coach Alex** · Coach" in texts(at)
 
@@ -227,7 +227,7 @@ def test_a_deleted_demo_user_is_a_guest(monkeypatch, demo_store_is_fresh):
 
     with db.connect(resources.demo_store()) as conn:
         my_data.delete_user_data(conn, demo.OTHER_GYMER.id)
-    at.selectbox(key="demo_user").set_value(demo.OTHER_GYMER.id).run(timeout=30)
+    at.selectbox(key="demo_user_start").set_value(demo.OTHER_GYMER.id).run(timeout=30)
     assert "Set up your account" not in texts(at)
     assert "Sign in or continue as a guest" in texts(at)  # a guest who has not chosen yet
     assert "Demo gymer Kim** ·" not in texts(at)
@@ -252,7 +252,7 @@ def test_my_data_says_where_the_relationships_are(monkeypatch, gymer_with_record
 def test_demo_mode_opens_on_the_start_page(monkeypatch, demo_store_is_fresh):
     """A new demo session sees the start page, with no Google button; "Continue as guest" chats."""
     at = start_demo(monkeypatch)
-    assert "pick a made-up user in the sidebar to try" in texts(at)
+    assert "pick a made-up user below to try" in texts(at)
     assert not at.tabs
     assert not [item for item in at.button if item.label == "Sign in with Google"]
     assert "go to the AI model through OpenRouter" in texts(at)
@@ -268,4 +268,4 @@ def test_leaving_a_demo_user_returns_to_the_start_page(monkeypatch, demo_store_i
     assert len(at.tabs) == 4
     at.selectbox(key="demo_user").set_value(None).run(timeout=30)
     assert not at.tabs
-    assert "pick a made-up user in the sidebar to try" in texts(at)
+    assert "pick a made-up user below to try" in texts(at)

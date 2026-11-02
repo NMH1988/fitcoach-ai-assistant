@@ -14,6 +14,9 @@ observability.configure_logging()
 # for the session.
 if i18n.SESSION_KEY not in st.session_state:
     st.session_state[i18n.SESSION_KEY] = i18n.language_for_locale(i18n.browser_locale())
+# Kept as the session's own value, so a run that draws no language control (the start page) does
+# not drop it with the widget's state (T9.5).
+st.session_state[i18n.SESSION_KEY] = st.session_state[i18n.SESSION_KEY]
 
 st.set_page_config(
     page_title=i18n.t("app.title", st.session_state[i18n.SESSION_KEY]),
@@ -42,11 +45,15 @@ if "conversation" not in st.session_state:
 # The user decides which pages exist in this run (D20): a guest's chat, a new account's welcome
 # page, or a role's pages. The account block sits at the top of the sidebar, under the menu.
 user = account.resolve()
-with st.sidebar:
-    account.sidebar_block(user)
+# The start page has no sidebar (owner's choice, 2026-11-02): it shows its own language link.
+on_start = account.needs_start(user)
+if not on_start:
+    with st.sidebar:
+        account.sidebar_block(user)
 st.navigation(navigation.pages_for(user)).run()
-# Last in the sidebar on every page: About, then the language control directly below it (the
-# answer prompt's language parts say so, T9.23).
-with st.sidebar:
-    about.sidebar_button()
-    sidebar.language_control()
+# Last in the sidebar on every other page: About, then the language control directly below it
+# (the answer prompt's language parts say so, T9.23).
+if not on_start:
+    with st.sidebar:
+        about.sidebar_button()
+        sidebar.language_control()

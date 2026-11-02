@@ -458,6 +458,11 @@ PROFILE_FORM_HINT = "Type your values, then press Save. Values are checked when 
 # reads a relative path from the working directory. Since T9.23 it holds the dialog's rule that hid
 # "Press Enter to apply" (T4.6), which until then was its own fixed string.
 APP_CSS_PATH = PROJECT_ROOT / "assets" / "app.css"
+# The start page's title (T9.5, owner's choice of 2026-11-02): the one rule of app.css that may set
+# colour, a teal-to-green gradient around the theme's greens, every stop at least 3:1 (large text)
+# on both modes' backgrounds, with a solid fallback (tests/test_stylesheet.py checks both).
+START_TITLE_GRADIENT = ("#0F7F8C", "#1D9E75", "#4E9A28")
+START_TITLE_FALLBACK = "#168563"
 # The widest screen the stylesheet treats as a phone: each @media (max-width: Npx) in it uses this
 # value (tests/test_stylesheet.py). Streamlit 1.66 stacks st.columns below 640 px; a tablet (about
 # 820 px) keeps the desktop layout. T9.15's client cards use it.

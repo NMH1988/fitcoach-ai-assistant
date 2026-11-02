@@ -20,8 +20,13 @@ from views import header, resources
 from views.text import label_of, t
 
 DEMO_KEY = "demo_user"
+# The start page's own demo picker. A widget's identity includes the page that draws it, so the
+# start page cannot share the sidebar's widget (drawn by app.py): its choice is copied to DEMO_KEY.
+START_DEMO_KEY = "demo_user_start"
 # Set when a visitor chose "Continue as guest" on the start page; a sign-out clears it.
 GUEST_KEY = "guest_chosen"
+# The start page's title container, which assets/app.css styles (`.st-key-start_title h1`).
+START_TITLE_KEY = "start_title"
 # Kept when the user changes: the language and the session's rate limit (a sign-out is no way
 # around it), and the demo picker's own value.
 KEPT_KEYS = frozenset({i18n.SESSION_KEY, guard.SESSION_LIMITER_KEY, DEMO_KEY})
@@ -147,15 +152,22 @@ def store_notice() -> None:
         st.error(t("account.store_unavailable"), icon=":material/error:")
 
 
-def _demo_picker() -> None:
+def pick_demo_user_from_start() -> None:
+    """Take the start page's demo pick as the session's demo user, with a fresh session."""
+    picked = st.session_state.get(START_DEMO_KEY)
+    clear_session()
+    st.session_state[DEMO_KEY] = picked
+
+
+def _demo_picker(key: str = DEMO_KEY, on_change=clear_session) -> None:
     """Show the demo user picker: a guest or one of the synthetic users (D18)."""
     names = {user.id: user.display_name for user in demo.DEMO_USERS}
     st.selectbox(
         t("account.demo_user"),
         [None, *names],
         format_func=lambda user_id: t("account.guest") if user_id is None else names[user_id],
-        key=DEMO_KEY,
-        on_change=clear_session,
+        key=key,
+        on_change=on_change,
     )
     st.caption(f":material/science: {t('account.demo_note')}")
 
@@ -177,6 +189,8 @@ def _signed_in(user: dict) -> None:
 def sidebar_block(user: dict | None) -> None:
     """Show the account block at the top of the sidebar: the demo picker, the user or a note."""
     if config.demo_mode():
+        if needs_start(user):
+            return  # the start page shows the picker itself, and the page has no sidebar
         _demo_picker()
         if user is not None:
             _signed_in(user)
@@ -209,12 +223,19 @@ def sidebar_block(user: dict | None) -> None:
 
 def start_page() -> None:
     """Show the start page: sign in with Google, or continue as a guest (owner's choice)."""
+    # No sidebar here (app.py draws none for this page): the language is a link at the top right,
+    # the title stands alone, and the disclaimer is one line under the choices (owner's choices,
+    # 2026-11-02; AC-12 keeps it on every page).
     with header.main_column():
-        header.show()
+        _language_link()
+        with st.container(key=START_TITLE_KEY):
+            # assets/app.css gives this title its size and green gradient.
+            st.title(t("app.title"), anchor=False)
         store_notice()
         st.subheader(t("start.title"))
         if config.demo_mode():
             st.markdown(t("start.demo"))
+            _demo_picker(START_DEMO_KEY, on_change=pick_demo_user_from_start)
         elif config.sign_in_ready():
             st.markdown(t("start.text"))
         else:
@@ -227,6 +248,26 @@ def start_page() -> None:
                     t("account.sign_in"), type="primary", icon=":material/login:", on_click=st.login
                 )
             st.button(t("start.guest"), icon=":material/person:", on_click=continue_as_guest)
+        st.caption(f":material/info: **{t('app.not_medical_advice')}.** {t('app.disclaimer')}")
+
+
+def switch_language(language: i18n.Language) -> None:
+    """Change the session's language (the start page's link)."""
+    st.session_state[i18n.SESSION_KEY] = language
+
+
+def _language_link() -> None:
+    """Show the other language as a link-style button at the top right of the start page."""
+    other = next(code for code in i18n.LANGUAGES if code != st.session_state[i18n.SESSION_KEY])
+    with st.container(horizontal=True, horizontal_alignment="right"):
+        st.button(
+            i18n.LANGUAGE_LABELS[other],
+            icon=":material/language:",
+            type="tertiary",
+            key="start_language",
+            on_click=switch_language,
+            args=(other,),
+        )
 
 
 def welcome_page() -> None:
