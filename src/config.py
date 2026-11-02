@@ -726,6 +726,16 @@ def _secret(name: str) -> object:
         return None
 
 
+def secrets_file_broken() -> bool:
+    """Return True if secrets.toml exists but cannot be parsed (every secret then reads missing)."""
+    try:
+        st.secrets.get(API_KEY_NAME)
+    except FileNotFoundError as exc:
+        # Streamlit chains the TOML error as the cause when the file exists but is broken.
+        return exc.__cause__ is not None
+    return False
+
+
 def auth_configured() -> bool:
     """Return True if secrets.toml has an [auth] section (sign-in with Google, T9.5)."""
     section = _secret(AUTH_SECTION)

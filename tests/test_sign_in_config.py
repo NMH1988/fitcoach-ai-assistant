@@ -162,3 +162,12 @@ def test_a_short_cookie_secret_is_refused(secrets_from_file):
     short = "c" * (config.COOKIE_SECRET_MIN_CHARS - 1)
     secrets_from_file(AUTH.replace(REAL_COOKIE, short) + _account(REAL_SECRET))
     assert not config.sign_in_ready()
+
+
+def test_a_broken_secrets_file_is_told_apart_from_a_missing_one(secrets_from_file, monkeypatch):
+    """A secrets.toml with a syntax error reads as broken; a good one, or none, does not."""
+    secrets_from_file('OPENROUTER_API_KEY = "sk-test-not-a-real-key"\n')
+    assert not config.secrets_file_broken()
+    secrets_from_file("[auth\nclient_id = unquoted\n")
+    assert config.secrets_file_broken()
+    assert not config.auth_configured()

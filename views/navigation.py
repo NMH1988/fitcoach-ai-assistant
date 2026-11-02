@@ -2,8 +2,9 @@
 
 Only the pages listed for the user's role are registered in a run, so a page of another role (or a
 signed-in user's page for a guest) cannot be opened even by its URL: Streamlit shows the role's
-home instead. A guest has one page, the chat with today's tabs, so no menu shows. A user signed in
-with Google who has no account yet ("pending") sees only the welcome page that creates it.
+home instead. A new session sees only the start page (sign in, or continue as a guest) when sign-in
+is set up or in demo mode. A guest has one page, the chat with today's tabs, so no menu shows. A
+user signed in with Google who has no account yet ("pending") sees only the welcome page.
 """
 
 import streamlit as st
@@ -14,10 +15,12 @@ from views.text import t
 CHAT = "chat"
 MY_DATA = my_data.URL_PATH
 WELCOME = "welcome"
+START = "start"
 PENDING = "pending"
 # The first page of each list is the role's home (AC-18). Later tickets add their pages here.
 PAGES_BY_ROLE: dict[str | None, tuple[str, ...]] = {
     None: (CHAT,),
+    START: (START,),
     PENDING: (WELCOME,),
     "coach": (CHAT, MY_DATA),
     "gymer": (CHAT, MY_DATA),
@@ -26,11 +29,14 @@ _PAGES = {
     CHAT: (pages.chat_page, "page.chat", ":material/chat:"),
     MY_DATA: (my_data.page, "page.my_data", ":material/folder_shared:"),
     WELCOME: (account.welcome_page, "page.welcome", ":material/waving_hand:"),
+    START: (account.start_page, "page.start", ":material/login:"),
 }
 
 
 def role_key(user: dict | None) -> str | None:
     """Return the key of PAGES_BY_ROLE for the session's user (None for a guest)."""
+    if account.needs_start(user):
+        return START
     return None if user is None else user["role"]
 
 

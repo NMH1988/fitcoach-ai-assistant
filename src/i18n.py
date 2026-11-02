@@ -512,6 +512,21 @@ _EN: dict[str, str] = {
     "page.chat": "Chat",
     "page.my_data": "My data",
     "page.welcome": "Welcome",
+    "page.start": "Start",
+    "start.title": "Sign in or continue as a guest",
+    "start.text": (
+        "Sign in with Google to keep your profile and daily targets (a gymer) or to work with "
+        "clients (a coach). Or continue as a guest: the chat works the same, and nothing is "
+        "stored."
+    ),
+    "start.guest": "Continue as guest",
+    "start.demo": "Demo mode: pick a made-up user in the sidebar, or continue as a guest.",
+    "account.guest_note": "You are using the app as a guest: nothing is stored.",
+    "account.start_page": "Sign in",
+    "account.secrets_broken": (
+        "Sign-in is off: `.streamlit/secrets.toml` could not be read (a TOML syntax error?). Fix "
+        "the file and restart the app. You can use the chat as a guest; nothing is stored."
+    ),
     "role.coach": "Coach",
     "role.gymer": "Gymer",
     "role_choice.coach": "Coach · I follow clients' nutrition and training",
@@ -1159,6 +1174,25 @@ _DE: dict[str, str] = {
     "page.chat": "Chat",
     "page.my_data": "Meine Daten",
     "page.welcome": "Willkommen",
+    "page.start": "Start",
+    "start.title": "Anmelden oder als Gast weiter",
+    "start.text": (
+        "Melden Sie sich mit Google an, um Ihr Profil und Ihre Tagesziele zu behalten (als Gymer) "
+        "oder mit Kunden zu arbeiten (als Coach). Oder machen Sie als Gast weiter: Der Chat "
+        "funktioniert genauso, und nichts wird gespeichert."
+    ),
+    "start.guest": "Als Gast weiter",
+    "start.demo": (
+        "Demo-Modus: Wählen Sie in der Seitenleiste einen erfundenen Nutzer, oder machen Sie als "
+        "Gast weiter."
+    ),
+    "account.guest_note": "Sie nutzen die App als Gast: Nichts wird gespeichert.",
+    "account.start_page": "Anmelden",
+    "account.secrets_broken": (
+        "Die Anmeldung ist aus: `.streamlit/secrets.toml` konnte nicht gelesen werden "
+        "(ein TOML-Syntaxfehler?). Korrigieren Sie die Datei und starten Sie die App neu. Sie "
+        "können den Chat als Gast nutzen; nichts wird gespeichert."
+    ),
     "role.coach": "Coach",
     "role.gymer": "Gymer",
     "role_choice.coach": "Coach · Ich begleite Ernährung und Training meiner Kunden",

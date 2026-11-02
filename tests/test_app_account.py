@@ -100,18 +100,60 @@ def test_without_auth_the_button_is_hidden_and_a_note_says_why(monkeypatch):
     assert len(at.tabs) == 4
 
 
-def test_with_auth_a_guest_sees_the_sign_in_button(monkeypatch, login_calls):
-    """With sign-in set up, a guest gets "Sign in with Google", which starts st.login."""
+def test_with_auth_a_new_session_opens_on_the_start_page(monkeypatch, login_calls):
+    """With sign-in set up, a new session sees only the start page; its button starts st.login."""
     at = start(monkeypatch)
+    assert "Sign in or continue as a guest" in texts(at)
+    assert not at.tabs
+    assert button(at, "Continue as guest")
     button(at, "Sign in with Google").click().run(timeout=30)
     assert login_calls == ["login"]
-    assert len(at.tabs) == 4
 
 
-def test_the_sign_in_button_is_not_primary(monkeypatch):
-    """White text on the sidebar's primary is 2.0:1, so the button is secondary (T9.23)."""
+def test_the_sign_in_button_is_on_the_start_page_not_in_the_sidebar(monkeypatch):
+    """Sign-in is the start page's (owner's choice, 2026-11-02): the sidebar has no such button."""
     at = start(monkeypatch)
-    assert button(at, "Sign in with Google").proto.type != "primary"
+    assert not [item for item in at.sidebar.button if item.label == "Sign in with Google"]
+    assert button(at, "Sign in with Google").proto.type == "primary"
+
+
+GUEST_LABELS = {"en": "Continue as guest", "de": "Als Gast weiter"}
+
+
+def continue_as_guest(at: AppTest, language: str = "en") -> AppTest:
+    """Press "Continue as guest" on the start page and return the handle."""
+    return button(at, GUEST_LABELS[language]).click().run(timeout=30)
+
+
+def test_continue_as_guest_opens_the_chat_with_a_way_back(monkeypatch):
+    """A guest gets today's chat, a sidebar note and a "Sign in" button back to the start page."""
+    at = continue_as_guest(start(monkeypatch))
+    assert len(at.tabs) == 4
+    assert "You are using the app as a guest" in texts(at)
+    button(at, "Sign in").click().run(timeout=30)
+    assert "Sign in or continue as a guest" in texts(at)
+    assert not at.tabs
+
+
+def test_the_chat_cannot_be_reached_before_a_choice(monkeypatch):
+    """Requesting the chat's URL before choosing shows the start page."""
+    at = start(monkeypatch)
+    at._page_hash = calc_hash(navigation.CHAT)
+    at.run(timeout=30)
+    assert not at.tabs
+    assert "Sign in or continue as a guest" in texts(at)
+
+
+@pytest.mark.parametrize(
+    ("language", "message"),
+    [("en", "could not be read (a TOML syntax error?)"), ("de", "TOML-Syntaxfehler")],
+)
+def test_a_broken_secrets_file_is_named(monkeypatch, language, message):
+    """A secrets.toml that cannot be parsed says so, instead of "sign-in is off"."""
+    monkeypatch.setattr(config, "secrets_file_broken", lambda: True)
+    at = start(monkeypatch, auth=False, language=language)
+    assert message in texts(at)
+    assert len(at.tabs) == 4
 
 
 def test_with_example_placeholders_sign_in_is_not_offered(monkeypatch):
@@ -127,7 +169,7 @@ def test_with_example_placeholders_sign_in_is_not_offered(monkeypatch):
 
 def test_a_guest_writes_nothing_to_disk(monkeypatch):
     """A guest who saves a profile and opens the app's pages never creates the store file."""
-    at = start(monkeypatch)
+    at = continue_as_guest(start(monkeypatch))
     button(at, "Add your details").click().run(timeout=30)
     at.number_input(key="profile_form_weight").set_value(80.0)
     at.number_input(key="profile_form_height_cm").set_value(180)
@@ -222,17 +264,21 @@ def test_sign_out_clears_the_session_and_calls_st_logout(monkeypatch, login_call
 # --- Pages per role (D20) -------------------------------------------------------------------------
 
 
-def _role_user(role):
-    """Store an account for a role (none for a guest or a first sign-in) and return st.user."""
+def _start_as(monkeypatch, role) -> AppTest:
+    """Run the app as a role: a guest, a new visitor (start), a first sign-in or an account."""
+    if role is None:
+        return start(monkeypatch, auth=False)  # a guest of a copy with no sign-in
+    if role == navigation.START:
+        return start(monkeypatch)  # a new visitor, sign-in set up
     if role in ("coach", "gymer"):
         store_account(role)
-    return None if role is None else signed_in()
+    return start(monkeypatch, user=signed_in())
 
 
 @pytest.mark.parametrize("role", list(navigation.PAGES_BY_ROLE))
 def test_a_page_of_another_role_cannot_be_reached_by_its_url(monkeypatch, role):
     """Requesting any url_path the role does not have shows the role's home instead."""
-    at = start(monkeypatch, user=_role_user(role))
+    at = _start_as(monkeypatch, role)
     home = navigation.PAGES_BY_ROLE[role][0]
     others = {path for paths in navigation.PAGES_BY_ROLE.values() for path in paths}
     for url_path in sorted(others - set(navigation.PAGES_BY_ROLE[role])):
@@ -244,6 +290,8 @@ def test_a_page_of_another_role_cannot_be_reached_by_its_url(monkeypatch, role):
         at.run(timeout=30)
         if home == navigation.CHAT:
             assert len(at.tabs) == 4, url_path
+        elif home == navigation.START:
+            assert "Sign in or continue as a guest" in texts(at), url_path
         else:
             assert "Set up your account" in texts(at), url_path
         assert "Delete everything" not in texts(at), url_path
@@ -384,7 +432,7 @@ def test_a_coach_profile_stays_in_the_session(monkeypatch):
 )
 def test_the_privacy_note_per_user(monkeypatch, language, guest, gymer, coach, link):
     """A guest keeps today's text; a gymer and a coach get theirs, a My data link and the ask."""
-    at = start(monkeypatch, language=language)
+    at = continue_as_guest(start(monkeypatch, language=language), language)
     at.session_state["profile"] = PROFILE
     at.run(timeout=30)
     assert guest in texts(at)

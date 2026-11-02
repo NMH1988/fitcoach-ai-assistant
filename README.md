@@ -90,7 +90,7 @@ The app runs locally only for now; a public deployment needs one of the options 
 
 ### Sign-in and demo mode (optional)
 
-- **Sign in with Google:** create a Google OAuth client for `http://localhost:8501/oauth2callback` in Testing mode, add the accounts that may sign in as test users, then fill the `[auth]` and `[account]` sections of `.streamlit/secrets.toml` (commented out in the example). Step by step: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md), "Sign-in with Google on localhost". At the first sign-in you choose Coach or Gymer (once) and a display name; a gymer's details are saved when they press Save (the first time after ticking that they understand they are stored), and My data shows, exports or deletes them.
+- **Sign in with Google:** create a Google OAuth client for `http://localhost:8501/oauth2callback` in Testing mode, add the accounts that may sign in as test users, then fill the `[auth]` and `[account]` sections of `.streamlit/secrets.toml` (commented out in the example). Step by step: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md), "Sign-in with Google on localhost". The app then opens on a start page: "Sign in with Google" or "Continue as guest". At the first sign-in you choose Coach or Gymer (once) and a display name; a gymer's details are saved when they press Save (the first time after ticking that they understand they are stored), and My data shows, exports or deletes them.
 - **Demo mode:** with no `[auth]` section, set `DEMO_MODE = true` in `.streamlit/secrets.toml` (or `DEMO_MODE=1` in the environment). A "Demo user" picker offers a guest, a coach and two gymers, all made up, on a temporary database that is deleted when the app stops.
 - **Neither:** the app runs for guests; nothing is stored.
 

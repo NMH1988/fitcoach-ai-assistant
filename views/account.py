@@ -1,4 +1,8 @@
-"""The account block in the sidebar, the welcome page of a first sign-in, and the session's user.
+"""The start page, the account block in the sidebar, the welcome page and the session's user.
+
+When sign-in is set up (or in demo mode), a new session opens on the start page: sign in with
+Google or continue as a guest (owner's choice, 2026-11-02); nothing else is reachable until one is
+chosen. With no [auth] section the app opens as a guest, with a note in the sidebar.
 
 The session's user is worked out again on every run (`resolve()`): from the signed-in Google
 account (`st.user`, hashed with the secret into the user ID; its name, email and picture are
@@ -16,6 +20,8 @@ from views import header, resources
 from views.text import label_of, t
 
 DEMO_KEY = "demo_user"
+# Set when a visitor chose "Continue as guest" on the start page; a sign-out clears it.
+GUEST_KEY = "guest_chosen"
 # Kept when the user changes: the language and the session's rate limit (a sign-out is no way
 # around it), and the demo picker's own value.
 KEPT_KEYS = frozenset({i18n.SESSION_KEY, guard.SESSION_LIMITER_KEY, DEMO_KEY})
@@ -88,6 +94,29 @@ def resolve() -> dict | None:
     return user
 
 
+def start_offered() -> bool:
+    """Return True if a new session opens on the start page: sign-in is configured, or demo mode."""
+    return config.auth_configured() or config.demo_mode()
+
+
+def needs_start(user: dict | None) -> bool:
+    """Return True if this run shows only the start page: no user, and no guest chosen yet."""
+    # Signed in to Google but with the store down is not a new visitor: no start page then.
+    if user is not None or identity() is not None or st.session_state.get(GUEST_KEY):
+        return False
+    return start_offered()
+
+
+def continue_as_guest() -> None:
+    """Remember that the visitor chose to use the app as a guest (nothing is stored)."""
+    st.session_state[GUEST_KEY] = True
+
+
+def back_to_start() -> None:
+    """Go back to the start page from a guest's session, to sign in."""
+    st.session_state[GUEST_KEY] = False
+
+
 def current_user() -> dict | None:
     """Return this run's user as resolve() found it (None for a guest)."""
     return st.session_state.get("account")
@@ -146,7 +175,7 @@ def _signed_in(user: dict) -> None:
 
 
 def sidebar_block(user: dict | None) -> None:
-    """Show the account block at the top of the sidebar: sign-in, demo picker or the user."""
+    """Show the account block at the top of the sidebar: the demo picker, the user or a note."""
     if config.demo_mode():
         _demo_picker()
         if user is not None:
@@ -158,14 +187,42 @@ def sidebar_block(user: dict | None) -> None:
         st.button(
             t("account.sign_out"), icon=":material/logout:", width="stretch", on_click=sign_out
         )
-    elif config.sign_in_ready():
-        # A secondary button: white text on the sidebar's primary is only 2.0:1 (T9.23).
-        st.button(t("account.sign_in"), icon=":material/login:", width="stretch", on_click=st.login)
-    elif config.auth_configured():
-        st.caption(f":material/info: {t('account.not_set_up')}")
+    elif needs_start(user):
+        return  # the start page itself offers sign-in and the guest choice; nothing to divide
+    elif start_offered():
+        # A guest who chose to be one: no sign-in here, only the way back to the start page.
+        st.caption(f":material/person: {t('account.guest_note')}")
+        st.button(
+            t("account.start_page"),
+            icon=":material/login:",
+            width="stretch",
+            on_click=back_to_start,
+        )
+    elif config.secrets_file_broken():
+        st.caption(f":material/error: {t('account.secrets_broken')}")
     else:
         st.caption(f":material/info: {t('account.sign_in_off')}")
     st.divider()
+
+
+def start_page() -> None:
+    """Show the start page: sign in with Google, or continue as a guest (owner's choice)."""
+    with header.main_column():
+        header.show()
+        store_notice()
+        st.subheader(t("start.title"))
+        st.markdown(t("start.text"))
+        with st.container(horizontal=True):
+            if config.demo_mode():
+                st.caption(f":material/science: {t('start.demo')}")
+            elif config.sign_in_ready():
+                # The main theme's primary, not the sidebar's (T9.23's 2.0:1 note is the sidebar).
+                st.button(
+                    t("account.sign_in"), type="primary", icon=":material/login:", on_click=st.login
+                )
+            else:
+                st.caption(f":material/info: {t('account.not_set_up')}")
+            st.button(t("start.guest"), icon=":material/person:", on_click=continue_as_guest)
 
 
 def welcome_page() -> None:

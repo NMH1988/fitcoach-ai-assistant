@@ -229,7 +229,7 @@ def test_a_deleted_demo_user_is_a_guest(monkeypatch, demo_store_is_fresh):
         my_data.delete_user_data(conn, demo.OTHER_GYMER.id)
     at.selectbox(key="demo_user").set_value(demo.OTHER_GYMER.id).run(timeout=30)
     assert "Set up your account" not in texts(at)
-    assert len(at.tabs) == 4
+    assert "Sign in or continue as a guest" in texts(at)  # a guest who has not chosen yet
     assert "Demo gymer Kim** ·" not in texts(at)
 
 
