@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-02 · T9.24 Coach-first rework: gymers without the AI chat (planning) · PR to come (closes NMH1988/fitcoach-ai-assistant#60)
+## 2026-11-02 · T9.24 Coach-first rework: gymers without the AI chat (planning) · NMH1988/fitcoach-ai-assistant#62 (closes NMH1988/fitcoach-ai-assistant#60)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 1 (purpose and users), core 2 (core functionality), evaluation: problem definition. Sprint 2 (`docs/BRIEF.md`): none. Beyond the brief (owner's request): the coach-first product model, and T9.25's questions to the coach.
 - **What:** docs only.
   - `docs/PRD.md` "Sprint 3": the intro, the Goal and "Problem and why an agent" (the agent works for the coach; the client logs and reads what the coach approved); "Users and roles" (the coach's AI; the gymer with no AI chat, read-only for the coach's content, P1 questions); features 18 (the gymer's view read-only), 20 and 21 (the chats of guests and coaches), 22 (long-term memory for the coach), 24 (moved to the Capstone), 25 (raised to "should", right after P0) and a new 27 (questions to the coach, P1); the maximum-points line; the guardrails (every role; a gymer's details reach a model only as the week's metrics, in a review the coach starts and, from T9.17, through `get_client_week`); preferences in "The privacy change"; AC-36 reworded for the coach, AC-37 moved to the Capstone, AC-42 added (P1); "Beyond the brief" and "Moved to the Capstone".
