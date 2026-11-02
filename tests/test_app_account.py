@@ -736,3 +736,14 @@ def test_no_text_promises_a_gymer_the_chat(monkeypatch):
     assert "continue as a guest to use the chat" in texts(at)
     for lang in i18n.LANGUAGES:
         assert "chat" not in i18n.t("account.store_unavailable", lang).lower()
+
+
+def test_the_store_failing_closes_an_open_profile_dialog(monkeypatch):
+    """An open "Your details" dialog closes when the stored profile leaves the session."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    button(at, "Edit details").click().run(timeout=30)
+    assert at.session_state["profile_form_open"]
+    _fail_from_now(monkeypatch)
+    at.run(timeout=30)
+    assert not at.session_state["profile_form_open"]
