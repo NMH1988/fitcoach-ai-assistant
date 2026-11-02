@@ -91,8 +91,13 @@ def resolve() -> dict | None:
                 st.session_state["profile"] = account.load_profile(conn, user_id)
                 st.session_state["account_loaded_for"] = user_id
     except account.StoreUnavailable:
-        # Nothing is read or written: the session runs as a guest's, with one fixed message.
+        # Nothing is read or written: the session runs as a guest's, with one fixed message. A
+        # profile loaded from the store earlier leaves the session, so a stored gymer's details
+        # never reach the guest's chat (compliance run 4 on T9.5; owner's choice, 2026-11-02); one
+        # typed in this state is a guest's own and stays.
         st.session_state["store_unavailable"] = True
+        if st.session_state.pop("account_loaded_for", None) is not None:
+            st.session_state.pop("profile", None)
         return None
     user = found or {"id": user_id, "role": "pending", "display_name": None}
     st.session_state["account"] = user
@@ -198,7 +203,9 @@ def sidebar_block(user: dict | None) -> None:
     elif user is not None:
         _signed_in(user)
     elif identity() is not None:
-        # Signed in to Google, but the store failed: no sign-in button, and a way to sign out.
+        # Signed in to Google, but the store failed: the session is a guest's (say so, as the guest
+        # note does), no sign-in button, and a way to sign out.
+        st.caption(f":material/person: {t('account.guest_note')}")
         st.button(
             t("account.sign_out"), icon=":material/logout:", width="stretch", on_click=sign_out
         )

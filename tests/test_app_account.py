@@ -547,15 +547,31 @@ def _counts_unchecked() -> tuple[int, int, int]:
 
 
 def test_with_the_store_down_a_gymer_runs_as_a_guest(monkeypatch):
-    """The store down for the whole run: the fixed message, a guest's note, nothing written."""
+    """Store down: the fixed message, the guest note, no stored profile left, nothing written."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    assert at.session_state["profile"] == PROFILE
+    _fail_from_now(monkeypatch)
+    at.run(timeout=30)
+    assert "cannot be opened right now" in texts(at)
+    # The profile read from the store leaves the session, so it cannot reach the guest's chat.
+    assert "profile" not in at.session_state
+    assert "You are using the app as a guest" in texts(at)
+    assert "through OpenRouter" in texts(at)
+    assert "Saved for your account" not in texts(at)
+    assert _counts_unchecked() == (1, 1, 1)
+
+
+def test_a_profile_typed_while_the_store_is_down_stays_for_the_session(monkeypatch):
+    """Only a profile loaded from the store leaves; one typed in the guest state is kept."""
     store_account("gymer", profile=PROFILE)
     at = start(monkeypatch, user=signed_in())
     _fail_from_now(monkeypatch)
     at.run(timeout=30)
-    assert "cannot be opened right now" in texts(at)
-    assert "Kept for this session only" in texts(at)
-    assert "Saved for your account" not in texts(at)
-    assert _counts_unchecked() == (1, 1, 1)
+    typed = PROFILE.model_copy(update={"weight_kg": 70.0})
+    at.session_state["profile"] = typed
+    at.run(timeout=30)
+    assert at.session_state["profile"] == typed
 
 
 def test_a_failed_goal_change_keeps_the_old_goal(monkeypatch):
@@ -565,7 +581,10 @@ def test_a_failed_goal_change_keeps_the_old_goal(monkeypatch):
     _fail_after(monkeypatch, 0)  # the callback's write is the first opening of the run
     at.segmented_control(key="sidebar_goal").set_value("lose_fat").run(timeout=30)
     assert "cannot be opened right now" in "".join(str(e.value) for e in at.sidebar.error)
-    assert at.session_state["profile"].goal == PROFILE.goal
+    # The run's resolve() fails too, so the stored profile leaves the session (compliance run 4);
+    # no unsaved goal is shown, and the stored rows are unchanged.
+    assert "profile" not in at.session_state
+    assert _counts_unchecked() == (1, 1, 1)
 
 
 def test_a_goal_change_after_the_account_was_deleted_elsewhere(monkeypatch):
