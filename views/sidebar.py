@@ -1,11 +1,12 @@
-"""The sidebar: the profile (goal control, tiles, Edit details) and the language control."""
+"""The sidebar: the profile (goal control, tiles, Edit details), its privacy note, the language."""
 
 from typing import get_args
 
 import streamlit as st
 
+from src import account as accounts
 from src import i18n, profile, units
-from views import profile_form, targets
+from views import account, my_data, profile_form, targets
 from views.text import label_of, lang, t
 
 GOAL_ICONS = {
@@ -15,17 +16,47 @@ GOAL_ICONS = {
 }
 
 
+SAVE_FAILED_KEY = "profile_save_failed"
+
+
 def change_goal() -> None:
-    """Save the goal picked in the sidebar into the profile."""
+    """Keep the goal picked in the sidebar; a signed-in gymer's goes to the store too (T9.5)."""
     goal = st.session_state["sidebar_goal"]
     current = st.session_state.get("profile")
-    if current is not None and goal in get_args(profile.Goal):
-        st.session_state["profile"] = profile.with_goal(current, goal)
+    if current is None or goal not in get_args(profile.Goal):
+        return
+    updated = profile.with_goal(current, goal)
+    user = account.current_user()
+    if user is not None and user["role"] == "gymer":
+        # A new profile entry and target, no new weight; the session keeps the old goal if the
+        # store fails, so the screen never shows a goal that was not saved.
+        try:
+            with accounts.open_store(account.store_path()) as conn:
+                accounts.save_profile(conn, user["id"], updated, with_weight=False)
+        except accounts.StoreUnavailable, accounts.AccountError:
+            st.session_state[SAVE_FAILED_KEY] = True
+            return
+    st.session_state["profile"] = updated
+
+
+def privacy_note() -> None:
+    """Say what happens to the profile: kept for the session, or saved for a gymer (T9.5)."""
+    user = account.current_user()
+    if user is None or user["role"] not in ("coach", "gymer"):
+        # A guest's text is unchanged (it fits the profile card's last line).
+        st.caption(f":material/lock: {t('profile.kept')}")
+        return
+    st.caption(f":material/lock: {t(f'profile.note_{user["role"]}')}")
+    st.page_link(
+        my_data.page_ref(), label=t("profile.my_data_link"), icon=":material/folder_shared:"
+    )
 
 
 def show_profile() -> None:
     """Show the profile in the sidebar, in the chosen units, with a button to edit it."""
     st.header(f":material/person: {t('profile.your_profile')}")
+    if st.session_state.pop(SAVE_FAILED_KEY, False):
+        st.error(t("account.store_unavailable"), icon=":material/error:")
     current = st.session_state.get("profile")
     if current is None:
         st.caption(t("profile.add_caption"))
@@ -35,6 +66,8 @@ def show_profile() -> None:
             width="stretch",
             on_click=profile_form.open_form,
         )
+        if account.current_user() is not None:
+            privacy_note()
         return
     system = st.session_state["units"]
     st.session_state["sidebar_goal"] = current.goal
@@ -65,7 +98,7 @@ def show_profile() -> None:
         t("profile.edit"), icon=":material/edit:", width="stretch", on_click=profile_form.open_form
     )
     targets.sidebar_card(system)
-    st.caption(f":material/lock: {t('profile.kept')}")
+    privacy_note()
 
 
 def language_control() -> None:

@@ -1,8 +1,15 @@
-"""The page header: title, disclaimer badge and the disclaimer box."""
+"""The page header (title, disclaimer badge and the disclaimer box) and the page's main column."""
 
 import streamlit as st
 
+from src import config
 from views.text import t
+
+
+def main_column():
+    """Return the middle column of the wide layout, where every page's content sits."""
+    _, main, _ = st.columns(config.PAGE_COLUMN_WEIGHTS)
+    return main
 
 
 def show() -> None:

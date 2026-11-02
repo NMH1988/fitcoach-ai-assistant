@@ -709,8 +709,8 @@ def test_the_sidebar_card_shows_only_the_last_turns_filters(monkeypatch):
 def test_the_sidebar_card_is_drawn_once_per_run():
     """The card's slot is filled in one place: a slot drawn twice in one run keeps stale badges."""
     # AppTest does not show that browser behaviour (found in a browser check), so the source is
-    # checked instead.
-    source = APP.read_text(encoding="utf-8")
+    # checked instead. The chat page is drawn in views/pages.py since T9.5 (st.navigation).
+    source = (APP.parent / "views" / "pages.py").read_text(encoding="utf-8")
     assert source.count("last_answer_slot.container()") == 1
     # One call; the def line ("last_answer_card() -> None:") is in views/details.py.
     assert source.count("details.last_answer_card()\n") == 1

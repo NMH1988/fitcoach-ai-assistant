@@ -4,8 +4,7 @@ import streamlit as st
 
 from src import config, i18n, observability
 from src.agent import memory
-from views import about, chat, details, export, food, header, profile_form, sidebar, targets
-from views.text import t
+from views import about, account, navigation, sidebar
 
 # One JSON log handler for the app's lines, set up on every rerun (it keeps a single handler, T8.2).
 observability.configure_logging()
@@ -32,55 +31,22 @@ st.logo(":material/nutrition:")
 # TurnResults with their priced TurnUsage under "usage", T5.1); "food_result" the Food lookup
 # tab's last result (USDA data only), with its inputs under "food_query" and "food_grams";
 # "conversation" the chat's memory, the session's own checkpointer and thread (T9.4; never in
-# st.cache_resource, so sessions share nothing). All live for the session only and are never
-# logged (docs/SECURITY.md).
+# st.cache_resource, so sessions share nothing); "account" this run's signed-in user (ID, role,
+# display name), worked out again on every run from the sign-in or the demo picker (T9.5). All
+# live for the session only and are never logged (docs/SECURITY.md).
 st.session_state.setdefault("units", config.DEFAULT_UNIT_SYSTEM)
 st.session_state.setdefault("messages", [])
 if "conversation" not in st.session_state:
     st.session_state["conversation"] = memory.Conversation()
 
-
-def _main_area() -> None:
-    """Show the header, the disclaimer and the four tabs."""
-    header.show()
-    ask, targets_tab, food_tab, details_tab = st.tabs(
-        [
-            f":material/chat: **{t('tab.ask')}**",
-            f":material/target: **{t('tab.targets')}**",
-            f":material/search: **{t('tab.food')}**",
-            f":material/list: **{t('tab.details')}**",
-        ]
-    )
-    with ask:
-        chat.tab()
-    with targets_tab:
-        targets.tab()
-    with food_tab:
-        food.tab()
-    with details_tab:
-        details.tab()
-
-
+# The user decides which pages exist in this run (D20): a guest's chat, a new account's welcome
+# page, or a role's pages. The account block sits at the top of the sidebar, under the menu.
+user = account.resolve()
 with st.sidebar:
-    sidebar.show_profile()
-    st.caption(t("theme.hint"))
-    # Both slots are filled after the main area, so they hold the turn that just ran (the PDF too);
-    # until then the page keeps the previous run's card. Drawn once per run: a slot drawn twice in
-    # one run keeps the first draw's extra elements (e.g. a badge the new turn does not have).
-    download_slot = st.empty()
-    last_answer_slot = st.empty()
+    account.sidebar_block(user)
+st.navigation(navigation.pages_for(user)).run()
+# Last in the sidebar on every page: About, then the language control directly below it (the
+# answer prompt's language parts say so, T9.23).
+with st.sidebar:
     about.sidebar_button()
     sidebar.language_control()
-if st.session_state.get("profile_form_open"):
-    # Built on each run, so the dialog's title is in the language chosen now.
-    st.dialog(t("profile.dialog_title"), on_dismiss=profile_form.close_form)(profile_form.show)()
-
-
-# The content sits in the middle column of the wide layout (config.PAGE_COLUMN_WEIGHTS).
-_, main, _ = st.columns(config.PAGE_COLUMN_WEIGHTS)
-with main:
-    _main_area()
-with download_slot.container():
-    export.summary_download()
-with last_answer_slot.container():
-    details.last_answer_card()

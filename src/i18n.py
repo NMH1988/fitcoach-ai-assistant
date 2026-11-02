@@ -508,6 +508,134 @@ _EN: dict[str, str] = {
     "key.missing": config.MISSING_KEY_MESSAGE,
     "key.secrets_file": config.SECRETS_FILE_MESSAGE,
     "turn.error": config.TURN_ERROR_MESSAGE,
+    # Pages, the account block, the welcome page and My data (T9.5).
+    "page.chat": "Chat",
+    "page.my_data": "My data",
+    "page.welcome": "Welcome",
+    "role.coach": "Coach",
+    "role.gymer": "Gymer",
+    "role_choice.coach": "Coach · I follow clients' nutrition and training",
+    "role_choice.gymer": "Gymer · I log my own nutrition and training",
+    "account.sign_in": "Sign in with Google",
+    "account.sign_out": "Sign out",
+    "account.signed_in_google": "Signed in with Google",
+    "account.sign_in_off": (
+        "Sign-in is off: this copy of the app has no Google sign-in set up. You can use the chat "
+        "as a guest; nothing is stored."
+    ),
+    "account.not_set_up": (
+        "Sign-in is not fully set up: a secret in `.streamlit/secrets.toml` is missing or still "
+        "the example's. You can use the chat as a guest; nothing is stored."
+    ),
+    "account.demo_user": "Demo user",
+    "account.guest": "Guest (nothing stored)",
+    "account.demo_note": (
+        "Demo mode: made-up users on a temporary database that is deleted when the app stops."
+    ),
+    "account.store_unavailable": (
+        "Your saved data cannot be opened right now, so nothing is read or saved. You can still "
+        "use the chat. Try again later, or restart the app."
+    ),
+    "account.welcome_title": "Set up your account",
+    "account.welcome_text": (
+        "Choose your role and the name the app shows. The app stores only an ID made from your "
+        "Google account (never its name, e-mail address or picture), your role and this name."
+    ),
+    "account.role": "Your role",
+    "account.role_once": "The role is chosen once and cannot be changed in the app.",
+    "account.display_name": "Display name",
+    "account.display_name_help": (
+        "{low} to {high} characters: letters, digits, spaces, dots, hyphens and apostrophes. "
+        "Shown in the app only, never sent to the AI model."
+    ),
+    "account.create": "Create account",
+    "account.role_needed": "Choose a role.",
+    "account.name_length": "The display name needs {low} to {high} characters.",
+    "account.name_characters": (
+        "Use only letters, digits, spaces, dots, hyphens and apostrophes, starting with a letter "
+        "or digit."
+    ),
+    "account.name_refused": "This display name cannot be used. Choose another one.",
+    "account.exists": "This account exists already. Reload the page.",
+    "account.no_identity": "The sign-in did not give an account ID. Sign out and sign in again.",
+    "account.no_target": "No daily target could be worked out from these details.",
+    # The privacy notes of the sidebar and the profile form for signed-in users (T9.5).
+    "profile.note_gymer": (
+        "Saved for your account: when you press Save (or change the goal), your details, weight "
+        "and daily targets are stored in this app's data file on this computer. Chats are never "
+        "stored, but this chat's earlier questions and answers go to the AI model with each new "
+        "question. Use made-up data only: do not enter real health data."
+    ),
+    "profile.note_coach": (
+        "Kept for this session only: a coach's details are not stored. Your account (an ID, your "
+        "role and display name) is stored in this app's data file on this computer. Chats are "
+        "never stored, but this chat's earlier questions and answers go to the AI model with each "
+        "new question. Use made-up data only: do not enter real health data."
+    ),
+    "profile.my_data_link": "See, export or delete it in My data",
+    "profile.saved_on_save": "Saved to your account when you press Save (My data lists it).",
+    "profile.opt_in": (
+        "I understand that my details are stored in this app's data file on this computer, and "
+        "I enter made-up data only."
+    ),
+    "profile.opt_in_needed": "Tick the box above to save your details to your account.",
+    "my_data.intro_gymer": (
+        "Everything the app stores about you: your account and your records. Nothing of your "
+        "chats is stored."
+    ),
+    "my_data.intro_coach": (
+        "Everything the app stores about you: your account, and your clients and their reviews "
+        "once you have some (they are in the export). A coach keeps no records of their own, and "
+        "nothing of your chats is stored."
+    ),
+    "my_data.account": "**Account:** {name} · {role} · created {created}",
+    "my_data.count": "{count} stored",
+    "my_data.kind.profile_entries": "Profile entries",
+    "my_data.kind.body_measurements": "Weights",
+    "my_data.kind.nutrition_targets": "Daily targets",
+    "my_data.kind.meal_items": "Food log",
+    "my_data.kind.workout_sessions": "Workouts",
+    "my_data.kind.preferences": "Preferences",
+    "my_data.col.saved": "Saved",
+    "my_data.col.height": "Height",
+    "my_data.col.age": "Age",
+    "my_data.col.sex": "Sex",
+    "my_data.col.activity": "Activity",
+    "my_data.col.goal": "Goal",
+    "my_data.col.day": "Day",
+    "my_data.col.weight": "Weight",
+    "my_data.col.from": "From",
+    "my_data.col.kcal": "kcal",
+    "my_data.col.protein": "Protein (g)",
+    "my_data.col.carbohydrate": "Carbohydrate (g)",
+    "my_data.col.fat": "Fat (g)",
+    "my_data.col.set_by": "Set by",
+    "my_data.col.meal": "Meal",
+    "my_data.col.food": "Food",
+    "my_data.col.grams": "Amount",
+    "my_data.col.sets": "Sets",
+    "my_data.col.text": "Text",
+    "my_data.grams": "{value} g",
+    "my_data.set_by.system": "The app",
+    "my_data.set_by.user": "You",
+    "my_data.meal.breakfast": "Breakfast",
+    "my_data.meal.lunch": "Lunch",
+    "my_data.meal.dinner": "Dinner",
+    "my_data.meal.snack": "Snack",
+    "my_data.delete_one": "Delete one entry",
+    "my_data.entry": "Entry",
+    "my_data.entry_placeholder": "Choose an entry",
+    "my_data.delete_entry": "Delete this entry",
+    "my_data.export": "Export",
+    "my_data.export_note": "All your data as one JSON file, built when you ask for it.",
+    "my_data.prepare_export": "Prepare the export",
+    "my_data.download": "Download my data (JSON)",
+    "my_data.delete_all": "Delete everything",
+    "my_data.delete_all_note": (
+        "Deletes your account and every row about you, then signs you out. This cannot be undone."
+    ),
+    "my_data.confirm_delete_all": "Yes, delete my account and all my data",
+    "my_data.delete_all_button": "Delete everything",
 }
 
 _DE: dict[str, str] = {
@@ -1016,6 +1144,148 @@ _DE: dict[str, str] = {
     "turn.error": (
         "Beim Beantworten Ihrer Frage ist etwas schiefgelaufen. Versuchen Sie es bitte erneut."
     ),
+    # Seiten, Kontobereich, Willkommensseite und Meine Daten (T9.5).
+    "page.chat": "Chat",
+    "page.my_data": "Meine Daten",
+    "page.welcome": "Willkommen",
+    "role.coach": "Coach",
+    "role.gymer": "Gymer",
+    "role_choice.coach": "Coach · Ich begleite Ernährung und Training meiner Kunden",
+    "role_choice.gymer": "Gymer · Ich erfasse meine eigene Ernährung und mein Training",
+    "account.sign_in": "Mit Google anmelden",
+    "account.sign_out": "Abmelden",
+    "account.signed_in_google": "Mit Google angemeldet",
+    "account.sign_in_off": (
+        "Die Anmeldung ist aus: In dieser Kopie der App ist keine Google-Anmeldung eingerichtet. "
+        "Sie können den Chat als Gast nutzen; nichts wird gespeichert."
+    ),
+    "account.not_set_up": (
+        "Die Anmeldung ist nicht vollständig eingerichtet: Ein Geheimnis in "
+        "`.streamlit/secrets.toml` fehlt oder ist noch das aus dem Beispiel. Sie können den Chat "
+        "als Gast nutzen; nichts wird gespeichert."
+    ),
+    "account.demo_user": "Demo-Nutzer",
+    "account.guest": "Gast (nichts wird gespeichert)",
+    "account.demo_note": (
+        "Demo-Modus: erfundene Nutzer in einer temporären Datenbank, die beim Beenden der App "
+        "gelöscht wird."
+    ),
+    "account.store_unavailable": (
+        "Ihre gespeicherten Daten können gerade nicht geöffnet werden, daher wird nichts gelesen "
+        "oder gespeichert. Den Chat können Sie weiter nutzen. Versuchen Sie es später erneut "
+        "oder starten Sie die App neu."
+    ),
+    "account.welcome_title": "Konto einrichten",
+    "account.welcome_text": (
+        "Wählen Sie Ihre Rolle und den Namen, den die App anzeigt. Die App speichert nur eine aus "
+        "Ihrem Google-Konto gebildete ID (nie dessen Namen, E-Mail-Adresse oder Bild), Ihre Rolle "
+        "und diesen Namen."
+    ),
+    "account.role": "Ihre Rolle",
+    "account.role_once": "Die Rolle wird einmal gewählt und kann in der App nicht geändert werden.",
+    "account.display_name": "Anzeigename",
+    "account.display_name_help": (
+        "{low} bis {high} Zeichen: Buchstaben, Ziffern, Leerzeichen, Punkte, Bindestriche und "
+        "Apostrophe. Nur in der App angezeigt, nie an das KI-Modell gesendet."
+    ),
+    "account.create": "Konto anlegen",
+    "account.role_needed": "Wählen Sie eine Rolle.",
+    "account.name_length": "Der Anzeigename braucht {low} bis {high} Zeichen.",
+    "account.name_characters": (
+        "Verwenden Sie nur Buchstaben, Ziffern, Leerzeichen, Punkte, Bindestriche und Apostrophe, "
+        "beginnend mit einem Buchstaben oder einer Ziffer."
+    ),
+    "account.name_refused": (
+        "Dieser Anzeigename kann nicht verwendet werden. Wählen Sie einen anderen."
+    ),
+    "account.exists": "Dieses Konto gibt es schon. Laden Sie die Seite neu.",
+    "account.no_identity": (
+        "Die Anmeldung hat keine Konto-ID geliefert. Melden Sie sich ab und wieder an."
+    ),
+    "account.no_target": "Aus diesen Angaben ließ sich kein Tagesziel berechnen.",
+    "profile.note_gymer": (
+        "Für Ihr Konto gespeichert: Wenn Sie auf Speichern klicken (oder das Ziel ändern), werden "
+        "Ihre Angaben, Ihr Gewicht und Ihre Tagesziele in der Datendatei dieser App auf diesem "
+        "Computer gespeichert. Chats werden nie gespeichert, aber die früheren Fragen und "
+        "Antworten dieses Chats gehen mit jeder neuen Frage an das KI-Modell. Verwenden Sie nur "
+        "erfundene Daten: Geben Sie keine echten Gesundheitsdaten ein."
+    ),
+    "profile.note_coach": (
+        "Nur für diese Sitzung: Die Angaben eines Coachs werden nicht gespeichert. Ihr Konto (eine "
+        "ID, Ihre Rolle und Ihr Anzeigename) wird in der Datendatei dieser App auf diesem Computer "
+        "gespeichert. Chats werden nie gespeichert, aber die früheren Fragen und Antworten dieses "
+        "Chats gehen mit jeder neuen Frage an das KI-Modell. Verwenden Sie nur erfundene Daten: "
+        "Geben Sie keine echten Gesundheitsdaten ein."
+    ),
+    "profile.my_data_link": "Unter Meine Daten ansehen, exportieren oder löschen",
+    "profile.saved_on_save": (
+        "Wird beim Klick auf Speichern in Ihrem Konto gespeichert (Meine Daten listet es auf)."
+    ),
+    "profile.opt_in": (
+        "Ich verstehe, dass meine Angaben in der Datendatei dieser App auf diesem Computer "
+        "gespeichert werden, und ich gebe nur erfundene Daten ein."
+    ),
+    "profile.opt_in_needed": (
+        "Setzen Sie oben das Häkchen, um Ihre Angaben in Ihrem Konto zu speichern."
+    ),
+    "my_data.intro_gymer": (
+        "Alles, was die App über Sie speichert: Ihr Konto und Ihre Einträge. Von Ihren Chats wird "
+        "nichts gespeichert."
+    ),
+    "my_data.intro_coach": (
+        "Alles, was die App über Sie speichert: Ihr Konto und, sobald Sie welche haben, Ihre "
+        "Kunden und deren Auswertungen (sie stehen im Export). Ein Coach hat keine eigenen "
+        "Einträge, und von Ihren Chats wird nichts gespeichert."
+    ),
+    "my_data.account": "**Konto:** {name} · {role} · angelegt am {created}",
+    "my_data.count": "{count} gespeichert",
+    "my_data.kind.profile_entries": "Profileinträge",
+    "my_data.kind.body_measurements": "Gewichte",
+    "my_data.kind.nutrition_targets": "Tagesziele",
+    "my_data.kind.meal_items": "Ernährungstagebuch",
+    "my_data.kind.workout_sessions": "Trainingseinheiten",
+    "my_data.kind.preferences": "Vorlieben",
+    "my_data.col.saved": "Gespeichert",
+    "my_data.col.height": "Größe",
+    "my_data.col.age": "Alter",
+    "my_data.col.sex": "Geschlecht",
+    "my_data.col.activity": "Aktivität",
+    "my_data.col.goal": "Ziel",
+    "my_data.col.day": "Tag",
+    "my_data.col.weight": "Gewicht",
+    "my_data.col.from": "Ab",
+    "my_data.col.kcal": "kcal",
+    "my_data.col.protein": "Eiweiß (g)",
+    "my_data.col.carbohydrate": "Kohlenhydrate (g)",
+    "my_data.col.fat": "Fett (g)",
+    "my_data.col.set_by": "Festgelegt von",
+    "my_data.col.meal": "Mahlzeit",
+    "my_data.col.food": "Lebensmittel",
+    "my_data.col.grams": "Menge",
+    "my_data.col.sets": "Sätze",
+    "my_data.col.text": "Text",
+    "my_data.grams": "{value} g",
+    "my_data.set_by.system": "Die App",
+    "my_data.set_by.user": "Sie",
+    "my_data.meal.breakfast": "Frühstück",
+    "my_data.meal.lunch": "Mittagessen",
+    "my_data.meal.dinner": "Abendessen",
+    "my_data.meal.snack": "Snack",
+    "my_data.delete_one": "Einen Eintrag löschen",
+    "my_data.entry": "Eintrag",
+    "my_data.entry_placeholder": "Eintrag wählen",
+    "my_data.delete_entry": "Diesen Eintrag löschen",
+    "my_data.export": "Export",
+    "my_data.export_note": "Alle Ihre Daten als eine JSON-Datei, erstellt, wenn Sie darum bitten.",
+    "my_data.prepare_export": "Export vorbereiten",
+    "my_data.download": "Meine Daten herunterladen (JSON)",
+    "my_data.delete_all": "Alles löschen",
+    "my_data.delete_all_note": (
+        "Löscht Ihr Konto und jede Zeile über Sie und meldet Sie dann ab. Das kann nicht "
+        "rückgängig gemacht werden."
+    ),
+    "my_data.confirm_delete_all": "Ja, mein Konto und alle meine Daten löschen",
+    "my_data.delete_all_button": "Alles löschen",
 }
 
 TEXT: dict[Language, dict[str, str]] = {"en": _EN, "de": _DE}
