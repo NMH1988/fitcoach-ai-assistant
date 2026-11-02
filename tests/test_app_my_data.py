@@ -231,6 +231,10 @@ def test_a_deleted_demo_user_is_a_guest(monkeypatch, demo_store_is_fresh):
     assert "Set up your account" not in texts(at)
     assert "Sign in or continue as a guest" in texts(at)  # a guest who has not chosen yet
     assert "Demo gymer Kim** ·" not in texts(at)
+    # The deleted pick is dropped, so the sidebar's picker shows the guest after the choice.
+    assert at.session_state["demo_user"] is None
+    button(at, "Continue as guest").click().run(timeout=30)
+    assert at.selectbox(key="demo_user").value is None
 
 
 def test_deleting_an_entry_reloads_the_profile_from_the_store(monkeypatch, gymer_with_records):
