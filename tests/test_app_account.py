@@ -510,3 +510,36 @@ def test_a_goal_change_after_the_account_was_deleted_elsewhere(monkeypatch):
     at.segmented_control(key="sidebar_goal").set_value("lose_fat").run(timeout=30)
     assert not at.exception
     assert "Set up your account" in texts(at)
+
+
+# --- Compliance run 1's fixes ---------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("language", "cookie", "openrouter"),
+    [
+        ("en", "The sign-in cookie in your browser keeps your Google name", "through OpenRouter"),
+        ("de", "Das Anmelde-Cookie in Ihrem Browser behält Ihren Google-Namen", "über OpenRouter"),
+    ],
+)
+def test_the_texts_name_the_cookie_and_openrouter(monkeypatch, language, cookie, openrouter):
+    """The welcome page names the sign-in cookie; a gymer's note names OpenRouter as a recipient."""
+    at = start(monkeypatch, user=signed_in(), language=language)
+    assert cookie in texts(at)
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in(), language=language)
+    assert openrouter in texts(at)
+
+
+def test_a_goal_change_after_every_entry_was_deleted_writes_nothing(monkeypatch):
+    """With no saved profile entry the goal stays in the session: no row without the tick."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    with db.connect() as conn:
+        conn.execute("DELETE FROM profile_entries WHERE user_id = ?", (USER_ID,))
+    at.segmented_control(key="sidebar_goal").set_value("lose_fat").run(timeout=30)
+    assert "kept for this session only" in texts(at)
+    assert at.session_state["profile"].goal == "lose_fat"
+    with db.connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM profile_entries").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM nutrition_targets").fetchone()[0] == 1

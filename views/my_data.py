@@ -2,8 +2,8 @@
 
 Every read and delete goes through the store with the session's own user ID (`views/account.py`),
 so a user only ever sees and deletes their own rows. The export is built only when the user asks
-for it (a coach's export writes audit rows, T9.6), kept in the session until the page is left or
-the user signs out, and downloaded as JSON; the server keeps no copy.
+for it (a coach's export writes audit rows, T9.6), kept in the session until the user signs out
+or the session ends, and downloaded as JSON; the server keeps no copy.
 """
 
 import streamlit as st
@@ -76,6 +76,9 @@ def _delete_one(user: dict, stored: dict[str, list[dict]]) -> None:
         except records.NotFound:
             pass  # deleted already (e.g. in another tab): the list below is read again
         st.session_state.pop("my_data_entry", None)
+        # The next run loads the profile from the store again, so a deleted entry does not live
+        # on in the sidebar (and cannot be saved back by the goal control).
+        st.session_state.pop("account_loaded_for", None)
         st.rerun()
 
 

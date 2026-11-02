@@ -231,3 +231,19 @@ def test_a_deleted_demo_user_is_a_guest(monkeypatch, demo_store_is_fresh):
     assert "Set up your account" not in texts(at)
     assert len(at.tabs) == 4
     assert "Demo gymer Kim** ·" not in texts(at)
+
+
+def test_deleting_an_entry_reloads_the_profile_from_the_store(monkeypatch, gymer_with_records):
+    """After the last profile entry is deleted, the sidebar no longer shows the deleted profile."""
+    at = open_my_data(start(monkeypatch, user=signed_in()))
+    with db.connect() as conn:
+        (entry,) = records.list_profile_entries(conn, USER_ID, USER_ID)
+    at.selectbox(key="my_data_entry").set_value(("profile_entries", entry["id"])).run(timeout=30)
+    button(at, "Delete this entry").click().run(timeout=30)
+    assert at.session_state["profile"] is None
+
+
+def test_my_data_says_where_the_relationships_are(monkeypatch, gymer_with_records):
+    """The gymer's intro says the relationships, sharing and the coach's reads are in the export."""
+    at = open_my_data(start(monkeypatch, user=signed_in()))
+    assert "sharing choices and your coach's reads of your data are in the export" in texts(at)

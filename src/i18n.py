@@ -538,8 +538,10 @@ _EN: dict[str, str] = {
     ),
     "account.welcome_title": "Set up your account",
     "account.welcome_text": (
-        "Choose your role and the name the app shows. The app stores only an ID made from your "
-        "Google account (never its name, e-mail address or picture), your role and this name."
+        "Choose your role and the name the app shows (a made-up one is fine). The app's data file "
+        "stores only an ID made from your Google account (never its name, e-mail address or "
+        "picture), your role and this name. The sign-in cookie in your browser keeps your Google "
+        "name and e-mail address until you sign out (at most 30 days)."
     ),
     "account.role": "Your role",
     "account.role_once": "The role is chosen once and cannot be changed in the app.",
@@ -563,15 +565,17 @@ _EN: dict[str, str] = {
     # The privacy notes of the sidebar and the profile form for signed-in users (T9.5).
     "profile.note_gymer": (
         "Saved for your account: when you press Save (or change the goal), your details, weight "
-        "and daily targets are stored in this app's data file on this computer. Chats are never "
+        "and daily targets are stored in this app's data file on this computer. Your details also "
+        "go to the AI model, through OpenRouter, when a question needs them. Chats are never "
         "stored, but this chat's earlier questions and answers go to the AI model with each new "
         "question. Use made-up data only: do not enter real health data."
     ),
     "profile.note_coach": (
-        "Kept for this session only: a coach's details are not stored. Your account (an ID, your "
-        "role and display name) is stored in this app's data file on this computer. Chats are "
-        "never stored, but this chat's earlier questions and answers go to the AI model with each "
-        "new question. Use made-up data only: do not enter real health data."
+        "Kept for this session only: a coach's details are not stored, but they go to the AI "
+        "model, through OpenRouter, when a question needs them. Your account (an ID, your role and "
+        "display name) is stored in this app's data file on this computer. Chats are never stored, "
+        "but this chat's earlier questions and answers go to the AI model with each new question. "
+        "Use made-up data only: do not enter real health data."
     ),
     "profile.my_data_link": "See, export or delete it in My data",
     "profile.saved_on_save": "Saved to your account when you press Save (My data lists it).",
@@ -580,9 +584,14 @@ _EN: dict[str, str] = {
         "I enter made-up data only."
     ),
     "profile.opt_in_needed": "Tick the box above to save your details to your account.",
+    "profile.goal_not_saved": (
+        "The goal is kept for this session only: save your details with Edit details first "
+        "(ticking the box there)."
+    ),
     "my_data.intro_gymer": (
-        "Everything the app stores about you: your account and your records. Nothing of your "
-        "chats is stored."
+        "Everything the app stores about you: your account and your records below; your coach "
+        "relationships, sharing choices and your coach's reads of your data are in the export. "
+        "Nothing of your chats is stored."
     ),
     "my_data.intro_coach": (
         "Everything the app stores about you: your account, and your clients and their reviews "
@@ -1178,9 +1187,11 @@ _DE: dict[str, str] = {
     ),
     "account.welcome_title": "Konto einrichten",
     "account.welcome_text": (
-        "Wählen Sie Ihre Rolle und den Namen, den die App anzeigt. Die App speichert nur eine aus "
-        "Ihrem Google-Konto gebildete ID (nie dessen Namen, E-Mail-Adresse oder Bild), Ihre Rolle "
-        "und diesen Namen."
+        "Wählen Sie Ihre Rolle und den Namen, den die App anzeigt (ein erfundener genügt). Die "
+        "Datendatei der App speichert nur eine aus Ihrem Google-Konto gebildete ID (nie dessen "
+        "Namen, E-Mail-Adresse oder Bild), Ihre Rolle und diesen Namen. Das Anmelde-Cookie in "
+        "Ihrem Browser behält Ihren Google-Namen und Ihre E-Mail-Adresse, bis Sie sich abmelden "
+        "(höchstens 30 Tage)."
     ),
     "account.role": "Ihre Rolle",
     "account.role_once": "Die Rolle wird einmal gewählt und kann in der App nicht geändert werden.",
@@ -1208,16 +1219,18 @@ _DE: dict[str, str] = {
     "profile.note_gymer": (
         "Für Ihr Konto gespeichert: Wenn Sie auf Speichern klicken (oder das Ziel ändern), werden "
         "Ihre Angaben, Ihr Gewicht und Ihre Tagesziele in der Datendatei dieser App auf diesem "
-        "Computer gespeichert. Chats werden nie gespeichert, aber die früheren Fragen und "
+        "Computer gespeichert. Ihre Angaben gehen außerdem über OpenRouter an das KI-Modell, wenn "
+        "eine Frage sie braucht. Chats werden nie gespeichert, aber die früheren Fragen und "
         "Antworten dieses Chats gehen mit jeder neuen Frage an das KI-Modell. Verwenden Sie nur "
         "erfundene Daten: Geben Sie keine echten Gesundheitsdaten ein."
     ),
     "profile.note_coach": (
-        "Nur für diese Sitzung: Die Angaben eines Coachs werden nicht gespeichert. Ihr Konto (eine "
-        "ID, Ihre Rolle und Ihr Anzeigename) wird in der Datendatei dieser App auf diesem Computer "
-        "gespeichert. Chats werden nie gespeichert, aber die früheren Fragen und Antworten dieses "
-        "Chats gehen mit jeder neuen Frage an das KI-Modell. Verwenden Sie nur erfundene Daten: "
-        "Geben Sie keine echten Gesundheitsdaten ein."
+        "Nur für diese Sitzung: Die Angaben eines Coachs werden nicht gespeichert, gehen aber über "
+        "OpenRouter an das KI-Modell, wenn eine Frage sie braucht. Ihr Konto (eine ID, Ihre Rolle "
+        "und Ihr Anzeigename) wird in der Datendatei dieser App auf diesem Computer gespeichert. "
+        "Chats werden nie gespeichert, aber die früheren Fragen und Antworten dieses Chats gehen "
+        "mit jeder neuen Frage an das KI-Modell. Verwenden Sie nur erfundene Daten: Geben Sie "
+        "keine echten Gesundheitsdaten ein."
     ),
     "profile.my_data_link": "Unter Meine Daten ansehen, exportieren oder löschen",
     "profile.saved_on_save": (
@@ -1227,12 +1240,17 @@ _DE: dict[str, str] = {
         "Ich verstehe, dass meine Angaben in der Datendatei dieser App auf diesem Computer "
         "gespeichert werden, und ich gebe nur erfundene Daten ein."
     ),
+    "profile.goal_not_saved": (
+        "Das Ziel gilt nur für diese Sitzung: Speichern Sie zuerst Ihre Angaben unter "
+        "Angaben bearbeiten (mit dem Häkchen dort)."
+    ),
     "profile.opt_in_needed": (
         "Setzen Sie oben das Häkchen, um Ihre Angaben in Ihrem Konto zu speichern."
     ),
     "my_data.intro_gymer": (
-        "Alles, was die App über Sie speichert: Ihr Konto und Ihre Einträge. Von Ihren Chats wird "
-        "nichts gespeichert."
+        "Alles, was die App über Sie speichert: Ihr Konto und unten Ihre Einträge; Ihre "
+        "Coach-Beziehungen, Ihre Freigaben und die Zugriffe Ihres Coachs auf Ihre Daten stehen im "
+        "Export. Von Ihren Chats wird nichts gespeichert."
     ),
     "my_data.intro_coach": (
         "Alles, was die App über Sie speichert: Ihr Konto und, sobald Sie welche haben, Ihre "

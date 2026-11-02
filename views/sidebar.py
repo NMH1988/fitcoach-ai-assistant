@@ -29,9 +29,15 @@ def change_goal() -> None:
     user = account.current_user()
     if user is not None and user["role"] == "gymer":
         # A new profile entry and target, no new weight; the session keeps the old goal if the
-        # store fails, so the screen never shows a goal that was not saved.
+        # store fails, so the screen never shows a goal that was not saved. A gymer with no saved
+        # entry (none yet, or all deleted on My data) has not ticked the first-save box: the goal
+        # stays in the session only (compliance run 1 on T9.5).
         try:
             with accounts.open_store(account.store_path()) as conn:
+                if not accounts.has_profile_entries(conn, user["id"]):
+                    st.session_state[SAVE_FAILED_KEY] = "profile.goal_not_saved"
+                    st.session_state["profile"] = updated
+                    return
                 accounts.save_profile(conn, user["id"], updated, with_weight=False)
         except accounts.StoreUnavailable:
             st.session_state[SAVE_FAILED_KEY] = "account.store_unavailable"
