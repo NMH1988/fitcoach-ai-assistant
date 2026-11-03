@@ -35,6 +35,12 @@ KEPT_KEYS = frozenset({i18n.SESSION_KEY, guard.SESSION_LIMITER_KEY, DEMO_KEY})
 PROFILE_NOTICE_KEY = "profile_save_failed"
 # Every session key of the Workouts page starts with this (views/workouts.py, T9.14).
 WORKOUT_KEY_PREFIX = "workout_"
+# Every session key of the Clients page and of the Coach and sharing page starts with one of these
+# (views/clients.py, views/sharing.py, T9.12).
+CLIENTS_KEY_PREFIX = "clients_"
+SHARING_KEY_PREFIX = "sharing_"
+# The pages' keys that go when the account is gone: a code shown once, a typed code, a notice.
+DROPPED_KEY_PREFIXES = (WORKOUT_KEY_PREFIX, CLIENTS_KEY_PREFIX, SHARING_KEY_PREFIX)
 # Where My data keeps a prepared export (views/my_data.py reads the name from here).
 MY_DATA_EXPORT_KEY = "my_data_export"
 # The display name's length limits, for the texts that name them.
@@ -88,13 +94,15 @@ def resolve() -> dict | None:
                 return None
             if found is None:
                 # No account (a first sign-in, or deleted in another tab): nothing of an earlier
-                # account's profile, prepared export or workout draft stays in the session (the
-                # Workouts page's keys all start with WORKOUT_KEY_PREFIX, T9.14; the export since
-                # T9.14's compliance run 2), and its profile is loaded afresh later.
+                # account's profile, prepared export, workout draft, invitation code or sharing
+                # form stays in the session (the pages' keys start with DROPPED_KEY_PREFIXES: the
+                # Workouts page's since T9.14, Clients and Coach and sharing since T9.12's code
+                # review round 7; the export since T9.14's compliance run 2), and its profile is
+                # loaded afresh later.
                 st.session_state.pop("account_loaded_for", None)
                 st.session_state.pop("profile", None)
                 st.session_state.pop(MY_DATA_EXPORT_KEY, None)
-                for key in [k for k in st.session_state if str(k).startswith(WORKOUT_KEY_PREFIX)]:
+                for key in [k for k in st.session_state if str(k).startswith(DROPPED_KEY_PREFIXES)]:
                     st.session_state.pop(key, None)
             loaded = st.session_state.get("account_loaded_for")
             if found is not None and found["role"] == "gymer" and loaded != user_id:

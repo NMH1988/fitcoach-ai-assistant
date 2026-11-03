@@ -5,16 +5,19 @@ blocks the coach's next read), D15 (a code shown once, stored as a hash, cancell
 """
 
 import hashlib
+import re
 import sqlite3
 from datetime import date
+from pathlib import Path
 
 import pytest
 from streamlit.testing.v1 import AppTest
 from streamlit.util import calc_hash
 
 from src import account, config, i18n
-from src.store import access, db, invitations, records, users
+from src.store import access, db, invitations, my_data, records, users
 from tests.test_app_account import PROFILE, USER_ID, button, signed_in, start, store_account, texts
+from views import account as views_account
 from views import clients, navigation, sharing
 
 pytestmark = pytest.mark.usefixtures("no_env_key")
@@ -448,3 +451,40 @@ def test_the_page_says_what_the_coach_keeps_seeing_and_who_drafts_reviews(
     assert end_line in page
     # The first scope box is nutrition's, in either language.
     assert ai_line in at.checkbox[0].label
+
+
+def test_a_deleted_account_s_code_and_notice_leave_the_session(monkeypatch):
+    """Once the coach's account is gone, the code shown once does not come back on a new account."""
+    store_account("coach")
+    at = open_page(start(monkeypatch, user=signed_in()), navigation.CLIENTS)
+    button(at, "Create an invitation").click().run(timeout=30)
+    assert at.session_state[clients.NEW_CODE_KEY]
+    at.session_state[sharing.NOTICE_KEY] = ("sharing.saved", "success")
+    with db.connect() as conn:
+        my_data.delete_user_data(conn, USER_ID)
+    at.run(timeout=30)
+    for key in (clients.NEW_CODE_KEY, sharing.NOTICE_KEY):
+        assert key not in at.session_state
+    # The same Google account makes a coach account again: no old code on Clients.
+    store_account("coach")
+    open_page(at, navigation.CLIENTS)
+    assert not at.code
+
+
+@pytest.mark.parametrize(
+    ("module", "prefix"),
+    [(clients, views_account.CLIENTS_KEY_PREFIX), (sharing, views_account.SHARING_KEY_PREFIX)],
+)
+def test_every_session_key_of_the_pages_has_the_prefix_the_account_drops(module, prefix):
+    """Each key the two pages keep starts with its prefix, so none outlives a deleted account."""
+    source = Path(module.__file__).read_text(encoding="utf-8")
+    keys = {
+        value
+        for name, value in vars(module).items()
+        if name.endswith("_KEY") and isinstance(value, str)
+    }
+    keys |= set(re.findall(r'key="([^"]+)"', source))
+    keys |= set(re.findall(r'key=f"([^"{]+)', source))
+    keys |= set(re.findall(r'session_state\["([^"]+)"\]\s*=(?!=)', source))
+    assert keys
+    assert all(key.startswith(prefix) for key in keys), keys
