@@ -10,6 +10,7 @@ from collections.abc import Sequence
 from src import chat, config, exercises, i18n, metrics, units, usage
 from src.i18n import Language
 from src.profile import Goal
+from src.store.access import SCOPES
 from src.tools import registry
 from src.tools.energy import Macro, MacroTargetsResult, TdeeResult
 from src.tools.food import FoodLookupResult
@@ -412,6 +413,55 @@ def entry_label(kind: str, row: dict, system: units.UnitSystem, lang: Language) 
     """Return one record on one line for the "delete one entry" picker: its kind and its cells."""
     return " · ".join(
         (i18n.t(f"my_data.kind.{kind}", lang), *stored_cells(kind, row, system, lang))
+    )
+
+
+# The columns of the coach's client list (T9.12), as keys under "clients.col." in src/i18n.py;
+# one column per scope follows, headed with the scope's name.
+CLIENT_COLUMNS = ("name", "status", "since", "ended")
+INVITATION_COLUMNS = ("created", "expires", "state")
+
+
+def client_table(rows: list[dict], lang: Language) -> dict[str, list[str]]:
+    """Return a coach's relationships as columns: name, status, dates, and each scope shared."""
+    names = (
+        *(i18n.t(f"clients.col.{name}", lang) for name in CLIENT_COLUMNS),
+        *(i18n.t(f"scope.{scope}", lang) for scope in SCOPES),
+    )
+    cells = [
+        [
+            row["other_name"],
+            i18n.t(f"relationship.{row['status']}", lang),
+            _day(row["accepted_at"]),
+            "" if row["ended_at"] is None else _day(row["ended_at"]),
+            *(
+                i18n.t("clients.shared" if scope in row["scopes"] else "clients.not_shared", lang)
+                for scope in SCOPES
+            ),
+        ]
+        for row in rows
+    ]
+    return columns(names, cells)
+
+
+def invitation_table(rows: list[dict], lang: Language) -> dict[str, list[str]]:
+    """Return a coach's unused codes as columns: created, expires, open or expired (no code)."""
+    names = tuple(i18n.t(f"clients.col.{name}", lang) for name in INVITATION_COLUMNS)
+    cells = [
+        [
+            _day(row["created_at"]),
+            _day(row["expires_at"]),
+            i18n.t("clients.code_expired" if row["expired"] else "clients.code_open", lang),
+        ]
+        for row in rows
+    ]
+    return columns(names, cells)
+
+
+def invitation_label(row: dict, lang: Language) -> str:
+    """Return one unused code on one line for the cancel picker: when it was made and expires."""
+    return i18n.t(
+        "clients.code_label", lang, created=_day(row["created_at"]), expires=_day(row["expires_at"])
     )
 
 

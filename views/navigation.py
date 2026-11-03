@@ -5,19 +5,22 @@ signed-in user's page for a guest) cannot be opened even by its URL: Streamlit s
 home instead. A new session sees only the start page (sign in, or in demo mode a made-up user; no
 guest) when sign-in is set up or in demo mode. A guest (a copy with no [auth]) has one page, the
 chat with today's tabs, so no menu shows. A user signed in with Google who has no account yet
-("pending") sees only the welcome page. A coach has the chat and My data; a gymer My profile, Today
-(the food and weight diary, T9.13), Workouts (T9.14) and My data, no chat (owner's choice).
+("pending") sees only the welcome page. A coach has the chat, Clients (T9.12) and My data; a
+gymer My profile, Today (the food and weight diary, T9.13), Workouts (T9.14), Coach and
+sharing (T9.12) and My data, no chat (owner's choice).
 """
 
 import streamlit as st
 
-from views import account, my_data, pages, today, workouts
+from views import account, clients, my_data, pages, sharing, today, workouts
 from views.text import t
 
 CHAT = "chat"
 PROFILE = pages.PROFILE_URL_PATH
 TODAY = today.URL_PATH
 MY_DATA = my_data.URL_PATH
+CLIENTS = clients.URL_PATH
+SHARING = sharing.URL_PATH
 WORKOUTS = workouts.URL_PATH
 WELCOME = "welcome"
 START = "start"
@@ -27,14 +30,17 @@ PAGES_BY_ROLE: dict[str | None, tuple[str, ...]] = {
     None: (CHAT,),
     START: (START,),
     PENDING: (WELCOME,),
-    "coach": (CHAT, MY_DATA),
+    "coach": (CHAT, CLIENTS, MY_DATA),
     # No chat for a gymer (owner's choice, 2026-11-02): the profile, the diary (T9.13; the
-    # profile stays the home, owner's choice, 2026-11-03), the workouts (T9.14) and their data.
-    "gymer": (PROFILE, TODAY, WORKOUTS, MY_DATA),
+    # profile stays the home, owner's choice, 2026-11-03), the workouts (T9.14), the coach
+    # (T9.12) and their data.
+    "gymer": (PROFILE, TODAY, WORKOUTS, SHARING, MY_DATA),
 }
 _PAGES = {
     CHAT: (pages.chat_page, "page.chat", ":material/chat:"),
     PROFILE: (pages.profile_page, "page.profile", ":material/person:"),
+    CLIENTS: (clients.page, "page.clients", ":material/groups:"),
+    SHARING: (sharing.page, "page.sharing", ":material/share:"),
     TODAY: (today.page, "page.today", ":material/restaurant:"),
     WORKOUTS: (workouts.page, "page.workouts", ":material/fitness_center:"),
     MY_DATA: (my_data.page, "page.my_data", ":material/folder_shared:"),

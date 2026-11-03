@@ -18,6 +18,10 @@ a review, once approved or rejected, is never changed again.
 # The GLOB patterns check a UTC timestamp as `values.utc_text()` writes it and a day as
 # `values.date_text()` writes it. They are repeated in each CHECK, as SQL is never built from pieces
 # (tests/test_store_sql_scan.py).
+#
+# One coach per gymer (T9.12) has no constraint here: `users._open_relationship()` checks it inside
+# its write transaction, the only way a relationship starts. A later migration (or the Capstone's
+# PostgreSQL schema) could add a partial unique index on coach_clients (client_id) WHERE active.
 
 _V1 = """
 CREATE TABLE users (

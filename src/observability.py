@@ -34,6 +34,8 @@ EVENTS = frozenset(
         "tool_failed",
         # The store could not be opened or used (T9.5); its only field is the error's class name.
         "store_unavailable",
+        # A gymer's invitation code was refused (T9.12); its only field is the reason.
+        "invite_refused",
         LOG_FAILED_EVENT,
     }
 )
