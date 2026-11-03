@@ -25,6 +25,8 @@ NOTICE_KEY = "sharing_notice"
 CONFIRM_END_KEY = "sharing_confirm_end"
 # Set after a failed save: the next run sets the scope boxes from the store before drawing them.
 RESET_KEY = "sharing_reset"
+# A scope box of a relationship, keyed by both, so a new coach's boxes start from the store.
+SCOPE_BOX_KEY = "sharing_{relationship}_{scope}"
 
 
 def _scope_label(scope: str) -> str:
@@ -89,7 +91,10 @@ def _share(user: dict, relationship: dict) -> None:
     st.subheader(t("sharing.what"))
     st.caption(t("sharing.choose"))
     # Keyed by the relationship, so a new coach's form never starts from an old one's ticks.
-    keys = {scope: f"sharing_{relationship['id']}_{scope}" for scope in SCOPES}
+    keys = {
+        scope: SCOPE_BOX_KEY.format(relationship=relationship["id"], scope=scope)
+        for scope in SCOPES
+    }
     reset = st.session_state.pop(RESET_KEY, False)
     for scope, key in keys.items():
         # The boxes start from the store, and after a failed save take the stored scopes again.
