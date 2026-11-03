@@ -512,9 +512,9 @@ _EN: dict[str, str] = {
     "page.start": "Start",
     "start.title": "Sign in to continue",
     "start.text": (
-        "Sign in with Google to keep your profile, daily targets and food log (as a gymer) or to "
-        "use the app's AI assistant (as a coach). A coach's questions (and the coach's own "
-        "details, when a question needs them) go to the AI model through OpenRouter."
+        "Sign in with Google to keep your profile, daily targets, food log and workouts (as a "
+        "gymer) or to use the app's AI assistant (as a coach). A coach's questions (and the "
+        "coach's own details, when a question needs them) go to the AI model through OpenRouter."
     ),
     "start.demo_title": "Try a made-up user",
     "start.demo": (
@@ -588,7 +588,8 @@ _EN: dict[str, str] = {
     "profile.note_gymer": (
         "Saved for your account: when you press Save (or change the goal), your details, weight "
         "and daily targets are stored in this app's data file on this computer, and so are the "
-        "food and weights you log on Today. Use made-up data only: do not enter real health data."
+        "food and weights you log on Today and the workouts you log on Workouts. Use made-up data "
+        "only: do not enter real health data."
     ),
     "profile.note_coach": (
         "Kept for this session only: a coach's details are not stored, but they go to the AI "
@@ -600,8 +601,9 @@ _EN: dict[str, str] = {
     "profile.my_data_link": "See, export or delete it in My data",
     "profile.saved_on_save": "Saved to your account when you press Save (My data lists it).",
     "profile.opt_in": (
-        "I understand that my details, and the food and weights I log on Today, are stored in "
-        "this app's data file on this computer, and I enter made-up data only."
+        "I understand that my details, the food and weights I log on Today and the workouts I "
+        "log on Workouts are stored in this app's data file on this computer, and I enter made-up "
+        "data only."
     ),
     "profile.opt_in_needed": "Tick the box above to save your details to your account.",
     "profile.goal_not_saved": (
@@ -1319,10 +1321,10 @@ _DE: dict[str, str] = {
     "page.start": "Start",
     "start.title": "Melden Sie sich an, um fortzufahren",
     "start.text": (
-        "Melden Sie sich mit Google an, um Ihr Profil, Ihre Tagesziele und Ihr Ernährungstagebuch "
-        "zu behalten (als Gymer) oder den KI-Assistenten der App zu nutzen (als Coach). Die Fragen "
-        "eines Coachs (und seine eigenen Angaben, wenn eine Frage sie braucht) gehen über "
-        "OpenRouter an das KI-Modell."
+        "Melden Sie sich mit Google an, um Ihr Profil, Ihre Tagesziele, Ihr Ernährungstagebuch "
+        "und Ihre Trainingseinheiten zu behalten (als Gymer) oder den KI-Assistenten der App zu "
+        "nutzen (als Coach). Die Fragen eines Coachs (und seine eigenen Angaben, wenn eine Frage "
+        "sie braucht) gehen über OpenRouter an das KI-Modell."
     ),
     "start.demo_title": "Einen erfundenen Nutzer ausprobieren",
     "start.demo": (
@@ -1403,8 +1405,9 @@ _DE: dict[str, str] = {
     "profile.note_gymer": (
         "Für Ihr Konto gespeichert: Wenn Sie auf Speichern klicken (oder das Ziel ändern), werden "
         "Ihre Angaben, Ihr Gewicht und Ihre Tagesziele in der Datendatei dieser App auf diesem "
-        "Computer gespeichert, ebenso das Essen und die Gewichte, die Sie unter Heute eintragen. "
-        "Verwenden Sie nur erfundene Daten: Geben Sie keine echten Gesundheitsdaten ein."
+        "Computer gespeichert, ebenso das Essen und die Gewichte, die Sie unter Heute eintragen, "
+        "und die Trainingseinheiten, die Sie unter Training eintragen. Verwenden Sie nur erfundene "
+        "Daten: Geben Sie keine echten Gesundheitsdaten ein."
     ),
     "profile.note_coach": (
         "Nur für diese Sitzung: Die Angaben eines Coachs werden nicht gespeichert, gehen aber über "
@@ -1419,9 +1422,9 @@ _DE: dict[str, str] = {
         "Wird beim Klick auf Speichern in Ihrem Konto gespeichert (Meine Daten listet es auf)."
     ),
     "profile.opt_in": (
-        "Ich verstehe, dass meine Angaben sowie das Essen und die Gewichte, die ich unter Heute "
-        "eintrage, in der Datendatei dieser App auf diesem Computer gespeichert werden, und ich "
-        "gebe nur erfundene Daten ein."
+        "Ich verstehe, dass meine Angaben, das Essen und die Gewichte, die ich unter Heute "
+        "eintrage, und die Trainingseinheiten, die ich unter Training eintrage, in der Datendatei "
+        "dieser App auf diesem Computer gespeichert werden, und ich gebe nur erfundene Daten ein."
     ),
     "profile.goal_not_saved": (
         "Das Ziel gilt nur für diese Sitzung: Speichern Sie zuerst Ihre Angaben unter "

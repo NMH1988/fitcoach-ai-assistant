@@ -33,6 +33,22 @@ def test_the_first_saves_opt_in_names_the_diary(language, named):
     assert named in i18n.t("profile.opt_in", language)
 
 
+@pytest.mark.parametrize(
+    ("key", "language", "named"),
+    [
+        ("profile.opt_in", "en", "the workouts I log on Workouts"),
+        ("profile.opt_in", "de", "die Trainingseinheiten, die ich unter Training eintrage"),
+        ("profile.note_gymer", "en", "the workouts you log on Workouts"),
+        ("profile.note_gymer", "de", "die Trainingseinheiten, die Sie unter Training eintragen"),
+        ("start.text", "en", "workouts"),
+        ("start.text", "de", "Trainingseinheiten"),
+    ],
+)
+def test_the_consent_and_privacy_texts_name_the_workouts(key, language, named):
+    """The tick, the gymer's note and the start page say workouts are stored too (T9.14)."""
+    assert named in i18n.t(key, language)
+
+
 @pytest.mark.parametrize("key", sorted(i18n.TEXT["en"]))
 def test_each_text_is_filled_and_has_the_same_placeholders_in_both_languages(key):
     """No text is empty, and both languages fill the same {placeholders}."""
