@@ -33,6 +33,22 @@ def test_the_first_saves_opt_in_names_the_diary(language, named):
     assert named in i18n.t("profile.opt_in", language)
 
 
+@pytest.mark.parametrize(
+    ("key", "language", "named"),
+    [
+        ("profile.opt_in", "en", "the workouts I log on Workouts"),
+        ("profile.opt_in", "de", "die Trainingseinheiten, die ich unter Training eintrage"),
+        ("profile.note_gymer", "en", "the workouts you log on Workouts"),
+        ("profile.note_gymer", "de", "die Trainingseinheiten, die Sie unter Training eintragen"),
+        ("start.text", "en", "workouts"),
+        ("start.text", "de", "Trainingseinheiten"),
+    ],
+)
+def test_the_consent_and_privacy_texts_name_the_workouts(key, language, named):
+    """The tick, the gymer's note and the start page say workouts are stored too (T9.14)."""
+    assert named in i18n.t(key, language)
+
+
 @pytest.mark.parametrize("key", sorted(i18n.TEXT["en"]))
 def test_each_text_is_filled_and_has_the_same_placeholders_in_both_languages(key):
     """No text is empty, and both languages fill the same {placeholders}."""
@@ -336,3 +352,82 @@ def test_the_german_invalid_food_message_names_the_configured_limits():
     text = i18n.t("food.tab.invalid", "de")
     assert f"{config.FOOD_MIN_GRAMS:g}".replace(".", ",") in text
     assert str(config.FOOD_MAX_GRAMS) in text
+
+
+# --- The training views report facts only (T9.14) -------------------------------------------------
+
+# The texts of the Workouts page and its tables: every key under these prefixes, the page's title
+# and the exercise names (T9.15's training views add their keys under "workouts." too).
+TRAINING_PREFIXES = ("workouts.", "muscle.")
+TRAINING_KEYS = ("page.workouts", "my_data.col.volume")
+
+
+def advice_pattern(words: tuple[str, ...]) -> re.Pattern[str]:
+    """Return a pattern for config's advice words: whole words or phrases, "x*" for a prefix."""
+    parts = [
+        re.escape(word[:-1]) + r"\w*" if word.endswith("*") else re.escape(word) for word in words
+    ]
+    return re.compile(r"\b(?:" + "|".join(parts) + r")\b", re.IGNORECASE)
+
+
+def training_texts(lang: i18n.Language) -> dict[str, str]:
+    """Return every text the training views show in a language, by its key or exercise ID."""
+    from src import exercises
+
+    found = {
+        key: text
+        for key, text in i18n.TEXT[lang].items()
+        if key.startswith(TRAINING_PREFIXES) or key in TRAINING_KEYS
+    }
+    found.update({f"exercise.{item.id}": item.name[lang] for item in exercises.exercises()})
+    return found
+
+
+@pytest.mark.parametrize("lang", i18n.LANGUAGES)
+def test_the_training_views_give_no_advice(lang):
+    """No workout text, table label or exercise name holds an advice word from config."""
+    pattern = advice_pattern(config.TRAINING_ADVICE_WORDS[lang])
+    texts = training_texts(lang)
+    assert len(texts) > 50  # the page's texts and the exercise list are really scanned
+    assert {key: text for key, text in texts.items() if pattern.search(text)} == {}
+
+
+@pytest.mark.parametrize(
+    ("lang", "text"),
+    [
+        ("en", "You should add 2.5 kg next week."),
+        ("en", "We recommend fewer sets."),
+        ("en", "Try to increase the weight."),
+        ("en", "Your volume is too low; aim for 10 sets."),
+        ("en", "Better: rest longer."),
+        ("de", "Sie sollten mehr Sätze machen."),
+        ("de", "Wir empfehlen eine Pause."),
+        ("de", "Das ist zu wenig Volumen."),
+        ("de", "Erhöhen Sie das Gewicht."),
+        ("de", "Sie muss mehr trainieren."),
+        ("de", "Das braucht eine Pause."),
+        ("de", "Steigern Sie die Last."),
+        ("de", "Sie sollen mehr Sätze machen."),
+        ("de", "Die App empfiehlt eine Pause."),
+        ("de", "Ihr Coach rät zu mehr Sätzen."),
+        ("en", "Our advice: add a set."),
+    ],
+)
+def test_the_advice_scan_catches_advice(lang, text):
+    """A planted piece of advice in either language is caught, so the scan can fail."""
+    assert advice_pattern(config.TRAINING_ADVICE_WORDS[lang]).search(text)
+
+
+@pytest.mark.parametrize(
+    ("lang", "text"),
+    [
+        ("en", "Sessions: 3 · Sets: 6 · Volume: 2,310 kg"),
+        ("en", "Remove the last set"),
+        ("en", "Top weight"),
+        ("de", "Einheiten: 3 · Sätze: 6 · Volumen: 2.310 kg"),
+        ("de", "Höchstes Gewicht"),
+    ],
+)
+def test_the_advice_scan_lets_facts_through(lang, text):
+    """Plain facts and labels are not taken for advice."""
+    assert not advice_pattern(config.TRAINING_ADVICE_WORDS[lang]).search(text)

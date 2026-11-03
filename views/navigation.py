@@ -6,18 +6,19 @@ home instead. A new session sees only the start page (sign in, or in demo mode a
 guest) when sign-in is set up or in demo mode. A guest (a copy with no [auth]) has one page, the
 chat with today's tabs, so no menu shows. A user signed in with Google who has no account yet
 ("pending") sees only the welcome page. A coach has the chat and My data; a gymer My profile, Today
-(the food and weight diary, T9.13) and My data, no chat (owner's choice).
+(the food and weight diary, T9.13), Workouts (T9.14) and My data, no chat (owner's choice).
 """
 
 import streamlit as st
 
-from views import account, my_data, pages, today
+from views import account, my_data, pages, today, workouts
 from views.text import t
 
 CHAT = "chat"
-PROFILE = "profile"
+PROFILE = pages.PROFILE_URL_PATH
 TODAY = today.URL_PATH
 MY_DATA = my_data.URL_PATH
+WORKOUTS = workouts.URL_PATH
 WELCOME = "welcome"
 START = "start"
 PENDING = "pending"
@@ -28,13 +29,14 @@ PAGES_BY_ROLE: dict[str | None, tuple[str, ...]] = {
     PENDING: (WELCOME,),
     "coach": (CHAT, MY_DATA),
     # No chat for a gymer (owner's choice, 2026-11-02): the profile, the diary (T9.13; the
-    # profile stays the home, owner's choice, 2026-11-03) and their data.
-    "gymer": (PROFILE, TODAY, MY_DATA),
+    # profile stays the home, owner's choice, 2026-11-03), the workouts (T9.14) and their data.
+    "gymer": (PROFILE, TODAY, WORKOUTS, MY_DATA),
 }
 _PAGES = {
     CHAT: (pages.chat_page, "page.chat", ":material/chat:"),
     PROFILE: (pages.profile_page, "page.profile", ":material/person:"),
     TODAY: (today.page, "page.today", ":material/restaurant:"),
+    WORKOUTS: (workouts.page, "page.workouts", ":material/fitness_center:"),
     MY_DATA: (my_data.page, "page.my_data", ":material/folder_shared:"),
     WELCOME: (account.welcome_page, "page.welcome", ":material/waving_hand:"),
     START: (account.start_page, "page.start", ":material/login:"),

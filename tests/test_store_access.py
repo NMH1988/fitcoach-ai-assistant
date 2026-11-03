@@ -77,6 +77,8 @@ WRITES = {
     "records.add_target",
     "records.add_meal_item",
     "records.add_workout_session",
+    # Replaces only the acting user's own workout (T9.14): NotFound for anyone else's.
+    "records.replace_workout_session",
     "records.add_preference",
     # T9.13: a profile save in one transaction, and a meal edit (the user's own item only).
     "records.add_profile_with_target",

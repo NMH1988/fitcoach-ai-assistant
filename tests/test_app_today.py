@@ -69,10 +69,11 @@ def gymer(monkeypatch):
 
 
 def test_today_is_in_the_gymers_menu_after_the_home(monkeypatch):
-    """A gymer's pages are My profile (the home), Today and My data."""
+    """A gymer's pages are My profile (the home), Today, Workouts (T9.14) and My data."""
     assert navigation.PAGES_BY_ROLE["gymer"] == (
         navigation.PROFILE,
         navigation.TODAY,
+        navigation.WORKOUTS,
         navigation.MY_DATA,
     )
 

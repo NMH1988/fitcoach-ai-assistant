@@ -507,13 +507,14 @@ _EN: dict[str, str] = {
     "page.my_data": "My data",
     "page.profile": "My profile",
     "page.today": "Today",
+    "page.workouts": "Workouts",
     "page.welcome": "Welcome",
     "page.start": "Start",
     "start.title": "Sign in to continue",
     "start.text": (
-        "Sign in with Google to keep your profile, daily targets and food log (as a gymer) or to "
-        "use the app's AI assistant (as a coach). A coach's questions (and the coach's own "
-        "details, when a question needs them) go to the AI model through OpenRouter."
+        "Sign in with Google to keep your profile, daily targets, food log and workouts (as a "
+        "gymer) or to use the app's AI assistant (as a coach). A coach's questions (and the "
+        "coach's own details, when a question needs them) go to the AI model through OpenRouter."
     ),
     "start.demo_title": "Try a made-up user",
     "start.demo": (
@@ -587,7 +588,8 @@ _EN: dict[str, str] = {
     "profile.note_gymer": (
         "Saved for your account: when you press Save (or change the goal), your details, weight "
         "and daily targets are stored in this app's data file on this computer, and so are the "
-        "food and weights you log on Today. Use made-up data only: do not enter real health data."
+        "food and weights you log on Today and the workouts you log on Workouts. Use made-up data "
+        "only: do not enter real health data."
     ),
     "profile.note_coach": (
         "Kept for this session only: a coach's details are not stored, but they go to the AI "
@@ -599,8 +601,9 @@ _EN: dict[str, str] = {
     "profile.my_data_link": "See, export or delete it in My data",
     "profile.saved_on_save": "Saved to your account when you press Save (My data lists it).",
     "profile.opt_in": (
-        "I understand that my details, and the food and weights I log on Today, are stored in "
-        "this app's data file on this computer, and I enter made-up data only."
+        "I understand that my details, the food and weights I log on Today and the workouts I "
+        "log on Workouts are stored in this app's data file on this computer, and I enter made-up "
+        "data only."
     ),
     "profile.opt_in_needed": "Tick the box above to save your details to your account.",
     "profile.goal_not_saved": (
@@ -643,6 +646,70 @@ _EN: dict[str, str] = {
     "my_data.col.grams": "Amount",
     "my_data.col.sets": "Sets",
     "my_data.col.text": "Text",
+    "my_data.col.volume": "Volume",
+    # The workout log (T9.14): facts only, no advice (config.TRAINING_ADVICE_WORDS, tested).
+    "workouts.intro": (
+        "Log a workout: pick the day, add each set with the exercise, reps, weight and, if you "
+        "like, the RPE, then save it. Below, your week's sessions and totals."
+    ),
+    "workouts.stored_note": (
+        "Saved for your account: your workouts are stored in this app's data file on this "
+        "computer, and a coach sees them only while you share training with them. Use made-up "
+        "data only: do not enter real health data."
+    ),
+    "workouts.profile_first": (
+        "Workouts are saved once your details are: save them in My profile first, with the tick "
+        "that you understand they are stored."
+    ),
+    "workouts.profile_link": "Go to My profile",
+    "workouts.my_data_link": "See, export or delete them in My data",
+    "workouts.log": "Log a workout",
+    "workouts.editing": "Edit the workout of {day}",
+    "workouts.day": "Day",
+    "workouts.exercise": "Exercise",
+    "workouts.reps": "Reps",
+    "workouts.weight": "Weight ({unit})",
+    "workouts.weight_help": "The weight lifted; 0 for a body-weight set with no added weight.",
+    "workouts.rpe": "RPE (optional)",
+    "workouts.rpe_help": "How hard the set felt, from 1 (very easy) to 10 (maximal effort).",
+    "workouts.add_set": "Add set",
+    "workouts.remove_last": "Remove the last set",
+    "workouts.save": "Save workout",
+    "workouts.save_edit": "Save changes",
+    "workouts.cancel_edit": "Cancel editing",
+    "workouts.discard": "Discard the draft",
+    "workouts.edit_blocked": "Save, cancel or discard the workout above first.",
+    "workouts.no_sets_yet": "No sets yet: add the first set above.",
+    "workouts.max_sets": "A workout holds at most {count} sets.",
+    "workouts.saved": "Workout saved.",
+    "workouts.not_saved": "The workout could not be saved: check the values and try again.",
+    "workouts.gone": "This workout no longer exists (it was deleted). Log it as a new one.",
+    "workouts.week": "Your week",
+    "workouts.week_of": "Week of",
+    "workouts.week_line": (
+        "{start} to {end} · Sessions: {sessions} · Sets: {sets} · Volume: {volume}"
+    ),
+    "workouts.volume_note": (
+        "Volume is reps × weight, so a body-weight set with no added weight adds none."
+    ),
+    "workouts.none_this_week": "No workout logged in this week.",
+    "workouts.session_line": "**{day}** · Sets: {sets} · Volume: {volume}",
+    "workouts.edit": "Edit",
+    "workouts.delete": "Delete",
+    "workouts.col.set": "Set",
+    "workouts.col.exercise": "Exercise",
+    "workouts.col.reps": "Reps",
+    "workouts.col.weight": "Weight",
+    "workouts.col.rpe": "RPE",
+    "workouts.col.sets": "Sets",
+    "workouts.col.volume": "Volume",
+    "workouts.col.top_weight": "Top weight",
+    "muscle.chest": "Chest",
+    "muscle.back": "Back",
+    "muscle.legs": "Legs",
+    "muscle.shoulders": "Shoulders",
+    "muscle.arms": "Arms",
+    "muscle.core": "Core",
     "my_data.grams": "{value} g",
     "my_data.set_by.system": "The app",
     "my_data.set_by.user": "You",
@@ -1249,14 +1316,15 @@ _DE: dict[str, str] = {
     "page.my_data": "Meine Daten",
     "page.profile": "Mein Profil",
     "page.today": "Heute",
+    "page.workouts": "Training",
     "page.welcome": "Willkommen",
     "page.start": "Start",
     "start.title": "Melden Sie sich an, um fortzufahren",
     "start.text": (
-        "Melden Sie sich mit Google an, um Ihr Profil, Ihre Tagesziele und Ihr Ernährungstagebuch "
-        "zu behalten (als Gymer) oder den KI-Assistenten der App zu nutzen (als Coach). Die Fragen "
-        "eines Coachs (und seine eigenen Angaben, wenn eine Frage sie braucht) gehen über "
-        "OpenRouter an das KI-Modell."
+        "Melden Sie sich mit Google an, um Ihr Profil, Ihre Tagesziele, Ihr Ernährungstagebuch "
+        "und Ihre Trainingseinheiten zu behalten (als Gymer) oder den KI-Assistenten der App zu "
+        "nutzen (als Coach). Die Fragen eines Coachs (und seine eigenen Angaben, wenn eine Frage "
+        "sie braucht) gehen über OpenRouter an das KI-Modell."
     ),
     "start.demo_title": "Einen erfundenen Nutzer ausprobieren",
     "start.demo": (
@@ -1337,8 +1405,9 @@ _DE: dict[str, str] = {
     "profile.note_gymer": (
         "Für Ihr Konto gespeichert: Wenn Sie auf Speichern klicken (oder das Ziel ändern), werden "
         "Ihre Angaben, Ihr Gewicht und Ihre Tagesziele in der Datendatei dieser App auf diesem "
-        "Computer gespeichert, ebenso das Essen und die Gewichte, die Sie unter Heute eintragen. "
-        "Verwenden Sie nur erfundene Daten: Geben Sie keine echten Gesundheitsdaten ein."
+        "Computer gespeichert, ebenso das Essen und die Gewichte, die Sie unter Heute eintragen, "
+        "und die Trainingseinheiten, die Sie unter Training eintragen. Verwenden Sie nur erfundene "
+        "Daten: Geben Sie keine echten Gesundheitsdaten ein."
     ),
     "profile.note_coach": (
         "Nur für diese Sitzung: Die Angaben eines Coachs werden nicht gespeichert, gehen aber über "
@@ -1353,9 +1422,9 @@ _DE: dict[str, str] = {
         "Wird beim Klick auf Speichern in Ihrem Konto gespeichert (Meine Daten listet es auf)."
     ),
     "profile.opt_in": (
-        "Ich verstehe, dass meine Angaben sowie das Essen und die Gewichte, die ich unter Heute "
-        "eintrage, in der Datendatei dieser App auf diesem Computer gespeichert werden, und ich "
-        "gebe nur erfundene Daten ein."
+        "Ich verstehe, dass meine Angaben, das Essen und die Gewichte, die ich unter Heute "
+        "eintrage, und die Trainingseinheiten, die ich unter Training eintrage, in der Datendatei "
+        "dieser App auf diesem Computer gespeichert werden, und ich gebe nur erfundene Daten ein."
     ),
     "profile.goal_not_saved": (
         "Das Ziel gilt nur für diese Sitzung: Speichern Sie zuerst Ihre Angaben unter "
@@ -1401,6 +1470,83 @@ _DE: dict[str, str] = {
     "my_data.col.grams": "Menge",
     "my_data.col.sets": "Sätze",
     "my_data.col.text": "Text",
+    "my_data.col.volume": "Volumen",
+    "workouts.intro": (
+        "Erfassen Sie eine Trainingseinheit: Wählen Sie den Tag, fügen Sie jeden Satz mit Übung, "
+        "Wiederholungen, Gewicht und auf Wunsch dem RPE hinzu und speichern Sie sie. Darunter "
+        "stehen die Einheiten und Summen Ihrer Woche."
+    ),
+    "workouts.stored_note": (
+        "Für Ihr Konto gespeichert: Ihre Trainingseinheiten werden in der Datendatei dieser App "
+        "auf diesem Computer gespeichert, und ein Coach sieht sie nur, solange Sie den "
+        "Bereich Training freigeben. Verwenden Sie nur erfundene Daten: Geben Sie keine echten "
+        "Gesundheitsdaten ein."
+    ),
+    "workouts.profile_first": (
+        "Trainingseinheiten werden gespeichert, sobald Ihre Angaben gespeichert sind: Speichern "
+        "Sie diese zuerst unter Mein Profil, mit dem Häkchen, dass Sie die Speicherung verstehen."
+    ),
+    "workouts.profile_link": "Zu Mein Profil",
+    "workouts.my_data_link": "Unter Meine Daten ansehen, exportieren oder löschen",
+    "workouts.log": "Trainingseinheit erfassen",
+    "workouts.editing": "Trainingseinheit vom {day} bearbeiten",
+    "workouts.day": "Tag",
+    "workouts.exercise": "Übung",
+    "workouts.reps": "Wiederholungen",
+    "workouts.weight": "Gewicht ({unit})",
+    "workouts.weight_help": (
+        "Das bewegte Gewicht; 0 für einen Satz mit dem eigenen Körpergewicht ohne Zusatzgewicht."
+    ),
+    "workouts.rpe": "RPE (optional)",
+    "workouts.rpe_help": (
+        "Wie anstrengend sich der Satz anfühlte, von 1 (sehr leicht) bis 10 (maximale Anstrengung)."
+    ),
+    "workouts.add_set": "Satz hinzufügen",
+    "workouts.remove_last": "Letzten Satz entfernen",
+    "workouts.save": "Trainingseinheit speichern",
+    "workouts.save_edit": "Änderungen speichern",
+    "workouts.cancel_edit": "Bearbeiten abbrechen",
+    "workouts.discard": "Entwurf verwerfen",
+    "workouts.edit_blocked": (
+        "Speichern, verwerfen oder brechen Sie zuerst die Trainingseinheit oben ab."
+    ),
+    "workouts.no_sets_yet": "Noch keine Sätze: Fügen Sie oben den ersten Satz hinzu.",
+    "workouts.max_sets": "Eine Trainingseinheit hat höchstens {count} Sätze.",
+    "workouts.saved": "Trainingseinheit gespeichert.",
+    "workouts.not_saved": (
+        "Die Trainingseinheit konnte nicht gespeichert werden: Prüfen Sie die Werte und "
+        "speichern Sie erneut."
+    ),
+    "workouts.gone": (
+        "Diese Trainingseinheit gibt es nicht mehr (sie wurde gelöscht). Erfassen Sie sie neu."
+    ),
+    "workouts.week": "Ihre Woche",
+    "workouts.week_of": "Woche vom",
+    "workouts.week_line": (
+        "{start} bis {end} · Einheiten: {sessions} · Sätze: {sets} · Volumen: {volume}"
+    ),
+    "workouts.volume_note": (
+        "Volumen ist Wiederholungen × Gewicht; ein Satz mit dem eigenen Körpergewicht ohne "
+        "Zusatzgewicht zählt daher nicht mit."
+    ),
+    "workouts.none_this_week": "In dieser Woche ist kein Training erfasst.",
+    "workouts.session_line": "**{day}** · Sätze: {sets} · Volumen: {volume}",
+    "workouts.edit": "Bearbeiten",
+    "workouts.delete": "Löschen",
+    "workouts.col.set": "Satz",
+    "workouts.col.exercise": "Übung",
+    "workouts.col.reps": "Wiederholungen",
+    "workouts.col.weight": "Gewicht",
+    "workouts.col.rpe": "RPE",
+    "workouts.col.sets": "Sätze",
+    "workouts.col.volume": "Volumen",
+    "workouts.col.top_weight": "Höchstes Gewicht",
+    "muscle.chest": "Brust",
+    "muscle.back": "Rücken",
+    "muscle.legs": "Beine",
+    "muscle.shoulders": "Schultern",
+    "muscle.arms": "Arme",
+    "muscle.core": "Rumpf",
     "my_data.grams": "{value} g",
     "my_data.set_by.system": "Die App",
     "my_data.set_by.user": "Sie",

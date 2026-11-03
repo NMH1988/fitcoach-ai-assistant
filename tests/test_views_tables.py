@@ -1,5 +1,6 @@
 """views/tables.py: table rows, cells and text lines, built without Streamlit or AppTest (T8.1)."""
 
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -430,3 +431,79 @@ def test_the_weights_line_is_in_the_users_units():
     rows = [{"weight_kg": 80.0}, {"weight_kg": 79.5}]
     assert tables.weights_line(rows, "metric", "en") == "Logged on this day: 80 kg, 79.5 kg"
     assert "176.4 lb" in tables.weights_line(rows, "imperial", "en")
+
+
+# --- The Workouts page's tables (T9.14): facts only, in the user's units --------------------------
+
+WORKOUT_ROW = {
+    "id": 1,
+    "performed_on": "2026-10-26",
+    "recorded_at": "2026-10-26T18:00:00+00:00",
+    "sets": [
+        {"exercise_id": "squat", "set_no": 1, "reps": 5, "weight_kg": 102.5, "rpe": 8.5},
+        {"exercise_id": "pull_up", "set_no": 2, "reps": 10, "weight_kg": 0.0, "rpe": None},
+    ],
+}
+
+
+def test_a_workout_s_sets_table():
+    """Each set shows its number, exercise with its group, reps, weight and RPE (or a dash)."""
+    table = tables.sets_table(WORKOUT_ROW["sets"], "metric", "en")
+    assert table == {
+        "Set": ["1", "2"],
+        "Exercise": ["Squat · Legs", "Pull-up · Back"],
+        "Reps": ["5", "10"],
+        "Weight": ["102.5 kg", "0 kg"],
+        "RPE": ["8.5", "–"],
+    }
+
+
+def test_the_sets_table_in_german_and_pounds():
+    """German labels and decimal marks, and the weight in lb for imperial units."""
+    table = tables.sets_table(WORKOUT_ROW["sets"], "imperial", "de")
+    assert table["Übung"] == ["Kniebeuge · Beine", "Klimmzug · Rücken"]
+    assert table["Gewicht"] == ["226 lb", "0 lb"]
+    assert table["RPE"] == ["8,5", "–"]
+
+
+def test_the_week_table_and_lines():
+    """The week's table and lines give the sessions, sets, volume and top weight."""
+    week = metrics.training_week([WORKOUT_ROW], date(2026, 10, 26))
+    assert tables.training_week_table(week, "metric", "en") == {
+        "Exercise": ["Squat · Legs", "Pull-up · Back"],
+        "Sets": ["1", "1"],
+        "Reps": ["5", "10"],
+        "Volume": ["512 kg", "0 kg"],
+        "Top weight": ["102.5 kg", "0 kg"],
+    }
+    assert tables.training_week_line(week, "metric", "de") == (
+        "2026-10-26 bis 2026-11-01 · Einheiten: 1 · Sätze: 2 · Volumen: 512 kg"
+    )
+    assert tables.session_line(WORKOUT_ROW, "metric", "en") == (
+        "**2026-10-26** · Sets: 2 · Volume: 512 kg"
+    )
+
+
+@pytest.mark.parametrize(
+    ("volume_kg", "system", "lang", "expected"),
+    [
+        (2310.0, "metric", "en", "2,310 kg"),
+        (2310.0, "metric", "de", "2.310 kg"),
+        (1000.0, "imperial", "en", "2,205 lb"),
+        (1_234_567.0, "metric", "en", "1,234,567 kg"),
+    ],
+)
+def test_a_volume_is_a_whole_number_in_the_user_s_units(volume_kg, system, lang, expected):
+    """A volume is rounded to a whole number with the language's thousands marks."""
+    assert tables.volume_text(volume_kg, system, lang) == expected
+
+
+def test_an_exercise_no_longer_on_the_list_is_shown_by_its_id():
+    """A stored ID the list no longer has is shown as it is, never as an error."""
+    assert tables.exercise_label("old_exercise", "en") == "old_exercise"
+
+
+def test_my_data_shows_a_workout_s_sets_and_volume():
+    """My data's workouts table has the day, the number of sets and the volume (AC-24)."""
+    cells = tables.stored_cells("workout_sessions", WORKOUT_ROW, "metric", "en")
+    assert cells == ["2026-10-26", "2", "512 kg"]
