@@ -153,8 +153,26 @@ def test_every_week_tooltip_has_a_translated_title(lang):
         for entry in tooltips:
             assert entry.get("title"), entry
             assert entry["title"] != entry["field"]
-    titles = [entry["title"] for entry in _tooltips(_week_charts(lang)[0].spec)]
-    assert titles[0] == {"en": "Day", "de": "Tag"}[lang]
+            # Round 4: the value shows the unit, so the title does not ("kcal: 2,000 kcal").
+            assert not {"kcal", "kg", "lb", "g"} & set(entry["title"].replace("(", " ").split())
+    titles = [[entry["title"] for entry in _tooltips(chart.spec)] for chart in _week_charts(lang)]
+    assert (
+        titles
+        == {
+            "en": [
+                ["Day", "Energy"] * 2,  # the bars and the "not logged" marks
+                ["Macro", "Average or target", "Per day"],
+                ["Day", "Weight"],
+                ["Day", "Volume"],
+            ],
+            "de": [
+                ["Tag", "Energie"] * 2,
+                ["Makronährstoff", "Durchschnitt oder Ziel", "Pro Tag"],
+                ["Tag", "Gewicht"],
+                ["Tag", "Volumen"],
+            ],
+        }[lang]
+    )
 
 
 @pytest.mark.parametrize(("lang", "monday"), [("en", "Mon 26"), ("de", "Mo 26")])

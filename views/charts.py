@@ -158,6 +158,7 @@ WEEK_MACROS = {"Protein": "protein_g", "Carbohydrate": "carbohydrate_g", "Fat": 
 
 def _tip(field: str, title: str) -> dict:
     """Return a tooltip entry with a translated title, so no column name shows (round 3)."""
+    # The title names the quantity without its unit: the value shows the unit (round 4).
     return {"field": field, "type": "nominal", "title": title}
 
 
@@ -186,7 +187,10 @@ def kcal_per_day(week: metrics.WeekMetrics, lang: Language) -> Chart:
     texts = [not_logged if value is None else f"{i18n.number(value, lang)} kcal" for value in kcal]
     parts = ", ".join(f"{day} {text}" for day, text in zip(days, texts, strict=True))
     alt = i18n.t("chart.kcal_days_alt", lang, parts=parts)
-    tooltip = [_tip("day", i18n.t("chart.day", lang)), _tip("kcal_text", "kcal")]
+    tooltip = [
+        _tip("day", i18n.t("chart.day", lang)),
+        _tip("kcal_text", i18n.t("chart.energy", lang)),
+    ]
     layers = [
         {
             "transform": [{"filter": "datum.logged"}],
@@ -297,7 +301,7 @@ def macros_vs_target(week: metrics.WeekMetrics, lang: Language) -> Chart | None:
             "tooltip": [
                 _tip("macro", i18n.t("chart.macro", lang)),
                 _tip("series", i18n.t("chart.series", lang)),
-                _tip("grams_text", i18n.t("chart.grams_per_day", lang)),
+                _tip("grams_text", i18n.t("chart.per_day", lang)),
             ],
         },
     }
@@ -340,9 +344,7 @@ def weight_trend(
             # The day as the app wrote it, so no time zone can move it.
             "tooltip": [
                 _tip("day_text", i18n.t("chart.day", lang)),
-                _tip(
-                    "weight_text", i18n.t("chart.weight_axis", lang, unit=units.weight_unit(system))
-                ),
+                _tip("weight_text", i18n.t("chart.weight", lang)),
             ],
         },
     }
@@ -378,9 +380,7 @@ def volume_per_day(
             },
             "tooltip": [
                 _tip("day", i18n.t("chart.day", lang)),
-                _tip(
-                    "volume_text", i18n.t("chart.volume_axis", lang, unit=units.weight_unit(system))
-                ),
+                _tip("volume_text", i18n.t("chart.volume", lang)),
             ],
         },
     }
