@@ -13,6 +13,7 @@ from tests.test_app_account import (
     PROFILE,
     USER_ID,
     button,
+    page_links,
     signed_in,
     start,
     store_account,
@@ -293,3 +294,30 @@ def test_an_emptied_day_field_keeps_the_last_day(gymer):
     _add_set(gymer, "squat", 5, 100.0, None)
     button(gymer, "Save workout").click().run(timeout=30)
     assert [session["performed_on"] for session in _stored()] == [past.isoformat()]
+
+
+def test_a_gymer_with_no_saved_profile_cannot_save_a_workout(monkeypatch):
+    """Without a saved profile (no first-save tick yet), Save is off and nothing is stored."""
+    store_account("gymer")  # an account, no profile entry
+    at = open_workouts(start(monkeypatch, user=signed_in()))
+    assert "save them in My profile first" in " ".join(item.value for item in at.info)
+    assert "Go to My profile" in page_links(at)
+    _add_set(at, "squat", 5, 100.0, None)
+    assert button(at, "Save workout").disabled
+    assert _stored() == []
+
+
+def test_a_profile_deleted_in_another_tab_stops_the_save(gymer):
+    """Save checks the saved profile again at the write, so nothing is stored without it."""
+    _add_set(gymer, "squat", 5, 100.0, None)
+    with db.connect() as conn:
+        for entry in records.list_profile_entries(conn, USER_ID, USER_ID):
+            records.delete_record(conn, USER_ID, "profile_entries", entry["id"])
+    button(gymer, "Save workout").click().run(timeout=30)
+    assert _stored() == []
+    assert any("save them in My profile first" in item.value for item in gymer.error)
+
+
+def test_the_stored_note_links_to_my_data(gymer):
+    """Under the note on what is stored, a link leads to My data (compliance run 1)."""
+    assert "See, export or delete it in My data" in page_links(gymer)

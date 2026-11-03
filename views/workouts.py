@@ -15,7 +15,7 @@ import streamlit as st
 from src import account as accounts
 from src import config, exercises, metrics, units
 from src.store import records, values
-from views import account, header, my_data, tables
+from views import account, header, my_data, pages, tables
 from views.text import lang, t
 
 URL_PATH = "workouts"
@@ -119,6 +119,10 @@ def _save() -> None:
     day = st.session_state.get(KEPT_DAY_KEY, accounts.today())
     try:
         with accounts.open_store(account.store_path()) as conn:
+            # Checked again at the write: the profile may have been deleted in another tab.
+            if not accounts.has_profile_entries(conn, user_id):
+                st.session_state[NOTICE_KEY] = ("error", "workouts.profile_first")
+                return
             if editing is None:
                 records.add_workout_session(conn, user_id, performed_on=day, sets=_sets())
             else:
@@ -127,6 +131,9 @@ def _save() -> None:
                 )
     except accounts.StoreUnavailable:
         st.session_state[NOTICE_KEY] = ("error", "account.store_unavailable")
+        return
+    except accounts.AccountError as error:
+        st.session_state[NOTICE_KEY] = ("error", error.code)
         return
     except values.StoreValueError:
         st.session_state[NOTICE_KEY] = ("error", "workouts.not_saved")
@@ -221,7 +228,23 @@ def _set_fields(system: units.UnitSystem) -> None:
         st.caption(t("workouts.max_sets", count=config.WORKOUT_MAX_SETS))
 
 
-def _log_form(system: units.UnitSystem) -> None:
+def _has_agreed(user: dict) -> bool:
+    """Return True if the gymer has saved a profile, so they ticked that their data is stored."""
+    # The first-save tick of T9.5 is on the profile form: until a profile is saved (none yet, or
+    # all deleted on My data), no workout is stored (compliance run 1 on T9.14, owner's choice).
+    with accounts.open_store(account.store_path()) as conn:
+        return accounts.has_profile_entries(conn, user["id"])
+
+
+def _profile_first() -> None:
+    """Say that workouts are saved once the details are saved in My profile, with a link."""
+    st.info(t("workouts.profile_first"), icon=":material/info:")
+    st.page_link(
+        pages.profile_page_ref(), label=t("workouts.profile_link"), icon=":material/person:"
+    )
+
+
+def _log_form(system: units.UnitSystem, agreed: bool) -> None:
     """Show the draft workout: its day, the set fields, the sets so far and Save."""
     editing = st.session_state.get(EDITING_KEY)
     day = st.session_state.setdefault(KEPT_DAY_KEY, accounts.today())
@@ -249,7 +272,7 @@ def _log_form(system: units.UnitSystem) -> None:
         t("workouts.save" if editing is None else "workouts.save_edit"),
         type="primary",
         icon=":material/save:",
-        disabled=not draft,
+        disabled=not draft or not agreed,
         on_click=_save,
     )
     remove.button(
@@ -323,7 +346,20 @@ def page() -> None:
         st.subheader(t("page.workouts"))
         st.markdown(t("workouts.intro"))
         st.caption(t("workouts.stored_note"))
+        st.page_link(
+            my_data.page_ref(), label=t("profile.my_data_link"), icon=":material/folder_shared:"
+        )
+        try:
+            agreed = _has_agreed(user)
+        except accounts.StoreUnavailable:
+            st.error(t("account.store_unavailable"), icon=":material/error:")
+            return
+        except accounts.AccountError as error:
+            st.error(t(error.code), icon=":material/error:")
+            return
         _notice()
-        _log_form(system)
+        if not agreed:
+            _profile_first()
+        _log_form(system, agreed)
         st.divider()
         _week(user, system)

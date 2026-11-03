@@ -227,7 +227,7 @@ Built in T4.7, changed from a text box to a dropdown in T4.8 (owner's request, 2
 | The pages per role and the chat page (T9.5) | `views/navigation.py`, `views/pages.py` |
 | Account block, demo picker, welcome page (T9.5) | `views/account.py` |
 | My data page (T9.5) | `views/my_data.py` |
-| Workouts page: the day, one set's fields, the draft's sets, Save; the week's line, table and workouts with Edit and Delete (T9.14) | `views/workouts.py` |
+| Workouts page: the stored-data note with its My data link, a note and a My profile link until a profile is saved (Save off until then), the day, one set's fields, the draft's sets, Save, Remove the last set, Discard or Cancel editing; the week's line, table and workouts with Edit (off while a draft is unsaved) and Delete (T9.14) | `views/workouts.py` |
 | The stylesheet (layout rules only, the app's title and the page menu's size, T9.5; loaded by `app.py`) | `assets/app.css` (T9.23) |
 | "Your details" dialog, units switch, Save | `views/profile_form.py` |
 | Ask tab: history, input, progress steps, the answer | `views/chat.py` |

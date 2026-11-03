@@ -15,7 +15,7 @@ from views import account, my_data, pages, workouts
 from views.text import t
 
 CHAT = "chat"
-PROFILE = "profile"
+PROFILE = pages.PROFILE_URL_PATH
 MY_DATA = my_data.URL_PATH
 WORKOUTS = workouts.URL_PATH
 WELCOME = "welcome"

@@ -5,6 +5,8 @@ import streamlit as st
 from views import account, chat, details, export, food, header, profile_form, sidebar, targets
 from views.text import t
 
+PROFILE_URL_PATH = "profile"
+
 
 def _tabs() -> None:
     """Show the four tabs: Ask, My targets, Food lookup and Details."""
@@ -33,6 +35,14 @@ def _profile_dialog() -> None:
         st.dialog(t("profile.dialog_title"), on_dismiss=profile_form.close_form)(
             profile_form.show
         )()
+
+
+def profile_page_ref() -> st.Page:
+    """Return a gymer's My profile page as st.navigation registers it, for links to it."""
+    # A link finds the page by its url_path (Streamlit hashes it), so a new st.Page works.
+    return st.Page(
+        profile_page, title=t("page.profile"), icon=":material/person:", url_path=PROFILE_URL_PATH
+    )
 
 
 def profile_page() -> None:

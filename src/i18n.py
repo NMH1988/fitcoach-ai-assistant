@@ -654,6 +654,11 @@ _EN: dict[str, str] = {
         "computer, and a coach sees them only while you share training with them. Use made-up "
         "data only: do not enter real health data."
     ),
+    "workouts.profile_first": (
+        "Workouts are saved once your details are: save them in My profile first, with the tick "
+        "that you understand they are stored."
+    ),
+    "workouts.profile_link": "Go to My profile",
     "workouts.log": "Log a workout",
     "workouts.editing": "Edit the workout of {day}",
     "workouts.day": "Day",
@@ -1402,6 +1407,11 @@ _DE: dict[str, str] = {
         "Bereich Training freigeben. Verwenden Sie nur erfundene Daten: Geben Sie keine echten "
         "Gesundheitsdaten ein."
     ),
+    "workouts.profile_first": (
+        "Trainingseinheiten werden gespeichert, sobald Ihre Angaben gespeichert sind: Speichern "
+        "Sie diese zuerst unter Mein Profil, mit dem Häkchen, dass Sie die Speicherung verstehen."
+    ),
+    "workouts.profile_link": "Zu Mein Profil",
     "workouts.log": "Trainingseinheit erfassen",
     "workouts.editing": "Trainingseinheit vom {day} bearbeiten",
     "workouts.day": "Tag",
