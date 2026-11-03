@@ -33,6 +33,8 @@ SIGN_IN_KEY = "sign_in"
 KEPT_KEYS = frozenset({i18n.SESSION_KEY, guard.SESSION_LIMITER_KEY, DEMO_KEY})
 # Where the sidebar's goal control leaves a message for the next run (views/sidebar.py).
 PROFILE_NOTICE_KEY = "profile_save_failed"
+# Every session key of the Workouts page starts with this (views/workouts.py, T9.14).
+WORKOUT_KEY_PREFIX = "workout_"
 # The display name's length limits, for the texts that name them.
 NAME_LIMITS = {"low": config.DISPLAY_NAME_CHARS[0], "high": config.DISPLAY_NAME_CHARS[1]}
 
@@ -84,9 +86,13 @@ def resolve() -> dict | None:
                 return None
             if found is None:
                 # No account (a first sign-in, or deleted in another tab): nothing of an earlier
-                # account's profile stays in the session, and its profile is loaded afresh later.
+                # account's profile or workout draft stays in the session (the Workouts page's
+                # keys all start with WORKOUT_KEY_PREFIX, T9.14), and its profile is loaded
+                # afresh later.
                 st.session_state.pop("account_loaded_for", None)
                 st.session_state.pop("profile", None)
+                for key in [k for k in st.session_state if str(k).startswith(WORKOUT_KEY_PREFIX)]:
+                    st.session_state.pop(key, None)
             loaded = st.session_state.get("account_loaded_for")
             if found is not None and found["role"] == "gymer" and loaded != user_id:
                 # Once per sign-in, so an edit made in this session is not replaced on each run.

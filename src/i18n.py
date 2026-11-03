@@ -659,6 +659,7 @@ _EN: dict[str, str] = {
         "that you understand they are stored."
     ),
     "workouts.profile_link": "Go to My profile",
+    "workouts.my_data_link": "See, export or delete them in My data",
     "workouts.log": "Log a workout",
     "workouts.editing": "Edit the workout of {day}",
     "workouts.day": "Day",
@@ -1412,6 +1413,7 @@ _DE: dict[str, str] = {
         "Sie diese zuerst unter Mein Profil, mit dem Häkchen, dass Sie die Speicherung verstehen."
     ),
     "workouts.profile_link": "Zu Mein Profil",
+    "workouts.my_data_link": "Unter Meine Daten ansehen, exportieren oder löschen",
     "workouts.log": "Trainingseinheit erfassen",
     "workouts.editing": "Trainingseinheit vom {day} bearbeiten",
     "workouts.day": "Tag",

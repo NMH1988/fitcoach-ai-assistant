@@ -8,18 +8,17 @@ from streamlit.testing.v1 import AppTest
 from streamlit.util import calc_hash
 
 from src import account, units
-from src.store import db, records
+from src.store import db, my_data, records
 from tests.test_app_account import (
     PROFILE,
     USER_ID,
     button,
-    page_links,
     signed_in,
     start,
     store_account,
     texts,
 )
-from views import navigation
+from views import navigation, workouts
 
 pytestmark = pytest.mark.usefixtures("no_env_key")
 
@@ -301,7 +300,7 @@ def test_a_gymer_with_no_saved_profile_cannot_save_a_workout(monkeypatch):
     store_account("gymer")  # an account, no profile entry
     at = open_workouts(start(monkeypatch, user=signed_in()))
     assert "save them in My profile first" in " ".join(item.value for item in at.info)
-    assert "Go to My profile" in page_links(at)
+    assert _link_hash(at, "Go to My profile") == calc_hash(navigation.PROFILE)
     _add_set(at, "squat", 5, 100.0, None)
     assert button(at, "Save workout").disabled
     assert _stored() == []
@@ -315,9 +314,41 @@ def test_a_profile_deleted_in_another_tab_stops_the_save(gymer):
             records.delete_record(conn, USER_ID, "profile_entries", entry["id"])
     button(gymer, "Save workout").click().run(timeout=30)
     assert _stored() == []
-    assert any("save them in My profile first" in item.value for item in gymer.error)
+    # Said once, by the note on saving the profile first, not again as an error (round 4).
+    assert any("save them in My profile first" in item.value for item in gymer.info)
+    assert not gymer.error
 
 
 def test_the_stored_note_links_to_my_data(gymer):
     """Under the note on what is stored, a link leads to My data (compliance run 1)."""
-    assert "See, export or delete it in My data" in page_links(gymer)
+    link = "See, export or delete them in My data"
+    assert _link_hash(gymer, link) == calc_hash(navigation.MY_DATA)
+
+
+def _link_hash(at: AppTest, label: str) -> str:
+    """Return the page hash of the one page link with this label (where a click goes)."""
+    (link,) = [item for item in at.get("page_link") if item.proto.label == label]
+    return link.proto.page_script_hash
+
+
+def test_an_account_deleted_in_another_tab_stops_the_save(gymer):
+    """Save after the account was deleted elsewhere stores nothing and says the account is gone."""
+    _add_set(gymer, "squat", 5, 100.0, None)
+    with db.connect() as conn:
+        my_data.delete_user_data(conn, USER_ID)
+    # The click's callback runs before the page works out that the account is gone.
+    button(gymer, "Save workout").click().run(timeout=30)
+    assert not gymer.exception
+    with db.connect() as conn:
+        assert conn.execute("SELECT count(*) FROM workout_sessions").fetchone()[0] == 0
+
+
+def test_a_deleted_account_s_draft_leaves_the_session(gymer):
+    """Once the account is gone, no workout key of the old account stays in the session."""
+    _add_set(gymer, "squat", 5, 100.0, None)
+    assert gymer.session_state["workout_draft"]
+    with db.connect() as conn:
+        my_data.delete_user_data(conn, USER_ID)
+    gymer.run(timeout=30)
+    for key in (workouts.DRAFT_KEY, workouts.EDITING_KEY, workouts.KEPT_DAY_KEY):
+        assert key not in gymer.session_state

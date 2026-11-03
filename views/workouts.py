@@ -19,6 +19,8 @@ from views import account, header, my_data, pages, tables
 from views.text import lang, t
 
 URL_PATH = "workouts"
+# Every session key below starts with account.WORKOUT_KEY_PREFIX, so a deleted account's draft
+# leaves the session with its profile (views/account.resolve()).
 DRAFT_KEY = "workout_draft"
 EDITING_KEY = "workout_editing"
 # The day field's widget key, and the day itself in a plain key: Streamlit drops a widget's state
@@ -119,9 +121,9 @@ def _save() -> None:
     day = st.session_state.get(KEPT_DAY_KEY, accounts.today())
     try:
         with accounts.open_store(account.store_path()) as conn:
-            # Checked again at the write: the profile may have been deleted in another tab.
+            # Checked again at the write: the profile may have been deleted in another tab. No
+            # notice: the next run's note on saving the profile first says it (round 4).
             if not accounts.has_profile_entries(conn, user_id):
-                st.session_state[NOTICE_KEY] = ("error", "workouts.profile_first")
                 return
             if editing is None:
                 records.add_workout_session(conn, user_id, performed_on=day, sets=_sets())
@@ -140,7 +142,7 @@ def _save() -> None:
         return
     except records.NotFound:
         if editing is None:
-            # Only a missing account refuses a new workout (deleted in another tab).
+            # The account was deleted between the profile check and the write (another tab).
             st.session_state[NOTICE_KEY] = ("error", "account.gone")
             return
         # Deleted (e.g. in another tab) since it was loaded: the draft stays, as a new workout.
@@ -347,7 +349,7 @@ def page() -> None:
         st.markdown(t("workouts.intro"))
         st.caption(t("workouts.stored_note"))
         st.page_link(
-            my_data.page_ref(), label=t("profile.my_data_link"), icon=":material/folder_shared:"
+            my_data.page_ref(), label=t("workouts.my_data_link"), icon=":material/folder_shared:"
         )
         try:
             agreed = _has_agreed(user)
