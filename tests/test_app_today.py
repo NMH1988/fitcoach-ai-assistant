@@ -6,7 +6,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 from streamlit.util import calc_hash
 
-from src import config, diary, i18n, metrics, units
+from src import config, diary, metrics, units
 from src.store import db, records
 from src.tools.food import load_food_table
 from tests.test_app_account import (
@@ -311,12 +311,3 @@ def test_the_page_says_made_up_data_only_and_names_the_usda_source(gymer):
     page = texts(gymer)
     assert "Use made-up data only: do not enter real health data." in page
     assert "USDA FoodData Central" in page
-
-
-@pytest.mark.parametrize(
-    ("language", "named"),
-    [("en", "the food and weights I log on Today"), ("de", "die ich unter Heute eintrage")],
-)
-def test_the_first_saves_opt_in_names_the_diary(language, named):
-    """The tick Today waits for says the food and weights logged there are stored too."""
-    assert named in i18n.t("profile.opt_in", language)

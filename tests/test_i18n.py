@@ -24,6 +24,15 @@ def test_every_key_exists_in_both_languages():
     assert set(i18n.TEXT["en"]) == set(i18n.TEXT["de"])
 
 
+@pytest.mark.parametrize(
+    ("language", "named"),
+    [("en", "the food and weights I log on Today"), ("de", "die ich unter Heute eintrage")],
+)
+def test_the_first_saves_opt_in_names_the_diary(language, named):
+    """The tick the Today page waits for says the food and weights logged there are stored too."""
+    assert named in i18n.t("profile.opt_in", language)
+
+
 @pytest.mark.parametrize("key", sorted(i18n.TEXT["en"]))
 def test_each_text_is_filled_and_has_the_same_placeholders_in_both_languages(key):
     """No text is empty, and both languages fill the same {placeholders}."""
