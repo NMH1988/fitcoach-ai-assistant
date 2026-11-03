@@ -5,17 +5,18 @@ signed-in user's page for a guest) cannot be opened even by its URL: Streamlit s
 home instead. A new session sees only the start page (sign in, or in demo mode a made-up user; no
 guest) when sign-in is set up or in demo mode. A guest (a copy with no [auth]) has one page, the
 chat with today's tabs, so no menu shows. A user signed in with Google who has no account yet
-("pending") sees only the welcome page. A coach has the chat and My data; a gymer My profile and
-My data, no chat (owner's choice).
+("pending") sees only the welcome page. A coach has the chat and My data; a gymer My profile, Today
+(the food and weight diary, T9.13) and My data, no chat (owner's choice).
 """
 
 import streamlit as st
 
-from views import account, my_data, pages
+from views import account, my_data, pages, today
 from views.text import t
 
 CHAT = "chat"
 PROFILE = "profile"
+TODAY = today.URL_PATH
 MY_DATA = my_data.URL_PATH
 WELCOME = "welcome"
 START = "start"
@@ -26,12 +27,14 @@ PAGES_BY_ROLE: dict[str | None, tuple[str, ...]] = {
     START: (START,),
     PENDING: (WELCOME,),
     "coach": (CHAT, MY_DATA),
-    # No chat for a gymer (owner's choice, 2026-11-02): the profile and their data.
-    "gymer": (PROFILE, MY_DATA),
+    # No chat for a gymer (owner's choice, 2026-11-02): the profile, the diary (T9.13; the
+    # profile stays the home, owner's choice, 2026-11-03) and their data.
+    "gymer": (PROFILE, TODAY, MY_DATA),
 }
 _PAGES = {
     CHAT: (pages.chat_page, "page.chat", ":material/chat:"),
     PROFILE: (pages.profile_page, "page.profile", ":material/person:"),
+    TODAY: (today.page, "page.today", ":material/restaurant:"),
     MY_DATA: (my_data.page, "page.my_data", ":material/folder_shared:"),
     WELCOME: (account.welcome_page, "page.welcome", ":material/waving_hand:"),
     START: (account.start_page, "page.start", ":material/login:"),
