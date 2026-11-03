@@ -87,6 +87,9 @@ WRITES = {
     "records.add_meal_item",
     "records.add_workout_session",
     "records.add_preference",
+    # T9.13: a profile save in one transaction, and a meal edit (the user's own item only).
+    "records.add_profile_with_target",
+    "records.replace_meal_item",
     "reviews.save_review",
     "reviews.decide_review",
 }
