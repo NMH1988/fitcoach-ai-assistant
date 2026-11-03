@@ -77,6 +77,8 @@ WRITES = {
     "records.add_target",
     "records.add_meal_item",
     "records.add_workout_session",
+    # Replaces only the acting user's own workout (T9.14): NotFound for anyone else's.
+    "records.replace_workout_session",
     "records.add_preference",
     "reviews.save_review",
     "reviews.decide_review",

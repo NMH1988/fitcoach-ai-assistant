@@ -102,7 +102,7 @@ The sidebar is the brand sidebar (T9.23): deep green with light text in both mod
 
 | Element | Streamlit | Notes |
 |---|---|---|
-| Pages menu (T9.5) | `st.navigation` in the sidebar, at its top, its labels at 1.15rem (owner's choice, 2026-11-02) | Only when the role has more than one page (a coach: Chat and My data; a gymer: My profile and My data, no chat, owner's choice of 2026-11-02); a guest has one page, so no menu |
+| Pages menu (T9.5) | `st.navigation` in the sidebar, at its top, its labels at 1.15rem (owner's choice, 2026-11-02) | Only when the role has more than one page (a coach: Chat and My data; a gymer: My profile, Workouts (T9.14) and My data, no chat, owner's choice of 2026-11-02); a guest has one page, so no menu |
 | Account block (T9.5) | Under the menu (the chat page draws a divider under it; on the other pages About's divider follows) | No sign-in button here (owner's choice, 2026-11-02: sign-in is the start page's). With an `[auth]` section there is no guest (owner's choice, 2026-11-02), so nothing for one here; a copy with no `[auth]`: a caption that sign-in is off (or that `secrets.toml` could not be read); nothing on the start page itself; demo mode: a "Demo user" `st.selectbox` ("None (back to the start page)" and the demo users) with a caption; signed in: the display name, escaped, with the role as a subheader (owner's choice, 2026-11-02), and "Sign out" (not in demo mode). At the top, so the language control stays last, as the answer prompt says |
 | "Your profile" heading | `st.header` with `:material/person:` | Larger than `st.subheader` (owner's request, 2026-10-20) |
 | Goal | `st.segmented_control` (Build muscle / Lose fat / Maintain, with icons), `width="stretch"` | Changing it recalculates the targets |
@@ -227,6 +227,7 @@ Built in T4.7, changed from a text box to a dropdown in T4.8 (owner's request, 2
 | The pages per role and the chat page (T9.5) | `views/navigation.py`, `views/pages.py` |
 | Account block, demo picker, welcome page (T9.5) | `views/account.py` |
 | My data page (T9.5) | `views/my_data.py` |
+| Workouts page: the day, one set's fields, the draft's sets, Save; the week's line, table and workouts with Edit and Delete (T9.14) | `views/workouts.py` |
 | The stylesheet (layout rules only, the app's title and the page menu's size, T9.5; loaded by `app.py`) | `assets/app.css` (T9.23) |
 | "Your details" dialog, units switch, Save | `views/profile_form.py` |
 | Ask tab: history, input, progress steps, the answer | `views/chat.py` |

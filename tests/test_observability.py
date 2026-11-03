@@ -530,9 +530,14 @@ def _store_scenario(conn) -> list[Exception]:
         food_name="CANARY-FOOD", grams=150, kcal=571.9, protein_g=20, carbohydrate_g=100,
         fat_g=10, fiber_g=None,
     )  # fmt: skip
-    records.add_workout_session(
+    # The exercise is an ID of the app's own list (T9.14); the canary is the weight lifted.
+    workout = records.add_workout_session(
         conn, "CANARY-GYM", performed_on=date(2026, 10, 26),
-        sets=[records.ExerciseSet("CANARY-EXERCISE", 1, 5, 87.3, 8.0)],
+        sets=[records.ExerciseSet("squat", 1, 5, 87.3, 8.0)],
+    )  # fmt: skip
+    records.replace_workout_session(
+        conn, "CANARY-GYM", workout, performed_on=date(2026, 10, 27),
+        sets=[records.ExerciseSet("squat", 1, 6, 87.3, 8.5)],
     )  # fmt: skip
     records.add_preference(conn, "CANARY-GYM", "CANARY-PREF vegetarian")
     for read in (
@@ -580,6 +585,19 @@ def _store_scenario(conn) -> list[Exception]:
             model_version="m",
         ),  # fmt: skip
         lambda: records.delete_record(conn, "other-gym", "preferences", 1),
+        lambda: records.add_workout_session(
+            conn,
+            "CANARY-GYM",
+            performed_on=date(2026, 10, 26),
+            sets=[records.ExerciseSet("CANARY-EXERCISE", 1, 5, 87.3, 8.0)],
+        ),  # fmt: skip
+        lambda: records.replace_workout_session(
+            conn,
+            "other-gym",
+            1,
+            performed_on=date(2026, 10, 26),
+            sets=[records.ExerciseSet("squat", 1, 5, 87.3, 8.0)],
+        ),  # fmt: skip
     ):
         try:
             bad()
@@ -599,7 +617,7 @@ def test_no_record_or_error_holds_a_stored_value(store_conn, caplog):
     observability.configure_logging(level=logging.DEBUG, stream=stream)
     errors = _store_scenario(store_conn)
     # Each kind of refusal happened, so their messages were checked.
-    assert len(errors) == 6 + 5
+    assert len(errors) == 6 + 7
     texts = [stream.getvalue(), caplog.text, *(str(e) for e in errors), *(repr(e) for e in errors)]
     for canary in STORE_CANARY_TEXTS:
         for text in texts:

@@ -294,6 +294,15 @@ def test_the_demo_fixture_seeds_its_users_and_records(store_conn):
     assert account.load_profile(store_conn, kim) == demo.PROFILES[kim]
 
 
+def test_the_demo_gymer_has_workouts(store_conn):
+    """Sam's made-up workouts are stored with their sets (T9.14); Kim has none."""
+    demo.seed(store_conn)
+    sam, kim = demo.SHARING_GYMER.id, demo.OTHER_GYMER.id
+    sessions = records.list_workout_sessions(store_conn, sam, sam)
+    assert [len(session["sets"]) for session in sessions] == [3, 3]
+    assert records.list_workout_sessions(store_conn, kim, kim) == []
+
+
 def test_the_demo_users_are_made_up():
     """Every demo user's ID and name says demo, so no one mistakes them for real people."""
     for user in demo.DEMO_USERS:

@@ -7,7 +7,7 @@ without AppTest.
 import re
 from collections.abc import Sequence
 
-from src import chat, config, i18n, units, usage
+from src import chat, config, exercises, i18n, metrics, units, usage
 from src.i18n import Language
 from src.profile import Goal
 from src.tools import registry
@@ -269,7 +269,7 @@ STORED_COLUMNS: dict[str, tuple[str, ...]] = {
     "body_measurements": ("day", "weight"),
     "nutrition_targets": ("from", "kcal", "protein", "carbohydrate", "fat", "set_by"),
     "meal_items": ("day", "meal", "food", "grams", "kcal"),
-    "workout_sessions": ("day", "sets"),
+    "workout_sessions": ("day", "sets", "volume"),
     "preferences": ("saved", "text"),
 }
 
@@ -309,7 +309,11 @@ def stored_cells(kind: str, row: dict, system: units.UnitSystem, lang: Language)
             i18n.t("my_data.grams", lang, value=i18n.plain(row["grams"], lang)),
             i18n.number(row["kcal"], lang),
         ],
-        "workout_sessions": lambda: [row["performed_on"], str(len(row["sets"]))],
+        "workout_sessions": lambda: [
+            row["performed_on"],
+            str(len(row["sets"])),
+            volume_text(metrics.session_volume(row), system, lang),
+        ],
         "preferences": lambda: [_day(row["created_at"]), row["text"]],
     }
     return cells[kind]()
@@ -321,6 +325,87 @@ def stored_table(
     """Return a kind's stored records as columns by translated name, for st.dataframe."""
     names = tuple(i18n.t(f"my_data.col.{name}", lang) for name in STORED_COLUMNS[kind])
     return columns(names, [stored_cells(kind, row, system, lang) for row in rows])
+
+
+def volume_text(volume_kg: float, system: units.UnitSystem, lang: Language) -> str:
+    """Return a volume (reps x weight) in the user's units, as a whole number: "1,480 kg"."""
+    value = volume_kg if system == "metric" else units.kg_to_lb(volume_kg)
+    return f"{i18n.number(round(value), lang)} {units.weight_unit(system)}"
+
+
+def exercise_label(exercise_id: str, lang: Language) -> str:
+    """Return an exercise's name with its muscle group: "Squat · Legs"."""
+    exercise = exercises.by_id().get(exercise_id)
+    if exercise is None:
+        return exercise_id  # an ID no longer on the list is shown as it is
+    group = i18n.t(f"muscle.{exercise.muscle_group}", lang)
+    return f"{exercise.name[lang]} · {group}"
+
+
+def rpe_text(rpe: float | None, lang: Language) -> str:
+    """Return a set's RPE, or a dash when none was given."""
+    return "–" if rpe is None else i18n.plain(rpe, lang)
+
+
+# The columns of the Workouts page's tables (T9.14), as keys under "workouts.col." in src/i18n.py.
+SET_COLUMNS = ("set", "exercise", "reps", "weight", "rpe")
+WEEK_COLUMNS = ("exercise", "sets", "reps", "volume", "top_weight")
+
+
+def sets_table(sets: Sequence[dict], system: units.UnitSystem, lang: Language) -> dict:
+    """Return a workout's sets as table columns: set number, exercise, reps, weight and RPE."""
+    rows = [
+        [
+            str(number),
+            exercise_label(item["exercise_id"], lang),
+            str(item["reps"]),
+            units.format_weight(item["weight_kg"], system, lang),
+            rpe_text(item["rpe"], lang),
+        ]
+        for number, item in enumerate(sets, start=1)
+    ]
+    return columns(tuple(i18n.t(f"workouts.col.{name}", lang) for name in SET_COLUMNS), rows)
+
+
+def training_week_table(
+    week: metrics.TrainingWeek, system: units.UnitSystem, lang: Language
+) -> dict[str, list[str]]:
+    """Return a week's exercises as columns: sets, reps, volume and top weight (facts only)."""
+    rows = [
+        [
+            exercise_label(exercise.exercise_id, lang),
+            str(exercise.sets),
+            str(exercise.reps),
+            volume_text(exercise.volume_kg, system, lang),
+            units.format_weight(exercise.top_weight_kg, system, lang),
+        ]
+        for exercise in week.exercises
+    ]
+    return columns(tuple(i18n.t(f"workouts.col.{name}", lang) for name in WEEK_COLUMNS), rows)
+
+
+def training_week_line(week: metrics.TrainingWeek, system: units.UnitSystem, lang: Language) -> str:
+    """Say the week's days and its sessions, sets and volume on one line."""
+    return i18n.t(
+        "workouts.week_line",
+        lang,
+        start=week.start.isoformat(),
+        end=week.end.isoformat(),
+        sessions=str(week.sessions),
+        sets=str(week.sets),
+        volume=volume_text(week.volume_kg, system, lang),
+    )
+
+
+def session_line(session: dict, system: units.UnitSystem, lang: Language) -> str:
+    """Say a workout's day, its number of sets and its volume on one line."""
+    return i18n.t(
+        "workouts.session_line",
+        lang,
+        day=session["performed_on"],
+        sets=str(len(session["sets"])),
+        volume=volume_text(metrics.session_volume(session), system, lang),
+    )
 
 
 def entry_label(kind: str, row: dict, system: units.UnitSystem, lang: Language) -> str:

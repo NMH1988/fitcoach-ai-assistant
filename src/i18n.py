@@ -506,6 +506,7 @@ _EN: dict[str, str] = {
     "page.chat": "Chat",
     "page.my_data": "My data",
     "page.profile": "My profile",
+    "page.workouts": "Workouts",
     "page.welcome": "Welcome",
     "page.start": "Start",
     "start.title": "Sign in to continue",
@@ -642,6 +643,64 @@ _EN: dict[str, str] = {
     "my_data.col.grams": "Amount",
     "my_data.col.sets": "Sets",
     "my_data.col.text": "Text",
+    "my_data.col.volume": "Volume",
+    # The workout log (T9.14): facts only, no advice (config.TRAINING_ADVICE_WORDS, tested).
+    "workouts.intro": (
+        "Log a workout: pick the day, add each set with the exercise, reps, weight and, if you "
+        "like, the RPE, then save it. Below, your week's sessions and totals."
+    ),
+    "workouts.stored_note": (
+        "Saved for your account: your workouts are stored in this app's data file on this "
+        "computer, and a coach sees them only while you share training with them. Use made-up "
+        "data only: do not enter real health data."
+    ),
+    "workouts.log": "Log a workout",
+    "workouts.editing": "Edit the workout of {day}",
+    "workouts.day": "Day",
+    "workouts.exercise": "Exercise",
+    "workouts.reps": "Reps",
+    "workouts.weight": "Weight ({unit})",
+    "workouts.weight_help": "The weight lifted; 0 for a body-weight set with no added weight.",
+    "workouts.rpe": "RPE (optional)",
+    "workouts.rpe_help": "How hard the set felt, from 1 (very easy) to 10 (maximal effort).",
+    "workouts.add_set": "Add set",
+    "workouts.remove_last": "Remove the last set",
+    "workouts.save": "Save workout",
+    "workouts.save_edit": "Save changes",
+    "workouts.cancel_edit": "Cancel editing",
+    "workouts.discard": "Discard the draft",
+    "workouts.edit_blocked": "Save, cancel or discard the workout above first.",
+    "workouts.no_sets_yet": "No sets yet: add the first set above.",
+    "workouts.max_sets": "A workout holds at most {count} sets.",
+    "workouts.saved": "Workout saved.",
+    "workouts.not_saved": "The workout could not be saved: check the values and try again.",
+    "workouts.gone": "This workout no longer exists (it was deleted). Log it as a new one.",
+    "workouts.week": "Your week",
+    "workouts.week_of": "Week of",
+    "workouts.week_line": (
+        "{start} to {end} · Sessions: {sessions} · Sets: {sets} · Volume: {volume}"
+    ),
+    "workouts.volume_note": (
+        "Volume is reps × weight, so a body-weight set with no added weight adds none."
+    ),
+    "workouts.none_this_week": "No workout logged in this week.",
+    "workouts.session_line": "**{day}** · Sets: {sets} · Volume: {volume}",
+    "workouts.edit": "Edit",
+    "workouts.delete": "Delete",
+    "workouts.col.set": "Set",
+    "workouts.col.exercise": "Exercise",
+    "workouts.col.reps": "Reps",
+    "workouts.col.weight": "Weight",
+    "workouts.col.rpe": "RPE",
+    "workouts.col.sets": "Sets",
+    "workouts.col.volume": "Volume",
+    "workouts.col.top_weight": "Top weight",
+    "muscle.chest": "Chest",
+    "muscle.back": "Back",
+    "muscle.legs": "Legs",
+    "muscle.shoulders": "Shoulders",
+    "muscle.arms": "Arms",
+    "muscle.core": "Core",
     "my_data.grams": "{value} g",
     "my_data.set_by.system": "The app",
     "my_data.set_by.user": "You",
@@ -1180,6 +1239,7 @@ _DE: dict[str, str] = {
     "page.chat": "Chat",
     "page.my_data": "Meine Daten",
     "page.profile": "Mein Profil",
+    "page.workouts": "Training",
     "page.welcome": "Willkommen",
     "page.start": "Start",
     "start.title": "Melden Sie sich an, um fortzufahren",
@@ -1330,6 +1390,77 @@ _DE: dict[str, str] = {
     "my_data.col.grams": "Menge",
     "my_data.col.sets": "Sätze",
     "my_data.col.text": "Text",
+    "my_data.col.volume": "Volumen",
+    "workouts.intro": (
+        "Erfassen Sie eine Trainingseinheit: Wählen Sie den Tag, fügen Sie jeden Satz mit Übung, "
+        "Wiederholungen, Gewicht und auf Wunsch dem RPE hinzu und speichern Sie sie. Darunter "
+        "stehen die Einheiten und Summen Ihrer Woche."
+    ),
+    "workouts.stored_note": (
+        "Für Ihr Konto gespeichert: Ihre Trainingseinheiten werden in der Datendatei dieser App "
+        "auf diesem Computer gespeichert, und ein Coach sieht sie nur, solange Sie den "
+        "Bereich Training freigeben. Verwenden Sie nur erfundene Daten: Geben Sie keine echten "
+        "Gesundheitsdaten ein."
+    ),
+    "workouts.log": "Trainingseinheit erfassen",
+    "workouts.editing": "Trainingseinheit vom {day} bearbeiten",
+    "workouts.day": "Tag",
+    "workouts.exercise": "Übung",
+    "workouts.reps": "Wiederholungen",
+    "workouts.weight": "Gewicht ({unit})",
+    "workouts.weight_help": (
+        "Das bewegte Gewicht; 0 für einen Satz mit dem eigenen Körpergewicht ohne Zusatzgewicht."
+    ),
+    "workouts.rpe": "RPE (optional)",
+    "workouts.rpe_help": (
+        "Wie anstrengend sich der Satz anfühlte, von 1 (sehr leicht) bis 10 (maximale Anstrengung)."
+    ),
+    "workouts.add_set": "Satz hinzufügen",
+    "workouts.remove_last": "Letzten Satz entfernen",
+    "workouts.save": "Trainingseinheit speichern",
+    "workouts.save_edit": "Änderungen speichern",
+    "workouts.cancel_edit": "Bearbeiten abbrechen",
+    "workouts.discard": "Entwurf verwerfen",
+    "workouts.edit_blocked": (
+        "Speichern, verwerfen oder brechen Sie zuerst die Trainingseinheit oben ab."
+    ),
+    "workouts.no_sets_yet": "Noch keine Sätze: Fügen Sie oben den ersten Satz hinzu.",
+    "workouts.max_sets": "Eine Trainingseinheit hat höchstens {count} Sätze.",
+    "workouts.saved": "Trainingseinheit gespeichert.",
+    "workouts.not_saved": (
+        "Die Trainingseinheit konnte nicht gespeichert werden: Prüfen Sie die Werte und "
+        "speichern Sie erneut."
+    ),
+    "workouts.gone": (
+        "Diese Trainingseinheit gibt es nicht mehr (sie wurde gelöscht). Erfassen Sie sie neu."
+    ),
+    "workouts.week": "Ihre Woche",
+    "workouts.week_of": "Woche vom",
+    "workouts.week_line": (
+        "{start} bis {end} · Einheiten: {sessions} · Sätze: {sets} · Volumen: {volume}"
+    ),
+    "workouts.volume_note": (
+        "Volumen ist Wiederholungen × Gewicht; ein Satz mit dem eigenen Körpergewicht ohne "
+        "Zusatzgewicht zählt daher nicht mit."
+    ),
+    "workouts.none_this_week": "In dieser Woche ist kein Training erfasst.",
+    "workouts.session_line": "**{day}** · Sätze: {sets} · Volumen: {volume}",
+    "workouts.edit": "Bearbeiten",
+    "workouts.delete": "Löschen",
+    "workouts.col.set": "Satz",
+    "workouts.col.exercise": "Übung",
+    "workouts.col.reps": "Wiederholungen",
+    "workouts.col.weight": "Gewicht",
+    "workouts.col.rpe": "RPE",
+    "workouts.col.sets": "Sätze",
+    "workouts.col.volume": "Volumen",
+    "workouts.col.top_weight": "Höchstes Gewicht",
+    "muscle.chest": "Brust",
+    "muscle.back": "Rücken",
+    "muscle.legs": "Beine",
+    "muscle.shoulders": "Schultern",
+    "muscle.arms": "Arme",
+    "muscle.core": "Rumpf",
     "my_data.grams": "{value} g",
     "my_data.set_by.system": "Die App",
     "my_data.set_by.user": "Sie",

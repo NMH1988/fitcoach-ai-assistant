@@ -307,6 +307,35 @@ TIME_ZONE = "Europe/Berlin"
 # Written with every target the app computes (set_by = "system"), so a later change to
 # calculate_macro_targets can tell old targets apart; bump it when that calculation changes.
 TARGET_CALC_VERSION = "macro-targets-1"
+# The workout log (T9.14): the exercise list we wrote (`data/exercises.json`, each exercise in one
+# of the muscle groups below) and the ranges a set must keep, in kg (0 kg: a body-weight set with
+# no added load; volume is reps x kg, so such a set adds no volume). The store checks them all.
+EXERCISES_PATH = PROJECT_ROOT / "data" / "exercises.json"
+MUSCLE_GROUPS: tuple[str, ...] = ("chest", "back", "legs", "shoulders", "arms", "core")
+EXERCISE_NAME_MAX_CHARS = 40
+WORKOUT_REPS_RANGE = (1, 100)
+WORKOUT_WEIGHT_KG_RANGE = (0.0, 500.0)
+WORKOUT_RPE_RANGE = (1.0, 10.0)
+WORKOUT_RPE_STEP = 0.5
+WORKOUT_MAX_SETS = 40
+# The Workouts page's set fields: the reps shown at first, and the weight field's step per unit.
+WORKOUT_DEFAULT_REPS = 8
+WORKOUT_WEIGHT_STEP: dict[str, float] = {"metric": 2.5, "imperial": 5.0}
+# Words that would make a training view give advice; the workout texts (`workouts.`, `muscle.` in
+# src/i18n.py and the exercise names) must hold none, as the views report facts only (T9.14).
+# Whole words or phrases, any case; an entry ending in "*" matches any word that starts with it.
+TRAINING_ADVICE_WORDS: dict[str, tuple[str, ...]] = {
+    "en": (
+        "should", "must", "recommend*", "advis*", "advic*", "try to", "aim for", "increase*",
+        "decrease*", "reduce*", "too much", "too little", "too heavy", "too light", "better",
+        "optimal", "you need", "need to",
+    ),
+    "de": (
+        "soll*", "muss*", "müss*", "empfehl*", "empfiehl*", "empfohlen", "rat*", "rät*", "versuch*",
+        "erhöh*", "steiger*", "verringer*", "reduzier*", "zu viel", "zu wenig", "zu schwer",
+        "zu leicht", "besser", "optimal", "brauch*",
+    ),
+}  # fmt: skip
 # The answer system prompt, written by the owner (O1; .claude/rules/workflow.md).
 ANSWER_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "answer_system.md"
 # The language part of the answer prompt, one file per UI language, written by the owner (O1, T7.2).
