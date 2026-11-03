@@ -379,6 +379,7 @@ def test_a_failed_save_shows_the_stored_scopes_again(monkeypatch, connected_gyme
     # The next run (any click) keeps the stored value and sends nothing more.
     at.checkbox(key=sharing.CONFIRM_END_KEY).check().run(timeout=30)
     assert _scope_box(at, "nutrition").value is True
+    assert _scope_box(at, "nutrition").proto.set_value is False
     assert not at.error
 
 
@@ -418,3 +419,32 @@ def test_a_relationship_ended_while_saving_is_an_info_not_a_success(monkeypatch,
         "Your coach relationship changed in the meantime; the page shows it as it is now."
     ]
     assert not at.success
+
+
+@pytest.mark.parametrize(
+    ("language", "name_line", "end_line", "ai_line"),
+    [
+        (
+            "en",
+            "always sees your display name",
+            "still sees your display name and the dates of the relationship",
+            "drafted by an AI model",
+        ),
+        (
+            "de",
+            "sieht immer Ihren Anzeigenamen",
+            "weiterhin Ihren Anzeigenamen und die Daten der Verbindung",
+            "von einem KI-Modell entworfen",
+        ),
+    ],
+)
+def test_the_page_says_what_the_coach_keeps_seeing_and_who_drafts_reviews(
+    monkeypatch, connected_gymer, language, name_line, end_line, ai_line
+):
+    """The texts name the shared display name, what stays after the end, and the AI draft."""
+    at = open_page(start(monkeypatch, user=signed_in(), language=language), navigation.SHARING)
+    page = page_text(at)
+    assert name_line in page
+    assert end_line in page
+    # The first scope box is nutrition's, in either language.
+    assert ai_line in at.checkbox[0].label

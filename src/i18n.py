@@ -669,7 +669,10 @@ _EN: dict[str, str] = {
     "scope.nutrition": "Nutrition",
     "scope.training": "Training",
     "scope.body": "Body",
-    "scope_help.nutrition": "Food log, daily targets and the weekly reviews your coach writes",
+    "scope_help.nutrition": (
+        "Food log, daily targets and the weekly reviews your coach approves (drafted by an AI "
+        "model)"
+    ),
     "scope_help.training": "Workouts",
     "scope_help.body": "Weights and profile entries (height, age, sex, activity, goal)",
     "relationship.active": "Active",
@@ -715,8 +718,8 @@ _EN: dict[str, str] = {
         "{length} letters and digits, e.g. ABCD-EFGH-JKLM; the hyphens are optional."
     ),
     "sharing.choose": (
-        "Your coach sees what you share here, the days you logged before you shared it included. "
-        "You can change it at any time."
+        "Your coach sees what you share here, the days you logged before you shared it included, "
+        "and always sees your display name. You can change what you share at any time."
     ),
     "sharing.accept": "Accept the invitation",
     "sharing.accepted": "You are now connected with your coach.",
@@ -731,8 +734,9 @@ _EN: dict[str, str] = {
     "sharing.saved": "Your sharing choices are saved.",
     "sharing.end": "End the relationship",
     "sharing.end_note": (
-        "Your coach can then read none of your data. Your records stay yours, and you can accept "
-        "a new code later."
+        "Your coach can then read none of your records (nutrition, training, body), but still sees "
+        "your display name and the dates of the relationship until one of you deletes their "
+        "account. Your records stay yours, and you can accept a new code later."
     ),
     "sharing.confirm_end": "Yes, end the relationship with my coach",
     "sharing.end_button": "End the relationship",
@@ -1436,7 +1440,8 @@ _DE: dict[str, str] = {
     "scope.training": "Training",
     "scope.body": "Körper",
     "scope_help.nutrition": (
-        "Ernährungstagebuch, Tagesziele und die Wochenberichte, die Ihr Coach schreibt"
+        "Ernährungstagebuch, Tagesziele und die Wochenberichte, die Ihr Coach freigibt (von "
+        "einem KI-Modell entworfen)"
     ),
     "scope_help.training": "Trainingseinheiten",
     "scope_help.body": "Gewichte und Profileinträge (Größe, Alter, Geschlecht, Aktivität, Ziel)",
@@ -1489,7 +1494,7 @@ _DE: dict[str, str] = {
     ),
     "sharing.choose": (
         "Ihr Coach sieht, was Sie hier teilen, auch die Tage, die Sie vor dem Teilen erfasst "
-        "haben. Sie können es jederzeit ändern."
+        "haben, und sieht immer Ihren Anzeigenamen. Sie können jederzeit ändern, was Sie teilen."
     ),
     "sharing.accept": "Einladung annehmen",
     "sharing.accepted": "Sie sind jetzt mit Ihrem Coach verbunden.",
@@ -1509,8 +1514,9 @@ _DE: dict[str, str] = {
     "sharing.saved": "Ihre Freigaben sind gespeichert.",
     "sharing.end": "Verbindung beenden",
     "sharing.end_note": (
-        "Ihr Coach kann dann keine Ihrer Daten mehr lesen. Ihre Einträge bleiben Ihre, und Sie "
-        "können später einen neuen Code annehmen."
+        "Ihr Coach kann dann keine Ihrer Einträge (Ernährung, Training, Körper) mehr lesen, sieht "
+        "aber weiterhin Ihren Anzeigenamen und die Daten der Verbindung, bis einer von Ihnen sein "
+        "Konto löscht. Ihre Einträge bleiben Ihre, und Sie können später einen neuen Code annehmen."
     ),
     "sharing.confirm_end": "Ja, die Verbindung mit meinem Coach beenden",
     "sharing.end_button": "Verbindung beenden",
