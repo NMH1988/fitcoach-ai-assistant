@@ -549,9 +549,14 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
         conn, "CANARY-GYM", food_name="Oats, whole grain, rolled, old fashioned", grams=87.3,
         meal="lunch", day=today,
     )  # fmt: skip
-    records.add_workout_session(
+    # The exercise is an ID of the app's own list (T9.14); the canary is the weight lifted.
+    workout = records.add_workout_session(
         conn, "CANARY-GYM", performed_on=date(2026, 10, 26),
-        sets=[records.ExerciseSet("CANARY-EXERCISE", 1, 5, 87.3, 8.0)],
+        sets=[records.ExerciseSet("squat", 1, 5, 87.3, 8.0)],
+    )  # fmt: skip
+    records.replace_workout_session(
+        conn, "CANARY-GYM", workout, performed_on=date(2026, 10, 27),
+        sets=[records.ExerciseSet("squat", 1, 6, 87.3, 8.5)],
     )  # fmt: skip
     records.add_preference(conn, "CANARY-GYM", "CANARY-PREF vegetarian")
     # Invitations and names (T9.12): the code is a canary too, refused and accepted codes logged.
@@ -618,6 +623,19 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
             model_version="m",
         ),  # fmt: skip
         lambda: records.delete_record(conn, "other-gym", "preferences", 1),
+        lambda: records.add_workout_session(
+            conn,
+            "CANARY-GYM",
+            performed_on=date(2026, 10, 26),
+            sets=[records.ExerciseSet("CANARY-EXERCISE", 1, 5, 87.3, 8.0)],
+        ),  # fmt: skip
+        lambda: records.replace_workout_session(
+            conn,
+            "other-gym",
+            1,
+            performed_on=date(2026, 10, 26),
+            sets=[records.ExerciseSet("squat", 1, 5, 87.3, 8.0)],
+        ),  # fmt: skip
         lambda: records.replace_meal_item(
             conn,
             "other-gym",
@@ -654,7 +672,7 @@ def test_no_record_or_error_holds_a_stored_value(store_conn, caplog):
     codes: list[str] = []
     errors = _store_scenario(store_conn, codes)
     # Each kind of refusal happened, so their messages were checked.
-    assert len(errors) == 3 + 6 + 7
+    assert len(errors) == 3 + 6 + 9
     texts = [stream.getvalue(), caplog.text, *(str(e) for e in errors), *(repr(e) for e in errors)]
     # The two refused codes were logged, by reason only (T9.12).
     assert stream.getvalue().count('"event": "invite_refused"') == 2

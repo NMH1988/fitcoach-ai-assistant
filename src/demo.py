@@ -3,7 +3,7 @@
 A fixture we wrote ourselves: made-up names and numbers, no real person's data. Demo mode seeds them
 into a temporary database when the app starts (only with DEMO_MODE on and no [auth] section), so a
 reviewer can try the coach and gymer pages without a Google client. Later tickets add their own
-records here (workouts, an invitation); T9.13 added Sam's meals.
+records here (an invitation); T9.13 added Sam's meals and T9.14 Sam's workouts.
 """
 
 import sqlite3
@@ -54,6 +54,12 @@ MEALS = (
     (1, "dinner", "Eggs, Grade A, Large, egg whole", 150.0),
     (2, "lunch", "Chicken, breast, boneless, skinless, raw", 200.0),
 )
+# Sam's made-up workouts (T9.14), by how many days before today they were done, each a list of
+# (exercise, reps, kg, RPE). Sam does not share training, so the coach cannot read them.
+WORKOUTS = (
+    (2, (("squat", 5, 100.0, 8.0), ("squat", 5, 100.0, 8.5), ("bench_press", 8, 70.0, None))),
+    (0, (("deadlift", 5, 140.0, 8.0), ("pull_up", 8, 0.0, None), ("pull_up", 6, 0.0, 9.0))),
+)
 
 
 def seed(conn: sqlite3.Connection) -> None:
@@ -79,4 +85,14 @@ def seed(conn: sqlite3.Connection) -> None:
             grams=grams,
             meal=meal,
             day=account.today() - timedelta(days=days_back),
+        )
+    for days_back, sets in WORKOUTS:
+        records.add_workout_session(
+            conn,
+            SHARING_GYMER.id,
+            performed_on=account.today() - timedelta(days=days_back),
+            sets=[
+                records.ExerciseSet(exercise_id, number, reps, kg, rpe)
+                for number, (exercise_id, reps, kg, rpe) in enumerate(sets, start=1)
+            ],
         )

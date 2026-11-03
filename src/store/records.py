@@ -7,8 +7,9 @@ through `access.authorised_read()`: the user's own data, or a coach's read withi
 belongs to (body, nutrition, training); preferences are never shared. Records are never changed in
 place (a trigger refuses it): a new profile entry or target is a new row, and an edit is
 `delete_record()` and a new row, so a meal's nutrient snapshot stays as it was taken (T9.13 takes
-it from the foods table). Days are calendar days the user chose (`Europe/Berlin`, D21); the time a
-row was written is UTC.
+it from the foods table); a workout's edit is both in one transaction (`replace_workout_session()`,
+T9.14). A set names an exercise of T9.14's list and keeps the ranges in config. Days are calendar
+days the user chose (`Europe/Berlin`, D21); the time a row was written is UTC.
 """
 
 import sqlite3
@@ -17,7 +18,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Literal, get_args
 
-from src import config
+from src import config, exercises, metrics
 from src.profile import ActivityLevel, Goal, Sex
 from src.store import values
 from src.store.access import NotFound, authorised_read, role_of
@@ -106,7 +107,7 @@ _DELETE_PREFERENCE = "DELETE FROM preferences WHERE id = ? AND user_id = ?"
 
 @dataclass(frozen=True)
 class ExerciseSet:
-    """One set of a workout: the exercise (an ID from T9.14's list), reps, kg and optional RPE."""
+    """One set of a workout: the exercise (an ID of `src/exercises.py`), reps, kg, optional RPE."""
 
     exercise_id: str
     set_no: int
@@ -406,27 +407,87 @@ def list_meal_items(
     return [dict(row) for row in rows]
 
 
+def _rpe(value: object) -> float:
+    """Return an RPE on the scale of config (1 to 10, in steps of 0.5)."""
+    rpe = values.in_range(value, "rpe", config.WORKOUT_RPE_RANGE)
+    if not (rpe / config.WORKOUT_RPE_STEP).is_integer():
+        raise values.StoreValueError("rpe", "is not a step of the scale")
+    return rpe
+
+
+def _workout_day(user_id: str, performed_on: date) -> tuple[str, str]:
+    """Return a workout's checked user ID and day; a day after today (Berlin) is refused."""
+    day = values.date_text(performed_on, "performed_on")
+    # A workout is logged once it is done, whoever the caller (the owner's choice, T9.14); today is
+    # the app's one Berlin day, as for `src/account.today()` and the diary (T9.13).
+    if performed_on > metrics.berlin_day():
+        raise values.StoreValueError("performed_on", "must not be after today")
+    return (values.user_id(user_id), day)
+
+
+def _checked_sets(sets: Sequence[ExerciseSet]) -> list[tuple]:
+    """Return a workout's sets as checked rows for _ADD_SET (T9.14's list and ranges)."""
+    if isinstance(sets, str | bytes) or not isinstance(sets, Sequence):
+        raise values.StoreValueError("sets", "must be a list of exercise sets")
+    if not all(isinstance(item, ExerciseSet) for item in sets):
+        raise values.StoreValueError("sets", "must be a list of exercise sets")
+    if len(sets) > config.WORKOUT_MAX_SETS:
+        raise values.StoreValueError("sets", "are more than a workout may have")
+    low, high = config.WORKOUT_REPS_RANGE
+    known = exercises.exercise_ids()
+    return [
+        (
+            values.choice(item.exercise_id, "exercise_id", known),
+            values.whole_number(item.set_no, "set_no", minimum=1),
+            values.whole_number(item.reps, "reps", minimum=low, maximum=high),
+            values.in_range(item.weight_kg, "weight_kg", config.WORKOUT_WEIGHT_KG_RANGE),
+            None if item.rpe is None else _rpe(item.rpe),
+        )
+        for item in sets
+    ]
+
+
+def _write_session(conn: sqlite3.Connection, session: tuple[str, str], checked: list[tuple]) -> int:
+    """Write a checked session and its sets inside the caller's transaction; return its ID."""
+    session_id = conn.execute(_ADD_SESSION, (*session, values.utc_text())).lastrowid
+    for item in checked:
+        conn.execute(_ADD_SET, (session_id, *item))
+    return session_id
+
+
 def add_workout_session(
     conn: sqlite3.Connection, user_id: str, *, performed_on: date, sets: Sequence[ExerciseSet]
 ) -> int:
     """Add a workout with its sets in one transaction; return the session's ID."""
-    session = (values.user_id(user_id), values.date_text(performed_on, "performed_on"))
-    checked = [
-        (
-            values.text(item.exercise_id, "exercise_id"),
-            values.whole_number(item.set_no, "set_no", minimum=1),
-            values.whole_number(item.reps, "reps"),
-            values.number(item.weight_kg, "weight_kg"),
-            None if item.rpe is None else values.number(item.rpe, "rpe"),
-        )
-        for item in sets
-    ]
+    session = _workout_day(user_id, performed_on)
+    checked = _checked_sets(sets)
     with transaction(conn):
         _check_gymer(conn, user_id)
-        session_id = conn.execute(_ADD_SESSION, (*session, values.utc_text())).lastrowid
-        for item in checked:
-            conn.execute(_ADD_SET, (session_id, *item))
-    return session_id
+        return _write_session(conn, session, checked)
+
+
+def replace_workout_session(
+    conn: sqlite3.Connection,
+    user_id: str,
+    session_id: int,
+    *,
+    performed_on: date,
+    sets: Sequence[ExerciseSet],
+) -> int:
+    """Replace one of the user's workouts (an edit) in one transaction; return the new ID."""
+    # Records are never changed in place (a trigger refuses it): the old session and its sets are
+    # deleted and the edited one written as new rows, all or nothing, so a failed edit keeps the
+    # old workout. NotFound if the session is not the user's.
+    session = _workout_day(user_id, performed_on)
+    checked = _checked_sets(sets)
+    if not values.is_row_id(session_id):
+        raise NotFound
+    with transaction(conn):
+        _check_gymer(conn, user_id)
+        conn.execute(_DELETE_SETS, (session_id, user_id))
+        if conn.execute(_DELETE_SESSION, (session_id, user_id)).rowcount != 1:
+            raise NotFound
+        return _write_session(conn, session, checked)
 
 
 def list_workout_sessions(

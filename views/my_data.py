@@ -2,8 +2,9 @@
 
 Every read and delete goes through the store with the session's own user ID (`views/account.py`),
 so a user only ever sees and deletes their own rows. The export is built only when the user asks
-for it (a coach's export writes audit rows, T9.6), kept in the session until the user signs out
-or the session ends, and downloaded as JSON; the server keeps no copy.
+for it (a coach's export writes audit rows, T9.6), kept in the session until the user signs out,
+deletes an entry, logs or changes food or weight (T9.13), saves or deletes a workout (T9.14),
+the account is gone, or the session ends, and downloaded as JSON; the server keeps no copy.
 """
 
 import streamlit as st
@@ -14,7 +15,7 @@ from src.store import my_data, records
 from views import account, header, tables
 from views.text import lang, t
 
-EXPORT_KEY = "my_data_export"
+EXPORT_KEY = account.MY_DATA_EXPORT_KEY
 FAILED_KEY = "my_data_failed"
 EXPORT_FILE_NAME = "fitcoach-my-data.json"
 URL_PATH = "my-data"

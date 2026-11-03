@@ -1,11 +1,11 @@
 """A gymer's records in the store (T9.6): written, read back, never changed in place, deleted."""
 
 import sqlite3
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
-from src import config
+from src import account, config
 from src.store import access, records, users, values
 from tests import store_world as world
 
@@ -548,3 +548,134 @@ def test_a_coach_cannot_replace_a_meal_item(gymers):
     users.create_user(gymers, "a-coach", "coach", "Coach")
     with pytest.raises(access.NotFound):
         records.replace_meal_item(gymers, "a-coach", 1, **MEAL)
+
+
+# --- The workout log's sets (T9.14) ---------------------------------------------------------------
+
+
+def _set(**change) -> records.ExerciseSet:
+    """Return one valid set (squat, 5 reps at 100 kg, RPE 8), with the given fields changed."""
+    fields = {"exercise_id": "squat", "set_no": 1, "reps": 5, "weight_kg": 100.0, "rpe": 8.0}
+    return records.ExerciseSet(**{**fields, **change})
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"exercise_id": "CANARY-EXERCISE"},
+        {"exercise_id": "Squat"},
+        {"reps": 0},
+        {"reps": config.WORKOUT_REPS_RANGE[1] + 1},
+        {"reps": 5.5},
+        {"weight_kg": -0.5},
+        {"weight_kg": config.WORKOUT_WEIGHT_KG_RANGE[1] + 0.5},
+        {"rpe": 0.5},
+        {"rpe": 10.5},
+        {"rpe": 7.25},
+        {"set_no": 0},
+    ],
+)
+def test_a_set_off_the_list_or_out_of_its_ranges_is_refused(gymers, change):
+    """An unknown exercise, reps, kg or RPE outside config's ranges writes nothing."""
+    with pytest.raises(values.StoreValueError) as caught:
+        records.add_workout_session(gymers, GYMER, performed_on=DAY, sets=[_set(**change)])
+    assert "CANARY" not in str(caught.value)
+    assert _count(gymers, "workout_sessions") == _count(gymers, "exercise_sets") == 0
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"reps": config.WORKOUT_REPS_RANGE[0], "weight_kg": 0.0, "rpe": None},
+        {"reps": config.WORKOUT_REPS_RANGE[1], "weight_kg": config.WORKOUT_WEIGHT_KG_RANGE[1]},
+        {"rpe": config.WORKOUT_RPE_RANGE[0]},
+        {"rpe": config.WORKOUT_RPE_RANGE[1]},
+        {"rpe": 7.5},
+    ],
+)
+def test_a_set_at_the_ends_of_its_ranges_is_kept(gymers, change):
+    """The ranges' ends, a body-weight set at 0 kg and a half-step RPE are allowed."""
+    records.add_workout_session(gymers, GYMER, performed_on=DAY, sets=[_set(**change)])
+    [session] = records.list_workout_sessions(gymers, GYMER, GYMER)
+    assert len(session["sets"]) == 1
+
+
+def test_a_workout_has_at_most_the_sets_config_allows(gymers):
+    """WORKOUT_MAX_SETS sets are kept; one more is refused with nothing written."""
+    most = [_set(set_no=n) for n in range(1, config.WORKOUT_MAX_SETS + 1)]
+    records.add_workout_session(gymers, GYMER, performed_on=DAY, sets=most)
+    too_many = [*most, _set(set_no=config.WORKOUT_MAX_SETS + 1)]
+    with pytest.raises(values.StoreValueError, match="sets"):
+        records.add_workout_session(gymers, GYMER, performed_on=DAY, sets=too_many)
+    assert _count(gymers, "workout_sessions") == 1
+
+
+def test_replacing_a_workout_keeps_only_the_edited_one(gymers):
+    """An edit deletes the old session and its sets and writes the new ones (AC-24)."""
+    two_sets = [_set(), _set(set_no=2)]
+    old = records.add_workout_session(gymers, GYMER, performed_on=DAY, sets=two_sets)
+    new = records.replace_workout_session(
+        gymers, GYMER, old, performed_on=date(2026, 10, 27), sets=[_set(reps=8, weight_kg=90.0)]
+    )
+    [session] = records.list_workout_sessions(gymers, GYMER, GYMER)
+    # SQLite may give the new row the deleted row's ID (no AUTOINCREMENT): the content counts.
+    assert session["id"] == new
+    assert session["performed_on"] == "2026-10-27"
+    assert session["sets"] == [
+        {"exercise_id": "squat", "set_no": 1, "reps": 8, "weight_kg": 90.0, "rpe": 8.0}
+    ]
+    assert _count(gymers, "exercise_sets") == 1
+
+
+def test_a_failed_edit_keeps_the_old_workout(gymers):
+    """A bad set or a duplicate set number in the edit leaves the old session as it was."""
+    old = records.add_workout_session(gymers, GYMER, performed_on=DAY, sets=[_set()])
+    before = records.list_workout_sessions(gymers, GYMER, GYMER)
+    with pytest.raises(values.StoreValueError):
+        records.replace_workout_session(gymers, GYMER, old, performed_on=DAY, sets=[_set(reps=0)])
+    with pytest.raises(sqlite3.IntegrityError):
+        records.replace_workout_session(gymers, GYMER, old, performed_on=DAY, sets=[_set(), _set()])
+    assert records.list_workout_sessions(gymers, GYMER, GYMER) == before
+
+
+@pytest.mark.parametrize("actor", [OTHER, "a-coach", world.MISSING])
+def test_only_the_owner_replaces_a_workout(gymers, actor):
+    """Another gymer, a coach or a missing user gets NotFound, and the workout stays."""
+    users.create_user(gymers, "a-coach", "coach", "Coach")
+    old = records.add_workout_session(gymers, GYMER, performed_on=DAY, sets=[_set()])
+    before = records.list_workout_sessions(gymers, GYMER, GYMER)
+    with pytest.raises(access.NotFound):
+        records.replace_workout_session(gymers, actor, old, performed_on=DAY, sets=[_set()])
+    assert records.list_workout_sessions(gymers, GYMER, GYMER) == before
+
+
+@pytest.mark.parametrize("session_id", [999, 0, None, "1"])
+def test_replacing_a_missing_workout_is_not_found(gymers, session_id):
+    """An ID that does not exist or cannot be one gives NotFound and writes nothing."""
+    with pytest.raises(access.NotFound):
+        records.replace_workout_session(gymers, GYMER, session_id, performed_on=DAY, sets=[_set()])
+    assert _count(gymers, "workout_sessions") == 0
+
+
+def test_a_workout_after_today_is_refused_and_today_is_kept(gymers):
+    """A day after today in Berlin is refused, by an add and by an edit; today is allowed."""
+    today = account.today()
+    with pytest.raises(values.StoreValueError, match="performed_on"):
+        records.add_workout_session(
+            gymers, GYMER, performed_on=today + timedelta(days=1), sets=[_set()]
+        )
+    kept = records.add_workout_session(gymers, GYMER, performed_on=today, sets=[_set()])
+    with pytest.raises(values.StoreValueError, match="performed_on"):
+        records.replace_workout_session(
+            gymers, GYMER, kept, performed_on=today + timedelta(days=30), sets=[_set()]
+        )
+    [session] = records.list_workout_sessions(gymers, GYMER, GYMER)
+    assert session["performed_on"] == today.isoformat()
+
+
+@pytest.mark.parametrize("sets", ["squat", b"squat", None, [{"exercise_id": "squat"}], ("x",)])
+def test_sets_that_are_not_exercise_sets_are_a_store_value_error(gymers, sets):
+    """A text, None or a list of other things gives StoreValueError, never AttributeError."""
+    with pytest.raises(values.StoreValueError, match="sets"):
+        records.add_workout_session(gymers, GYMER, performed_on=DAY, sets=sets)
+    assert _count(gymers, "workout_sessions") == 0
