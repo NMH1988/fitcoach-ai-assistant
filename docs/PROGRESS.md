@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-03 · T9.13 Food and weight diary, and the weekly nutrition metrics · NMH1988/fitcoach-ai-assistant#(PR not opened yet) (closes NMH1988/fitcoach-ai-assistant#16)
+## 2026-11-03 · T9.13 Food and weight diary, and the weekly nutrition metrics · NMH1988/fitcoach-ai-assistant#63 (closes NMH1988/fitcoach-ai-assistant#16)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 2, core 3; Sprint 2 (`docs/BRIEF.md`): none (it reuses the USDA table of core 2's tools); beyond the brief (owner's request): the diary.
 - **What:**
   - `src/diary.py` (new): `snapshot()` (per-100 g × grams / 100, unrounded), `log_food()`, `edit_food()`, `log_weight()` (the user's units, stored in kg), `day_items()`, `day_weights()`, `read_week()` (the week read through the store's access checks), `DiaryError` with i18n codes.
