@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-03 · T9.15 Coach and gymer dashboards · PR to come (closes NMH1988/fitcoach-ai-assistant#18)
+## 2026-11-03 · T9.15 Coach and gymer dashboards · NMH1988/fitcoach-ai-assistant#66 (closes NMH1988/fitcoach-ai-assistant#18)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 3 (a UI for every function), core 2, evaluation: Technical (use of the front-end library); Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request): the dashboards. PRD feature 18, AC-21, AC-26, AC-41.
 - **What:**
   - `src/dashboard.py` (new, no streamlit): `client_week()` (a coach's active client only, else `NotFound`), `relationship_week()`, `own_week()`, `active_clients()`, `latest_review()`, `latest_weight()`; each scope the client shares is read through the store's checks, a scope not shared (or revoked during the read) is left unread and shown as not shared.
