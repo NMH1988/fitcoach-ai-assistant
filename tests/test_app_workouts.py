@@ -1,7 +1,9 @@
 """UI tests for a gymer's Workouts page (T9.14, AC-24): log, edit, delete and the week's facts."""
 
+import re
 import sqlite3
 from datetime import date, timedelta
+from pathlib import Path
 
 import pytest
 from streamlit.testing.v1 import AppTest
@@ -18,6 +20,7 @@ from tests.test_app_account import (
     store_account,
     texts,
 )
+from views import account as views_account
 from views import navigation, workouts
 
 pytestmark = pytest.mark.usefixtures("no_env_key")
@@ -341,6 +344,8 @@ def test_an_account_deleted_in_another_tab_stops_the_save(gymer):
     assert not gymer.exception
     with db.connect() as conn:
         assert conn.execute("SELECT count(*) FROM workout_sessions").fetchone()[0] == 0
+    # The welcome page says why it is shown (round 5: the page's own notice would be dropped).
+    assert "no longer exists" in texts(gymer)
 
 
 def test_a_deleted_account_s_draft_leaves_the_session(gymer):
@@ -350,5 +355,21 @@ def test_a_deleted_account_s_draft_leaves_the_session(gymer):
     with db.connect() as conn:
         my_data.delete_user_data(conn, USER_ID)
     gymer.run(timeout=30)
-    for key in (workouts.DRAFT_KEY, workouts.EDITING_KEY, workouts.KEPT_DAY_KEY):
+    keys = (workouts.DRAFT_KEY, workouts.EDITING_KEY, workouts.KEPT_DAY_KEY, workouts.NOTICE_KEY)
+    for key in keys:
         assert key not in gymer.session_state
+
+
+def test_every_workouts_session_key_has_the_prefix_the_account_drops():
+    """Each session key of the page starts with WORKOUT_KEY_PREFIX, so none outlives an account."""
+    source = Path(workouts.__file__).read_text(encoding="utf-8")
+    keys = {
+        value
+        for name, value in vars(workouts).items()
+        if name.endswith("_KEY") and isinstance(value, str)
+    }
+    # The widget keys are written in the calls (key="..."), so they are read from the source.
+    keys |= set(re.findall(r'key="([^"]+)"', source))
+    keys |= set(re.findall(r'key=f"([^"{]+)', source))
+    assert len(keys) >= 10
+    assert all(key.startswith(views_account.WORKOUT_KEY_PREFIX) for key in keys), keys

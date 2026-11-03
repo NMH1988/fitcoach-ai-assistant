@@ -135,7 +135,9 @@ def _save() -> None:
         st.session_state[NOTICE_KEY] = ("error", "account.store_unavailable")
         return
     except accounts.AccountError as error:
-        st.session_state[NOTICE_KEY] = ("error", error.code)
+        # The account is gone (deleted in another tab): this run's resolve() drops the page's
+        # keys and opens the welcome page, which shows the account's notice (as the goal control's).
+        st.session_state[account.PROFILE_NOTICE_KEY] = error.code
         return
     except values.StoreValueError:
         st.session_state[NOTICE_KEY] = ("error", "workouts.not_saved")
@@ -143,7 +145,7 @@ def _save() -> None:
     except records.NotFound:
         if editing is None:
             # The account was deleted between the profile check and the write (another tab).
-            st.session_state[NOTICE_KEY] = ("error", "account.gone")
+            st.session_state[account.PROFILE_NOTICE_KEY] = "account.gone"
             return
         # Deleted (e.g. in another tab) since it was loaded: the draft stays, as a new workout.
         st.session_state.pop(EDITING_KEY, None)
