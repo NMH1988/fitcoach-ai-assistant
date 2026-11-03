@@ -161,6 +161,8 @@ def _relationship(conn: sqlite3.Connection, relationship_id: object) -> sqlite3.
 
 def _checked_choices(shared_by_scope: dict) -> dict[str, bool]:
     """Return the scope choices if every key is a scope and every value a real bool."""
+    if not isinstance(shared_by_scope, dict):
+        raise values.StoreValueError("scopes", "must map each scope to true or false")
     for scope, shared in shared_by_scope.items():
         values.choice(scope, "scope", SCOPES)
         # A form value or a model-written argument such as "False" must never share a scope.
@@ -182,6 +184,8 @@ def set_consent(
     conn: sqlite3.Connection, client_id: str, relationship_id: int, scope: Scope, shared: bool
 ) -> None:
     """Let the client share a scope with their coach, or stop sharing it (the next read fails)."""
+    # Checked first: an unhashable value could not be a dict key at all.
+    values.choice(scope, "scope", SCOPES)
     set_scopes(conn, client_id, relationship_id, {scope: shared})
 
 

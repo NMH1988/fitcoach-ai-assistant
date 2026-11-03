@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from src.store import access, invitations, records, reviews, users
+from src.store.values import StoreValueError
 from tests import store_world as world
 
 STORE = Path(__file__).resolve().parents[1] / "src" / "store"
@@ -448,7 +449,8 @@ def test_set_scopes_changes_every_scope_in_one_transaction(store_conn, relations
 
 
 @pytest.mark.parametrize(
-    "choices", [{"preferences": True}, {"body": "False"}, {"body": True, "nutrition": 1}]
+    "choices",
+    [{"preferences": True}, {"body": "False"}, {"body": True, "nutrition": 1}, [("body", True)]],
 )
 def test_set_scopes_refuses_a_bad_choice_before_writing(store_conn, relationships, choices):
     """An unknown scope or a value that is not a bool changes nothing."""
@@ -457,6 +459,13 @@ def test_set_scopes_refuses_a_bad_choice_before_writing(store_conn, relationship
         users.set_scopes(store_conn, world.UNSHARED, rel, choices)
     [mine] = users.list_relationships(store_conn, world.UNSHARED)
     assert mine["scopes"] == ()
+
+
+@pytest.mark.parametrize("scope", [["body"], {"body": True}, None, "everything"])
+def test_set_consent_refuses_a_scope_that_is_not_one_of_the_three(store_conn, relationships, scope):
+    """Even an unhashable value gets the store's own value error, never a TypeError."""
+    with pytest.raises(StoreValueError):
+        users.set_consent(store_conn, world.UNSHARED, relationships[world.UNSHARED], scope, True)
 
 
 @pytest.mark.parametrize("shared", ["False", "no", 1, 1.0, [0], None])

@@ -23,6 +23,8 @@ CODE_KEY = "sharing_code"
 # A message for the next run, after a change the page reruns for: an i18n key and its kind.
 NOTICE_KEY = "sharing_notice"
 CONFIRM_END_KEY = "sharing_confirm_end"
+# Set after a failed save: the next run sets the scope boxes from the store before drawing them.
+RESET_KEY = "sharing_reset"
 
 
 def _scope_label(scope: str) -> str:
@@ -86,16 +88,18 @@ def _share(user: dict, relationship: dict) -> None:
     """Show the scopes the gymer shares, to turn each on or off."""
     st.subheader(t("sharing.what"))
     st.caption(t("sharing.choose"))
+    # Keyed by the relationship, so a new coach's form never starts from an old one's ticks.
+    keys = {scope: f"sharing_{relationship['id']}_{scope}" for scope in SCOPES}
+    reset = st.session_state.pop(RESET_KEY, False)
+    for scope, key in keys.items():
+        # The boxes start from the store, and after a failed save take the stored scopes again.
+        # Assigned before the boxes are drawn, so Streamlit sends the browser the new values;
+        # dropping the keys would not, and the browser would keep (and later send back) the
+        # unsaved ticks (code review round 2). A submitted value is never overwritten.
+        if reset or key not in st.session_state:
+            st.session_state[key] = scope in relationship["scopes"]
     with st.form("sharing_scopes"):
-        # Keyed by the relationship, so a new coach's form never starts from an old one's ticks.
-        wanted = {
-            scope: st.checkbox(
-                _scope_label(scope),
-                value=scope in relationship["scopes"],
-                key=f"sharing_{relationship['id']}_{scope}",
-            )
-            for scope in SCOPES
-        }
+        wanted = {scope: st.checkbox(_scope_label(scope), key=keys[scope]) for scope in SCOPES}
         submitted = st.form_submit_button(t("sharing.save"), icon=":material/save:")
     if not submitted:
         return
@@ -104,10 +108,9 @@ def _share(user: dict, relationship: dict) -> None:
             # One transaction: every scope changes, or none does.
             users.set_scopes(conn, user["id"], relationship["id"], wanted)
     except accounts.StoreUnavailable:
-        # Nothing was saved: the boxes are drawn from the store again, so they never show a
-        # choice the coach's reads do not follow (code review round 1).
-        for scope in SCOPES:
-            st.session_state.pop(f"sharing_{relationship['id']}_{scope}", None)
+        # Nothing was saved: the next run sets the boxes from the store, so they never show a
+        # choice the coach's reads do not follow (code review rounds 1 and 2).
+        st.session_state[RESET_KEY] = True
         _done("account.store_unavailable", "error")
         return
     except NotFound:

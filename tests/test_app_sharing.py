@@ -371,8 +371,15 @@ def test_a_failed_save_shows_the_stored_scopes_again(monkeypatch, connected_gyme
     _scope_box(at, "nutrition").uncheck()
     button(at, "Save sharing").click().run(timeout=30)
     assert [item.value for item in at.error] == [i18n.t("account.store_unavailable", "en")]
-    assert _scope_box(at, "nutrition").value is True
+    box = _scope_box(at, "nutrition")
+    assert box.value is True
+    # The stored value is sent to the browser too, so it stops showing the unsaved tick.
+    assert box.proto.set_value is True
     assert _coach_reads(records.list_meal_items)
+    # The next run (any click) keeps the stored value and sends nothing more.
+    at.checkbox(key=sharing.CONFIRM_END_KEY).check().run(timeout=30)
+    assert _scope_box(at, "nutrition").value is True
+    assert not at.error
 
 
 def test_a_coach_taken_in_another_tab_gets_the_has_coach_message(monkeypatch, gymer_and_coach):
