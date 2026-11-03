@@ -304,6 +304,19 @@ DEMO_MODE_NAME = "DEMO_MODE"
 DEMO_MODE_ON_VALUES = frozenset({"1", "true", "yes", "on"})
 # The time zone of the days a user records (D21): a saved weight is dated today in Berlin.
 TIME_ZONE = "Europe/Berlin"
+# Invitations (T9.12, D15): a coach's single-use code, passed on by hand. It is drawn with the
+# secrets module from 32 characters that are hard to mix up (no 0, O, 1 or I), so 12 of them give
+# 60 bits; the store keeps only its SHA-256 hash. It is shown in groups of INVITE_CODE_GROUP with a
+# hyphen; a gymer may type it with or without the hyphens and spaces, in either case.
+INVITE_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+INVITE_CODE_LENGTH = 12
+INVITE_CODE_GROUP = 4
+# The longest text the code field takes (the code with its hyphens, and some spaces).
+INVITE_CODE_INPUT_MAX_CHARS = 24
+INVITE_TTL_DAYS = 7
+# Codes a gymer may try per day (Berlin), counted in the store, so a reload does not reset them;
+# every try counts, a valid one too.
+INVITE_MAX_ATTEMPTS = 5
 # Written with every target the app computes (set_by = "system"), so a later change to
 # calculate_macro_targets can tell old targets apart; bump it when that calculation changes.
 TARGET_CALC_VERSION = "macro-targets-1"

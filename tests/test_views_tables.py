@@ -367,3 +367,68 @@ def test_an_entry_label_starts_with_its_kind():
     """The delete picker names the kind first, then the record's cells."""
     label = tables.entry_label("body_measurements", WEIGHT_ROW, "metric", "en")
     assert label == "Weights · 2026-11-01 · 80 kg"
+
+
+# --- The coach's client list and invitations (T9.12) --------------------------------------------
+
+CLIENT_ROWS = [
+    {
+        "other_name": "Alex",
+        "status": "active",
+        "accepted_at": "2026-11-01T09:00:00+00:00",
+        "ended_at": None,
+        "scopes": ("nutrition", "body"),
+    },
+    {
+        "other_name": "Bo",
+        "status": "ended",
+        "accepted_at": "2026-10-01T09:00:00+00:00",
+        "ended_at": "2026-10-20T18:30:00+00:00",
+        "scopes": (),
+    },
+]
+
+
+def test_the_client_table_shows_name_status_days_and_each_scope():
+    """One row per relationship: the name, its status, the days and shared or not per scope."""
+    table = tables.client_table(CLIENT_ROWS, "en")
+    assert list(table) == ["Client", "Status", "Since", "Ended", "Nutrition", "Training", "Body"]
+    assert table["Client"] == ["Alex", "Bo"]
+    assert table["Status"] == ["Active", "Ended"]
+    assert table["Since"] == ["2026-11-01", "2026-10-01"]
+    assert table["Ended"] == ["", "2026-10-20"]
+    assert table["Nutrition"] == ["Shared", "Not shared"]
+    assert table["Training"] == ["Not shared", "Not shared"]
+
+
+def test_the_client_table_in_german():
+    """The headers and the values follow the language."""
+    table = tables.client_table(CLIENT_ROWS, "de")
+    assert table["Klient"] == ["Alex", "Bo"]
+    assert table["Körper"] == ["Geteilt", "Nicht geteilt"]
+    assert table["Status"] == ["Aktiv", "Beendet"]
+
+
+def test_the_invitation_table_and_label_never_hold_a_code():
+    """Unused codes are listed by their days and state only (the store returns no code)."""
+    rows = [
+        {
+            "id": 1,
+            "created_at": "2026-11-03T10:00:00+00:00",
+            "expires_at": "2026-11-10T10:00:00+00:00",
+            "expired": False,
+        },
+        {
+            "id": 2,
+            "created_at": "2026-10-01T10:00:00+00:00",
+            "expires_at": "2026-10-08T10:00:00+00:00",
+            "expired": True,
+        },
+    ]
+    table = tables.invitation_table(rows, "en")
+    assert table == {
+        "Created": ["2026-11-03", "2026-10-01"],
+        "Expires": ["2026-11-10", "2026-10-08"],
+        "State": ["Open", "Expired"],
+    }
+    assert tables.invitation_label(rows[0], "en") == "Created 2026-11-03 · expires 2026-11-10"

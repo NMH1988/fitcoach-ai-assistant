@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from src.store import access, records, reviews, users
+from src.store import access, invitations, records, reviews, users
 from tests import store_world as world
 
 STORE = Path(__file__).resolve().parents[1] / "src" / "store"
@@ -60,6 +60,9 @@ def _audit_rows(conn):
 OWN_ONLY = {
     # The acting user's own data only; the caller passes the signed-in user (T9.5).
     "users.find_user",
+    # The user's own relationships, the other side's name read through display_name_of (T9.12).
+    "users.list_relationships",
+    "invitations.list_invitations",
     "records.delete_record",
     "my_data.export_user_data",
     "my_data.delete_user_data",
@@ -71,7 +74,12 @@ WRITES = {
     "users.create_user",
     "users.start_relationship",
     "users.set_consent",
+    "users.set_scopes",
     "users.end_relationship",
+    # T9.12: a coach's own codes; a gymer accepts one for themself (a valid code, D15).
+    "invitations.create_invitation",
+    "invitations.cancel_invitation",
+    "invitations.accept_invitation",
     "records.add_profile_entry",
     "records.add_body_measurement",
     "records.add_target",
@@ -91,12 +99,19 @@ INTERNALS = {
     "access.authorise_read",
     "access.authorised_read",
     "access.role_of",
+    "invitations.normalise_code",
     *(
         f"values.{name}"
         for name in ("choice", "date_text", "in_range", "is_row_id", "is_utf8", "number")
     ),
     *(f"values.{name}" for name in ("text", "user_id", "utc_text", "whole_number")),
 }
+
+
+# The one read of another user's data that does not go through access.authorised_read() (T9.12):
+# the other side's display name, allowed for both sides of an active or ended relationship, checked
+# by the function itself and not audited (owner's choices, 2026-10-28 and 2026-11-03).
+NAME_READS = {"users.display_name_of"}
 
 
 # SQL that filters on a relationship being active or not ended (a comparison, IN, LIKE, GLOB or
@@ -225,7 +240,7 @@ def test_every_public_store_function_is_classified():
             and not name.startswith("_")
         }
     reads = {f"{READS[name][0].__module__.rsplit('.', 1)[1]}.{name}" for name in READS}
-    groups = [reads, OWN_ONLY, WRITES, INTERNALS]
+    groups = [reads, OWN_ONLY, WRITES, INTERNALS, NAME_READS]
     assert found == set().union(*groups)
     assert sum(len(group) for group in groups) == len(found)  # no function in two groups
 
@@ -392,11 +407,56 @@ def test_a_relationship_needs_a_coach_and_a_gymer(store_conn, relationships, coa
 
 def test_a_second_active_relationship_for_the_same_pair_is_refused(store_conn, relationships):
     """An active pair cannot be started twice; after it ends, a new one can be."""
+    with pytest.raises(ValueError, match="the gymer has a coach already"):
+        users.start_relationship(store_conn, world.COACH_A, world.SHARED)
+    assert users.start_relationship(store_conn, world.COACH_A, world.ENDED)
+
+
+def test_the_database_refuses_a_second_active_row_for_the_same_pair(store_conn, relationships):
+    """Below the one-coach check, the coach_clients_one_active index refuses the same pair."""
     import sqlite3
 
     with pytest.raises(sqlite3.IntegrityError):
-        users.start_relationship(store_conn, world.COACH_A, world.SHARED)
-    assert users.start_relationship(store_conn, world.COACH_A, world.ENDED)
+        store_conn.execute(
+            "INSERT INTO coach_clients (coach_id, client_id, status, accepted_at)"
+            " VALUES (?, ?, 'active', '2026-11-03T10:00:00+00:00')",
+            (world.COACH_A, world.SHARED),
+        )
+
+
+def test_set_scopes_changes_every_scope_in_one_transaction(store_conn, relationships, monkeypatch):
+    """The scopes are set together: a failure part-way leaves every scope as it was."""
+    rel = relationships[world.SHARED]
+    users.set_scopes(store_conn, world.SHARED, rel, {"nutrition": False, "body": True})
+    [mine] = users.list_relationships(store_conn, world.SHARED)
+    assert mine["scopes"] == ("training", "body")
+    real = users._set
+    calls = []
+
+    def fail_on_the_second(conn, relationship_id, scope, shared):
+        """Change the first scope, then fail like a busy store."""
+        calls.append(scope)
+        if len(calls) == 2:
+            raise users.values.StoreValueError("store", "is busy")
+        real(conn, relationship_id, scope, shared)
+
+    monkeypatch.setattr(users, "_set", fail_on_the_second)
+    with pytest.raises(ValueError):
+        users.set_scopes(store_conn, world.SHARED, rel, {"training": False, "body": False})
+    [mine] = users.list_relationships(store_conn, world.SHARED)
+    assert mine["scopes"] == ("training", "body")
+
+
+@pytest.mark.parametrize(
+    "choices", [{"preferences": True}, {"body": "False"}, {"body": True, "nutrition": 1}]
+)
+def test_set_scopes_refuses_a_bad_choice_before_writing(store_conn, relationships, choices):
+    """An unknown scope or a value that is not a bool changes nothing."""
+    rel = relationships[world.UNSHARED]
+    with pytest.raises(ValueError):
+        users.set_scopes(store_conn, world.UNSHARED, rel, choices)
+    [mine] = users.list_relationships(store_conn, world.UNSHARED)
+    assert mine["scopes"] == ()
 
 
 @pytest.mark.parametrize("shared", ["False", "no", 1, 1.0, [0], None])
@@ -411,3 +471,119 @@ def test_a_scope_is_shared_only_with_true(store_conn, relationships, shared):
         ).fetchone()[0]
         == 0
     )
+
+
+# --- The other side's display name (T9.12): its own group, not authorised_read() ---------------
+
+# (actor, other) pairs whose relationship lets each see the other's name.
+NAME_ALLOWED = {
+    "a coach, their active client": (world.COACH_A, world.SHARED),
+    "an active client, their coach": (world.SHARED, world.COACH_A),
+    "a coach, a client sharing nothing": (world.COACH_A, world.UNSHARED),
+    "a coach, a former client": (world.COACH_A, world.ENDED),
+    "a former client, their coach": (world.ENDED, world.COACH_A),
+}
+NAME_REFUSED = {
+    "a missing user": (world.COACH_A, world.MISSING),
+    "a missing actor": (world.MISSING, world.SHARED),
+    "a stranger coach": (world.COACH_B, world.SHARED),
+    "a stranger gymer": (world.UNSHARED, world.SHARED),
+    "another coach's client": (world.COACH_A, world.OTHERS),
+    "a gymer and another gymer's coach": (world.SHARED, world.COACH_B),
+    "a coach and another coach": (world.COACH_A, world.COACH_B),
+    "oneself": (world.COACH_A, world.COACH_A),
+    "an actor ID that is not text": (None, world.SHARED),
+    "an other ID that is not text": (world.COACH_A, 5),
+    "an ID that is too long": (world.COACH_A, "x" * 1000),
+}
+
+
+@pytest.mark.parametrize("case", NAME_ALLOWED)
+def test_both_sides_of_a_relationship_read_each_others_name_without_audit(
+    store_conn, relationships, case
+):
+    """An active or ended relationship shows each side the other's name; nothing is audited."""
+    actor, other = NAME_ALLOWED[case]
+    expected = "Coach A" if other == world.COACH_A else other
+    assert users.display_name_of(store_conn, actor, other) == expected
+    assert _audit_rows(store_conn) == []
+
+
+@pytest.mark.parametrize("case", NAME_REFUSED)
+def test_a_name_without_a_relationship_is_not_found(store_conn, relationships, case):
+    """No relationship (or a bad ID) gives the same NotFound and no audit row."""
+    actor, other = NAME_REFUSED[case]
+    with pytest.raises(access.NotFound) as caught:
+        users.display_name_of(store_conn, actor, other)
+    assert str(caught.value) == "not found"
+    assert _audit_rows(store_conn) == []
+
+
+def test_a_gymer_does_not_see_a_coachs_name_before_accepting(store_conn, relationships):
+    """An invitation joins nobody: the coach's name is not found until the code is accepted."""
+    users.create_user(store_conn, "gym-new", "gymer", "Newcomer")
+    new = invitations.create_invitation(store_conn, world.COACH_B)
+    with pytest.raises(access.NotFound):
+        users.display_name_of(store_conn, "gym-new", world.COACH_B)
+    invitations.accept_invitation(store_conn, "gym-new", new.code, [])
+    assert users.display_name_of(store_conn, "gym-new", world.COACH_B) == "Coach B"
+
+
+def test_the_relationship_lists_read_names_through_display_name_of(
+    store_conn, relationships, monkeypatch
+):
+    """The coach's client list and the gymer's coach both come from the same name function."""
+    calls = []
+    real = users.display_name_of
+
+    def spy(conn, actor, other):
+        """Record the call and read the name."""
+        calls.append((actor, other))
+        return real(conn, actor, other)
+
+    monkeypatch.setattr(users, "display_name_of", spy)
+    clients = users.list_relationships(store_conn, world.COACH_A)
+    assert [row["other_name"] for row in clients] == [world.SHARED, world.UNSHARED, world.ENDED]
+    [coach] = users.list_relationships(store_conn, world.SHARED)
+    assert coach["other_name"] == "Coach A"
+    assert calls == [
+        (world.COACH_A, world.SHARED),
+        (world.COACH_A, world.UNSHARED),
+        (world.COACH_A, world.ENDED),
+        (world.SHARED, world.COACH_A),
+    ]
+
+
+def test_the_relationship_list_shows_status_and_the_scopes_on(store_conn, relationships):
+    """Each row has its status; only an active relationship lists scopes (from open_shares)."""
+    rows = {row["other_id"]: row for row in users.list_relationships(store_conn, world.COACH_A)}
+    assert rows[world.SHARED]["status"] == "active"
+    assert rows[world.SHARED]["scopes"] == ("nutrition", "training", "body")
+    assert rows[world.UNSHARED]["scopes"] == ()
+    assert rows[world.ENDED]["status"] == "ended"
+    assert rows[world.ENDED]["scopes"] == ()
+    assert rows[world.ENDED]["ended_at"] is not None
+    users.set_consent(store_conn, world.SHARED, relationships[world.SHARED], "training", False)
+    [mine] = users.list_relationships(store_conn, world.SHARED)
+    assert mine["scopes"] == ("nutrition", "body")
+    assert _audit_rows(store_conn) == []
+
+
+def test_an_ended_pair_that_starts_again_lists_scopes_only_on_the_active_row(
+    store_conn, relationships
+):
+    """The old, ended relationship of the same pair never shows the new one's scopes."""
+    rel = users.start_relationship(store_conn, world.COACH_A, world.ENDED)
+    users.set_consent(store_conn, world.ENDED, rel, "body", True)
+    rows = users.list_relationships(store_conn, world.ENDED)
+    assert [(row["status"], row["scopes"]) for row in rows] == [
+        ("ended", ()),
+        ("active", ("body",)),
+    ]
+
+
+@pytest.mark.parametrize("user", [world.MISSING, None])
+def test_the_relationship_list_of_a_missing_user(store_conn, relationships, user):
+    """A missing user gets NotFound; an ID that is not text a value error."""
+    with pytest.raises((access.NotFound, ValueError)):
+        users.list_relationships(store_conn, user)

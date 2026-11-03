@@ -502,9 +502,10 @@ def test_a_failing_log_call_does_not_lose_the_turn(index, caplog):
 STORE_CANARY_TEXTS = (*CANARY_TEXTS, "CANARY-COACH", "CANARY-GYM", "2345.6", "571.9")
 
 
-def _store_scenario(conn) -> list[Exception]:
+def _store_scenario(conn, codes: list[str]) -> list[Exception]:
     """Write, read, refuse, export and delete canary data through every store function."""
-    from src.store import access, my_data, records, reviews, users, values
+    from src import sharing
+    from src.store import access, invitations, my_data, records, reviews, users, values
 
     errors: list[Exception] = []
     users.create_user(conn, "CANARY-COACH", "coach", "CANARY-NAME coach")
@@ -535,6 +536,25 @@ def _store_scenario(conn) -> list[Exception]:
         sets=[records.ExerciseSet("CANARY-EXERCISE", 1, 5, 87.3, 8.0)],
     )  # fmt: skip
     records.add_preference(conn, "CANARY-GYM", "CANARY-PREF vegetarian")
+    # Invitations and names (T9.12): the code is a canary too, refused and accepted codes logged.
+    users.create_user(conn, "CANARY-NEW", "gymer", "CANARY-NAME new")
+    invitation = invitations.create_invitation(conn, "CANARY-COACH")
+    codes.append(invitation.code)
+    codes.append(invitation.code.replace("-", ""))
+    invitations.list_invitations(conn, "CANARY-COACH")
+    for typed, gymer in (("CANA-RYCA-NARY", "CANARY-NEW"), (invitation.code, "CANARY-GYM")):
+        try:
+            sharing.accept_code(conn, gymer, typed, ["body"])
+        except invitations.InvitationRefused as error:
+            errors.append(error)
+    sharing.accept_code(conn, "CANARY-NEW", invitation.code, ["body", "nutrition"])
+    users.display_name_of(conn, "CANARY-COACH", "CANARY-NEW")
+    users.list_relationships(conn, "CANARY-COACH")
+    users.list_relationships(conn, "CANARY-NEW")
+    try:
+        users.display_name_of(conn, "other-gym", "CANARY-COACH")
+    except access.NotFound as error:
+        errors.append(error)
     for read in (
         records.list_profile_entries,
         records.list_body_measurements,
@@ -597,11 +617,14 @@ def test_no_record_or_error_holds_a_stored_value(store_conn, caplog):
     caplog.set_level(logging.DEBUG)
     stream = io.StringIO()
     observability.configure_logging(level=logging.DEBUG, stream=stream)
-    errors = _store_scenario(store_conn)
+    codes: list[str] = []
+    errors = _store_scenario(store_conn, codes)
     # Each kind of refusal happened, so their messages were checked.
-    assert len(errors) == 6 + 5
+    assert len(errors) == 3 + 6 + 5
     texts = [stream.getvalue(), caplog.text, *(str(e) for e in errors), *(repr(e) for e in errors)]
-    for canary in STORE_CANARY_TEXTS:
+    # The two refused codes were logged, by reason only (T9.12).
+    assert stream.getvalue().count('"event": "invite_refused"') == 2
+    for canary in (*STORE_CANARY_TEXTS, "CANA-RYCA-NARY", "CANARYCANARY", *codes):
         for text in texts:
             assert canary not in text, canary
 

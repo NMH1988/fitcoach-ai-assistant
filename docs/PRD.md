@@ -91,7 +91,7 @@ One role per account, chosen at the first sign-in; no admin role. Out of scope a
 **P0, needed for the submission** (numbering continues the Sprint 2 list):
 
 14. **Sign-in** with Google (`st.login`), the role chosen once, a display name the user picks; guest and demo modes. Serves Sprint 3 Medium 4.
-15. **Invitations and sharing:** the coach creates a single-use code and passes it on; the gymer accepts it and turns each scope on or off (nutrition, training, body); the gymer can revoke a scope or end the relationship at any time.
+15. **Invitations and sharing:** the coach creates a single-use code and passes it on; the gymer accepts it and turns each scope on or off (nutrition, training, body); the gymer can revoke a scope or end the relationship at any time. A gymer has one coach at a time (owner's choice, 2026-11-03, T9.12): to change coach, the gymer ends the relationship first.
 16. **Food and weight diary:** foods from the USDA table logged in grams with a nutrient snapshot; dated weight entries.
 17. **Workout log:** a fixed exercise list we wrote ourselves; sessions with sets of reps, kg and an optional RPE.
 18. **Dashboards:** the coach's client list and one client's week (only what that client shares); the gymer's own week and approved reviews, read-only. A day with no entries shows as "not logged", never as "ate nothing".

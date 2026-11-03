@@ -5,18 +5,21 @@ signed-in user's page for a guest) cannot be opened even by its URL: Streamlit s
 home instead. A new session sees only the start page (sign in, or in demo mode a made-up user; no
 guest) when sign-in is set up or in demo mode. A guest (a copy with no [auth]) has one page, the
 chat with today's tabs, so no menu shows. A user signed in with Google who has no account yet
-("pending") sees only the welcome page. A coach has the chat and My data; a gymer My profile and
-My data, no chat (owner's choice).
+("pending") sees only the welcome page. A coach has the chat, Clients and My data; a gymer My
+profile, Coach and sharing and My data, no chat (owner's choice; Clients and Coach and sharing
+since T9.12).
 """
 
 import streamlit as st
 
-from views import account, my_data, pages
+from views import account, clients, my_data, pages, sharing
 from views.text import t
 
 CHAT = "chat"
 PROFILE = "profile"
 MY_DATA = my_data.URL_PATH
+CLIENTS = clients.URL_PATH
+SHARING = sharing.URL_PATH
 WELCOME = "welcome"
 START = "start"
 PENDING = "pending"
@@ -25,13 +28,15 @@ PAGES_BY_ROLE: dict[str | None, tuple[str, ...]] = {
     None: (CHAT,),
     START: (START,),
     PENDING: (WELCOME,),
-    "coach": (CHAT, MY_DATA),
-    # No chat for a gymer (owner's choice, 2026-11-02): the profile and their data.
-    "gymer": (PROFILE, MY_DATA),
+    "coach": (CHAT, CLIENTS, MY_DATA),
+    # No chat for a gymer (owner's choice, 2026-11-02): the profile, the coach and their data.
+    "gymer": (PROFILE, SHARING, MY_DATA),
 }
 _PAGES = {
     CHAT: (pages.chat_page, "page.chat", ":material/chat:"),
     PROFILE: (pages.profile_page, "page.profile", ":material/person:"),
+    CLIENTS: (clients.page, "page.clients", ":material/groups:"),
+    SHARING: (sharing.page, "page.sharing", ":material/share:"),
     MY_DATA: (my_data.page, "page.my_data", ":material/folder_shared:"),
     WELCOME: (account.welcome_page, "page.welcome", ":material/waving_hand:"),
     START: (account.start_page, "page.start", ":material/login:"),

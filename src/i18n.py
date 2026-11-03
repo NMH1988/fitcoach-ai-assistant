@@ -663,6 +663,83 @@ _EN: dict[str, str] = {
     ),
     "my_data.confirm_delete_all": "Yes, delete my account and all my data",
     "my_data.delete_all_button": "Delete everything",
+    # Invitations and sharing (T9.12).
+    "page.clients": "Clients",
+    "page.sharing": "Coach and sharing",
+    "scope.nutrition": "Nutrition",
+    "scope.training": "Training",
+    "scope.body": "Body",
+    "scope_help.nutrition": "Food log, daily targets and the weekly reviews your coach writes",
+    "scope_help.training": "Workouts",
+    "scope_help.body": "Weights and profile entries (height, age, sex, activity, goal)",
+    "relationship.active": "Active",
+    "relationship.ended": "Ended",
+    "clients.intro": (
+        "Your clients and what each of them shares with you. A client chooses what you see, and "
+        "can change it or end the relationship at any time."
+    ),
+    "clients.none": "No clients yet. Create an invitation below and give the code to your client.",
+    "clients.col.name": "Client",
+    "clients.col.status": "Status",
+    "clients.col.since": "Since",
+    "clients.col.ended": "Ended",
+    "clients.shared": "Shared",
+    "clients.not_shared": "Not shared",
+    "clients.invitations": "Invitations",
+    "clients.invitations_note": (
+        "A code works once and expires after {days} days. Pass it on yourself, in person or by "
+        "message: the app sends no email."
+    ),
+    "clients.create": "Create an invitation",
+    "clients.new_code": (
+        "Your new code, shown only now: note it or pass it on. It expires on {expires} (UTC)."
+    ),
+    "clients.noted": "I have noted the code",
+    "clients.open_codes": "Unused codes",
+    "clients.no_codes": "No unused codes.",
+    "clients.col.created": "Created",
+    "clients.col.expires": "Expires",
+    "clients.col.state": "State",
+    "clients.code_open": "Open",
+    "clients.code_expired": "Expired",
+    "clients.code_label": "Created {created} · expires {expires}",
+    "clients.cancel_pick": "Code to cancel",
+    "clients.cancel_placeholder": "Choose a code",
+    "clients.cancel": "Cancel this invitation",
+    "sharing.unverified": "The app does not check a coach's qualifications.",
+    "sharing.no_coach": (
+        "You have no coach. Enter the code your coach gave you and choose what they may see."
+    ),
+    "sharing.code": "Invitation code",
+    "sharing.code_help": (
+        "{length} letters and digits, e.g. ABCD-EFGH-JKLM; the hyphens are optional."
+    ),
+    "sharing.choose": (
+        "Your coach sees what you share here, the days you logged before you shared it included. "
+        "You can change it at any time."
+    ),
+    "sharing.accept": "Accept the invitation",
+    "sharing.accepted": "You are now connected with your coach.",
+    "sharing.refused.not_valid": (
+        "This code cannot be used. Check it with your coach, or ask them for a new one."
+    ),
+    "sharing.refused.limit": "You have tried {attempts} codes today. Please try again tomorrow.",
+    "sharing.refused.has_coach": "You have a coach already. End that relationship first.",
+    "sharing.coach": "**Your coach:** {name} · since {since}",
+    "sharing.what": "What your coach sees",
+    "sharing.save": "Save sharing",
+    "sharing.saved": "Your sharing choices are saved.",
+    "sharing.end": "End the relationship",
+    "sharing.end_note": (
+        "Your coach can then read none of your data. Your records stay yours, and you can accept "
+        "a new code later."
+    ),
+    "sharing.confirm_end": "Yes, end the relationship with my coach",
+    "sharing.end_button": "End the relationship",
+    "sharing.ended": "The relationship has ended.",
+    "sharing.changed": (
+        "Your coach relationship changed in the meantime; the page shows it as it is now."
+    ),
 }
 
 _DE: dict[str, str] = {
@@ -1352,6 +1429,96 @@ _DE: dict[str, str] = {
     ),
     "my_data.confirm_delete_all": "Ja, mein Konto und alle meine Daten löschen",
     "my_data.delete_all_button": "Alles löschen",
+    # Einladungen und Freigaben (T9.12).
+    "page.clients": "Klienten",
+    "page.sharing": "Coach und Freigaben",
+    "scope.nutrition": "Ernährung",
+    "scope.training": "Training",
+    "scope.body": "Körper",
+    "scope_help.nutrition": (
+        "Ernährungstagebuch, Tagesziele und die Wochenberichte, die Ihr Coach schreibt"
+    ),
+    "scope_help.training": "Trainingseinheiten",
+    "scope_help.body": "Gewichte und Profileinträge (Größe, Alter, Geschlecht, Aktivität, Ziel)",
+    "relationship.active": "Aktiv",
+    "relationship.ended": "Beendet",
+    "clients.intro": (
+        "Ihre Klienten und was jeder von ihnen mit Ihnen teilt. Ein Klient entscheidet, was Sie "
+        "sehen, und kann das jederzeit ändern oder die Verbindung beenden."
+    ),
+    "clients.none": (
+        "Noch keine Klienten. Erstellen Sie unten eine Einladung und geben Sie den Code Ihrem "
+        "Klienten."
+    ),
+    "clients.col.name": "Klient",
+    "clients.col.status": "Status",
+    "clients.col.since": "Seit",
+    "clients.col.ended": "Beendet",
+    "clients.shared": "Geteilt",
+    "clients.not_shared": "Nicht geteilt",
+    "clients.invitations": "Einladungen",
+    "clients.invitations_note": (
+        "Ein Code gilt einmal und läuft nach {days} Tagen ab. Geben Sie ihn selbst weiter, "
+        "persönlich oder per Nachricht: Die App versendet keine E-Mails."
+    ),
+    "clients.create": "Einladung erstellen",
+    "clients.new_code": (
+        "Ihr neuer Code, nur jetzt angezeigt: Notieren Sie ihn oder geben Sie ihn weiter. Er läuft "
+        "am {expires} (UTC) ab."
+    ),
+    "clients.noted": "Ich habe den Code notiert",
+    "clients.open_codes": "Unbenutzte Codes",
+    "clients.no_codes": "Keine unbenutzten Codes.",
+    "clients.col.created": "Erstellt",
+    "clients.col.expires": "Läuft ab",
+    "clients.col.state": "Zustand",
+    "clients.code_open": "Offen",
+    "clients.code_expired": "Abgelaufen",
+    "clients.code_label": "Erstellt {created} · läuft ab {expires}",
+    "clients.cancel_pick": "Code zum Zurückziehen",
+    "clients.cancel_placeholder": "Code wählen",
+    "clients.cancel": "Diese Einladung zurückziehen",
+    "sharing.unverified": "Die App prüft die Qualifikationen eines Coaches nicht.",
+    "sharing.no_coach": (
+        "Sie haben keinen Coach. Geben Sie den Code ein, den Ihr Coach Ihnen gegeben hat, und "
+        "wählen Sie, was er sehen darf."
+    ),
+    "sharing.code": "Einladungscode",
+    "sharing.code_help": (
+        "{length} Buchstaben und Ziffern, z. B. ABCD-EFGH-JKLM; die Bindestriche sind optional."
+    ),
+    "sharing.choose": (
+        "Ihr Coach sieht, was Sie hier teilen, auch die Tage, die Sie vor dem Teilen erfasst "
+        "haben. Sie können es jederzeit ändern."
+    ),
+    "sharing.accept": "Einladung annehmen",
+    "sharing.accepted": "Sie sind jetzt mit Ihrem Coach verbunden.",
+    "sharing.refused.not_valid": (
+        "Dieser Code kann nicht verwendet werden. Prüfen Sie ihn mit Ihrem Coach oder bitten Sie "
+        "um einen neuen."
+    ),
+    "sharing.refused.limit": (
+        "Sie haben heute {attempts} Codes versucht. Bitte versuchen Sie es morgen wieder."
+    ),
+    "sharing.refused.has_coach": (
+        "Sie haben bereits einen Coach. Beenden Sie zuerst diese Verbindung."
+    ),
+    "sharing.coach": "**Ihr Coach:** {name} · seit {since}",
+    "sharing.what": "Was Ihr Coach sieht",
+    "sharing.save": "Freigaben speichern",
+    "sharing.saved": "Ihre Freigaben sind gespeichert.",
+    "sharing.end": "Verbindung beenden",
+    "sharing.end_note": (
+        "Ihr Coach kann dann keine Ihrer Daten mehr lesen. Ihre Einträge bleiben Ihre, und Sie "
+        "können später einen neuen Code annehmen."
+    ),
+    "sharing.confirm_end": "Ja, die Verbindung mit meinem Coach beenden",
+    "sharing.end_button": "Verbindung beenden",
+    "sharing.ended": "Die Verbindung ist beendet.",
+    "sharing.changed": (
+        "Ihre Verbindung mit dem Coach hat sich inzwischen geändert; die Seite zeigt sie, wie sie "
+        "jetzt ist."
+    ),
 }
 
 TEXT: dict[Language, dict[str, str]] = {"en": _EN, "de": _DE}
