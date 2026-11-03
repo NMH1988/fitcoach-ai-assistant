@@ -101,6 +101,18 @@ def test_deleting_one_entry_removes_only_it(monkeypatch, gymer_with_records):
     assert "**Weights** · 1 stored" in texts(at)
 
 
+def test_deleting_one_entry_drops_a_prepared_export(monkeypatch, gymer_with_records):
+    """An export prepared before a delete is dropped, so it cannot hand out the deleted entry."""
+    at = open_my_data(start(monkeypatch, user=signed_in()))
+    button(at, "Prepare the export").click().run(timeout=30)
+    assert at.get("download_button")
+    at.selectbox(key="my_data_entry").set_value(("body_measurements", _older_weight_id()))
+    at.run(timeout=30)
+    button(at, "Delete this entry").click().run(timeout=30)
+    assert not at.get("download_button")
+    assert "my_data_export" not in at.session_state
+
+
 def _older_weight_id() -> int:
     """Return the ID of the canary user's weight of 2026-10-01."""
     with db.connect() as conn:

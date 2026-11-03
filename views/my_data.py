@@ -81,6 +81,8 @@ def _delete_one(user: dict, stored: dict[str, list[dict]]) -> None:
         # session now, so a store that fails on that run leaves no stored profile behind.
         st.session_state.pop("account_loaded_for", None)
         st.session_state.pop("profile", None)
+        # A prepared export still holds the deleted entry: it is dropped, to be prepared again.
+        st.session_state.pop(EXPORT_KEY, None)
         st.rerun()
 
 
