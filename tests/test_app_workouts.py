@@ -10,7 +10,6 @@ from streamlit.testing.v1 import AppTest
 from streamlit.util import calc_hash
 
 from src import account, units
-from src import account as src_account
 from src.store import db, my_data, records
 from tests.test_app_account import (
     PROFILE,
@@ -355,7 +354,7 @@ def test_an_account_deleted_after_the_profile_check_stops_the_save(gymer, monkey
     with db.connect() as conn:
         my_data.delete_user_data(conn, USER_ID)
     # The profile check passes, so the write itself finds no account (round 6).
-    monkeypatch.setattr(src_account, "has_profile_entries", lambda conn, user_id: True)
+    monkeypatch.setattr(account, "has_profile_entries", lambda conn, user_id: True)
     button(gymer, "Save workout").click().run(timeout=30)
     assert not gymer.exception
     assert "Your account no longer exists" in texts(gymer)
