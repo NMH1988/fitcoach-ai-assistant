@@ -5,6 +5,7 @@ import os
 import uuid
 
 import pytest
+import streamlit as st
 from streamlit import config as st_config
 from streamlit.runtime.secrets import Secrets
 
@@ -102,6 +103,15 @@ def language_part_files(tmp_path_factory, monkeypatch):
         paths[lang].write_text(text, encoding="utf-8")
     monkeypatch.setattr(config, "ANSWER_LANGUAGE_PROMPT_PATHS", paths)
     return paths
+
+
+@pytest.fixture
+def login_calls(monkeypatch):
+    """Replace st.login and st.logout with recorders and return the list of calls (T9.5)."""
+    made = []
+    monkeypatch.setattr(st, "login", lambda *args: made.append("login"))
+    monkeypatch.setattr(st, "logout", lambda: made.append("logout"))
+    return made
 
 
 @pytest.fixture(scope="session")

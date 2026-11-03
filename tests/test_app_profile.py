@@ -403,7 +403,11 @@ def test_the_theme_hint_is_in_the_sidebar_without_a_profile():
 def test_the_theme_hint_follows_the_privacy_note_with_a_profile():
     """With a profile, the theme hint is the caption right under the privacy note."""
     captions = _sidebar_captions(_add_metric_profile())
-    privacy = captions.index(":material/lock: Kept for this session only")
+    privacy = next(
+        i
+        for i, text in enumerate(captions)
+        if text.startswith(":material/lock: Kept for this session only")
+    )
     assert captions[privacy + 1] == config.THEME_HINT
 
 

@@ -1,6 +1,7 @@
 """App-wide settings: models, OpenRouter endpoint, limits, UI text and secrets loading."""
 
 import os
+from collections.abc import Mapping
 from pathlib import Path
 
 import streamlit as st
@@ -277,6 +278,35 @@ STORE_ID_MAX_CHARS = 128
 # is longer and checked by STORE_JSON_MAX_CHARS); T9.5 and T9.7 set tighter limits for their input.
 STORE_TEXT_MAX_CHARS = 500
 STORE_JSON_MAX_CHARS = 100_000
+
+# Sign-in (T9.5, D14): st.login with Google, configured by the [auth] section of secrets.toml. The
+# user's ID is a keyed hash of the issuer and `sub`, with the secret in its own [account] section
+# (a section, so Streamlit does not copy it into os.environ as it does root-level strings).
+AUTH_SECTION = "auth"
+ACCOUNT_SECTION = "account"
+USER_KEY_SECRET_NAME = "user_key_secret"
+USER_KEY_SECRET_MIN_CHARS = 32
+# Streamlit signs the identity cookie with [auth] cookie_secret; a guessable one would let anyone
+# forge a sign-in, so sign-in is not offered with a shorter one.
+COOKIE_SECRET_MIN_CHARS = 32
+# The placeholders in .streamlit/secrets.toml.example: a copied example is "not set up", so no
+# one signs in with a secret that is public in the repo (tests/test_config.py reads the example).
+USER_KEY_SECRET_PLACEHOLDER = "replace-with-a-long-random-secret-for-user-ids"
+COOKIE_SECRET_PLACEHOLDER = "replace-with-a-long-random-secret-for-the-cookie"
+# The display name a user picks at the first sign-in: letters, digits, spaces, dots, hyphens and
+# apostrophes, starting with a letter or digit, 2 to 40 characters after cleaning. It is shown on
+# screen only and never sent to a model (docs/PRD.md, Sprint 3 guardrails).
+DISPLAY_NAME_CHARS = (2, 40)
+DISPLAY_NAME_PATTERN = r"[^\W_][\w .'\-]*"
+# Demo mode (T9.5, D18): synthetic users on a temporary database, only when DEMO_MODE is set in
+# secrets.toml or the environment and there is no [auth] section. Off by default.
+DEMO_MODE_NAME = "DEMO_MODE"
+DEMO_MODE_ON_VALUES = frozenset({"1", "true", "yes", "on"})
+# The time zone of the days a user records (D21): a saved weight is dated today in Berlin.
+TIME_ZONE = "Europe/Berlin"
+# Written with every target the app computes (set_by = "system"), so a later change to
+# calculate_macro_targets can tell old targets apart; bump it when that calculation changes.
+TARGET_CALC_VERSION = "macro-targets-1"
 # The answer system prompt, written by the owner (O1; .claude/rules/workflow.md).
 ANSWER_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "answer_system.md"
 # The language part of the answer prompt, one file per UI language, written by the owner (O1, T7.2).
@@ -419,6 +449,9 @@ PROFILE_HEIGHT_CM_RANGE = (120.0, 230.0)
 PROFILE_AGE_RANGE = (18, 100)
 # The units the profile form and the sidebar start in; the user can switch to imperial.
 DEFAULT_UNIT_SYSTEM = "metric"
+# The language a session starts in (owner's choice, 2026-11-02: English for everyone; from T7.1 to
+# T9.5 it followed the browser's locale); the user can switch to German.
+DEFAULT_LANGUAGE = "en"
 # The first line of the "Your details" dialog (T4.6). A typed number is applied when the field
 # loses focus, so pressing Save right after typing keeps it (checked in the browser).
 PROFILE_FORM_HINT = "Type your values, then press Save. Values are checked when you save."
@@ -428,6 +461,12 @@ PROFILE_FORM_HINT = "Type your values, then press Save. Values are checked when 
 # reads a relative path from the working directory. Since T9.23 it holds the dialog's rule that hid
 # "Press Enter to apply" (T4.6), which until then was its own fixed string.
 APP_CSS_PATH = PROJECT_ROOT / "assets" / "app.css"
+# The app's title (T9.5, owner's choices of 2026-11-02: the start page's, then every page's): the
+# one rule of app.css that may set
+# colour, a teal-to-green gradient around the theme's greens, every stop at least 3:1 (large text)
+# on both modes' backgrounds, with a solid fallback (tests/test_stylesheet.py checks both).
+TITLE_GRADIENT = ("#0F7F8C", "#1D9E75", "#4E9A28")
+TITLE_FALLBACK = "#168563"
 # The widest screen the stylesheet treats as a phone: each @media (max-width: Npx) in it uses this
 # value (tests/test_stylesheet.py). Streamlit 1.66 stacks st.columns below 640 px; a tablet (about
 # 820 px) keeps the desktop layout. T9.15's client cards use it.
@@ -674,10 +713,8 @@ def get_api_key() -> str:
     try:
         value = st.secrets.get(API_KEY_NAME)
     except FileNotFoundError as exc:
-        # Streamlit raises this for a missing secrets.toml, and chains the TOML error
-        # as the cause when the file exists but cannot be parsed.
         value = None
-        file_broken = exc.__cause__ is not None
+        file_broken = _parse_failed(exc)
     secret = value.strip() if isinstance(value, str) else ""
     key = secret or os.environ.get(API_KEY_NAME, "").strip()
     if not key:
@@ -686,3 +723,64 @@ def get_api_key() -> str:
             raise SecretsFileError(".streamlit/secrets.toml could not be parsed.") from None
         raise MissingAPIKeyError(f"{API_KEY_NAME} is not set.")
     return key
+
+
+def _secret(name: str) -> object:
+    """Return a value of st.secrets, or None when it or the secrets file is missing or broken."""
+    try:
+        return st.secrets.get(name)
+    except FileNotFoundError:  # no secrets.toml, or one that cannot be parsed
+        return None
+
+
+def _parse_failed(exc: FileNotFoundError) -> bool:
+    """Return True if st.secrets' error means the file exists but cannot be parsed."""
+    # Streamlit raises FileNotFoundError for a missing secrets.toml, and chains the TOML error as
+    # the cause when the file exists but cannot be parsed.
+    return exc.__cause__ is not None
+
+
+def secrets_file_broken() -> bool:
+    """Return True if secrets.toml exists but cannot be parsed (every secret then reads missing)."""
+    try:
+        st.secrets.get(API_KEY_NAME)
+    except FileNotFoundError as exc:
+        return _parse_failed(exc)
+    return False
+
+
+def auth_configured() -> bool:
+    """Return True if secrets.toml has an [auth] section (sign-in with Google, T9.5)."""
+    section = _secret(AUTH_SECTION)
+    return isinstance(section, Mapping) and len(section) > 0
+
+
+def user_key_secret() -> str | None:
+    """Return the user ID's hash secret; None if missing, too short or the example's placeholder."""
+    section = _secret(ACCOUNT_SECTION)
+    value = section.get(USER_KEY_SECRET_NAME) if isinstance(section, Mapping) else None
+    secret = value.strip() if isinstance(value, str) else ""
+    if len(secret) < USER_KEY_SECRET_MIN_CHARS or secret == USER_KEY_SECRET_PLACEHOLDER:
+        return None
+    return secret
+
+
+def sign_in_ready() -> bool:
+    """Return True if sign-in can be offered: [auth] with a long, real cookie secret and the key."""
+    if not auth_configured():
+        return False
+    value = _secret(AUTH_SECTION).get("cookie_secret")
+    cookie = value.strip() if isinstance(value, str) else ""
+    if len(cookie) < COOKIE_SECRET_MIN_CHARS or cookie == COOKIE_SECRET_PLACEHOLDER:
+        return False
+    return user_key_secret() is not None
+
+
+def demo_mode() -> bool:
+    """Return True if demo mode is on: DEMO_MODE set (secrets or environment) and no [auth]."""
+    if auth_configured():
+        return False
+    value = _secret(DEMO_MODE_NAME)
+    if value is None:
+        value = os.environ.get(DEMO_MODE_NAME, "")
+    return str(value).strip().lower() in DEMO_MODE_ON_VALUES

@@ -94,21 +94,6 @@ def test_the_german_texts_use_the_formal_sie():
     assert not [key for key, text in i18n.TEXT["de"].items() if informal.search(text)]
 
 
-# --- The browser's language (AC 3) ----------------------------------------------------------------
-
-
-@pytest.mark.parametrize("locale", ["de", "de-DE", "de-AT", "de-CH", "DE-de"])
-def test_a_german_browser_locale_gives_german(locale):
-    """Any de* locale starts the session in German."""
-    assert i18n.language_for_locale(locale) == "de"
-
-
-@pytest.mark.parametrize("locale", [None, "", "en-US", "en-GB", "fr-FR", "nl-NL", "dk", "es"])
-def test_any_other_locale_or_none_gives_english(locale):
-    """Every other locale, and none at all (as under AppTest), starts in English."""
-    assert i18n.language_for_locale(locale) == "en"
-
-
 # --- Numbers (owner's choice: German marks in German) ---------------------------------------------
 
 

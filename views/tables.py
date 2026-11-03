@@ -252,3 +252,79 @@ def usage_rows(turn_usage: usage.TurnUsage, lang: Language) -> dict[str, list]:
     ]
     names = [i18n.t(f"usage.col.{column}", lang) for column in USAGE_COLUMNS]
     return {name: [row[i] for row in rows] for i, name in enumerate(names)}
+
+
+# The kinds of records a gymer's My data page lists (T9.5), in the store's names, and the columns
+# each table shows, as keys under "my_data.col." in src/i18n.py.
+STORED_KINDS = (
+    "profile_entries",
+    "body_measurements",
+    "nutrition_targets",
+    "meal_items",
+    "workout_sessions",
+    "preferences",
+)
+STORED_COLUMNS: dict[str, tuple[str, ...]] = {
+    "profile_entries": ("saved", "height", "age", "sex", "activity", "goal"),
+    "body_measurements": ("day", "weight"),
+    "nutrition_targets": ("from", "kcal", "protein", "carbohydrate", "fat", "set_by"),
+    "meal_items": ("day", "meal", "food", "grams", "kcal"),
+    "workout_sessions": ("day", "sets"),
+    "preferences": ("saved", "text"),
+}
+
+
+def _day(stamp: str) -> str:
+    """Return the day of a stored ISO date or UTC timestamp ("2026-11-02")."""
+    return stamp[:10]
+
+
+def stored_cells(kind: str, row: dict, system: units.UnitSystem, lang: Language) -> list[str]:
+    """Return one stored record as the cells of its My data table, in the user's units."""
+    cells = {
+        "profile_entries": lambda: [
+            _day(row["recorded_at"]),
+            units.format_height(row["height_cm"], system),
+            str(row["age"]),
+            i18n.t(f"sex.{row['sex']}", lang),
+            i18n.t(f"activity_short.{row['activity']}", lang),
+            i18n.t(f"goal.{row['goal']}", lang),
+        ],
+        "body_measurements": lambda: [
+            row["measured_on"],
+            units.format_weight(row["weight_kg"], system, lang),
+        ],
+        "nutrition_targets": lambda: [
+            row["effective_from"],
+            i18n.number(row["kcal"], lang),
+            i18n.number(row["protein_g"], lang),
+            i18n.number(row["carbs_g"], lang),
+            i18n.number(row["fat_g"], lang),
+            i18n.t(f"my_data.set_by.{row['set_by']}", lang),
+        ],
+        "meal_items": lambda: [
+            row["consumed_on"],
+            i18n.t(f"my_data.meal.{row['meal']}", lang),
+            row["food_name"],
+            i18n.t("my_data.grams", lang, value=i18n.plain(row["grams"], lang)),
+            i18n.number(row["kcal"], lang),
+        ],
+        "workout_sessions": lambda: [row["performed_on"], str(len(row["sets"]))],
+        "preferences": lambda: [_day(row["created_at"]), row["text"]],
+    }
+    return cells[kind]()
+
+
+def stored_table(
+    kind: str, rows: list[dict], system: units.UnitSystem, lang: Language
+) -> dict[str, list[str]]:
+    """Return a kind's stored records as columns by translated name, for st.dataframe."""
+    names = tuple(i18n.t(f"my_data.col.{name}", lang) for name in STORED_COLUMNS[kind])
+    return columns(names, [stored_cells(kind, row, system, lang) for row in rows])
+
+
+def entry_label(kind: str, row: dict, system: units.UnitSystem, lang: Language) -> str:
+    """Return one record on one line for the "delete one entry" picker: its kind and its cells."""
+    return " · ".join(
+        (i18n.t(f"my_data.kind.{kind}", lang), *stored_cells(kind, row, system, lang))
+    )
