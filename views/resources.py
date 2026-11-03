@@ -1,8 +1,11 @@
 """Cached resources: built once per app process and shared by every view (not built twice)."""
 
+import tempfile
+from pathlib import Path
+
 import streamlit as st
 
-from src import chat, config, llm
+from src import account, chat, config, demo, llm
 from src.rag import hybrid, store
 
 
@@ -36,3 +39,20 @@ def translation_model():
 def manifest():
     """Read the approved sources once, for the journal and corrections on the source cards."""
     return chat.manifest_by_id()
+
+
+@st.cache_resource(show_spinner=False)
+def demo_store() -> Path:
+    """Make the demo database once per app process, seeded with the synthetic users (T9.5, D18)."""
+    # A temporary folder that lives as long as the process (the cache holds it); the real store in
+    # data/store/ is never opened in demo mode.
+    folder = tempfile.TemporaryDirectory(prefix="fitcoach-demo-")
+    _DEMO_FOLDERS.append(folder)
+    path = Path(folder.name) / "demo.sqlite3"
+    with account.open_store(path) as conn:
+        demo.seed(conn)
+    return path
+
+
+# Keeps each demo folder alive (and deleted at exit) while the cached path is in use.
+_DEMO_FOLDERS: list[tempfile.TemporaryDirectory] = []

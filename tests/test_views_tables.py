@@ -321,3 +321,49 @@ def test_distinct_filters_is_empty_only_when_no_search_set_one():
         (),
     )
     assert tables.distinct_filters([chat.SearchDetails("a", evidence_tier=1)]) == ((), (), (1,))
+
+
+# --- My data's tables (T9.5) ---------------------------------------------------------------------
+
+WEIGHT_ROW = {"id": 3, "weight_kg": 80.0, "measured_on": "2026-11-01", "recorded_at": "x"}
+TARGET_ROW = {
+    "id": 4,
+    "kcal": 2450.0,
+    "protein_g": 160.0,
+    "carbs_g": 280.0,
+    "fat_g": 70.0,
+    "set_by": "system",
+    "calc_version": "macro-targets-1",
+    "effective_from": "2026-11-01",
+    "created_at": "2026-11-01T08:00:00+00:00",
+}
+
+
+def test_every_stored_kind_has_columns_and_labels_in_both_languages():
+    """Each kind of record My data lists has its columns and texts in English and German."""
+    for kind in tables.STORED_KINDS:
+        for lang in ("en", "de"):
+            assert i18n.t(f"my_data.kind.{kind}", lang)
+            for column in tables.STORED_COLUMNS[kind]:
+                assert i18n.t(f"my_data.col.{column}", lang)
+
+
+def test_a_weight_shows_in_the_users_units_and_language():
+    """A stored weight in kg shows in pounds for imperial, with German decimal marks in German."""
+    assert tables.stored_table("body_measurements", [WEIGHT_ROW], "metric", "de") == {
+        "Tag": ["2026-11-01"],
+        "Gewicht": ["80 kg"],
+    }
+    assert tables.stored_cells("body_measurements", WEIGHT_ROW, "imperial", "en")[1].endswith("lb")
+
+
+def test_a_target_row_names_who_set_it():
+    """A target shows its numbers with thousands marks and "The app" for set_by system."""
+    cells = tables.stored_cells("nutrition_targets", TARGET_ROW, "metric", "en")
+    assert cells == ["2026-11-01", "2,450", "160", "280", "70", "The app"]
+
+
+def test_an_entry_label_starts_with_its_kind():
+    """The delete picker names the kind first, then the record's cells."""
+    label = tables.entry_label("body_measurements", WEIGHT_ROW, "metric", "en")
+    assert label == "Weights · 2026-11-01 · 80 kg"

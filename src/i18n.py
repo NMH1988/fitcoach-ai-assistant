@@ -9,8 +9,6 @@ our own writing, in the formal "Sie", and the owner reviews them before merge (T
 
 from typing import Literal
 
-import streamlit as st
-
 from src import config
 
 Language = Literal["en", "de"]
@@ -22,16 +20,6 @@ SESSION_KEY = "language"
 
 # German swaps the thousands and decimal marks: 2,500.5 (en) is 2.500,5 (de).
 _DE_MARKS = str.maketrans({",": ".", ".": ","})
-
-
-def language_for_locale(locale: str | None) -> Language:
-    """Return German for a browser locale starting with "de", else English (also for None)."""
-    return "de" if locale and locale.casefold().startswith("de") else "en"
-
-
-def browser_locale() -> str | None:
-    """Return the browser's locale (navigator.language), or None when it is not known."""
-    return st.context.locale
 
 
 def number(value: float, lang: Language) -> str:
@@ -152,8 +140,14 @@ _EN: dict[str, str] = {
     "activity_short.extra_active": "Extra active",
     "profile.save": "Save",
     "profile.check_these": "Check these",
-    "profile.kept_never_stored": "Kept for this session only, never stored.",
-    "profile.kept": "Kept for this session only",
+    "profile.kept_never_stored": (
+        "Kept for this session only, never stored; sent to the AI model through OpenRouter when a "
+        "question needs it."
+    ),
+    "profile.kept": (
+        "Kept for this session only; sent to the AI model through OpenRouter when a question "
+        "needs it"
+    ),
     "profile.your_profile": "Your profile",
     "profile.add_caption": "Add your details to get personal targets.",
     "profile.add": "Add your details",
@@ -186,7 +180,7 @@ _EN: dict[str, str] = {
     "macro.carbohydrate": "Carbohydrate",
     "macro.fat": "Fat",
     "targets.protein_lowered": "Protein was lowered to fit the target: see My targets.",
-    "targets.more": "More in the My targets tab.",
+    "targets.more": "More under My targets.",
     "targets.at_maintenance": "{goal}: at maintenance",
     "targets.above_maintenance": "{goal}: {kcal} kcal above maintenance",
     "targets.below_maintenance": "{goal}: {kcal} kcal below maintenance",
@@ -508,6 +502,167 @@ _EN: dict[str, str] = {
     "key.missing": config.MISSING_KEY_MESSAGE,
     "key.secrets_file": config.SECRETS_FILE_MESSAGE,
     "turn.error": config.TURN_ERROR_MESSAGE,
+    # Pages, the account block, the welcome page and My data (T9.5).
+    "page.chat": "Chat",
+    "page.my_data": "My data",
+    "page.profile": "My profile",
+    "page.welcome": "Welcome",
+    "page.start": "Start",
+    "start.title": "Sign in to continue",
+    "start.text": (
+        "Sign in with Google to keep your profile and daily targets (as a gymer) or to use the "
+        "app's AI assistant (as a coach). A coach's questions (and the coach's own details, when a "
+        "question needs them) go to the AI model through OpenRouter."
+    ),
+    "start.demo_title": "Try a made-up user",
+    "start.demo": (
+        "Demo mode: pick a made-up user below to try a coach's or a gymer's pages (what they save "
+        "is deleted when the app stops). A coach's questions (and the coach's own details, when a "
+        "question needs them) go to the AI model through OpenRouter."
+    ),
+    "start.demo_placeholder": "Choose a demo user",
+    "account.guest_note": (
+        "You are using the app as a guest: this app stores nothing; your questions (and your "
+        "details, when a question needs them) go to the AI model through OpenRouter."
+    ),
+    "account.secrets_broken": (
+        "Sign-in is off: `.streamlit/secrets.toml` could not be read (a TOML syntax error?). Fix "
+        "the file and restart the app. Until then this app stores nothing, and the chat answers "
+        "only if the API key is set as an environment variable (your questions then go to the AI "
+        "model through OpenRouter)."
+    ),
+    "role.coach": "Coach",
+    "role.gymer": "Gymer",
+    "role_choice.coach": "Coach · I follow clients' nutrition and training",
+    "role_choice.gymer": "Gymer · I log my own nutrition and training",
+    "account.sign_in": "Sign in with Google",
+    "account.sign_out": "Sign out",
+    "account.signed_in_google": "Signed in with Google",
+    "account.sign_in_off": (
+        "Sign-in is off: this copy of the app has no Google sign-in set up. "
+        "You can use the chat as a guest: this app stores nothing, and your questions (and your "
+        "details, when a question needs them) go to the AI model through OpenRouter."
+    ),
+    "account.not_set_up": (
+        "Sign-in is not fully set up: a secret in `.streamlit/secrets.toml` is missing, shorter "
+        "than 32 characters or still the example's. Fix the file and restart the app."
+    ),
+    "account.demo_user": "Demo user",
+    "account.demo_none": "None (back to the start page)",
+    "account.demo_note": (
+        "Demo mode: made-up users on a temporary database that is deleted when the app stops."
+    ),
+    "account.store_unavailable": (
+        "Your saved data cannot be opened right now, so nothing is read or saved. Try again "
+        "later, or restart the app."
+    ),
+    "account.welcome_title": "Set up your account",
+    "account.welcome_text": (
+        "Choose your role and the name the app shows (a made-up one is fine). The app's data file "
+        "stores only an ID made from your Google account (never its name, e-mail address or "
+        "picture), your role and this name. The sign-in cookie in your browser keeps your Google "
+        "name, e-mail address and picture link until you sign out (at most 30 days)."
+    ),
+    "account.role": "Your role",
+    "account.role_once": "The role is chosen once and cannot be changed in the app.",
+    "account.display_name": "Display name",
+    "account.display_name_help": (
+        "{low} to {high} characters: letters, digits, spaces, dots, hyphens and apostrophes. "
+        "Shown in the app only, never sent to the AI model."
+    ),
+    "account.create": "Create account",
+    "account.role_needed": "Choose a role.",
+    "account.name_length": "The display name needs {low} to {high} characters.",
+    "account.name_characters": (
+        "Use only letters, digits, spaces, dots, hyphens and apostrophes, starting with a letter "
+        "or digit."
+    ),
+    "account.name_refused": "This display name cannot be used. Choose another one.",
+    "account.exists": "This account exists already. Reload the page.",
+    "account.gone": "Your account no longer exists (it was deleted). Reload the page.",
+    "account.no_identity": "The sign-in did not give an account ID. Sign out and sign in again.",
+    "account.no_target": "No daily target could be worked out from these details.",
+    # The privacy notes of the sidebar and the profile form for signed-in users (T9.5).
+    "profile.note_gymer": (
+        "Saved for your account: when you press Save (or change the goal), your details, weight "
+        "and daily targets are stored in this app's data file on this computer. Use made-up data "
+        "only: do not enter real health data."
+    ),
+    "profile.note_coach": (
+        "Kept for this session only: a coach's details are not stored, but they go to the AI "
+        "model, through OpenRouter, when a question needs them. Your account (an ID, your role and "
+        "display name) is stored in this app's data file on this computer. Chats are never stored, "
+        "but this chat's earlier questions and answers go to the AI model with each new question. "
+        "Use made-up data only: do not enter real health data."
+    ),
+    "profile.my_data_link": "See, export or delete it in My data",
+    "profile.saved_on_save": "Saved to your account when you press Save (My data lists it).",
+    "profile.opt_in": (
+        "I understand that my details are stored in this app's data file on this computer, and "
+        "I enter made-up data only."
+    ),
+    "profile.opt_in_needed": "Tick the box above to save your details to your account.",
+    "profile.goal_not_saved": (
+        "The goal is kept for this session only: save your details with Edit details first "
+        "(ticking the box there)."
+    ),
+    "my_data.intro_gymer": (
+        "Everything the app stores about you: your account and your records below; your coach "
+        "relationships, sharing choices and your coach's reads of your data are in the export."
+    ),
+    "my_data.intro_coach": (
+        "Everything the app stores about you: your account, and your clients and their reviews "
+        "once you have some (they are in the export). A coach keeps no records of their own, and "
+        "nothing of your chats is stored."
+    ),
+    "my_data.account": "**Account:** {name} · {role} · created {created}",
+    "my_data.count": "{count} stored",
+    "my_data.kind.profile_entries": "Profile entries",
+    "my_data.kind.body_measurements": "Weights",
+    "my_data.kind.nutrition_targets": "Daily targets",
+    "my_data.kind.meal_items": "Food log",
+    "my_data.kind.workout_sessions": "Workouts",
+    "my_data.kind.preferences": "Preferences",
+    "my_data.col.saved": "Saved",
+    "my_data.col.height": "Height",
+    "my_data.col.age": "Age",
+    "my_data.col.sex": "Sex",
+    "my_data.col.activity": "Activity",
+    "my_data.col.goal": "Goal",
+    "my_data.col.day": "Day",
+    "my_data.col.weight": "Weight",
+    "my_data.col.from": "From",
+    "my_data.col.kcal": "kcal",
+    "my_data.col.protein": "Protein (g)",
+    "my_data.col.carbohydrate": "Carbohydrate (g)",
+    "my_data.col.fat": "Fat (g)",
+    "my_data.col.set_by": "Set by",
+    "my_data.col.meal": "Meal",
+    "my_data.col.food": "Food",
+    "my_data.col.grams": "Amount",
+    "my_data.col.sets": "Sets",
+    "my_data.col.text": "Text",
+    "my_data.grams": "{value} g",
+    "my_data.set_by.system": "The app",
+    "my_data.set_by.user": "You",
+    "my_data.meal.breakfast": "Breakfast",
+    "my_data.meal.lunch": "Lunch",
+    "my_data.meal.dinner": "Dinner",
+    "my_data.meal.snack": "Snack",
+    "my_data.delete_one": "Delete one entry",
+    "my_data.entry": "Entry",
+    "my_data.entry_placeholder": "Choose an entry",
+    "my_data.delete_entry": "Delete this entry",
+    "my_data.export": "Export",
+    "my_data.export_note": "All your data as one JSON file, built when you ask for it.",
+    "my_data.prepare_export": "Prepare the export",
+    "my_data.download": "Download my data (JSON)",
+    "my_data.delete_all": "Delete everything",
+    "my_data.delete_all_note": (
+        "Deletes your account and every row about you, then signs you out. This cannot be undone."
+    ),
+    "my_data.confirm_delete_all": "Yes, delete my account and all my data",
+    "my_data.delete_all_button": "Delete everything",
 }
 
 _DE: dict[str, str] = {
@@ -598,8 +753,13 @@ _DE: dict[str, str] = {
     "activity_short.extra_active": "Extrem aktiv",
     "profile.save": "Speichern",
     "profile.check_these": "Zu prüfen",
-    "profile.kept_never_stored": "Nur für diese Sitzung behalten, nie gespeichert.",
-    "profile.kept": "Nur für diese Sitzung",
+    "profile.kept_never_stored": (
+        "Nur für diese Sitzung behalten, nie gespeichert; geht über OpenRouter an das KI-Modell, "
+        "wenn eine Frage es braucht."
+    ),
+    "profile.kept": (
+        "Nur für diese Sitzung; geht über OpenRouter an das KI-Modell, wenn eine Frage es braucht"
+    ),
     "profile.your_profile": "Ihr Profil",
     "profile.add_caption": "Geben Sie Ihre Angaben ein, um persönliche Ziele zu erhalten.",
     "profile.add": "Angaben eingeben",
@@ -632,7 +792,7 @@ _DE: dict[str, str] = {
     "targets.protein_lowered": (
         "Protein wurde gesenkt, damit es zum Ziel passt: siehe „Meine Ziele“."
     ),
-    "targets.more": "Mehr im Tab „Meine Ziele“.",
+    "targets.more": "Mehr unter „Meine Ziele“.",
     "targets.at_maintenance": "{goal}: auf Erhaltungsbedarf",
     "targets.above_maintenance": "{goal}: {kcal} kcal über dem Erhaltungsbedarf",
     "targets.below_maintenance": "{goal}: {kcal} kcal unter dem Erhaltungsbedarf",
@@ -1016,6 +1176,182 @@ _DE: dict[str, str] = {
     "turn.error": (
         "Beim Beantworten Ihrer Frage ist etwas schiefgelaufen. Versuchen Sie es bitte erneut."
     ),
+    # Seiten, Kontobereich, Willkommensseite und Meine Daten (T9.5).
+    "page.chat": "Chat",
+    "page.my_data": "Meine Daten",
+    "page.profile": "Mein Profil",
+    "page.welcome": "Willkommen",
+    "page.start": "Start",
+    "start.title": "Melden Sie sich an, um fortzufahren",
+    "start.text": (
+        "Melden Sie sich mit Google an, um Ihr Profil und Ihre Tagesziele zu behalten (als Gymer) "
+        "oder den KI-Assistenten der App zu nutzen (als Coach). Die Fragen eines Coachs (und seine "
+        "eigenen Angaben, wenn eine Frage sie braucht) gehen über OpenRouter an das KI-Modell."
+    ),
+    "start.demo_title": "Einen erfundenen Nutzer ausprobieren",
+    "start.demo": (
+        "Demo-Modus: Wählen Sie unten einen erfundenen Nutzer, um die Seiten eines Coachs oder "
+        "Gymers auszuprobieren (was sie speichern, wird beim Beenden der App gelöscht). Die Fragen "
+        "eines Coachs (und seine eigenen Angaben, wenn eine Frage sie braucht) gehen über "
+        "OpenRouter an das KI-Modell."
+    ),
+    "start.demo_placeholder": "Demo-Nutzer wählen",
+    "account.guest_note": (
+        "Sie nutzen die App als Gast: Diese App speichert nichts; Ihre Fragen (und Ihre Angaben, "
+        "wenn eine Frage sie braucht) gehen über OpenRouter an das KI-Modell."
+    ),
+    "account.secrets_broken": (
+        "Die Anmeldung ist aus: `.streamlit/secrets.toml` konnte nicht gelesen werden "
+        "(ein TOML-Syntaxfehler?). Korrigieren Sie die Datei und starten Sie die App neu. Bis "
+        "dahin speichert diese App nichts, und der Chat antwortet nur, wenn der API-Schlüssel als "
+        "Umgebungsvariable gesetzt ist (Ihre Fragen gehen dann über OpenRouter an das KI-Modell)."
+    ),
+    "role.coach": "Coach",
+    "role.gymer": "Gymer",
+    "role_choice.coach": "Coach · Ich begleite Ernährung und Training meiner Kunden",
+    "role_choice.gymer": "Gymer · Ich erfasse meine eigene Ernährung und mein Training",
+    "account.sign_in": "Mit Google anmelden",
+    "account.sign_out": "Abmelden",
+    "account.signed_in_google": "Mit Google angemeldet",
+    "account.sign_in_off": (
+        "Die Anmeldung ist aus: In dieser Kopie der App ist keine Google-Anmeldung eingerichtet. "
+        "Sie können den Chat als Gast nutzen: Diese App speichert nichts, und Ihre Fragen (und "
+        "Ihre Angaben, wenn eine Frage sie braucht) gehen über OpenRouter an das KI-Modell."
+    ),
+    "account.not_set_up": (
+        "Die Anmeldung ist nicht vollständig eingerichtet: Ein Geheimnis in "
+        "`.streamlit/secrets.toml` fehlt, ist kürzer als 32 Zeichen oder ist noch das aus dem "
+        "Beispiel. Korrigieren Sie die Datei und starten Sie die App neu."
+    ),
+    "account.demo_user": "Demo-Nutzer",
+    "account.demo_none": "Keiner (zurück zur Startseite)",
+    "account.demo_note": (
+        "Demo-Modus: erfundene Nutzer in einer temporären Datenbank, die beim Beenden der App "
+        "gelöscht wird."
+    ),
+    "account.store_unavailable": (
+        "Ihre gespeicherten Daten können gerade nicht geöffnet werden, daher wird nichts gelesen "
+        "oder gespeichert. Versuchen Sie es später erneut oder starten Sie die App neu."
+    ),
+    "account.welcome_title": "Konto einrichten",
+    "account.welcome_text": (
+        "Wählen Sie Ihre Rolle und den Namen, den die App anzeigt (ein erfundener genügt). Die "
+        "Datendatei der App speichert nur eine aus Ihrem Google-Konto gebildete ID (nie dessen "
+        "Namen, E-Mail-Adresse oder Bild), Ihre Rolle und diesen Namen. Das Anmelde-Cookie in "
+        "Ihrem Browser behält Ihren Google-Namen, Ihre E-Mail-Adresse und den Link zu Ihrem Bild, "
+        "bis Sie sich abmelden (höchstens 30 Tage)."
+    ),
+    "account.role": "Ihre Rolle",
+    "account.role_once": "Die Rolle wird einmal gewählt und kann in der App nicht geändert werden.",
+    "account.display_name": "Anzeigename",
+    "account.display_name_help": (
+        "{low} bis {high} Zeichen: Buchstaben, Ziffern, Leerzeichen, Punkte, Bindestriche und "
+        "Apostrophe. Nur in der App angezeigt, nie an das KI-Modell gesendet."
+    ),
+    "account.create": "Konto anlegen",
+    "account.role_needed": "Wählen Sie eine Rolle.",
+    "account.name_length": "Der Anzeigename braucht {low} bis {high} Zeichen.",
+    "account.name_characters": (
+        "Verwenden Sie nur Buchstaben, Ziffern, Leerzeichen, Punkte, Bindestriche und Apostrophe, "
+        "beginnend mit einem Buchstaben oder einer Ziffer."
+    ),
+    "account.name_refused": (
+        "Dieser Anzeigename kann nicht verwendet werden. Wählen Sie einen anderen."
+    ),
+    "account.exists": "Dieses Konto gibt es schon. Laden Sie die Seite neu.",
+    "account.gone": "Ihr Konto gibt es nicht mehr (es wurde gelöscht). Laden Sie die Seite neu.",
+    "account.no_identity": (
+        "Die Anmeldung hat keine Konto-ID geliefert. Melden Sie sich ab und wieder an."
+    ),
+    "account.no_target": "Aus diesen Angaben ließ sich kein Tagesziel berechnen.",
+    "profile.note_gymer": (
+        "Für Ihr Konto gespeichert: Wenn Sie auf Speichern klicken (oder das Ziel ändern), werden "
+        "Ihre Angaben, Ihr Gewicht und Ihre Tagesziele in der Datendatei dieser App auf diesem "
+        "Computer gespeichert. Verwenden Sie nur erfundene Daten: Geben Sie keine echten "
+        "Gesundheitsdaten ein."
+    ),
+    "profile.note_coach": (
+        "Nur für diese Sitzung: Die Angaben eines Coachs werden nicht gespeichert, gehen aber über "
+        "OpenRouter an das KI-Modell, wenn eine Frage sie braucht. Ihr Konto (eine ID, Ihre Rolle "
+        "und Ihr Anzeigename) wird in der Datendatei dieser App auf diesem Computer gespeichert. "
+        "Chats werden nie gespeichert, aber die früheren Fragen und Antworten dieses Chats gehen "
+        "mit jeder neuen Frage an das KI-Modell. Verwenden Sie nur erfundene Daten: Geben Sie "
+        "keine echten Gesundheitsdaten ein."
+    ),
+    "profile.my_data_link": "Unter Meine Daten ansehen, exportieren oder löschen",
+    "profile.saved_on_save": (
+        "Wird beim Klick auf Speichern in Ihrem Konto gespeichert (Meine Daten listet es auf)."
+    ),
+    "profile.opt_in": (
+        "Ich verstehe, dass meine Angaben in der Datendatei dieser App auf diesem Computer "
+        "gespeichert werden, und ich gebe nur erfundene Daten ein."
+    ),
+    "profile.goal_not_saved": (
+        "Das Ziel gilt nur für diese Sitzung: Speichern Sie zuerst Ihre Angaben unter "
+        "Angaben bearbeiten (mit dem Häkchen dort)."
+    ),
+    "profile.opt_in_needed": (
+        "Setzen Sie oben das Häkchen, um Ihre Angaben in Ihrem Konto zu speichern."
+    ),
+    "my_data.intro_gymer": (
+        "Alles, was die App über Sie speichert: Ihr Konto und unten Ihre Einträge; Ihre "
+        "Coach-Beziehungen, Ihre Freigaben und die Zugriffe Ihres Coachs auf Ihre Daten stehen im "
+        "Export."
+    ),
+    "my_data.intro_coach": (
+        "Alles, was die App über Sie speichert: Ihr Konto und, sobald Sie welche haben, Ihre "
+        "Kunden und deren Auswertungen (sie stehen im Export). Ein Coach hat keine eigenen "
+        "Einträge, und von Ihren Chats wird nichts gespeichert."
+    ),
+    "my_data.account": "**Konto:** {name} · {role} · angelegt am {created}",
+    "my_data.count": "{count} gespeichert",
+    "my_data.kind.profile_entries": "Profileinträge",
+    "my_data.kind.body_measurements": "Gewichte",
+    "my_data.kind.nutrition_targets": "Tagesziele",
+    "my_data.kind.meal_items": "Ernährungstagebuch",
+    "my_data.kind.workout_sessions": "Trainingseinheiten",
+    "my_data.kind.preferences": "Vorlieben",
+    "my_data.col.saved": "Gespeichert",
+    "my_data.col.height": "Größe",
+    "my_data.col.age": "Alter",
+    "my_data.col.sex": "Geschlecht",
+    "my_data.col.activity": "Aktivität",
+    "my_data.col.goal": "Ziel",
+    "my_data.col.day": "Tag",
+    "my_data.col.weight": "Gewicht",
+    "my_data.col.from": "Ab",
+    "my_data.col.kcal": "kcal",
+    "my_data.col.protein": "Eiweiß (g)",
+    "my_data.col.carbohydrate": "Kohlenhydrate (g)",
+    "my_data.col.fat": "Fett (g)",
+    "my_data.col.set_by": "Festgelegt von",
+    "my_data.col.meal": "Mahlzeit",
+    "my_data.col.food": "Lebensmittel",
+    "my_data.col.grams": "Menge",
+    "my_data.col.sets": "Sätze",
+    "my_data.col.text": "Text",
+    "my_data.grams": "{value} g",
+    "my_data.set_by.system": "Die App",
+    "my_data.set_by.user": "Sie",
+    "my_data.meal.breakfast": "Frühstück",
+    "my_data.meal.lunch": "Mittagessen",
+    "my_data.meal.dinner": "Abendessen",
+    "my_data.meal.snack": "Snack",
+    "my_data.delete_one": "Einen Eintrag löschen",
+    "my_data.entry": "Eintrag",
+    "my_data.entry_placeholder": "Eintrag wählen",
+    "my_data.delete_entry": "Diesen Eintrag löschen",
+    "my_data.export": "Export",
+    "my_data.export_note": "Alle Ihre Daten als eine JSON-Datei, erstellt, wenn Sie darum bitten.",
+    "my_data.prepare_export": "Export vorbereiten",
+    "my_data.download": "Meine Daten herunterladen (JSON)",
+    "my_data.delete_all": "Alles löschen",
+    "my_data.delete_all_note": (
+        "Löscht Ihr Konto und jede Zeile über Sie und meldet Sie dann ab. Das kann nicht "
+        "rückgängig gemacht werden."
+    ),
+    "my_data.confirm_delete_all": "Ja, mein Konto und alle meine Daten löschen",
+    "my_data.delete_all_button": "Alles löschen",
 }
 
 TEXT: dict[Language, dict[str, str]] = {"en": _EN, "de": _DE}

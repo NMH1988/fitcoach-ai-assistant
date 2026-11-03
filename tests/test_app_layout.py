@@ -44,9 +44,9 @@ def test_the_import_scan_finds_a_streamlit_import(tmp_path):
 
 APP = ROOT / "app.py"
 MAX_APP_LINES = 150
-# The only function app.py defines: it lays out the header and the four tabs. Every chart, table
-# and card builder lives in views/.
-APP_FUNCTIONS = {"_main_area"}
+# app.py defines no function since T9.5: the chat page (header and the four tabs) moved to
+# views/pages.py with st.navigation. Every chart, table and card builder lives in views/.
+APP_FUNCTIONS: set[str] = set()
 
 
 def _functions(path: Path) -> set[str]:

@@ -1,0 +1,741 @@
+"""UI tests for sign-in, roles, pages per role, the privacy note and the store's errors (T9.5)."""
+
+import io
+import logging
+from pathlib import Path
+
+import pytest
+import streamlit as st
+from streamlit.testing.v1 import AppTest
+from streamlit.util import calc_hash
+
+from src import account, config, observability
+from src.profile import UserProfile
+from src.store import db, records, users
+from views import account as views_account
+from views import navigation
+
+APP = Path(__file__).resolve().parent.parent / "app.py"
+SECRET = "k" * config.USER_KEY_SECRET_MIN_CHARS
+AUTH = {
+    "redirect_uri": "http://localhost:8501/oauth2callback",
+    "cookie_secret": "c" * 40,
+    "client_id": "test-client.apps.googleusercontent.com",
+    "client_secret": "test-not-a-real-secret",
+    "server_metadata_url": "https://accounts.google.com/.well-known/openid-configuration",
+}
+ISSUER = "https://accounts.google.com"
+SUBJECT = "canary-sub-424242"
+# What Google sends besides the ID: never stored, logged or shown (D14).
+EMAIL = "canary.person@example.com"
+NAME = "Canary Googlename"
+PICTURE = "https://example.com/canary-picture.png"
+USER_ID = account.user_key(ISSUER, SUBJECT, SECRET)
+PROFILE = UserProfile(
+    weight_kg=74.6, height_cm=171, age=41, sex="male", activity="light", goal="maintain"
+)
+
+pytestmark = pytest.mark.usefixtures("no_env_key")
+
+
+class FakeUser(dict):
+    """Stands in for st.user: a mapping of the ID token's claims plus is_logged_in."""
+
+
+def signed_in() -> FakeUser:
+    """Return st.user as Streamlit fills it after a Google sign-in, with canary values."""
+    return FakeUser(
+        is_logged_in=True, iss=ISSUER, sub=SUBJECT, email=EMAIL, name=NAME, picture=PICTURE
+    )
+
+
+def start(monkeypatch, *, user=None, auth=True, language="en") -> AppTest:
+    """Run app.py once with sign-in set up (or not) and st.user faked, and return the handle."""
+    monkeypatch.setattr(st, "user", user if user is not None else FakeUser())
+    at = AppTest.from_file(str(APP))
+    at.secrets["UNRELATED"] = "x"
+    if auth:
+        at.secrets["auth"] = dict(AUTH)
+        at.secrets["account"] = {"user_key_secret": SECRET}
+    at.session_state["language"] = language
+    at.run(timeout=30)
+    return at
+
+
+def store_account(role: str, name: str = "Sam", profile: UserProfile | None = None) -> None:
+    """Store the canary user's account (and a saved profile for a gymer) before the app runs."""
+    with db.connect() as conn:
+        users.create_user(conn, USER_ID, role, name)
+        if profile is not None:
+            account.save_profile(conn, USER_ID, profile, with_weight=True)
+
+
+def button(at: AppTest, label: str):
+    """Return the one button with this label; the sidebar's when the My targets tab has one too."""
+    found = [item for item in at.button if item.label == label]
+    if len(found) > 1:
+        found = [item for item in at.sidebar.button if item.label == label]
+    (item,) = found
+    return item
+
+
+def texts(at: AppTest) -> str:
+    """Return every caption, Markdown, error and subheader of the page as one text."""
+    parts = [*at.caption, *at.markdown, *at.error, *at.subheader, *at.warning]
+    return "\n".join(str(part.value) for part in parts)
+
+
+def page_links(at: AppTest) -> list[str]:
+    """Return the labels of the page's page links."""
+    return [link.proto.label for link in at.get("page_link")]
+
+
+# --- The guest and the sign-in button -------------------------------------------------------------
+
+
+def test_without_auth_the_button_is_hidden_and_a_note_says_why(monkeypatch):
+    """No [auth] section: no sign-in button, the note, and today's chat tabs (AC-19)."""
+    at = start(monkeypatch, auth=False)
+    assert not [item for item in at.button if item.label == "Sign in with Google"]
+    assert "Sign-in is off" in texts(at)
+    assert len(at.tabs) == 4
+
+
+def test_with_auth_a_new_session_opens_on_the_start_page(monkeypatch, login_calls):
+    """With sign-in set up, a new session sees only the start page; its button starts st.login."""
+    at = start(monkeypatch)
+    assert "Sign in to continue" in texts(at)
+    assert not at.tabs
+    button(at, "Sign in with Google").click().run(timeout=30)
+    assert login_calls == ["login"]
+
+
+def test_the_sign_in_button_is_on_the_start_page_not_in_the_sidebar(monkeypatch):
+    """Sign-in is the start page's (owner's choice, 2026-11-02): the sidebar has no such button."""
+    at = start(monkeypatch)
+    assert not [item for item in at.sidebar.button if item.label == "Sign in with Google"]
+    found = button(at, "Sign in with Google")
+    assert found.proto.type == "primary"
+    assert found.key == views_account.SIGN_IN_KEY  # the key assets/app.css styles
+
+
+def test_with_sign_in_set_up_there_is_no_guest(monkeypatch):
+    """The start page offers only the language link and sign-in: no way in as a guest."""
+    at = start(monkeypatch)
+    assert [item.label for item in at.button] == ["Deutsch", "Sign in with Google"]
+    assert "guest" not in texts(at).lower()
+    assert not at.tabs
+
+
+def test_the_chat_cannot_be_reached_without_signing_in(monkeypatch):
+    """Requesting the chat's URL before signing in shows the start page."""
+    at = start(monkeypatch)
+    at._page_hash = calc_hash(navigation.CHAT)
+    at.run(timeout=30)
+    assert not at.tabs
+    assert "Sign in to continue" in texts(at)
+
+
+@pytest.mark.parametrize(
+    ("language", "message"),
+    [("en", "could not be read (a TOML syntax error?)"), ("de", "TOML-Syntaxfehler")],
+)
+def test_a_broken_secrets_file_is_named(monkeypatch, language, message):
+    """A secrets.toml that cannot be parsed says so, instead of "sign-in is off"."""
+    monkeypatch.setattr(config, "secrets_file_broken", lambda: True)
+    at = start(monkeypatch, auth=False, language=language)
+    assert message in texts(at)
+    assert len(at.tabs) == 4
+
+
+def test_with_example_placeholders_sign_in_is_not_offered(monkeypatch):
+    """An [auth] section with the example's cookie secret shows the not-set-up note instead."""
+    monkeypatch.setattr(st, "user", FakeUser())
+    at = AppTest.from_file(str(APP))
+    at.secrets["auth"] = {**AUTH, "cookie_secret": config.COOKIE_SECRET_PLACEHOLDER}
+    at.secrets["account"] = {"user_key_secret": SECRET}
+    at.run(timeout=30)
+    assert not [item for item in at.button if item.label == "Sign in with Google"]
+    assert "not fully set up" in texts(at)
+
+
+def test_a_guest_writes_nothing_to_disk(monkeypatch):
+    """A guest (no [auth]) who saves a profile and opens the app's pages never creates the store."""
+    at = start(monkeypatch, auth=False)
+    button(at, "Add your details").click().run(timeout=30)
+    at.number_input(key="profile_form_weight").set_value(80.0)
+    at.number_input(key="profile_form_height_cm").set_value(180)
+    at.number_input(key="profile_form_age").set_value(30)
+    at.segmented_control(key="profile_form_sex").set_value("male")
+    at.selectbox(key="profile_form_activity").set_value("moderate")
+    at.segmented_control(key="profile_form_goal").set_value("build_muscle")
+    button(at, "Save").click().run(timeout=30)
+    assert at.session_state["profile"].weight_kg == 80.0
+    assert "Kept for this session only" in texts(at)
+    assert not config.STORE_PATH.exists()
+    assert not config.STORE_DIR.exists()
+
+
+# --- The first sign-in (AC-18) --------------------------------------------------------------------
+
+
+def test_the_first_sign_in_shows_only_the_welcome_page(monkeypatch):
+    """Signed in with Google but no account yet: the welcome form, not the chat."""
+    at = start(monkeypatch, user=signed_in())
+    assert "Set up your account" in texts(at)
+    assert not at.tabs
+    assert at.radio(key="account_role").value is None
+    assert button(at, "Sign out")
+
+
+def _create(at: AppTest, role: str, name: str) -> AppTest:
+    """Fill the welcome form and press Create account."""
+    at.radio(key="account_role").set_value(role)
+    at.text_input(key="account_name").input(name)
+    return button(at, "Create account").click().run(timeout=30)
+
+
+def test_creating_a_gymer_account_stores_the_keyed_id_role_and_name(monkeypatch):
+    """The account is stored under the keyed hash with the role and name; My profile follows."""
+    at = _create(start(monkeypatch, user=signed_in()), "gymer", "  Sam  ")
+    with db.connect() as conn:
+        assert users.find_user(conn, USER_ID)["role"] == "gymer"
+        assert users.find_user(conn, USER_ID)["display_name"] == "Sam"
+    assert on_profile_page(at)
+    assert "Sam · Gymer" in texts(at)
+
+
+def on_profile_page(at: AppTest) -> bool:
+    """Return True if the run drew a gymer's My profile page: the targets, and no chat."""
+    return not at.tabs and not at.chat_input and ":material/target: My targets" in texts(at)
+
+
+def test_a_gymer_has_no_chat(monkeypatch):
+    """A gymer's pages are My profile and My data; the chat's URL shows My profile (T9.5)."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    assert on_profile_page(at)
+    at._page_hash = calc_hash(navigation.CHAT)
+    at.run(timeout=30)
+    assert on_profile_page(at)
+
+
+def test_a_bad_display_name_is_refused_and_nothing_is_stored(monkeypatch):
+    """A refused name shows its reason and stores no account."""
+    at = _create(start(monkeypatch, user=signed_in()), "coach", "**Boss**")
+    assert "Use only letters" in texts(at)
+    with db.connect() as conn:
+        assert users.find_user(conn, USER_ID) is None
+
+
+def test_no_role_is_refused(monkeypatch):
+    """The role must be chosen."""
+    at = start(monkeypatch, user=signed_in())
+    at.text_input(key="account_name").input("Sam")
+    button(at, "Create account").click().run(timeout=30)
+    assert "Choose a role." in texts(at)
+
+
+def test_the_google_name_email_and_picture_are_never_stored_shown_or_logged(monkeypatch):
+    """The canary claims reach no stored byte, no element of the page and no log line (D14)."""
+    stream = io.StringIO()
+    configure = observability.configure_logging
+    monkeypatch.setattr(
+        observability,
+        "configure_logging",
+        lambda: configure(level=logging.DEBUG, stream=stream),
+    )
+    at = _create(start(monkeypatch, user=signed_in()), "gymer", "Sam")
+    page = texts(at) + "".join(str(item.value) for item in at.text_input)
+    stored = config.STORE_PATH.read_bytes()
+    for canary in (EMAIL, NAME, PICTURE, SUBJECT, "canary"):
+        assert canary.encode() not in stored
+        assert canary not in page
+        assert canary not in stream.getvalue()
+
+
+def test_sign_out_clears_the_session_and_calls_st_logout(monkeypatch, login_calls):
+    """Sign out forgets the profile and the chat, then signs out of Google."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    at.session_state["messages"] = [{"role": "user", "text": "canary question"}]
+    at.session_state["my_data_export"] = '{"canary": 1}'
+    button(at, "Sign out").click().run(timeout=30)
+    assert login_calls == ["logout"]
+    # The fake st.user is still signed in after the rerun (a real sign-out starts a new session),
+    # so the profile is loaded again; what the session held besides it is gone.
+    assert at.session_state["messages"] == []
+    assert "my_data_export" not in at.session_state
+
+
+# --- Pages per role (D20) -------------------------------------------------------------------------
+
+
+def _start_as(monkeypatch, role) -> AppTest:
+    """Run the app as a role: a guest, a new visitor (start), a first sign-in or an account."""
+    if role is None:
+        return start(monkeypatch, auth=False)  # a guest of a copy with no sign-in
+    if role == navigation.START:
+        return start(monkeypatch)  # a new visitor, sign-in set up
+    if role in ("coach", "gymer"):
+        store_account(role)
+    return start(monkeypatch, user=signed_in())
+
+
+@pytest.mark.parametrize("role", list(navigation.PAGES_BY_ROLE))
+def test_a_page_of_another_role_cannot_be_reached_by_its_url(monkeypatch, role):
+    """Requesting any url_path the role does not have shows the role's home instead."""
+    at = _start_as(monkeypatch, role)
+    home = navigation.PAGES_BY_ROLE[role][0]
+    others = {path for paths in navigation.PAGES_BY_ROLE.values() for path in paths}
+    for url_path in sorted(others - set(navigation.PAGES_BY_ROLE[role])):
+        # What a browser sends for /<url_path>: the page hash Streamlit derives from it. AppTest
+        # has no public way to request a callable page by URL, so its page hash is set directly.
+        # If a Streamlit version stopped reading it, these cases would pass without testing
+        # anything: test_a_signed_in_user_reaches_my_data, which uses it too, would then fail.
+        at._page_hash = calc_hash(url_path)
+        at.run(timeout=30)
+        if home == navigation.CHAT:
+            assert len(at.tabs) == 4, url_path
+        elif home == navigation.PROFILE:
+            assert on_profile_page(at), url_path
+        elif home == navigation.START:
+            assert "Sign in to continue" in texts(at), url_path
+        else:
+            assert "Set up your account" in texts(at), url_path
+        assert "Delete everything" not in texts(at), url_path
+
+
+@pytest.mark.parametrize("role", ["coach", "gymer"])
+def test_a_signed_in_user_reaches_my_data(monkeypatch, role):
+    """My data is registered for both roles and opens by its URL."""
+    store_account(role)
+    at = start(monkeypatch, user=signed_in())
+    at._page_hash = calc_hash(navigation.MY_DATA)
+    at.run(timeout=30)
+    assert "Delete everything" in texts(at)
+
+
+# --- The store's errors ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("language", "message"),
+    [("en", "cannot be opened right now"), ("de", "können gerade nicht geöffnet werden")],
+)
+def test_a_store_that_cannot_be_opened_shows_one_fixed_message(monkeypatch, language, message):
+    """connect() raising shows the fixed message in the language, not its text; nothing written."""
+
+    def failing(path=None):
+        """Fail as connect() does for a folder it cannot make."""
+        raise db.StoreError("C:/private/folder could not be made")
+
+    monkeypatch.setattr(db, "connect", failing)
+    at = start(monkeypatch, user=signed_in(), language=language)
+    page = texts(at)
+    assert message in page
+    assert "private" not in page
+    assert len(at.tabs) == 4  # the session runs as a guest's
+    assert not config.STORE_PATH.exists()
+
+
+# --- The gymer's profile and the privacy note -----------------------------------------------------
+
+
+def test_signing_in_loads_the_latest_profile(monkeypatch):
+    """A gymer's saved profile is in the session after sign-in."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    assert at.session_state["profile"] == PROFILE
+
+
+def _fill(at: AppTest, weight: float = 80.0) -> AppTest:
+    """Fill the open profile form in metric units."""
+    at.number_input(key="profile_form_weight").set_value(weight)
+    at.number_input(key="profile_form_height_cm").set_value(180)
+    at.number_input(key="profile_form_age").set_value(30)
+    at.segmented_control(key="profile_form_sex").set_value("male")
+    at.selectbox(key="profile_form_activity").set_value("moderate")
+    at.segmented_control(key="profile_form_goal").set_value("build_muscle")
+    return at
+
+
+def _counts() -> tuple[int, int, int]:
+    """Return how many profile entries, weights and targets the canary user has."""
+    with db.connect() as conn:
+        return (
+            len(records.list_profile_entries(conn, USER_ID, USER_ID)),
+            len(records.list_body_measurements(conn, USER_ID, USER_ID)),
+            len(records.list_targets(conn, USER_ID, USER_ID)),
+        )
+
+
+def test_the_first_save_needs_the_opt_in(monkeypatch):
+    """Without the box ticked nothing is saved; ticked, Save stores entry, weight and target."""
+    store_account("gymer")
+    at = start(monkeypatch, user=signed_in())
+    button(at, "Add your details").click().run(timeout=30)
+    _fill(at)
+    button(at, "Save").click().run(timeout=30)
+    assert "Tick the box above" in texts(at)
+    assert _counts() == (0, 0, 0)
+    assert at.session_state["profile"] is None
+    at.checkbox(key="profile_form_opt_in").check()
+    button(at, "Save").click().run(timeout=30)
+    assert _counts() == (1, 1, 1)
+    assert at.session_state["profile"].weight_kg == 80.0
+
+
+def test_a_gymer_with_a_saved_profile_saves_without_the_box(monkeypatch):
+    """A gymer who saved before is not asked again; each Save adds an entry, weight and target."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    button(at, "Edit details").click().run(timeout=30)
+    assert not [box for box in at.checkbox if box.key == "profile_form_opt_in"]
+    at.number_input(key="profile_form_weight").set_value(75.5)
+    button(at, "Save").click().run(timeout=30)
+    assert _counts() == (2, 2, 2)
+
+
+def test_a_goal_change_is_saved_for_a_gymer(monkeypatch):
+    """The sidebar's goal control adds an entry and a target, no weight."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    at.segmented_control(key="sidebar_goal").set_value("lose_fat").run(timeout=30)
+    assert _counts() == (2, 1, 2)
+    with db.connect() as conn:
+        assert account.load_profile(conn, USER_ID).goal == "lose_fat"
+
+
+def test_a_coach_profile_stays_in_the_session(monkeypatch):
+    """A coach's profile form keeps the details for the session and writes no record."""
+    store_account("coach")
+    at = start(monkeypatch, user=signed_in())
+    button(at, "Add your details").click().run(timeout=30)
+    _fill(at)
+    assert not [box for box in at.checkbox if box.key == "profile_form_opt_in"]
+    button(at, "Save").click().run(timeout=30)
+    assert at.session_state["profile"].weight_kg == 80.0
+    with db.connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM profile_entries").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize(
+    ("language", "guest", "gymer", "coach", "link"),
+    [
+        (
+            "en",
+            "Kept for this session only",
+            "Saved for your account",
+            "a coach's details are not stored",
+            "See, export or delete it in My data",
+        ),
+        (
+            "de",
+            "Nur für diese Sitzung",
+            "Für Ihr Konto gespeichert",
+            "Die Angaben eines Coachs werden nicht gespeichert",
+            "Unter Meine Daten ansehen, exportieren oder löschen",
+        ),
+    ],
+)
+def test_the_privacy_note_per_user(monkeypatch, language, guest, gymer, coach, link):
+    """A guest keeps today's text; a gymer and a coach get theirs, a My data link and the ask."""
+    at = start(monkeypatch, auth=False, language=language)
+    at.session_state["profile"] = PROFILE
+    at.run(timeout=30)
+    assert guest in texts(at)
+    assert gymer not in texts(at)
+    assert link not in page_links(at)
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in(), language=language)
+    assert gymer in texts(at)
+    assert link in page_links(at)
+    real = "do not enter real health data" if language == "en" else "keine echten Gesundheitsdaten"
+    assert real in texts(at)
+    chat = "earlier questions and answers" if language == "en" else "früheren Fragen und Antworten"
+    assert chat not in texts(at)  # a gymer has no chat
+    _reset_store()
+    store_account("coach")
+    at = start(monkeypatch, user=signed_in(), language=language)
+    assert coach in texts(at)
+    assert real in texts(at)
+    assert chat in texts(at)
+    assert link in page_links(at)
+
+
+def _reset_store() -> None:
+    """Delete the canary user's rows, so a test can store them again under another role."""
+    from src.store import my_data
+
+    with db.connect() as conn:
+        my_data.delete_user_data(conn, USER_ID)
+
+
+# --- Failures after sign-in (code review round 1) -------------------------------------------------
+
+
+def _fail_from_now(monkeypatch) -> None:
+    """Make every later store opening fail, as a locked or unreadable file would."""
+
+    def failing(path=None):
+        """Fail as connect() does."""
+        raise db.StoreError("C:/private/folder")
+
+    monkeypatch.setattr(db, "connect", failing)
+
+
+def _fail_after(monkeypatch, opens: int) -> None:
+    """Let the next `opens` store openings work and make every later one fail."""
+    real = db.connect
+    count = {"opens": 0}
+
+    def counting(path=None):
+        """Open the store as usual until the count is reached, then fail as connect() does."""
+        count["opens"] += 1
+        if count["opens"] > opens:
+            raise db.StoreError("C:/private/folder")
+        return real(path)
+
+    monkeypatch.setattr(db, "connect", counting)
+
+
+def test_a_signed_in_user_whose_store_fails_can_still_sign_out(monkeypatch, login_calls):
+    """With the store down, a signed-in user gets Sign out and no sign-in button."""
+    _fail_from_now(monkeypatch)
+    at = start(monkeypatch, user=signed_in())
+    assert not [item for item in at.button if item.label == "Sign in with Google"]
+    button(at, "Sign out").click().run(timeout=30)
+    assert login_calls == ["logout"]
+
+
+def test_a_failed_save_keeps_the_profile_and_the_dialog(monkeypatch):
+    """A gymer's Save that cannot be stored shows the message; nothing in the session changes."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    button(at, "Edit details").click().run(timeout=30)
+    at.number_input(key="profile_form_weight").set_value(70.0)
+    _fail_after(monkeypatch, 1)  # the run's resolve() works; the Save's write fails
+    button(at, "Save").click().run(timeout=30)
+    assert "cannot be opened right now" in texts(at)
+    assert at.session_state["profile"] == PROFILE
+    assert at.session_state["profile_form_open"]
+    assert _counts_unchecked() == (1, 1, 1)
+
+
+def _counts_unchecked() -> tuple[int, int, int]:
+    """Return the canary user's rows per table, read past any faked connect()."""
+    import sqlite3
+
+    with sqlite3.connect(config.STORE_PATH) as conn:
+        return tuple(
+            conn.execute(query, (USER_ID,)).fetchone()[0]
+            for query in (
+                "SELECT COUNT(*) FROM profile_entries WHERE user_id = ?",
+                "SELECT COUNT(*) FROM body_measurements WHERE user_id = ?",
+                "SELECT COUNT(*) FROM nutrition_targets WHERE user_id = ?",
+            )
+        )
+
+
+def test_with_the_store_down_a_gymer_runs_as_a_guest(monkeypatch):
+    """Store down: the fixed message, the guest note, no stored profile left, nothing written."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    assert at.session_state["profile"] == PROFILE
+    _fail_from_now(monkeypatch)
+    at.run(timeout=30)
+    assert "cannot be opened right now" in texts(at)
+    # The profile read from the store leaves the session, so it cannot reach the guest's chat.
+    assert "profile" not in at.session_state
+    assert "You are using the app as a guest" in texts(at)
+    assert "through OpenRouter" in texts(at)
+    assert "Saved for your account" not in texts(at)
+    assert _counts_unchecked() == (1, 1, 1)
+
+
+def test_a_profile_typed_while_the_store_is_down_stays_for_the_session(monkeypatch):
+    """Only a profile loaded from the store leaves; one typed in the guest state is kept."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    real_connect = db.connect
+    _fail_from_now(monkeypatch)
+    at.run(timeout=30)
+    typed = PROFILE.model_copy(update={"weight_kg": 70.0})
+    at.session_state["profile"] = typed
+    at.run(timeout=30)
+    assert at.session_state["profile"] == typed
+    # When the store comes back, the saved profile replaces the typed one. (Not monkeypatch.undo():
+    # it would also undo conftest's temporary store path.)
+    monkeypatch.setattr(db, "connect", real_connect)
+    at.run(timeout=30)
+    assert at.session_state["profile"] == PROFILE
+
+
+def test_a_failed_goal_change_keeps_the_old_goal(monkeypatch):
+    """A goal change that cannot be stored shows the message and keeps the stored goal."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    _fail_after(monkeypatch, 0)  # the callback's write is the first opening of the run
+    at.segmented_control(key="sidebar_goal").set_value("lose_fat").run(timeout=30)
+    assert "cannot be opened right now" in "".join(str(e.value) for e in at.sidebar.error)
+    # The run's resolve() fails too, so the stored profile leaves the session (compliance run 4);
+    # no unsaved goal is shown, and the stored rows are unchanged.
+    assert "profile" not in at.session_state
+    assert _counts_unchecked() == (1, 1, 1)
+
+
+def test_a_goal_change_after_the_account_was_deleted_elsewhere(monkeypatch):
+    """Deleted in another tab: the goal change says so instead of failing, then the welcome page."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    _reset_store()
+    at.segmented_control(key="sidebar_goal").set_value("lose_fat").run(timeout=30)
+    assert not at.exception
+    assert "Set up your account" in texts(at)
+    assert "no longer exists" in texts(at)  # said on the welcome page, where it is needed
+    assert "profile" not in at.session_state
+    at = _create(at, "gymer", "Sam")
+    assert "no longer exists" not in texts(at)
+    assert at.session_state["profile"] is None
+
+
+# --- Compliance run 1's fixes ---------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("language", "cookie", "openrouter"),
+    [
+        ("en", "The sign-in cookie in your browser keeps your Google name", "through OpenRouter"),
+        ("de", "Das Anmelde-Cookie in Ihrem Browser behält Ihren Google-Namen", "über OpenRouter"),
+    ],
+)
+def test_the_texts_name_the_cookie_and_openrouter(monkeypatch, language, cookie, openrouter):
+    """The welcome page names the sign-in cookie; a coach's note names OpenRouter as a recipient."""
+    at = start(monkeypatch, user=signed_in(), language=language)
+    assert cookie in texts(at)
+    store_account("coach")
+    at = start(monkeypatch, user=signed_in(), language=language)
+    assert openrouter in texts(at)
+
+
+def test_a_goal_change_after_every_entry_was_deleted_writes_nothing(monkeypatch):
+    """With no saved profile entry the goal stays in the session: no row without the tick."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    with db.connect() as conn:
+        conn.execute("DELETE FROM profile_entries WHERE user_id = ?", (USER_ID,))
+    at.segmented_control(key="sidebar_goal").set_value("lose_fat").run(timeout=30)
+    assert "kept for this session only" in "".join(str(w.value) for w in at.sidebar.warning)
+    assert at.session_state["profile"].goal == "lose_fat"
+    with db.connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM profile_entries").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM nutrition_targets").fetchone()[0] == 1
+
+
+def test_auth_not_ready_fails_closed(monkeypatch):
+    """With [auth] not ready, the start page has only its note: no sign-in, no guest, no chat."""
+    monkeypatch.setattr(st, "user", FakeUser())
+    at = AppTest.from_file(str(APP))
+    at.secrets["auth"] = {**AUTH, "cookie_secret": config.COOKIE_SECRET_PLACEHOLDER}
+    at.secrets["account"] = {"user_key_secret": SECRET}
+    at.run(timeout=30)
+    assert [item.label for item in at.button] == ["Deutsch"]
+    assert "not fully set up" in texts(at) and "restart the app" in texts(at)
+    at._page_hash = calc_hash(navigation.CHAT)
+    at.run(timeout=30)
+    assert not at.tabs
+
+
+def test_each_page_draws_one_divider_under_the_account_block(monkeypatch):
+    """The start page draws no sidebar; the chat shows no two dividers in a row in it."""
+    start_dividers = len(start(monkeypatch).sidebar.get("divider"))
+    chat_dividers = len(start(monkeypatch, auth=False).sidebar.get("divider"))
+    assert start_dividers == 0  # the start page has no sidebar
+    assert chat_dividers == 2  # under the account block, and About's
+
+
+@pytest.mark.parametrize(
+    ("language", "clause"), [("en", "through OpenRouter"), ("de", "über OpenRouter")]
+)
+def test_the_guest_texts_name_openrouter(monkeypatch, language, clause):
+    """The start page, a guest's note and the guest's profile caption name the model's route."""
+    assert clause in texts(start(monkeypatch, language=language))  # the start page
+    at = start(monkeypatch, auth=False, language=language)
+    assert clause in texts(at)  # the guest's sidebar note
+    at.session_state["profile"] = PROFILE
+    at.run(timeout=30)
+    captions = [str(item.value) for item in at.sidebar.caption]
+    assert any(clause in text for text in captions if ":material/lock:" in text)
+
+
+@pytest.mark.parametrize(
+    ("language", "clause"), [("en", "through OpenRouter"), ("de", "über OpenRouter")]
+)
+def test_a_guest_of_a_copy_without_sign_in_is_told_too(monkeypatch, language, clause):
+    """With no [auth] (the usual clone) the sidebar's only account text names OpenRouter."""
+    at = start(monkeypatch, auth=False, language=language)
+    assert clause in "".join(str(item.value) for item in at.sidebar.caption)
+
+
+def test_the_start_page_has_no_sidebar_and_a_short_disclaimer(monkeypatch):
+    """No sidebar element, no badge or warning box, but the disclaimer as one line (AC-12)."""
+    at = start(monkeypatch)
+    assert not at.sidebar.button and not at.sidebar.caption and not at.sidebar.markdown
+    assert not at.warning
+    assert config.DISCLAIMER in "".join(str(c.value) for c in at.caption)
+    assert at.title[0].value == "Fitcoach AI Assistant"
+
+
+def test_the_start_page_language_link_switches_the_language(monkeypatch):
+    """The top-right link shows the other language and switches the page and the button to it."""
+    at = start(monkeypatch)
+    button(at, "Deutsch").click().run(timeout=30)
+    assert "Melden Sie sich an, um fortzufahren" in texts(at)
+    assert button(at, "English")
+    assert button(at, "Mit Google anmelden")
+    assert at.session_state["language"] == "de"
+
+
+def test_a_language_chosen_in_the_sidebar_survives_the_start_page(monkeypatch):
+    """German picked with the sidebar control stays after the start page, which draws no control."""
+    store_account("coach")
+    at = start(monkeypatch, user=signed_in())
+    at.segmented_control(key="language").set_value("de").run(timeout=30)
+    monkeypatch.setattr(st, "user", FakeUser())  # signed out: the start page
+    at.run(timeout=30)
+    assert "Melden Sie sich an, um fortzufahren" in texts(at)
+    monkeypatch.setattr(st, "user", signed_in())
+    at.run(timeout=30)
+    assert at.session_state["language"] == "de"
+    assert at.segmented_control(key="language").value == "de"
+
+
+def test_the_start_page_disclaimer_in_german(monkeypatch):
+    """The one-line disclaimer follows the language (AC-12 in both languages)."""
+    from src import i18n
+
+    at = start(monkeypatch, language="de")
+    assert i18n.t("app.disclaimer", "de") in "".join(str(c.value) for c in at.caption)
+
+
+def test_no_text_promises_a_gymer_the_chat(monkeypatch):
+    """The start page names only a coach's questions; the store's message offers no chat."""
+    from src import i18n
+
+    at = start(monkeypatch)
+    assert "A coach's questions" in texts(at)
+    assert "chat" not in texts(at).lower()
+    for lang in i18n.LANGUAGES:
+        assert "chat" not in i18n.t("account.store_unavailable", lang).lower()
+
+
+def test_the_store_failing_closes_an_open_profile_dialog(monkeypatch):
+    """An open "Your details" dialog closes when the stored profile leaves the session."""
+    store_account("gymer", profile=PROFILE)
+    at = start(monkeypatch, user=signed_in())
+    button(at, "Edit details").click().run(timeout=30)
+    assert at.session_state["profile_form_open"]
+    _fail_from_now(monkeypatch)
+    at.run(timeout=30)
+    assert not at.session_state["profile_form_open"]

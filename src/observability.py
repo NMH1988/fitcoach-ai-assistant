@@ -26,7 +26,16 @@ LOGGER_NAME = "src"
 # when a new kind of record is added (docs/ARCHITECTURE.md section 10).
 LOG_FAILED_EVENT = "log_failed"
 EVENTS = frozenset(
-    {"turn", "turn_error", "llm_error", "guard_rejected", "tool_failed", LOG_FAILED_EVENT}
+    {
+        "turn",
+        "turn_error",
+        "llm_error",
+        "guard_rejected",
+        "tool_failed",
+        # The store could not be opened or used (T9.5); its only field is the error's class name.
+        "store_unavailable",
+        LOG_FAILED_EVENT,
+    }
 )
 UNNAMED_EVENT = "unnamed_event"
 _PLAIN = (str, int, float, bool, type(None))

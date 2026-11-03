@@ -35,11 +35,13 @@ PYPROJECT = ROOT / "pyproject.toml"
 # SPDX identifiers the check accepts (compared without case). "BSD (classifier)" stands for the
 # generic "BSD License" classifier, which names no clause count; its space keeps it from matching
 # an SPDX token, so only that classifier reaches it. MPL-2.0 is file-level copyleft: allowed
-# because we use those packages unchanged (certifi, orjson and tqdm today).
+# because we use those packages unchanged (certifi, orjson and tqdm today). MIT-0 is MIT without
+# the attribution condition (cffi, through cryptography and Authlib, T9.5; LICENSE read by hand).
 ALLOWED = frozenset(
     name.lower()
     for name in (
         "MIT",
+        "MIT-0",
         "MIT-CMU",
         "BSD-2-Clause",
         "BSD-3-Clause",
