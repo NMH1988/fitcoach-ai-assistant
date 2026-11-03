@@ -1515,8 +1515,9 @@ _DE: dict[str, str] = {
     "sharing.end": "Verbindung beenden",
     "sharing.end_note": (
         "Ihr Coach kann dann keine Ihrer Einträge (Ernährung, Training, Körper) mehr lesen, sieht "
-        "aber weiterhin Ihren Anzeigenamen und die Daten der Verbindung, bis einer von Ihnen sein "
-        "Konto löscht. Ihre Einträge bleiben Ihre, und Sie können später einen neuen Code annehmen."
+        "aber weiterhin Ihren Anzeigenamen sowie Beginn und Ende der Verbindung, bis einer von "
+        "Ihnen sein Konto löscht. Ihre Einträge bleiben Ihre, und Sie können später einen neuen "
+        "Code annehmen."
     ),
     "sharing.confirm_end": "Ja, die Verbindung mit meinem Coach beenden",
     "sharing.end_button": "Verbindung beenden",

@@ -433,7 +433,7 @@ def test_a_relationship_ended_while_saving_is_an_info_not_a_success(monkeypatch,
         (
             "de",
             "sieht immer Ihren Anzeigenamen",
-            "weiterhin Ihren Anzeigenamen und die Daten der Verbindung",
+            "weiterhin Ihren Anzeigenamen sowie Beginn und Ende der Verbindung",
             "von einem KI-Modell entworfen",
         ),
     ],
