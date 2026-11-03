@@ -506,13 +506,14 @@ _EN: dict[str, str] = {
     "page.chat": "Chat",
     "page.my_data": "My data",
     "page.profile": "My profile",
+    "page.today": "Today",
     "page.welcome": "Welcome",
     "page.start": "Start",
     "start.title": "Sign in to continue",
     "start.text": (
-        "Sign in with Google to keep your profile and daily targets (as a gymer) or to use the "
-        "app's AI assistant (as a coach). A coach's questions (and the coach's own details, when a "
-        "question needs them) go to the AI model through OpenRouter."
+        "Sign in with Google to keep your profile, daily targets and food log (as a gymer) or to "
+        "use the app's AI assistant (as a coach). A coach's questions (and the coach's own "
+        "details, when a question needs them) go to the AI model through OpenRouter."
     ),
     "start.demo_title": "Try a made-up user",
     "start.demo": (
@@ -585,8 +586,8 @@ _EN: dict[str, str] = {
     # The privacy notes of the sidebar and the profile form for signed-in users (T9.5).
     "profile.note_gymer": (
         "Saved for your account: when you press Save (or change the goal), your details, weight "
-        "and daily targets are stored in this app's data file on this computer. Use made-up data "
-        "only: do not enter real health data."
+        "and daily targets are stored in this app's data file on this computer, and so are the "
+        "food and weights you log on Today. Use made-up data only: do not enter real health data."
     ),
     "profile.note_coach": (
         "Kept for this session only: a coach's details are not stored, but they go to the AI "
@@ -663,6 +664,73 @@ _EN: dict[str, str] = {
     ),
     "my_data.confirm_delete_all": "Yes, delete my account and all my data",
     "my_data.delete_all_button": "Delete everything",
+    # The Today page: the food and weight diary (T9.13).
+    "today.intro": (
+        "Log what you ate and your weight. A day with nothing logged shows as not logged, never "
+        "as a day without food."
+    ),
+    "today.made_up_only": "Use made-up data only: do not enter real health data.",
+    "today.profile_first": (
+        "Save your details on My profile first (with the box ticked that you understand they are "
+        "stored). Then you can log food and weight here."
+    ),
+    "today.day": "Day",
+    "today.day_help": f"Today or up to {config.DIARY_MAX_DAYS_BACK} days back.",
+    "today.add_food": "Add a food",
+    "today.food": "Food",
+    "today.food_placeholder": "Choose a food",
+    "today.grams": "Amount (g)",
+    "today.meal": "Meal",
+    "today.add": "Add",
+    "today.food_caption": (
+        "Foods from the USDA table, in English. Each entry keeps the nutrients for the amount you "
+        "logged."
+    ),
+    "today.day_title": "Logged on {day}",
+    "today.nothing_logged": "Nothing logged on this day.",
+    "today.meal_total": "**{meal}** · {kcal} kcal",
+    "today.day_total": (
+        "**Day total:** {kcal} kcal · protein {protein} g · carbohydrate {carbohydrate} g · "
+        "fat {fat} g · fiber {fiber}"
+    ),
+    "today.fiber_partial": "{value} g or more (not reported for some foods)",
+    "today.col.food": "Food",
+    "today.col.grams": "Amount (g)",
+    "today.col.kcal": "kcal",
+    "today.col.protein": "Protein (g)",
+    "today.col.carbohydrate": "Carbohydrate (g)",
+    "today.col.fat": "Fat (g)",
+    "today.col.fiber": "Fiber (g)",
+    "today.edit_title": "Change or delete an entry",
+    "today.entry": "Entry",
+    "today.entry_placeholder": "Choose an entry",
+    "today.save_changes": "Save changes",
+    "today.delete": "Delete entry",
+    "today.weight_title": "Weight",
+    "today.weight_unit": "Weight ({unit})",
+    "today.save_weight": "Save weight",
+    "today.weights_logged": "Logged on this day: {weights}",
+    "today.added": "Food added.",
+    "today.changed": "Entry changed.",
+    "today.deleted": "Entry deleted.",
+    "today.weight_saved": "Weight saved.",
+    "today.gone": "This entry no longer exists. The list below is up to date.",
+    "today.stored_note": (
+        "Saved in this app's database. You can export or delete it on My data; a coach sees "
+        "it only while you share nutrition (food) or body (weight) with them."
+    ),
+    "diary.grams_range": (
+        f"Enter an amount from {plain(config.FOOD_MIN_GRAMS, 'en')} to {config.FOOD_MAX_GRAMS} g."
+    ),
+    "diary.meal_needed": "Choose a meal: breakfast, lunch, dinner or snack.",
+    "diary.profile_first": "Save your details on My profile first; nothing was saved here.",
+    "diary.food_needed": "Choose a food from the list.",
+    "diary.food_table": "The food table could not be read, so nothing was saved.",
+    "diary.day_range": f"Choose today or a day up to {config.DIARY_MAX_DAYS_BACK} days back.",
+    "diary.weight_range": (
+        f"Enter a weight from {plain(config.PROFILE_WEIGHT_KG_RANGE[0], 'en')} to "
+        f"{plain(config.PROFILE_WEIGHT_KG_RANGE[1], 'en')} kg (or the same in lb)."
+    ),
 }
 
 _DE: dict[str, str] = {
@@ -1180,13 +1248,15 @@ _DE: dict[str, str] = {
     "page.chat": "Chat",
     "page.my_data": "Meine Daten",
     "page.profile": "Mein Profil",
+    "page.today": "Heute",
     "page.welcome": "Willkommen",
     "page.start": "Start",
     "start.title": "Melden Sie sich an, um fortzufahren",
     "start.text": (
-        "Melden Sie sich mit Google an, um Ihr Profil und Ihre Tagesziele zu behalten (als Gymer) "
-        "oder den KI-Assistenten der App zu nutzen (als Coach). Die Fragen eines Coachs (und seine "
-        "eigenen Angaben, wenn eine Frage sie braucht) gehen über OpenRouter an das KI-Modell."
+        "Melden Sie sich mit Google an, um Ihr Profil, Ihre Tagesziele und Ihr Ernährungstagebuch "
+        "zu behalten (als Gymer) oder den KI-Assistenten der App zu nutzen (als Coach). Die Fragen "
+        "eines Coachs (und seine eigenen Angaben, wenn eine Frage sie braucht) gehen über "
+        "OpenRouter an das KI-Modell."
     ),
     "start.demo_title": "Einen erfundenen Nutzer ausprobieren",
     "start.demo": (
@@ -1267,8 +1337,8 @@ _DE: dict[str, str] = {
     "profile.note_gymer": (
         "Für Ihr Konto gespeichert: Wenn Sie auf Speichern klicken (oder das Ziel ändern), werden "
         "Ihre Angaben, Ihr Gewicht und Ihre Tagesziele in der Datendatei dieser App auf diesem "
-        "Computer gespeichert. Verwenden Sie nur erfundene Daten: Geben Sie keine echten "
-        "Gesundheitsdaten ein."
+        "Computer gespeichert, ebenso das Essen und die Gewichte, die Sie unter Heute eintragen. "
+        "Verwenden Sie nur erfundene Daten: Geben Sie keine echten Gesundheitsdaten ein."
     ),
     "profile.note_coach": (
         "Nur für diese Sitzung: Die Angaben eines Coachs werden nicht gespeichert, gehen aber über "
@@ -1352,6 +1422,83 @@ _DE: dict[str, str] = {
     ),
     "my_data.confirm_delete_all": "Ja, mein Konto und alle meine Daten löschen",
     "my_data.delete_all_button": "Alles löschen",
+    # Die Seite Heute: das Ernährungs- und Gewichtstagebuch (T9.13).
+    "today.intro": (
+        "Tragen Sie ein, was Sie gegessen haben, und Ihr Gewicht. Ein Tag ohne Einträge gilt als "
+        "nicht eingetragen, nie als Tag ohne Essen."
+    ),
+    "today.made_up_only": (
+        "Verwenden Sie nur erfundene Daten: Geben Sie keine echten Gesundheitsdaten ein."
+    ),
+    "today.profile_first": (
+        "Speichern Sie zuerst Ihre Angaben unter Mein Profil (mit dem Häkchen, dass Sie verstehen, "
+        "dass sie gespeichert werden). Danach können Sie hier Essen und Gewicht eintragen."
+    ),
+    "today.day": "Tag",
+    "today.day_help": f"Heute oder bis zu {config.DIARY_MAX_DAYS_BACK} Tage zurück.",
+    "today.add_food": "Lebensmittel hinzufügen",
+    "today.food": "Lebensmittel",
+    "today.food_placeholder": "Lebensmittel wählen",
+    "today.grams": "Menge (g)",
+    "today.meal": "Mahlzeit",
+    "today.add": "Hinzufügen",
+    "today.food_caption": (
+        "Lebensmittel aus der USDA-Tabelle, auf Englisch. Jeder Eintrag behält die Nährwerte für "
+        "die eingetragene Menge."
+    ),
+    "today.day_title": "Eingetragen am {day}",
+    "today.nothing_logged": "An diesem Tag ist nichts eingetragen.",
+    "today.meal_total": "**{meal}** · {kcal} kcal",
+    "today.day_total": (
+        "**Tagessumme:** {kcal} kcal · Protein {protein} g · Kohlenhydrate {carbohydrate} g · "
+        "Fett {fat} g · Ballaststoffe {fiber}"
+    ),
+    "today.fiber_partial": "{value} g oder mehr (bei einigen Lebensmitteln nicht angegeben)",
+    "today.col.food": "Lebensmittel",
+    "today.col.grams": "Menge (g)",
+    "today.col.kcal": "kcal",
+    "today.col.protein": "Protein (g)",
+    "today.col.carbohydrate": "Kohlenhydrate (g)",
+    "today.col.fat": "Fett (g)",
+    "today.col.fiber": "Ballaststoffe (g)",
+    "today.edit_title": "Eintrag ändern oder löschen",
+    "today.entry": "Eintrag",
+    "today.entry_placeholder": "Eintrag wählen",
+    "today.save_changes": "Änderungen speichern",
+    "today.delete": "Eintrag löschen",
+    "today.weight_title": "Gewicht",
+    "today.weight_unit": "Gewicht ({unit})",
+    "today.save_weight": "Gewicht speichern",
+    "today.weights_logged": "An diesem Tag eingetragen: {weights}",
+    "today.added": "Lebensmittel hinzugefügt.",
+    "today.changed": "Eintrag geändert.",
+    "today.deleted": "Eintrag gelöscht.",
+    "today.weight_saved": "Gewicht gespeichert.",
+    "today.gone": "Diesen Eintrag gibt es nicht mehr. Die Liste unten ist aktuell.",
+    "today.stored_note": (
+        "In der Datenbank dieser App gespeichert. Sie können es unter Meine Daten exportieren oder "
+        "löschen; ein Coach sieht es nur, solange Sie Ernährung (Essen) oder Körper (Gewicht) mit "
+        "dem Coach teilen."
+    ),
+    "diary.grams_range": (
+        f"Geben Sie eine Menge von {plain(config.FOOD_MIN_GRAMS, 'de')} bis "
+        f"{config.FOOD_MAX_GRAMS} g ein."
+    ),
+    "diary.meal_needed": "Wählen Sie eine Mahlzeit: Frühstück, Mittagessen, Abendessen oder Snack.",
+    "diary.food_needed": "Wählen Sie ein Lebensmittel aus der Liste.",
+    "diary.profile_first": (
+        "Speichern Sie zuerst Ihre Angaben unter Mein Profil; hier wurde nichts gespeichert."
+    ),
+    "diary.food_table": (
+        "Die Lebensmitteltabelle konnte nicht gelesen werden, daher wurde nichts gespeichert."
+    ),
+    "diary.day_range": (
+        f"Wählen Sie heute oder einen Tag bis zu {config.DIARY_MAX_DAYS_BACK} Tage zurück."
+    ),
+    "diary.weight_range": (
+        f"Geben Sie ein Gewicht von {plain(config.PROFILE_WEIGHT_KG_RANGE[0], 'de')} bis "
+        f"{plain(config.PROFILE_WEIGHT_KG_RANGE[1], 'de')} kg ein (oder dasselbe in lb)."
+    ),
 }
 
 TEXT: dict[Language, dict[str, str]] = {"en": _EN, "de": _DE}

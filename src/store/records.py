@@ -128,6 +128,23 @@ def _period(start: date | None, end: date | None) -> tuple[str | None, ...]:
     return (first, first, last, last)
 
 
+def _profile_row(
+    user_id: str, height_cm: float, age: int, sex: Sex, activity: ActivityLevel, goal: Goal
+) -> tuple:
+    """Return a checked profile entry row, ready for _ADD_PROFILE."""
+    return (
+        values.user_id(user_id),
+        values.in_range(height_cm, "height_cm", config.PROFILE_HEIGHT_CM_RANGE),
+        values.whole_number(
+            age, "age", minimum=config.PROFILE_AGE_RANGE[0], maximum=config.PROFILE_AGE_RANGE[1]
+        ),
+        values.choice(sex, "sex", get_args(Sex)),
+        values.choice(activity, "activity", get_args(ActivityLevel)),
+        values.choice(goal, "goal", get_args(Goal)),
+        values.utc_text(),
+    )
+
+
 def add_profile_entry(
     conn: sqlite3.Connection,
     user_id: str,
@@ -139,17 +156,7 @@ def add_profile_entry(
     goal: Goal,
 ) -> int:
     """Add a dated profile entry for the user (weight is a body measurement); return its ID."""
-    row = (
-        values.user_id(user_id),
-        values.in_range(height_cm, "height_cm", config.PROFILE_HEIGHT_CM_RANGE),
-        values.whole_number(
-            age, "age", minimum=config.PROFILE_AGE_RANGE[0], maximum=config.PROFILE_AGE_RANGE[1]
-        ),
-        values.choice(sex, "sex", get_args(Sex)),
-        values.choice(activity, "activity", get_args(ActivityLevel)),
-        values.choice(goal, "goal", get_args(Goal)),
-        values.utc_text(),
-    )
+    row = _profile_row(user_id, height_cm, age, sex, activity, goal)
     with transaction(conn):
         _check_gymer(conn, user_id)
         return conn.execute(_ADD_PROFILE, row).lastrowid
@@ -162,16 +169,21 @@ def list_profile_entries(conn: sqlite3.Connection, actor_id: str, subject_id: st
     return [dict(row) for row in rows]
 
 
-def add_body_measurement(
-    conn: sqlite3.Connection, user_id: str, *, weight_kg: float, measured_on: date
-) -> int:
-    """Add a dated weight in kg for the user; return its ID."""
-    row = (
+def _weight_row(user_id: str, weight_kg: float, measured_on: date) -> tuple:
+    """Return a checked weight row, ready for _ADD_WEIGHT."""
+    return (
         values.user_id(user_id),
         values.in_range(weight_kg, "weight_kg", config.PROFILE_WEIGHT_KG_RANGE),
         values.date_text(measured_on, "measured_on"),
         values.utc_text(),
     )
+
+
+def add_body_measurement(
+    conn: sqlite3.Connection, user_id: str, *, weight_kg: float, measured_on: date
+) -> int:
+    """Add a dated weight in kg for the user; return its ID."""
+    row = _weight_row(user_id, weight_kg, measured_on)
     with transaction(conn):
         _check_gymer(conn, user_id)
         return conn.execute(_ADD_WEIGHT, row).lastrowid
@@ -204,7 +216,26 @@ def add_target(
     calc_version: str | None = None,
 ) -> int:
     """Add a new daily target row for the user (a target is never changed); return its ID."""
-    row = (
+    row = _target_row(
+        user_id, kcal, protein_g, carbs_g, fat_g, set_by, effective_from, calc_version
+    )
+    with transaction(conn):
+        _check_gymer(conn, user_id)
+        return conn.execute(_ADD_TARGET, row).lastrowid
+
+
+def _target_row(
+    user_id: str,
+    kcal: float,
+    protein_g: float,
+    carbs_g: float,
+    fat_g: float,
+    set_by: TargetSource,
+    effective_from: date,
+    calc_version: str | None,
+) -> tuple:
+    """Return a checked target row, ready for _ADD_TARGET."""
+    return (
         values.user_id(user_id),
         # The calorie floor holds in code, whoever sets the target (docs/PRD.md, guardrails).
         values.in_range(kcal, "kcal", (config.CALORIE_FLOOR_KCAL, float("inf"))),
@@ -216,9 +247,37 @@ def add_target(
         values.date_text(effective_from, "effective_from"),
         values.utc_text(),
     )
+
+
+def add_profile_with_target(
+    conn: sqlite3.Connection,
+    user_id: str,
+    *,
+    height_cm: float,
+    age: int,
+    sex: Sex,
+    activity: ActivityLevel,
+    goal: Goal,
+    weight_kg: float | None,
+    kcal: float,
+    protein_g: float,
+    carbs_g: float,
+    fat_g: float,
+    set_by: TargetSource,
+    day: date,
+    calc_version: str | None = None,
+) -> None:
+    """Add a profile entry, its weight (unless None) and its target in one transaction (T9.13)."""
+    # One transaction, so a profile entry never stays without the target worked out from it.
+    profile = _profile_row(user_id, height_cm, age, sex, activity, goal)
+    weight = None if weight_kg is None else _weight_row(user_id, weight_kg, day)
+    target = _target_row(user_id, kcal, protein_g, carbs_g, fat_g, set_by, day, calc_version)
     with transaction(conn):
         _check_gymer(conn, user_id)
-        return conn.execute(_ADD_TARGET, row).lastrowid
+        conn.execute(_ADD_PROFILE, profile)
+        if weight is not None:
+            conn.execute(_ADD_WEIGHT, weight)
+        conn.execute(_ADD_TARGET, target)
 
 
 def list_targets(conn: sqlite3.Connection, actor_id: str, subject_id: str) -> list[dict]:
@@ -244,7 +303,79 @@ def add_meal_item(
     fiber_g: float | None,
 ) -> int:
     """Add a food eaten with its nutrient snapshot for the grams eaten; return its ID."""
-    row = (
+    row = _meal_row(
+        user_id,
+        consumed_on,
+        meal,
+        fdc_id,
+        food_name,
+        grams,
+        kcal,
+        protein_g,
+        carbohydrate_g,
+        fat_g,
+        fiber_g,
+    )
+    with transaction(conn):
+        _check_gymer(conn, user_id)
+        return conn.execute(_ADD_MEAL, row).lastrowid
+
+
+def replace_meal_item(
+    conn: sqlite3.Connection,
+    user_id: str,
+    record_id: int,
+    *,
+    consumed_on: date,
+    meal: Meal,
+    fdc_id: int,
+    food_name: str,
+    grams: float,
+    kcal: float,
+    protein_g: float,
+    carbohydrate_g: float,
+    fat_g: float,
+    fiber_g: float | None,
+) -> int:
+    """Replace one of the user's meal items with a new row in one transaction; return its ID."""
+    # An edit is a delete and a new row, so no snapshot changes in place; NotFound if not theirs.
+    row = _meal_row(
+        user_id,
+        consumed_on,
+        meal,
+        fdc_id,
+        food_name,
+        grams,
+        kcal,
+        protein_g,
+        carbohydrate_g,
+        fat_g,
+        fiber_g,
+    )
+    if not values.is_row_id(record_id):
+        raise NotFound
+    with transaction(conn):
+        _check_gymer(conn, user_id)
+        if conn.execute(_DELETE_MEAL, (record_id, user_id)).rowcount != 1:
+            raise NotFound
+        return conn.execute(_ADD_MEAL, row).lastrowid
+
+
+def _meal_row(
+    user_id: str,
+    consumed_on: date,
+    meal: Meal,
+    fdc_id: int,
+    food_name: str,
+    grams: float,
+    kcal: float,
+    protein_g: float,
+    carbohydrate_g: float,
+    fat_g: float,
+    fiber_g: float | None,
+) -> tuple:
+    """Return a checked meal item row, ready for _ADD_MEAL."""
+    return (
         values.user_id(user_id),
         values.date_text(consumed_on, "consumed_on"),
         values.choice(meal, "meal", get_args(Meal)),
@@ -259,9 +390,6 @@ def add_meal_item(
         None if fiber_g is None else values.number(fiber_g, "fiber_g"),
         values.utc_text(),
     )
-    with transaction(conn):
-        _check_gymer(conn, user_id)
-        return conn.execute(_ADD_MEAL, row).lastrowid
 
 
 def list_meal_items(
