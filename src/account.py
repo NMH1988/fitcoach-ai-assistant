@@ -16,16 +16,14 @@ import re
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
-from src import config, guard
+from src import config, guard, metrics
 from src.profile import UserProfile
 from src.store import db, records, users
 from src.store.access import NotFound
 from src.tools import registry
-from src.tools.energy import MacroTargetsResult
 
 logger = logging.getLogger(__name__)
 
@@ -110,8 +108,8 @@ def create_account(conn: sqlite3.Connection, user_id: str, role: str, display_na
 
 
 def today() -> date:
-    """Return today's date in the app's time zone (D21)."""
-    return datetime.now(ZoneInfo(config.TIME_ZONE)).date()
+    """Return today's date in the app's time zone (D21), as the diary and metrics see it."""
+    return metrics.berlin_day()
 
 
 def has_profile_entries(conn: sqlite3.Connection, user_id: str) -> bool:
@@ -145,49 +143,31 @@ def save_profile(
 ) -> None:
     """Save a gymer's profile as a new dated entry, their weight (if asked) and a new target."""
     # The target is worked out before anything is written, so a profile that gives no target
-    # writes nothing. The three rows are three transactions (the store opens one per write): a
-    # failure part-way leaves the earlier rows, each of them valid on its own (docs/SECURITY.md).
+    # writes nothing; the three rows are one store transaction (T9.13), so a profile entry never
+    # stays without its target.
     result = registry.macro_targets(profile)
     if not isinstance(result, registry.MacroToolResult) or result.status != "ok":
         raise AccountError("account.no_target")
     targets = result.targets
-    day = today()
     try:
-        _write_profile(conn, user_id, profile, targets, day, with_weight)
+        records.add_profile_with_target(
+            conn,
+            user_id,
+            height_cm=profile.height_cm,
+            age=profile.age,
+            sex=profile.sex,
+            activity=profile.activity,
+            goal=profile.goal,
+            weight_kg=profile.weight_kg if with_weight else None,
+            kcal=targets.kcal_target,
+            protein_g=targets.protein.grams,
+            carbs_g=targets.carbohydrate.grams,
+            fat_g=targets.fat.grams,
+            set_by="system",
+            calc_version=config.TARGET_CALC_VERSION,
+            day=today(),
+        )
     except NotFound:
         # The account was deleted in another tab since this session's last run (the store's
         # NotFound for a coach is not reached: the views save only a gymer's profile).
         raise AccountError("account.gone") from None
-
-
-def _write_profile(
-    conn: sqlite3.Connection,
-    user_id: str,
-    profile: UserProfile,
-    targets: MacroTargetsResult,
-    day: date,
-    with_weight: bool,
-) -> None:
-    """Write the profile entry, the weight (if asked) and the target, in that order."""
-    records.add_profile_entry(
-        conn,
-        user_id,
-        height_cm=profile.height_cm,
-        age=profile.age,
-        sex=profile.sex,
-        activity=profile.activity,
-        goal=profile.goal,
-    )
-    if with_weight:
-        records.add_body_measurement(conn, user_id, weight_kg=profile.weight_kg, measured_on=day)
-    records.add_target(
-        conn,
-        user_id,
-        kcal=targets.kcal_target,
-        protein_g=targets.protein.grams,
-        carbs_g=targets.carbohydrate.grams,
-        fat_g=targets.fat.grams,
-        set_by="system",
-        calc_version=config.TARGET_CALC_VERSION,
-        effective_from=day,
-    )

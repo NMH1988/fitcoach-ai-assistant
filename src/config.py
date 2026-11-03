@@ -304,6 +304,11 @@ DEMO_MODE_NAME = "DEMO_MODE"
 DEMO_MODE_ON_VALUES = frozenset({"1", "true", "yes", "on"})
 # The time zone of the days a user records (D21): a saved weight is dated today in Berlin.
 TIME_ZONE = "Europe/Berlin"
+# The food and weight diary (T9.13): a gymer logs today or up to this many days back, never a
+# future day (owner's choice, 2026-11-03); a food's grams keep FOOD_MIN_GRAMS to FOOD_MAX_GRAMS.
+DIARY_MAX_DAYS_BACK = 30
+DIARY_DEFAULT_GRAMS = 100.0
+DIARY_STEP_GRAMS = 10.0
 # Written with every target the app computes (set_by = "system"), so a later change to
 # calculate_macro_targets can tell old targets apart; bump it when that calculation changes.
 TARGET_CALC_VERSION = "macro-targets-1"

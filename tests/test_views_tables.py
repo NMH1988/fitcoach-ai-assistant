@@ -370,6 +370,69 @@ def test_an_entry_label_starts_with_its_kind():
     assert label == "Weights · 2026-11-01 · 80 kg"
 
 
+# --- The Today page (T9.13) -----------------------------------------------------------------------
+
+
+def _item(meal: str, kcal: float, fiber: float | None = 2.0, item_id: int = 1) -> dict:
+    """Return a stored food entry with round numbers."""
+    return {
+        "id": item_id,
+        "meal": meal,
+        "food_name": "Oats, rolled",
+        "grams": 150.0,
+        "kcal": kcal,
+        "protein_g": 19.8,
+        "carbohydrate_g": 102.0,
+        "fat_g": 9.6,
+        "fiber_g": fiber,
+    }
+
+
+def test_meal_groups_follow_the_days_order_and_leave_out_empty_meals():
+    """Breakfast, lunch, dinner, snack; a meal with no entries is not listed."""
+    items = [_item("snack", 100), _item("breakfast", 300), _item("snack", 50)]
+    groups = tables.meal_groups(items)
+    assert [meal for meal, _ in groups] == ["breakfast", "snack"]
+    assert len(groups[1][1]) == 2
+
+
+def test_the_diary_table_rounds_as_the_food_lookup_does():
+    """kcal whole, grams to one decimal, and a dash for fiber not reported."""
+    table = tables.diary_table([_item("lunch", 570.44, fiber=None)], "de")
+    assert table["Lebensmittel"] == ["Oats, rolled"]
+    assert table["kcal"] == ["570"]
+    assert table["Protein (g)"] == ["19,8"]
+    assert table["Ballaststoffe (g)"] == ["–"]
+
+
+@pytest.mark.parametrize(("complete", "text"), [(True, "4 g"), (False, "4 g or more")])
+def test_a_total_marks_fiber_not_reported(complete, text):
+    """A total with a food that had no fiber value is a lower bound."""
+    assert tables.intake_fiber(4.0, complete, "en").startswith(text)
+
+
+def test_the_meal_and_day_lines():
+    """A meal's heading has its kcal; the day's line has the totals."""
+    items = [_item("lunch", 300.4), _item("lunch", 200.4, fiber=None)]
+    assert tables.meal_total_line("lunch", items, "en") == "**Lunch** · 501 kcal"
+    line = tables.day_total_line(metrics.day_totals(items), "en")
+    assert line.startswith("**Day total:** 501 kcal · protein 39.6 g")
+    assert line.endswith("fiber 2 g or more (not reported for some foods)")
+
+
+def test_the_entry_label_names_meal_food_grams_and_kcal():
+    """The edit picker shows one entry on one line."""
+    label = tables.diary_entry_label(_item("dinner", 570.4), "en")
+    assert label == "Dinner · Oats, rolled · 150 g · 570 kcal"
+
+
+def test_the_weights_line_is_in_the_users_units():
+    """A day's weights are listed in kg or lb."""
+    rows = [{"weight_kg": 80.0}, {"weight_kg": 79.5}]
+    assert tables.weights_line(rows, "metric", "en") == "Logged on this day: 80 kg, 79.5 kg"
+    assert "176.4 lb" in tables.weights_line(rows, "imperial", "en")
+
+
 # --- The Workouts page's tables (T9.14): facts only, in the user's units --------------------------
 
 WORKOUT_ROW = {

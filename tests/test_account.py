@@ -286,6 +286,9 @@ def test_the_demo_fixture_seeds_its_users_and_records(store_conn):
     sam, kim, coach = demo.SHARING_GYMER.id, demo.OTHER_GYMER.id, demo.COACH.id
     assert len(records.list_body_measurements(store_conn, coach, sam)) == 2
     assert records.list_targets(store_conn, coach, sam)
+    meals = records.list_meal_items(store_conn, coach, sam)  # T9.13: Sam's made-up diary
+    assert len(meals) == len(demo.MEALS)
+    assert len({meal["consumed_on"] for meal in meals}) == 3
     with pytest.raises(NotFound):
         records.list_workout_sessions(store_conn, coach, sam)  # training is not shared
     with pytest.raises(NotFound):

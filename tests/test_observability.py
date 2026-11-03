@@ -504,6 +504,7 @@ STORE_CANARY_TEXTS = (*CANARY_TEXTS, "CANARY-COACH", "CANARY-GYM", "2345.6", "57
 
 def _store_scenario(conn) -> list[Exception]:
     """Write, read, refuse, export and delete canary data through every store function."""
+    from src import diary, metrics
     from src.store import access, my_data, records, reviews, users, values
 
     errors: list[Exception] = []
@@ -529,6 +530,24 @@ def _store_scenario(conn) -> list[Exception]:
         conn, "CANARY-GYM", consumed_on=date(2026, 10, 26), meal="lunch", fdc_id=1,
         food_name="CANARY-FOOD", grams=150, kcal=571.9, protein_g=20, carbohydrate_g=100,
         fat_g=10, fiber_g=None,
+    )  # fmt: skip
+    # T9.13: an edit as a new row, a profile saved with its target, the diary's writes.
+    canary_meal = records.list_meal_items(conn, "CANARY-GYM", "CANARY-GYM")[0]["id"]
+    records.replace_meal_item(
+        conn, "CANARY-GYM", canary_meal, consumed_on=date(2026, 10, 26), meal="dinner", fdc_id=1,
+        food_name="CANARY-FOOD edited", grams=87.3, kcal=571.9, protein_g=20, carbohydrate_g=100,
+        fat_g=10, fiber_g=None,
+    )  # fmt: skip
+    records.add_profile_with_target(
+        conn, "CANARY-GYM", height_cm=day.height_cm, age=day.age, sex=day.sex,
+        activity=day.activity, goal=day.goal, weight_kg=day.weight_kg, kcal=2345.6,
+        protein_g=160, carbs_g=250, fat_g=70, set_by="system", day=date(2026, 10, 27),
+    )  # fmt: skip
+    today = metrics.berlin_day()
+    diary.log_weight(conn, "CANARY-GYM", value=day.weight_kg, system="metric", day=today)
+    diary.log_food(
+        conn, "CANARY-GYM", food_name="Oats, whole grain, rolled, old fashioned", grams=87.3,
+        meal="lunch", day=today,
     )  # fmt: skip
     # The exercise is an ID of the app's own list (T9.14); the canary is the weight lifted.
     workout = records.add_workout_session(
@@ -598,10 +617,26 @@ def _store_scenario(conn) -> list[Exception]:
             performed_on=date(2026, 10, 26),
             sets=[records.ExerciseSet("squat", 1, 5, 87.3, 8.0)],
         ),  # fmt: skip
+        lambda: records.replace_meal_item(
+            conn,
+            "other-gym",
+            canary_meal,
+            consumed_on=date(2026, 10, 26),
+            meal="lunch",
+            fdc_id=1,
+            food_name="CANARY-FOOD",
+            grams=150,
+            kcal=571.9,
+            protein_g=20,
+            carbohydrate_g=100,
+            fat_g=10,
+            fiber_g=None,
+        ),  # fmt: skip
+        lambda: diary.log_weight(conn, "CANARY-GYM", value=-87.3, system="metric", day=today),
     ):
         try:
             bad()
-        except (values.StoreValueError, access.NotFound) as error:
+        except (values.StoreValueError, access.NotFound, diary.DiaryError) as error:
             errors.append(error)
     my_data.export_user_data(conn, "CANARY-GYM")
     my_data.export_user_data(conn, "CANARY-COACH")
@@ -617,7 +652,7 @@ def test_no_record_or_error_holds_a_stored_value(store_conn, caplog):
     observability.configure_logging(level=logging.DEBUG, stream=stream)
     errors = _store_scenario(store_conn)
     # Each kind of refusal happened, so their messages were checked.
-    assert len(errors) == 6 + 7
+    assert len(errors) == 6 + 9
     texts = [stream.getvalue(), caplog.text, *(str(e) for e in errors), *(repr(e) for e in errors)]
     for canary in STORE_CANARY_TEXTS:
         for text in texts:

@@ -413,3 +413,90 @@ def entry_label(kind: str, row: dict, system: units.UnitSystem, lang: Language) 
     return " · ".join(
         (i18n.t(f"my_data.kind.{kind}", lang), *stored_cells(kind, row, system, lang))
     )
+
+
+# The Today page (T9.13): the meals in the order of a day, and the columns of a meal's table, as
+# keys under "today.col." in src/i18n.py.
+MEALS = ("breakfast", "lunch", "dinner", "snack")
+DIARY_COLUMNS = ("food", "grams", "kcal", "protein", "carbohydrate", "fat", "fiber")
+
+
+def _grams(value: float, lang: Language) -> str:
+    """Return grams rounded as the food lookup shows them, in the language's decimal style."""
+    return i18n.plain(round(value, config.FOOD_DECIMALS), lang)
+
+
+def meal_groups(items: Sequence[dict]) -> list[tuple[str, list[dict]]]:
+    """Return a day's food entries by meal, breakfast first, leaving out meals with none."""
+    return [
+        (meal, [item for item in items if item["meal"] == meal])
+        for meal in MEALS
+        if any(item["meal"] == meal for item in items)
+    ]
+
+
+def diary_table(items: Sequence[dict], lang: Language) -> dict[str, list[str]]:
+    """Return a meal's food entries as columns by translated name, for st.dataframe."""
+    names = tuple(i18n.t(f"today.col.{name}", lang) for name in DIARY_COLUMNS)
+    rows = [
+        [
+            item["food_name"],
+            _grams(item["grams"], lang),
+            i18n.number(round(item["kcal"]), lang),
+            _grams(item["protein_g"], lang),
+            _grams(item["carbohydrate_g"], lang),
+            _grams(item["fat_g"], lang),
+            "–" if item["fiber_g"] is None else _grams(item["fiber_g"], lang),
+        ]
+        for item in items
+    ]
+    return columns(names, rows)
+
+
+def intake_fiber(fiber_g: float, complete: bool, lang: Language) -> str:
+    """Return a total's fiber in grams, marked "or more" when some foods had no fiber value."""
+    if complete:
+        return f"{_grams(fiber_g, lang)} g"
+    return i18n.t("today.fiber_partial", lang, value=_grams(fiber_g, lang))
+
+
+def day_total_line(totals: metrics.Intake, lang: Language) -> str:
+    """Return a day's totals on one line: kcal, the macros and fiber."""
+    return i18n.t(
+        "today.day_total",
+        lang,
+        kcal=i18n.number(round(totals.kcal), lang),
+        protein=_grams(totals.protein_g, lang),
+        carbohydrate=_grams(totals.carbohydrate_g, lang),
+        fat=_grams(totals.fat_g, lang),
+        fiber=intake_fiber(totals.fiber_g, totals.fiber_complete, lang),
+    )
+
+
+def meal_total_line(meal: str, items: Sequence[dict], lang: Language) -> str:
+    """Return a meal's heading with its kcal total."""
+    kcal = sum(item["kcal"] for item in items)
+    return i18n.t(
+        "today.meal_total",
+        lang,
+        meal=i18n.t(f"my_data.meal.{meal}", lang),
+        kcal=i18n.number(round(kcal), lang),
+    )
+
+
+def diary_entry_label(item: dict, lang: Language) -> str:
+    """Return one food entry on one line for the edit picker: meal, food, grams and kcal."""
+    return " · ".join(
+        (
+            i18n.t(f"my_data.meal.{item['meal']}", lang),
+            item["food_name"],
+            i18n.t("my_data.grams", lang, value=_grams(item["grams"], lang)),
+            f"{i18n.number(round(item['kcal']), lang)} kcal",
+        )
+    )
+
+
+def weights_line(weights: Sequence[dict], system: units.UnitSystem, lang: Language) -> str:
+    """Return a day's logged weights in the user's units, oldest first."""
+    shown = ", ".join(units.format_weight(row["weight_kg"], system, lang) for row in weights)
+    return i18n.t("today.weights_logged", lang, weights=shown)

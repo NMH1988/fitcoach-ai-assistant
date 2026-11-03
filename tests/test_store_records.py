@@ -295,6 +295,26 @@ ADDS = {
         conn, owner, performed_on=DAY, sets=[]
     ),
     "add_preference": lambda conn, owner: records.add_preference(conn, owner, "vegetarian"),
+    "add_profile_with_target": lambda conn, owner: records.add_profile_with_target(
+        conn, owner, **PROFILE_WITH_TARGET
+    ),
+}
+
+# One valid profile save: the entry, its weight and its target (T9.13).
+PROFILE_WITH_TARGET = {
+    "height_cm": 180,
+    "age": 30,
+    "sex": "male",
+    "activity": "light",
+    "goal": "maintain",
+    "weight_kg": 80.0,
+    "kcal": 2500,
+    "protein_g": 150,
+    "carbs_g": 250,
+    "fat_g": 70,
+    "set_by": "system",
+    "day": DAY,
+    "calc_version": "t9.13",
 }
 
 
@@ -448,6 +468,86 @@ def test_a_user_is_created_once_with_one_role(store_conn):
         users.create_user(store_conn, GYMER, "coach", "One")
     with pytest.raises(values.StoreValueError):
         users.create_user(store_conn, OTHER, "admin", "Two")
+
+
+# --- T9.13: a profile save in one transaction, and a meal edit as a new row -----------------------
+
+
+def test_a_profile_save_writes_the_entry_weight_and_target_together(gymers):
+    """add_profile_with_target writes the three rows, all on the given day."""
+    records.add_profile_with_target(gymers, GYMER, **PROFILE_WITH_TARGET)
+    [entry] = records.list_profile_entries(gymers, GYMER, GYMER)
+    [weight] = records.list_body_measurements(gymers, GYMER, GYMER)
+    [target] = records.list_targets(gymers, GYMER, GYMER)
+    assert entry["age"] == 30
+    assert (weight["weight_kg"], weight["measured_on"]) == (80.0, "2026-10-26")
+    assert (target["kcal"], target["effective_from"], target["calc_version"]) == (
+        2500.0,
+        "2026-10-26",
+        "t9.13",
+    )
+
+
+def test_a_profile_save_without_a_weight_writes_no_weight(gymers):
+    """weight_kg=None (the goal control) writes the entry and the target only."""
+    records.add_profile_with_target(gymers, GYMER, **{**PROFILE_WITH_TARGET, "weight_kg": None})
+    assert _count(gymers, "profile_entries") == _count(gymers, "nutrition_targets") == 1
+    assert _count(gymers, "body_measurements") == 0
+
+
+def test_a_profile_save_that_fails_at_the_target_writes_nothing(gymers, monkeypatch):
+    """A failure after the entry is written rolls the whole save back (one transaction)."""
+    failing = "INSERT INTO nutrition_targets (no_such_column) VALUES (?)"
+    monkeypatch.setattr(records, "_ADD_TARGET", failing)
+    with pytest.raises(sqlite3.OperationalError):
+        records.add_profile_with_target(gymers, GYMER, **PROFILE_WITH_TARGET)
+    assert sum(_count(gymers, t) for t in records.RECORD_KINDS) == 0
+
+
+def test_a_profile_save_under_the_calorie_floor_writes_nothing(gymers):
+    """Every row is checked before the transaction: a target under the floor writes no entry."""
+    with pytest.raises(values.StoreValueError, match="kcal"):
+        records.add_profile_with_target(
+            gymers, GYMER, **{**PROFILE_WITH_TARGET, "kcal": config.CALORIE_FLOOR_KCAL - 1}
+        )
+    assert sum(_count(gymers, t) for t in records.RECORD_KINDS) == 0
+
+
+def test_replacing_a_meal_item_deletes_it_and_adds_a_new_row(gymers):
+    """The edited item is a new row with the new values; the old row is gone."""
+    old = records.add_meal_item(gymers, GYMER, **MEAL)
+    new = records.replace_meal_item(
+        gymers, GYMER, old, **{**MEAL, "meal": "dinner", "grams": 50.0, "kcal": 190.5}
+    )
+    # SQLite may give the new row the old ID (it was the largest); the values show the new row.
+    [meal] = records.list_meal_items(gymers, GYMER, GYMER)
+    assert (meal["id"], meal["meal"], meal["grams"], meal["kcal"]) == (new, "dinner", 50.0, 190.5)
+
+
+@pytest.mark.parametrize("record_id", ["theirs", 999, 0, None, "1"])
+def test_replacing_someone_elses_or_a_missing_meal_item_is_not_found(gymers, record_id):
+    """Another user's item, or an ID that does not exist, gives NotFound and writes nothing."""
+    theirs = records.add_meal_item(gymers, OTHER, **MEAL)
+    with pytest.raises(access.NotFound):
+        records.replace_meal_item(
+            gymers, GYMER, theirs if record_id == "theirs" else record_id, **MEAL
+        )
+    assert [row["id"] for row in gymers.execute("SELECT id FROM meal_items")] == [theirs]
+
+
+def test_replacing_a_meal_item_with_a_bad_value_keeps_the_old_row(gymers):
+    """The new row is checked before the delete, so a bad edit leaves the item as it was."""
+    old = records.add_meal_item(gymers, GYMER, **MEAL)
+    with pytest.raises(values.StoreValueError):
+        records.replace_meal_item(gymers, GYMER, old, **{**MEAL, "grams": 0})
+    assert [row["id"] for row in records.list_meal_items(gymers, GYMER, GYMER)] == [old]
+
+
+def test_a_coach_cannot_replace_a_meal_item(gymers):
+    """replace_meal_item is a gymer's own write, like every add_* function."""
+    users.create_user(gymers, "a-coach", "coach", "Coach")
+    with pytest.raises(access.NotFound):
+        records.replace_meal_item(gymers, "a-coach", 1, **MEAL)
 
 
 # --- The workout log's sets (T9.14) ---------------------------------------------------------------

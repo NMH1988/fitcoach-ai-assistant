@@ -66,6 +66,7 @@ def test_a_gymer_s_menu_has_workouts_and_the_page_opens(gymer):
     """Workouts is one of a gymer's pages (not the home), with its note on what is stored."""
     assert navigation.PAGES_BY_ROLE["gymer"] == (
         navigation.PROFILE,
+        navigation.TODAY,
         navigation.WORKOUTS,
         navigation.MY_DATA,
     )
