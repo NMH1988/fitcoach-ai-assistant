@@ -15,6 +15,24 @@
   display: none;
 }
 
+/* The coach's client list (T9.15, owner's decision of 2026-10-30): drawn twice, as a table and as
+   one card per client. The cards are hidden by default (tablets and desktops keep the table); on
+   a phone (config.PHONE_MAX_WIDTH_PX or less) the cards show and the table hides. `flex` is the
+   display Streamlit gives a container. If Streamlit renames its st-key classes, both show. */
+.st-key-client_cards {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .st-key-client_cards {
+    display: flex;
+  }
+
+  .st-key-client_table {
+    display: none;
+  }
+}
+
 /* The app's title on every page (T9.5, owner's choices of 2026-11-02): larger, with a teal-to-green
    gradient
    clipped to the text. The solid colour is used by a browser that ignores -webkit-text-fill-color;

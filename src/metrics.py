@@ -70,6 +70,8 @@ class WeekMetrics:
     latest_weight_kg: float | None
     latest_weight_on: date | None
     previous_weight_kg: float | None
+    # The day of the latest weight before the Monday, so a view can say how old it is (T9.15).
+    previous_weight_on: date | None
     weight_change_kg: float | None
 
     @property
@@ -187,8 +189,20 @@ def week_metrics(
         latest_weight_kg=None if latest is None else latest["weight_kg"],
         latest_weight_on=None if latest is None else _day(latest["measured_on"]),
         previous_weight_kg=None if previous is None else previous["weight_kg"],
+        previous_weight_on=None if previous is None else _day(previous["measured_on"]),
         weight_change_kg=change,
     )
+
+
+def weights_between(
+    weights: Iterable[dict], start: date, end: date
+) -> tuple[tuple[date, float], ...]:
+    """Return the weights from start to end (inclusive) as (day, kg), oldest first (T9.15)."""
+    rows = sorted(
+        (row for row in weights if start <= _day(row["measured_on"]) <= end),
+        key=lambda row: (row["measured_on"], row["id"]),
+    )
+    return tuple((_day(row["measured_on"]), row["weight_kg"]) for row in rows)
 
 
 def set_volume(exercise_set: dict) -> float:
@@ -259,3 +273,15 @@ def training_week(sessions: Iterable[dict], start: date) -> TrainingWeek:
         volume_kg=sum(exercise.volume_kg for exercise in per_exercise),
         exercises=per_exercise,
     )
+
+
+def volume_by_day(sessions: Iterable[dict], start: date) -> tuple[tuple[date, float | None], ...]:
+    """Return each day of the week with its workouts' volume; None for a day with no workout."""
+    if start.weekday() != 0:
+        raise ValueError("a week starts on a Monday")
+    by_day: dict[date, float | None] = dict.fromkeys(week_days(start))
+    for session in sessions:
+        day = _day(session["performed_on"])
+        if day in by_day:
+            by_day[day] = (by_day[day] or 0.0) + session_volume(session)
+    return tuple(by_day.items())

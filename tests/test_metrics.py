@@ -103,7 +103,7 @@ def test_the_weight_change_is_the_weeks_latest_minus_the_latest_before_it():
     ]
     week = metrics.week_metrics([], weights, [], MONDAY)
     assert (week.latest_weight_kg, week.latest_weight_on) == (79.4, date(2026, 10, 24))
-    assert week.previous_weight_kg == 80.0
+    assert (week.previous_weight_kg, week.previous_weight_on) == (80.0, date(2026, 10, 17))
     assert week.weight_change_kg == pytest.approx(-0.6)
 
 
@@ -250,3 +250,44 @@ def test_a_training_week_must_start_on_a_monday():
     """training_week refuses a start that is not a Monday, so no week is cut in two."""
     with pytest.raises(ValueError):
         metrics.training_week(WORKOUTS, date(2026, 10, 27))
+
+
+def test_the_volume_of_each_day_of_the_week():
+    """Each day's volume is its workouts' sum; a day with no workout is None, not zero (T9.15)."""
+    by_day = dict(metrics.volume_by_day(WORKOUTS, TRAINING_MONDAY))
+    assert list(by_day) == list(metrics.week_days(TRAINING_MONDAY))
+    assert by_day[date(2026, 10, 26)] == 5 * 100.0 + 5 * 100.0 + 8 * 60.0
+    assert by_day[date(2026, 10, 29)] == 8 * 62.5 + 3 * 110.0
+    assert by_day[date(2026, 11, 1)] == 0.0  # a workout with no sets is still a workout
+    assert by_day[date(2026, 10, 27)] is None
+
+
+def test_two_workouts_on_one_day_add_up():
+    """Two workouts on the same day give that day their summed volume."""
+    sessions = [
+        _session(1, "2026-10-27", ("squat", 5, 100.0)),
+        _session(2, "2026-10-27", ("squat", 1, 50.0)),
+    ]
+    assert dict(metrics.volume_by_day(sessions, TRAINING_MONDAY))[date(2026, 10, 27)] == 550.0
+
+
+def test_the_volume_by_day_needs_a_monday():
+    """volume_by_day refuses a start that is not a Monday."""
+    with pytest.raises(ValueError):
+        metrics.volume_by_day(WORKOUTS, date(2026, 10, 27))
+
+
+def test_the_weights_between_two_days_oldest_first():
+    """The trend keeps the weights within the range, inclusive, by day then row ID."""
+    weights = [
+        _weight(3, "2026-10-20", 79.8),
+        _weight(1, "2026-10-10", 81.0),
+        _weight(4, "2026-10-20", 79.6),
+        _weight(2, "2026-10-17", 80.0),
+        _weight(5, "2026-10-27", 70.0),
+    ]
+    assert metrics.weights_between(weights, date(2026, 10, 17), date(2026, 10, 25)) == (
+        (date(2026, 10, 17), 80.0),
+        (date(2026, 10, 20), 79.8),
+        (date(2026, 10, 20), 79.6),
+    )

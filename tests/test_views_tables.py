@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from src import chat, config, i18n, metrics, usage
+from src import chat, config, dashboard, i18n, metrics, usage
 from src.tools import energy, registry
 from src.tools.food import FoodLookupResult, Nutrients
 from tests.fakes import PROFILE
@@ -390,24 +390,185 @@ CLIENT_ROWS = [
 ]
 
 
-def test_the_client_table_shows_name_status_days_and_each_scope():
-    """One row per relationship: the name, its status, the days and shared or not per scope."""
-    table = tables.client_table(CLIENT_ROWS, "en")
-    assert list(table) == ["Client", "Status", "Since", "Ended", "Nutrition", "Training", "Body"]
-    assert table["Client"] == ["Alex", "Bo"]
-    assert table["Status"] == ["Active", "Ended"]
-    assert table["Since"] == ["2026-11-01", "2026-10-01"]
-    assert table["Ended"] == ["", "2026-10-20"]
-    assert table["Nutrition"] == ["Shared", "Not shared"]
-    assert table["Training"] == ["Not shared", "Not shared"]
+MONDAY = date(2026, 10, 26)
 
 
-def test_the_client_table_in_german():
-    """The headers and the values follow the language."""
-    table = tables.client_table(CLIENT_ROWS, "de")
-    assert table["Klient"] == ["Alex", "Bo"]
-    assert table["Körper"] == ["Geteilt", "Nicht geteilt"]
-    assert table["Status"] == ["Aktiv", "Beendet"]
+def _meal(day: str, kcal: float) -> dict:
+    """Return a stored meal item row of one day with the given kcal."""
+    return {
+        "consumed_on": day,
+        "kcal": kcal,
+        "protein_g": 100.0,
+        "carbohydrate_g": 200.0,
+        "fat_g": 50.0,
+        "fiber_g": 10.0,
+    }
+
+
+TARGET = {
+    "id": 1,
+    "effective_from": "2026-10-01",
+    "kcal": 2400.0,
+    "protein_g": 150.0,
+    "carbs_g": 250.0,
+    "fat_g": 70.0,
+    "set_by": "system",
+}
+WEIGHTS = [
+    {"id": 1, "measured_on": "2026-10-20", "weight_kg": 80.0},
+    {"id": 2, "measured_on": "2026-10-28", "weight_kg": 79.4},
+]
+
+
+def _week(
+    shared=("nutrition", "body", "training"), meals=None, reviews=()
+) -> dashboard.DashboardWeek:
+    """Return a dashboard week of three logged days, a target, two weights and one workout."""
+    if meals is None:
+        meals = [_meal("2026-10-26", 2000), _meal("2026-10-27", 2200), _meal("2026-10-29", 2300)]
+    nutrition = metrics.week_metrics(meals, WEIGHTS, [TARGET], MONDAY)
+    session = {"id": 1, "performed_on": "2026-10-27", "sets": []}
+    return dashboard.DashboardWeek(
+        shared=frozenset(shared),
+        nutrition=nutrition,
+        training=metrics.training_week([session], MONDAY) if "training" in shared else None,
+        volume_by_day=metrics.volume_by_day([session], MONDAY) if "training" in shared else None,
+        weight_trend=None,
+        reviews=tuple(reviews) if "nutrition" in shared else None,
+    )
+
+
+def test_the_logged_days_are_counted_out_of_the_whole_week():
+    """AC-26: three logged days out of seven are "3 of 7 days logged"."""
+    assert tables.logged_days_line(_week().nutrition, "en") == "3 of 7 days logged"
+    assert tables.logged_days_line(_week().nutrition, "de") == "3 von 7 Tagen erfasst"
+
+
+def test_a_week_in_progress_still_counts_out_of_seven():
+    """AC-26 (owner's choice, 2026-10-30): four days logged by Friday are "4 of 7", not "4 of 5"."""
+    # The week's Friday is today: nothing after it can be logged yet, and the count is still of 7.
+    meals = [_meal(f"2026-10-{day}", 2000) for day in (26, 27, 28, 30)]
+    week = metrics.week_metrics(meals, [], [], MONDAY)
+    assert tables.logged_days_line(week, "en") == "4 of 7 days logged"
+
+
+def test_the_average_kcal_is_over_the_logged_days_against_the_target():
+    """The kcal cell is the average over the logged days, then the target."""
+    assert tables.kcal_vs_target(_week().nutrition, "en") == "2,167 / 2,400 kcal"
+    assert tables.kcal_vs_target(_week().nutrition, "de") == "2.167 / 2.400 kcal"
+    no_target = metrics.week_metrics([_meal("2026-10-26", 1999.6)], [], [], MONDAY)
+    assert tables.kcal_vs_target(no_target, "en") == "2,000 kcal (no target)"
+    nothing = metrics.week_metrics([], [], [TARGET], MONDAY)
+    assert tables.kcal_vs_target(nothing, "en") == "Nothing logged"
+
+
+CLIENT = {"other_id": "gym-alex", "other_name": "Alex", "accepted_at": "2026-11-01T09:00:00+00:00"}
+
+
+def test_an_active_client_s_row_holds_the_week_s_values():
+    """One row: name, since, days logged, kcal against target, sessions, latest weight, review."""
+    review = {"id": 7, "status": "APPROVED", "period_start": "2026-10-19"}
+    cells = tables.client_cells(CLIENT, _week(reviews=[review]), "metric", "en")
+    assert cells == {
+        "name": "Alex",
+        "since": "2026-11-01",
+        "logged": "3 of 7 days logged",
+        "kcal": "2,167 / 2,400 kcal",
+        "sessions": "1",
+        "weight": "79.4 kg (2026-10-28)",
+        "review": "Approved · week of 2026-10-19",
+    }
+    table = tables.client_table([cells], "en")
+    assert list(table) == [
+        "Client",
+        "Since",
+        "Days logged",
+        "Avg kcal / target",
+        "Sessions",
+        "Latest weight",
+        "Weekly review",
+    ]
+    assert [column[0] for column in table.values()] == list(cells.values())
+
+
+def test_a_scope_not_shared_says_so_in_its_cells():
+    """Nutrition and training not shared: their cells say "Not shared", the weight shows."""
+    cells = tables.client_cells(CLIENT, _week(shared=("body",)), "imperial", "en")
+    assert cells["logged"] == cells["kcal"] == cells["review"] == "Not shared"
+    assert cells["sessions"] == "Not shared"
+    assert cells["weight"] == "175 lb (2026-10-28)"
+
+
+def test_no_review_and_no_weight_are_shown_as_such():
+    """No review yet is "None"; no weight is a dash."""
+    week = _week()
+    empty = type(week)(**{**week.__dict__, "nutrition": metrics.week_metrics([], [], [], MONDAY)})
+    cells = tables.client_cells(CLIENT, empty, "metric", "de")
+    assert (cells["review"], cells["weight"]) == ("Keiner", "–")
+    assert cells["logged"] == "0 von 7 Tagen erfasst"
+
+
+def test_a_card_holds_the_same_values_as_the_table_row_escaped():
+    """The phone card lists every cell of the row, the name escaped as plain text."""
+    cells = tables.client_cells({**CLIENT, "other_name": "1. Max_*"}, _week(), "metric", "en")
+    card = tables.client_card(cells, "en")
+    lines = card.split("  \n")
+    assert lines[0] == r"**1\. Max\_\***"
+    assert lines[1:] == [
+        r"**Since:** 2026\-11-01",  # a value that starts like a list item is escaped
+        "**Days logged:** 3 of 7 days logged",
+        "**Avg kcal / target:** 2,167 / 2,400 kcal",
+        "**Sessions:** 1",
+        r"**Latest weight:** 79\.4 kg (2026-10-28)",
+        "**Weekly review:** None",
+    ]
+
+
+def test_the_former_clients_keep_only_name_and_days():
+    """An ended relationship shows its name and days, nothing of the client's data."""
+    table = tables.former_client_table(CLIENT_ROWS[1:], "en")
+    assert table == {"Client": ["Bo"], "Since": ["2026-10-01"], "Ended": ["2026-10-20"]}
+
+
+def test_the_target_and_body_lines():
+    """The target names who set it and from when; the body lines give the latest and the change."""
+    week = _week()
+    assert tables.target_line(week.nutrition.target, "en") == (
+        "Daily target: 2,400 kcal, worked out from the profile, from 2026-10-01."
+    )
+    assert tables.target_line(None, "de") == "Noch kein Tagesziel."
+    assert tables.body_lines(week, "metric", "en") == [
+        "Latest weight: 79.4 kg (2026-10-28).",
+        "Change since 2026-10-20: -0.6 kg.",
+    ]
+    assert tables.weight_change_text(0.45, "imperial", "de") == "+1 lb"
+    assert tables.weight_change_text(-0.03, "metric", "en") == "0 kg"  # never "-0 kg"
+
+
+def test_an_approved_review_is_labelled_as_an_ai_draft():
+    """AC-41: each review says it is an AI draft the coach approved (or edited and approved)."""
+    review = {"period_start": "2026-10-19", "reviewed_at": "2026-10-27T08:00:00+00:00"}
+    assert tables.review_label({**review, "edited_by_coach": False}, "en") == (
+        "AI draft, approved by the coach"
+    )
+    assert tables.review_label({**review, "edited_by_coach": True}, "de") == (
+        "KI-Entwurf, vom Coach bearbeitet und freigegeben"
+    )
+    assert tables.review_heading(review, "en") == "Week of 2026-10-19 · approved on 2026-10-27"
+
+
+def test_a_review_s_texts_are_listed_escaped():
+    """Every text of the review is one escaped list line: no link, image or heading gets through."""
+    final = {
+        "observations": ["Logged 3 of 7 days.", {"text": "![x](https://evil.example/a.png)"}],
+        "summary": "# Big",
+        "count": 3,
+    }
+    assert tables.review_markdown(final).split("\n") == [
+        "- Logged 3 of 7 days.",
+        r"- !\[x\](https\://evil.example/a.png)",  # neither an image nor a link
+        r"- \# Big",
+    ]
 
 
 def test_the_invitation_table_and_label_never_hold_a_code():

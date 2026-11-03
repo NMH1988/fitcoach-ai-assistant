@@ -109,7 +109,7 @@ views/                      the Streamlit UI, one module per concern; logic stay
   text.py                   the session's language and t(), n(), plain(), percent(), label_of() in it
   resources.py              the cached resources (index, keyword index, model clients, manifest), built once per process
   tables.py                 table rows, cells and text lines from results, per language; imports no streamlit
-  charts.py                 the macro bar and donut as Vega-Lite specs, per language; imports no streamlit
+  charts.py                 the macro bar and donut, and the dashboards' week charts (T9.15), as Vega-Lite specs, per language; imports no streamlit
   header.py                 title, disclaimer badge, disclaimer box; main_column(), every page's middle column
   navigation.py             the pages each role may open with st.navigation; a role's home first (T9.5, D20)
   pages.py                  the chat page: the profile and last answer in the sidebar, the four tabs (T9.5; was app.py's)
@@ -128,7 +128,10 @@ views/                      the Streamlit UI, one module per concern; logic stay
   details.py                Details tab and the sidebar "Last answer" card
   about.py                  "About the answers" dialog (a fragment)
   export.py                 the summary PDF download button
-  clients.py                the coach's Clients page: the client list with the scopes on, and invitations (T9.12)
+  clients.py                the coach's Clients page: this week per active client (a table, and cards on phones), the former clients, invitations (T9.12, T9.15)
+  client_week.py            the coach's Client week page: an active client picked (no query parameter), the week picker, the week's views (T9.15, AC-21)
+  my_week.py                a gymer's My week page: their own week and the reviews a coach approved, read-only (T9.15)
+  week_view.py              a week's nutrition, body and training views with their charts, "not shared" per scope; both week pages draw it (T9.15)
   sharing.py                the gymer's Coach and sharing page: accept a code, the coach's name, scopes, end (T9.12)
 src/
   config.py                 models, limits, calorie floor, k values, paths, get_api_key()
@@ -140,6 +143,7 @@ src/
   account.py                signed-in accounts: the keyed user ID, the display name check, open_store() with its one fixed error, a gymer's saved profile and target (T9.5)
   demo.py                   demo mode's synthetic users and records, seeded into a temporary database (T9.5, D18)
   diary.py                  a gymer's food and weight diary: the nutrient snapshot, the day's range, the week read through the store (T9.13)
+  dashboard.py              a week as the dashboards show it: a coach's active client, scope by scope through the store's checks, or a gymer's own week; no streamlit (T9.15)
   exercises.py              the workout log's exercise list from data/exercises.json, which we wrote: IDs, names per language, muscle groups (T9.14)
   metrics.py                a week's metrics from the records, Monday to Sunday in Berlin; pure, no streamlit: nutrition (T9.13) and training, the sessions, sets, volume and top weight per exercise (T9.14)
   units.py                  kg/lb and cm/ft-in conversion
@@ -464,4 +468,4 @@ The metrics are computed in Python with no model: logged days, averages over log
 
 Snapshots and profile entries are never changed in place, and a new target is a new row; as built, a trigger refuses an UPDATE on every record table and on the audit log, so an edit is a delete and a new row. Every read of another user's data takes the acting user and checks the role, an active relationship and the scope.
 
-**UI (D20).** Guest: today's tabs. Gymer (no chat since T9.24): My profile, Today (log food and weight), Workouts, My week (with the approved reviews and, P1, the questions to the coach, T9.25), Coach and sharing, My data. Coach: Clients, a client's week, Reviews, Chat, My data. Demo mode adds a user picker (D18). As built by T9.5 (owner's choices, 2026-11-02): a coach has Chat (today's tabs, the home) and My data, a gymer My profile (the home) and My data, no chat; T9.13 added Today after My profile (owner's choice, 2026-11-03) and T9.14 Workouts after Today; T9.12 adds Clients (the coach's client list and invitations) and Coach and sharing (the gymer's); later tickets add their pages to `views/navigation.PAGES_BY_ROLE` and may change the home.
+**UI (D20).** Guest: today's tabs. Gymer (no chat since T9.24): My profile, Today (log food and weight), Workouts, My week (with the approved reviews and, P1, the questions to the coach, T9.25), Coach and sharing, My data. Coach: Clients, a client's week, Reviews, Chat, My data. Demo mode adds a user picker (D18). As built by T9.5 (owner's choices, 2026-11-02): a coach has Chat (today's tabs, the home) and My data, a gymer My profile (the home) and My data, no chat; T9.13 added Today after My profile (owner's choice, 2026-11-03) and T9.14 Workouts after Today; T9.12 adds Clients (the coach's client list and invitations) and Coach and sharing (the gymer's); T9.15 adds the coach's Client week after Clients and the gymer's My week after Workouts (the reviews' own Reviews page is T9.16's); later tickets add their pages to `views/navigation.PAGES_BY_ROLE` and may change the home.
