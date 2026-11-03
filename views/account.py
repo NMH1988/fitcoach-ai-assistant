@@ -35,6 +35,8 @@ KEPT_KEYS = frozenset({i18n.SESSION_KEY, guard.SESSION_LIMITER_KEY, DEMO_KEY})
 PROFILE_NOTICE_KEY = "profile_save_failed"
 # Every session key of the Workouts page starts with this (views/workouts.py, T9.14).
 WORKOUT_KEY_PREFIX = "workout_"
+# Where My data keeps a prepared export (views/my_data.py reads the name from here).
+MY_DATA_EXPORT_KEY = "my_data_export"
 # The display name's length limits, for the texts that name them.
 NAME_LIMITS = {"low": config.DISPLAY_NAME_CHARS[0], "high": config.DISPLAY_NAME_CHARS[1]}
 
@@ -86,11 +88,12 @@ def resolve() -> dict | None:
                 return None
             if found is None:
                 # No account (a first sign-in, or deleted in another tab): nothing of an earlier
-                # account's profile or workout draft stays in the session (the Workouts page's
-                # keys all start with WORKOUT_KEY_PREFIX, T9.14), and its profile is loaded
-                # afresh later.
+                # account's profile, prepared export or workout draft stays in the session (the
+                # Workouts page's keys all start with WORKOUT_KEY_PREFIX, T9.14; the export since
+                # T9.14's compliance run 2), and its profile is loaded afresh later.
                 st.session_state.pop("account_loaded_for", None)
                 st.session_state.pop("profile", None)
+                st.session_state.pop(MY_DATA_EXPORT_KEY, None)
                 for key in [k for k in st.session_state if str(k).startswith(WORKOUT_KEY_PREFIX)]:
                     st.session_state.pop(key, None)
             loaded = st.session_state.get("account_loaded_for")

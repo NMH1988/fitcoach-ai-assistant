@@ -10,6 +10,7 @@ from streamlit.testing.v1 import AppTest
 from streamlit.util import calc_hash
 
 from src import account, units
+from src import account as src_account
 from src.store import db, my_data, records
 from tests.test_app_account import (
     PROFILE,
@@ -345,13 +346,27 @@ def test_an_account_deleted_in_another_tab_stops_the_save(gymer):
     with db.connect() as conn:
         assert conn.execute("SELECT count(*) FROM workout_sessions").fetchone()[0] == 0
     # The welcome page says why it is shown (round 5: the page's own notice would be dropped).
-    assert "no longer exists" in texts(gymer)
+    assert "Your account no longer exists" in texts(gymer)
+
+
+def test_an_account_deleted_after_the_profile_check_stops_the_save(gymer, monkeypatch):
+    """A Save whose account goes between the profile check and the write says it is gone."""
+    _add_set(gymer, "squat", 5, 100.0, None)
+    with db.connect() as conn:
+        my_data.delete_user_data(conn, USER_ID)
+    # The profile check passes, so the write itself finds no account (round 6).
+    monkeypatch.setattr(src_account, "has_profile_entries", lambda conn, user_id: True)
+    button(gymer, "Save workout").click().run(timeout=30)
+    assert not gymer.exception
+    assert "Your account no longer exists" in texts(gymer)
 
 
 def test_a_deleted_account_s_draft_leaves_the_session(gymer):
     """Once the account is gone, no workout key of the old account stays in the session."""
     _add_set(gymer, "squat", 5, 100.0, None)
     assert gymer.session_state["workout_draft"]
+    # A notice left for the next run (as a save leaves one) must go too.
+    gymer.session_state[workouts.NOTICE_KEY] = ("success", "workouts.saved")
     with db.connect() as conn:
         my_data.delete_user_data(conn, USER_ID)
     gymer.run(timeout=30)
@@ -361,7 +376,7 @@ def test_a_deleted_account_s_draft_leaves_the_session(gymer):
 
 
 def test_every_workouts_session_key_has_the_prefix_the_account_drops():
-    """Each session key of the page starts with WORKOUT_KEY_PREFIX, so none outlives an account."""
+    """Each of the page's own session keys starts with WORKOUT_KEY_PREFIX, so none outlives it."""
     source = Path(workouts.__file__).read_text(encoding="utf-8")
     keys = {
         value
@@ -371,5 +386,7 @@ def test_every_workouts_session_key_has_the_prefix_the_account_drops():
     # The widget keys are written in the calls (key="..."), so they are read from the source.
     keys |= set(re.findall(r'key="([^"]+)"', source))
     keys |= set(re.findall(r'key=f"([^"{]+)', source))
+    # Keys the page writes by name (reads of the app's shared keys, e.g. "units", are not its own).
+    keys |= set(re.findall(r'session_state\["([^"]+)"\]\s*=(?!=)', source))
     assert len(keys) >= 10
     assert all(key.startswith(views_account.WORKOUT_KEY_PREFIX) for key in keys), keys

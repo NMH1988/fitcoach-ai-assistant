@@ -9,6 +9,7 @@ from streamlit.util import calc_hash
 
 from src import config, demo
 from src.store import db, records
+from src.store import my_data as stored_data
 from tests.test_app_account import (
     APP,
     AUTH,
@@ -22,6 +23,7 @@ from tests.test_app_account import (
     store_account,
     texts,
 )
+from views import my_data as my_data_page
 from views import navigation, resources
 
 pytestmark = pytest.mark.usefixtures("no_env_key")
@@ -306,3 +308,16 @@ def test_leaving_a_demo_user_returns_to_the_start_page(monkeypatch, demo_store_i
     picker.set_value(None).run(timeout=30)
     assert not at.tabs
     assert "pick a made-up user below to try" in texts(at)
+
+
+def test_a_prepared_export_leaves_the_session_when_the_account_is_gone(
+    monkeypatch, gymer_with_records
+):
+    """An export prepared before the account was deleted in another tab is not kept (T9.14)."""
+    at = open_my_data(start(monkeypatch, user=signed_in()))
+    button(at, "Prepare the export").click().run(timeout=30)
+    assert at.session_state[my_data_page.EXPORT_KEY]
+    with db.connect() as conn:
+        stored_data.delete_user_data(conn, USER_ID)
+    at.run(timeout=30)
+    assert my_data_page.EXPORT_KEY not in at.session_state
