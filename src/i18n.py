@@ -599,8 +599,8 @@ _EN: dict[str, str] = {
     "profile.my_data_link": "See, export or delete it in My data",
     "profile.saved_on_save": "Saved to your account when you press Save (My data lists it).",
     "profile.opt_in": (
-        "I understand that my details are stored in this app's data file on this computer, and "
-        "I enter made-up data only."
+        "I understand that my details, and the food and weights I log on Today, are stored in "
+        "this app's data file on this computer, and I enter made-up data only."
     ),
     "profile.opt_in_needed": "Tick the box above to save your details to your account.",
     "profile.goal_not_saved": (
@@ -1353,8 +1353,9 @@ _DE: dict[str, str] = {
         "Wird beim Klick auf Speichern in Ihrem Konto gespeichert (Meine Daten listet es auf)."
     ),
     "profile.opt_in": (
-        "Ich verstehe, dass meine Angaben in der Datendatei dieser App auf diesem Computer "
-        "gespeichert werden, und ich gebe nur erfundene Daten ein."
+        "Ich verstehe, dass meine Angaben sowie das Essen und die Gewichte, die ich unter Heute "
+        "eintrage, in der Datendatei dieser App auf diesem Computer gespeichert werden, und ich "
+        "gebe nur erfundene Daten ein."
     ),
     "profile.goal_not_saved": (
         "Das Ziel gilt nur für diese Sitzung: Speichern Sie zuerst Ihre Angaben unter "
