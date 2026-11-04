@@ -14,6 +14,9 @@ from langchain_core.messages import AIMessage
 from streamlit.testing.v1 import AppTest
 
 from src import chat, config, guard, llm, observability
+from src.agent.memory import Conversation
+from src.chat import TurnResult
+from src.preferences import PREFERENCE_TOOL, CoachMemory
 from src.profile import UserProfile
 from src.rag.store import IndexNotReadyError
 from src.tools import registry
@@ -271,8 +274,10 @@ def index(index_path):
     return open_fixture_index(index_path)
 
 
-def _canary_turn(text, index, model, translator=None, user=CANARY_PROFILE):
-    """Run one turn with the canary profile and return its result."""
+def _canary_turn(
+    text, index, model, translator=None, user=CANARY_PROFILE, coach=None, conversation=None
+):
+    """Run one turn with the canary profile (a coach's turn with `coach`) and return its result."""
     return chat.run_turn(
         text,
         guard.RateLimiter(),
@@ -281,7 +286,33 @@ def _canary_turn(text, index, model, translator=None, user=CANARY_PROFILE):
         translation_model=lambda: translator or ScriptedTranslator(),
         user=user,
         prices=lambda: {},
+        coach=coach,
+        conversation=conversation,
     )
+
+
+# A coach's memory with a canary client name and a canary saved preference (T9.7).
+CANARY_COACH = CoachMemory(
+    coach_id="CANARY-COACH",
+    client_names=("CANARYCLIENT Max",),
+    preferences=("CANARY-MEM answer in bullet points",),
+)
+
+
+def _proposing_model(text: str) -> ScriptedChatModel:
+    """Return a model that proposes the text, then replies with no basis (T9.7)."""
+    return ScriptedChatModel(
+        replies=[tool_reply((PREFERENCE_TOOL, {"text": text})), AIMessage(CANARY_ANSWER)],
+        search_first=False,
+    )
+
+
+def _paused_conversation() -> Conversation:
+    """Return a conversation with a canary proposal waiting, paused without a logged turn."""
+    conversation = Conversation()
+    result = TurnResult("memory", "x", code="memory.proposed")
+    conversation.run(lambda _history: {"result": result, "proposal": "CANARY-PREF waiting"})
+    return conversation
 
 
 def _rewrites_translator() -> ScriptedTranslator:
@@ -408,6 +439,30 @@ CANARY_ENDINGS = {
         translation_model=lambda: ScriptedTranslator(),
         user=CANARY_PROFILE,
     ),
+    # T9.7: a coach's proposal, a proposal refused for a client's name, and a turn that
+    # discards a waiting proposal (its preference_decided line carries the turn's ID).
+    "memory proposed": lambda index: _canary_turn(
+        "CANARY-Q keep answers short",
+        index,
+        _proposing_model("CANARY-PREF keep answers short"),
+        coach=CANARY_COACH,
+        conversation=Conversation(),
+    ),
+    "memory refused (client name)": lambda index: _canary_turn(
+        "CANARY-Q remember that Max eats late",
+        index,
+        _proposing_model("CANARYCLIENT Max eats late"),
+        coach=CANARY_COACH,
+        conversation=Conversation(),
+    ),
+    "memory discarded by a new turn": lambda index: _canary_turn(
+        CANARY_QUESTION,
+        index,
+        _answer_model(),
+        _rewrites_translator(),
+        coach=CANARY_COACH,
+        conversation=_paused_conversation(),
+    ),
     "unexpected error": lambda index: _canary_turn(
         CANARY_QUESTION,
         index,
@@ -463,6 +518,24 @@ def test_the_canary_runs_used_the_profile_and_searched(index):
     assert result.searches
     query = CANARY_ENDINGS["model's search query"](index)
     assert [search.query for search in query.searches] == ["CANARY-QUERY protein for 87.3 kg"]
+
+
+def test_the_memory_canary_runs_reached_the_proposal_and_the_discard(index):
+    """The memory endings proposed, refused and discarded, with the turn's ID on the discard."""
+    endings = {
+        "memory proposed": ("memory.proposed", "preference_proposed"),
+        "memory refused (client name)": ("memory.refused.client_name", "preference_refused"),
+    }
+    for ending, (code, event) in endings.items():
+        stream = io.StringIO()
+        observability.configure_logging(stream=stream)
+        assert CANARY_ENDINGS[ending](index).code == code
+        assert event in [line["event"] for line in _lines(stream)]
+    stream = io.StringIO()
+    observability.configure_logging(stream=stream)
+    result = CANARY_ENDINGS["memory discarded by a new turn"](index)
+    [decided] = [line for line in _lines(stream) if line["event"] == "preference_decided"]
+    assert (decided["turn_id"], decided["code"]) == (result.turn_id, "discarded")
 
 
 def test_the_canary_check_catches_a_leak(index):
@@ -558,7 +631,8 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
         conn, "CANARY-GYM", workout, performed_on=date(2026, 10, 27),
         sets=[records.ExerciseSet("squat", 1, 6, 87.3, 8.5)],
     )  # fmt: skip
-    records.add_preference(conn, "CANARY-GYM", "CANARY-PREF vegetarian")
+    # A coach's own preference (T9.7); a gymer's is refused below.
+    records.add_preference(conn, "CANARY-COACH", "CANARY-PREF keep answers short")
     # Invitations and names (T9.12): the code is a canary too, refused and accepted codes logged.
     users.create_user(conn, "CANARY-NEW", "gymer", "CANARY-NAME new")
     invitation = invitations.create_invitation(conn, "CANARY-COACH")
@@ -602,7 +676,8 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
         lambda: records.add_body_measurement(
             conn, "CANARY-GYM", weight_kg=-87.3, measured_on=date(2026, 10, 26)
         ),
-        lambda: records.add_preference(conn, "CANARY-GYM", "CANARY-PREF " * 100),
+        lambda: records.add_preference(conn, "CANARY-COACH", "CANARY-PREF " * 100),
+        lambda: records.add_preference(conn, "CANARY-GYM", "CANARY-PREF vegetarian"),
         lambda: records.add_profile_entry(
             conn,
             "CANARY-GYM",
@@ -672,7 +747,7 @@ def test_no_record_or_error_holds_a_stored_value(store_conn, caplog):
     codes: list[str] = []
     errors = _store_scenario(store_conn, codes)
     # Each kind of refusal happened, so their messages were checked.
-    assert len(errors) == 3 + 6 + 9
+    assert len(errors) == 3 + 6 + 9 + 1  # T9.7: a gymer's preference is refused
     texts = [stream.getvalue(), caplog.text, *(str(e) for e in errors), *(repr(e) for e in errors)]
     # The two refused codes were logged, by reason only (T9.12).
     assert stream.getvalue().count('"event": "invite_refused"') == 2

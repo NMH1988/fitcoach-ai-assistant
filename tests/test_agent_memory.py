@@ -495,11 +495,17 @@ def test_new_chat_deletes_the_old_thread(index):
 
 
 def test_the_conversation_graph_runs_the_turn_then_forgets():
-    """START -> turn -> forget -> END."""
+    """START -> turn -> (approve ->) forget -> END: approve only after a proposal (T9.7)."""
     edges = {
         (e.source, e.target) for e in memory.conversation_builder().compile().get_graph().edges
     }
-    assert edges == {("__start__", "turn"), ("turn", "forget"), ("forget", "__end__")}
+    assert edges == {
+        ("__start__", "turn"),
+        ("turn", "approve"),
+        ("turn", "forget"),
+        ("approve", "forget"),
+        ("forget", "__end__"),
+    }
 
 
 def test_the_committed_conversation_diagram_matches_the_graph():

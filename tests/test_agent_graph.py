@@ -17,7 +17,7 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph import END
 
-from src import chat, config, guard, llm
+from src import chat, config, guard, llm, preferences
 from src.agent import graph, search
 from src.agent.graph import TurnContext
 from src.agent.search import SearchLog
@@ -114,7 +114,11 @@ def test_the_tools_node_is_langgraphs_tool_node():
     node = graph.tool_node()
     assert type(node).__name__ == "ToolNode"
     assert node._wrap_tool_call is graph.run_checked_call
-    assert set(node.tools_by_name) == {*registry.build_tools(None), search.SEARCH_TOOL}
+    assert set(node.tools_by_name) == {
+        *registry.build_tools(None),
+        search.SEARCH_TOOL,
+        preferences.PREFERENCE_TOOL,
+    }
 
 
 def test_the_edges_put_the_guard_first_and_loop_the_agent_and_tools():

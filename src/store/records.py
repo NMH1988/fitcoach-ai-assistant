@@ -1,15 +1,18 @@
-"""A gymer's health records: profile entries, weights, targets, meals, workouts, preferences (T9.6).
+"""Gymers' health records (profile, weights, targets, meals, workouts), coaches' preferences (T9.6).
 
-Each `add_*` writes a row for the acting user only, who must be a gymer (a coach-set target
-arrives with T9.17); weight, height and age keep the profile form's ranges and a target the
-calorie floor. Each `list_*` takes the acting user and the user whose data it reads and goes
-through `access.authorised_read()`: the user's own data, or a coach's read within the scope the data
-belongs to (body, nutrition, training); preferences are never shared. Records are never changed in
-place (a trigger refuses it): a new profile entry or target is a new row, and an edit is
-`delete_record()` and a new row, so a meal's nutrient snapshot stays as it was taken (T9.13 takes
-it from the foods table); a workout's edit is both in one transaction (`replace_workout_session()`,
-T9.14). A set names an exercise of T9.14's list and keeps the ranges in config. Days are calendar
-days the user chose (`Europe/Berlin`, D21); the time a row was written is UTC.
+A preference is a coach's own working preference since T9.7 (it was a gymer's before T9.24).
+
+Each `add_*` writes a row for the acting user only, who must be a gymer (a coach-set target arrives
+with T9.17), or for `add_preference()` a coach; weight, height and age keep the profile form's
+ranges and a target the calorie floor. Each `list_*` takes the acting user and the user whose data
+it reads and goes through `access.authorised_read()`: the user's own data, or a coach's read within
+the scope the data belongs to (body, nutrition, training); preferences are never shared. Records are
+never changed in place (a trigger refuses it): a new profile entry or target is a new row, and an
+edit is `delete_record()` and a new row, so a meal's nutrient snapshot stays as it was taken (T9.13
+takes it from the foods table); a workout's edit is both in one transaction
+(`replace_workout_session()`, T9.14). A set names an exercise of T9.14's list and keeps the ranges
+in config. Days are calendar days the user chose (`Europe/Berlin`, D21); the time a row was written
+is UTC.
 """
 
 import sqlite3
@@ -521,10 +524,17 @@ def list_workout_sessions(
 
 
 def add_preference(conn: sqlite3.Connection, user_id: str, text: str) -> int:
-    """Add a preference the user approved (T9.7 proposes it); return its ID."""
-    row = (values.user_id(user_id), values.text(text, "text"), values.utc_text())
+    """Add a working preference a coach approved (T9.7); return its ID; NotFound if no coach."""
+    # Only coaches keep preferences since T9.24 (a gymer has no chat); the text was checked before
+    # it was shown to the coach and again at the save (src/preferences.py).
+    row = (
+        values.user_id(user_id),
+        values.text(text, "text", config.PREFERENCE_MAX_CHARS),
+        values.utc_text(),
+    )
     with transaction(conn):
-        _check_gymer(conn, user_id)
+        if role_of(conn, user_id) != "coach":
+            raise NotFound
         return conn.execute(_ADD_PREFERENCE, row).lastrowid
 
 

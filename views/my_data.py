@@ -30,18 +30,18 @@ _LISTS = {
 
 
 def _stored(user: dict) -> dict[str, list[dict]]:
-    """Return the user's own records by kind (a coach keeps none, so theirs is empty)."""
-    if user["role"] != "gymer":
+    """Return the user's own records by kind: a gymer's records, a coach's preferences (T9.7)."""
+    kinds = tables.STORED_KINDS_BY_ROLE.get(user["role"], ())
+    if not kinds:
         return {}
     with accounts.open_store(account.store_path()) as conn:
-        return {kind: _LISTS[kind](conn, user["id"], user["id"]) for kind in tables.STORED_KINDS}
+        return {kind: _LISTS[kind](conn, user["id"], user["id"]) for kind in kinds}
 
 
 def _records(stored: dict[str, list[dict]]) -> None:
     """Show one table per kind of record, or a line saying nothing of that kind is stored."""
     system = st.session_state["units"]
-    for kind in tables.STORED_KINDS:
-        rows = stored[kind]
+    for kind, rows in stored.items():
         st.markdown(f"**{t(f'my_data.kind.{kind}')}** · {t('my_data.count', count=len(rows))}")
         if rows:
             st.dataframe(tables.stored_table(kind, rows, system, lang()), hide_index=True)
@@ -52,8 +52,8 @@ def _delete_one(user: dict, stored: dict[str, list[dict]]) -> None:
     system = st.session_state["units"]
     entries = {
         (kind, row["id"]): tables.entry_label(kind, row, system, lang())
-        for kind in tables.STORED_KINDS
-        for row in stored[kind]
+        for kind, rows in stored.items()
+        for row in rows
     }
     if not entries:
         return
