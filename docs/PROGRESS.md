@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-03 · T9.7 Long-term memory for the coach: `remember_preference` with the coach's approval · NMH1988/fitcoach-ai-assistant#<PR> (closes NMH1988/fitcoach-ai-assistant#10)
+## 2026-11-03 · T9.7 Long-term memory for the coach: `remember_preference` with the coach's approval · NMH1988/fitcoach-ai-assistant#69 (closes NMH1988/fitcoach-ai-assistant#10)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Medium 2 (long-term memory, the course's "remember" tool pattern), Medium 4 in part (personalisation of the coach's chat), core 2 (user interactions) and the course's human-in-the-loop pattern; Sprint 2 (`docs/BRIEF.md`): none. AC-36.
 - **What:**
   - `src/preferences.py` (new): `remember_preference` (`PreferenceArgs`: one text of 1 to `PREFERENCE_MAX_CHARS`, nothing else), `propose()` (checks a call, keeps a passing text, gives the model a fixed message), `check_preference()` (`guard.check_text()`, the guardrails, then the clients' names as whole words without case on the cleaned text and the guard's detection views), `client_names()` (every client the coach has had, active or ended, through `users.list_relationships()`), `load()` (names and the newest `MEMORY_PREFERENCES_IN_PROMPT` preferences), `save()` (checks again, then `records.add_preference()`), `memories_block()`.
