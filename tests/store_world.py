@@ -16,6 +16,7 @@ DAY = date(2026, 10, 26)
 # Recognisable numbers, so a test can look for them where they must not be (an audit row, a log).
 WEIGHT = 87.3
 HEIGHT = 181.7
+PREFERENCE = "keep answers short"
 
 
 def add_records(conn, user_id):
@@ -58,13 +59,15 @@ def add_records(conn, user_id):
             records.ExerciseSet("squat", 2, 5, 100.0),
         ],
     )
-    records.add_preference(conn, user_id, "vegetarian")
 
 
 def build(conn):
     """Create the users, relationships, scopes and records; return the relationship IDs by gymer."""
     users.create_user(conn, COACH_A, "coach", "Coach A")
     users.create_user(conn, COACH_B, "coach", "Coach B")
+    # A coach's own working preference (T9.7): only coaches keep them.
+    for coach in (COACH_A, COACH_B):
+        records.add_preference(conn, coach, PREFERENCE)
     for gymer in GYMERS:
         users.create_user(conn, gymer, "gymer", gymer)
         add_records(conn, gymer)

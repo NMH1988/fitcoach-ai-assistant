@@ -11,7 +11,7 @@ from streamlit.runtime.secrets import Secrets
 
 from src import chat, config, i18n, observability, usage
 from src.store import db
-from tests.fakes import TEST_LANGUAGE_PARTS
+from tests.fakes import TEST_COACH_PART, TEST_LANGUAGE_PARTS
 
 
 @pytest.fixture
@@ -94,7 +94,7 @@ def turn_codes_are_keys(monkeypatch, request):
 
 @pytest.fixture(autouse=True)
 def language_part_files(tmp_path_factory, monkeypatch):
-    """Point the answer's language parts at test files, so no test depends on the owner's text."""
+    """Point the answer's language and coach parts at test files, not the owner's text."""
     # A folder of their own: some tests check that their tmp_path stays empty.
     folder = tmp_path_factory.mktemp("language_parts")
     paths = {}
@@ -102,6 +102,9 @@ def language_part_files(tmp_path_factory, monkeypatch):
         paths[lang] = folder / f"answer_language_{lang}.md"
         paths[lang].write_text(text, encoding="utf-8")
     monkeypatch.setattr(config, "ANSWER_LANGUAGE_PROMPT_PATHS", paths)
+    coach_part = folder / "answer_coach.md"
+    coach_part.write_text(TEST_COACH_PART, encoding="utf-8")
+    monkeypatch.setattr(config, "ANSWER_COACH_PROMPT_PATH", coach_part)
     return paths
 
 

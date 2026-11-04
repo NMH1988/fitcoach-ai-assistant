@@ -296,7 +296,7 @@ def test_ending_the_relationship_blocks_the_next_read(store_conn, relationships,
 
 
 def test_preferences_are_never_shared_with_a_coach(store_conn, relationships):
-    """Even with every scope on, a coach cannot read a client's preferences."""
+    """Even with every scope on, a coach cannot read preferences of a client (scope None)."""
     with pytest.raises(access.NotFound):
         records.list_preferences(store_conn, world.COACH_A, world.SHARED)
 

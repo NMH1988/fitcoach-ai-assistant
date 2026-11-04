@@ -1,14 +1,30 @@
-"""The Ask tab: the chat history, the input and one chat turn with its progress (core 5)."""
+"""The Ask tab: the chat history, the input and one chat turn with its progress (core 5).
+
+In a coach's chat (T9.7) a turn may end with a proposed preference: the conversation is paused
+(`Conversation.pending()`), and a card under the answer offers Save, Edit and Discard with a note
+that a preference must not hold a client's personal or health data. The chat input is locked
+until the coach answers (the page reruns after the turn, so at once); the answer resumes the
+conversation (`Conversation.decide()`), which checks the text again and writes it to the store
+only on Save, and a fixed line in the chat says what happened. The card is read from the
+conversation on every run, so it survives a rerun, and "New chat" discards it with the thread.
+"""
 
 import streamlit as st
 
+from src import account as accounts
+
 # src.chat is imported as `turns`: this module is views.chat, and the name `chat` would hide it.
 from src import chat as turns
-from src import config, guard, usage
-from views import resources, sources, tool_results, usage_view
+from src import config, guard, preferences, usage
+from src.store.access import NotFound
+from views import account, resources, sources, tool_results, usage_view
 from views.text import lang, t
 
 ASSISTANT_AVATAR = ":material/nutrition:"
+# The proposal card's session keys (T9.7): Edit is open, the edited text, why an edit was refused.
+EDITING_KEY = "memory_editing"
+EDIT_TEXT_KEY = "memory_edit_text"
+EDIT_REFUSED_KEY = "memory_edit_refused"
 
 
 def status_label(result: turns.TurnResult) -> str:
@@ -60,6 +76,9 @@ def show_result(result: turns.TurnResult, turn: int) -> None:
         st.info(fixed_text(result), icon=":material/health_and_safety:")
     elif result.kind == "error":
         st.error(fixed_text(result), icon=":material/error:")
+    elif result.kind == "memory":
+        # A coach's turn that only proposed a preference, or said why it could not (T9.7).
+        st.info(fixed_text(result), icon=":material/bookmark:")
     else:
         # Model output as Markdown, never with unsafe_allow_html (docs/SECURITY.md).
         st.markdown(fixed_text(result))
@@ -73,8 +92,22 @@ def show_result(result: turns.TurnResult, turn: int) -> None:
             tool_results.show_tool_runs(result.tool_runs, turn)
 
 
+def show_note(code: str) -> None:
+    """Show the fixed line that follows the coach's answer to a proposal, in the language now."""
+    if code == "memory.saved":
+        st.success(t(code), icon=":material/bookmark_added:")
+    elif code == "memory.failed":
+        st.error(t(code), icon=":material/error:")
+    else:
+        st.info(t(code), icon=":material/bookmark_remove:")
+
+
 def show_message(message: dict, turn: int) -> None:
     """Show one message of the chat history; `turn` is its place, for unique widget keys."""
+    if message["role"] == "note":
+        with st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
+            show_note(message["code"])
+        return
     if message["role"] == "user":
         with st.chat_message("user"):
             # Plain text: the user's own words are shown as typed, not read as Markdown.
@@ -84,6 +117,143 @@ def show_message(message: dict, turn: int) -> None:
         show_steps(message["result"])
         show_result(message["result"], turn)
         usage_view.caption(message.get("usage"))
+
+
+def coach_id() -> str | None:
+    """Return the session's user ID if they are a coach (the only role with long-term memory)."""
+    user = account.current_user()
+    return user["id"] if user is not None and user["role"] == "coach" else None
+
+
+def coach_memory() -> preferences.CoachMemory | None:
+    """Read a coach's client names and saved preferences for one turn; None for anyone else."""
+    user_id = coach_id()
+    if user_id is None:
+        return None
+    try:
+        with accounts.open_store(account.store_path()) as conn:
+            return preferences.load(conn, user_id)
+    except accounts.StoreUnavailable, NotFound:
+        # The turn runs without the tool and <memories>; nothing is proposed without the names.
+        return None
+
+
+def _save(text: str) -> preferences.PreferenceCheck:
+    """Check a preference against the coach's clients again and save it for the coach."""
+    user_id = coach_id()
+    if user_id is None:
+        raise NotFound
+    with accounts.open_store(account.store_path()) as conn:
+        return preferences.save(conn, user_id, text)
+
+
+def _note(code: str) -> None:
+    """Add the fixed line about the coach's answer to the chat history."""
+    st.session_state["messages"].append({"role": "note", "code": code})
+
+
+def _open_edit() -> None:
+    """Open the card's Edit field."""
+    st.session_state[EDITING_KEY] = True
+
+
+def _close_edit() -> None:
+    """Close the card's Edit field and forget its text and refusal."""
+    for key in (EDITING_KEY, EDIT_TEXT_KEY, EDIT_REFUSED_KEY):
+        st.session_state.pop(key, None)
+
+
+def decide(choice: str, text: str | None) -> None:
+    """Resume the conversation with the coach's answer and add the line that says what happened."""
+    _close_edit()
+    try:
+        outcome = st.session_state["conversation"].decide(choice, text, _save)
+    except accounts.StoreUnavailable, NotFound:
+        # The proposal is answered and nothing was written (the store is down, or the account
+        # was deleted in another tab).
+        _note("memory.failed")
+        return
+    if outcome is not None:
+        _note(f"memory.{outcome}")
+
+
+def save_proposal(text: str) -> None:
+    """Save the proposed text as it was shown."""
+    decide("save", text)
+
+
+def save_edited() -> None:
+    """Check the edited text before resuming; a refused edit keeps the card with the reason."""
+    text = st.session_state.get(EDIT_TEXT_KEY)
+    memory = coach_memory()
+    names = memory.client_names if memory is not None else ()
+    checked = preferences.check_preference(text, names)
+    if not checked.allowed:
+        st.session_state[EDIT_REFUSED_KEY] = checked.code
+        return
+    # Checked again at the save, against the names read then (src/agent/memory.py).
+    decide("save", checked.text)
+
+
+def discard_proposal() -> None:
+    """Discard the proposal: nothing is written."""
+    decide("discard", None)
+
+
+def proposal_card(text: str) -> None:
+    """Show the proposed preference with Save, Edit and Discard and the note on what it may hold."""
+    with st.container(border=True, key="memory_card"):
+        # The text is the model's: shown as written, never read as Markdown (docs/SECURITY.md).
+        st.markdown(t("memory.remember", text=turns.escape_markdown(text)))
+        st.caption(t("memory.note"))
+        if st.session_state.get(EDITING_KEY):
+            st.text_area(
+                t("memory.edit_label"),
+                value=text,
+                max_chars=config.PREFERENCE_MAX_CHARS,
+                key=EDIT_TEXT_KEY,
+            )
+            refused = st.session_state.get(EDIT_REFUSED_KEY)
+            if refused is not None:
+                st.warning(t(f"memory.refused.{refused}"), icon=":material/block:")
+            save, cancel = st.columns(2)
+            save.button(
+                t("memory.save_edited"),
+                key="memory_save_edited",
+                icon=":material/bookmark_added:",
+                type="primary",
+                on_click=save_edited,
+            )
+            cancel.button(t("memory.cancel_edit"), key="memory_cancel_edit", on_click=_close_edit)
+            return
+        save, edit, discard = st.columns(3)
+        save.button(
+            t("memory.save"),
+            key="memory_save",
+            icon=":material/bookmark_added:",
+            type="primary",
+            on_click=save_proposal,
+            args=(text,),
+        )
+        edit.button(
+            t("memory.edit"),
+            key="memory_edit",
+            icon=":material/edit:",
+            on_click=_open_edit,
+        )
+        discard.button(
+            t("memory.discard"),
+            key="memory_discard",
+            icon=":material/bookmark_remove:",
+            on_click=discard_proposal,
+        )
+
+
+def pending_proposal() -> str | None:
+    """Return the proposal waiting for the session's coach, or None."""
+    if coach_id() is None:
+        return None
+    return st.session_state["conversation"].pending()
 
 
 def run_turn(question: str, turn: int) -> None:
@@ -130,6 +300,8 @@ def run_turn(question: str, turn: int) -> None:
         prices=usage.PRICES.peek,
         # The session's own memory: the turn sees this chat's earlier questions and answers (T9.4).
         conversation=st.session_state["conversation"],
+        # A coach's client names and saved preferences (T9.7); None for a guest.
+        coach=coach_memory(),
     )
     if result.index_not_ready:
         # Open the index again on the next turn, e.g. once the owner has rebuilt it.
@@ -158,6 +330,8 @@ def new_chat() -> None:
     # kept, so a new chat is no way around it.
     st.session_state["conversation"].new_chat()
     st.session_state["messages"].clear()
+    # A pending proposal went with the thread (T9.7), and its Edit field goes with it.
+    _close_edit()
 
 
 def tab() -> None:
@@ -172,7 +346,13 @@ def tab() -> None:
             invitation.caption(t("ask.invitation"))
         for turn, message in enumerate(history):
             show_message(message, turn)
-    question = st.chat_input(t("ask.placeholder"), key="chat_input")
+    pending = pending_proposal()
+    if pending is not None:
+        # Locked until the coach answers the proposal (T9.7). Streamlit ignores what a disabled
+        # widget sends, so no question reaches a paused conversation from here (should one come
+        # all the same, Conversation.run() discards the proposal first).
+        st.caption(t("memory.locked"))
+    question = st.chat_input(t("ask.placeholder"), key="chat_input", disabled=pending is not None)
     if question:
         invitation.empty()
         history.append({"role": "user", "text": question})
@@ -180,6 +360,14 @@ def tab() -> None:
             show_message(history[-1], len(history) - 1)
             with st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
                 run_turn(question, len(history))
+        if pending_proposal() is not None:
+            # Drawn again at once, so the chat input is locked while the card waits (the turn's
+            # result and its cost are in the history already, and the input was drawn before it).
+            st.rerun()
+    if pending is not None:
+        # Under the last message: the answer of the turn that proposed it.
+        with box, st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
+            proposal_card(pending)
     button_slot.button(
         t("ask.new_chat"),
         key="new_chat",

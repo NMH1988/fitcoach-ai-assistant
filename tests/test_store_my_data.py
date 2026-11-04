@@ -132,7 +132,7 @@ def test_a_gymers_export_holds_all_their_rows_as_json(full_world):
     for table in ("profile_entries", "body_measurements", "nutrition_targets", "meal_items"):
         assert len(document[table]) == 1 and document[table][0]["user_id"] == world.SHARED
     assert len(document["workout_sessions"]) == 1 and len(document["exercise_sets"]) == 2
-    assert document["preferences"][0]["text"] == "vegetarian"
+    assert document["preferences"] == []  # only coaches keep preferences (T9.7)
     assert len(document["coach_clients"]) == 1 and len(document["consents"]) == 3
     assert [r["status"] for r in document["ai_reviews"]] == ["APPROVED"]
     assert document["ai_reviews"][0]["final"] == {"observations": ["x"]}
@@ -229,7 +229,7 @@ def test_deleted_values_are_gone_from_the_files_bytes(tmp_path):
     path = tmp_path / "s.sqlite3"
     with db.connect(path) as conn:
         world.build(conn)
-        records.add_preference(conn, world.SHARED, "CANARY-PREF-DELETED")
+        records.add_preference(conn, world.COACH_A, "CANARY-PREF-DELETED")
         records.add_meal_item(
             conn,
             world.SHARED,
@@ -247,8 +247,9 @@ def test_deleted_values_are_gone_from_the_files_bytes(tmp_path):
         before = path.read_bytes()  # the checks below can fail
         assert b"CANARY-FOOD-DELETED" in before and b"CANARY-PREF-DELETED" in before
         my_data.delete_user_data(conn, world.SHARED)
+        my_data.delete_user_data(conn, world.COACH_A)
         # Other users' rows are still there, so the pages were reused, not dropped.
-        assert records.list_preferences(conn, world.OTHERS, world.OTHERS)
+        assert records.list_preferences(conn, world.COACH_B, world.COACH_B)
     data = path.read_bytes()
     assert b"CANARY-PREF-DELETED" not in data and b"CANARY-FOOD-DELETED" not in data
     assert not (tmp_path / "s.sqlite3-journal").exists()
@@ -262,3 +263,19 @@ def test_a_table_the_delete_forgets_makes_it_fail_and_change_nothing(full_world)
     with pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY"):
         my_data.delete_user_data(full_world, world.SHARED)
     assert _all_rows(full_world) == before
+
+
+def test_a_coachs_export_holds_their_preferences_and_delete_removes_them(store_conn):
+    """A coach's preferences are in their export and gone after "delete everything" (AC-34)."""
+    world.build(store_conn)
+    records.add_preference(store_conn, world.COACH_A, "most of my clients are vegetarian")
+    document = json.loads(my_data.export_user_data(store_conn, world.COACH_A))
+    assert [row["text"] for row in document["preferences"]] == [
+        world.PREFERENCE,
+        "most of my clients are vegetarian",
+    ]
+    assert {row["user_id"] for row in document["preferences"]} == {world.COACH_A}
+    my_data.delete_user_data(store_conn, world.COACH_A)
+    count = "SELECT count(*) FROM preferences WHERE user_id = ?"
+    assert store_conn.execute(count, (world.COACH_A,)).fetchone()[0] == 0
+    assert records.list_preferences(store_conn, world.COACH_B, world.COACH_B)

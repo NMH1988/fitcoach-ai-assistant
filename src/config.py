@@ -363,6 +363,10 @@ ANSWER_LANGUAGE_PROMPT_PATHS = {
     "en": PROJECT_ROOT / "src" / "prompts" / "answer_language_en.md",
     "de": PROJECT_ROOT / "src" / "prompts" / "answer_language_de.md",
 }
+# The coach's part of the answer prompt (T9.7), written by the owner (O8): when to propose saving a
+# preference and how to use <memories>. Joined after the language part in a coach's chat only, so a
+# guest's prompt never names the tool.
+ANSWER_COACH_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "answer_coach.md"
 
 # Query translation (T3.2; docs/ARCHITECTURE.md section 5): one QUERY_TRANSLATION_MODEL call
 # rewrites the question and picks optional filters. Its system prompt is written by the owner (O7).
@@ -436,6 +440,10 @@ LANGUAGE_PROMPT_MISSING_MESSAGE = (
     "The answer language prompt (`src/prompts/answer_language_en.md` or `answer_language_de.md`) "
     "is missing or empty, so no answer can be written. Restore the file and ask again."
 )
+COACH_PROMPT_MISSING_MESSAGE = (
+    "The coach's part of the answer prompt (`src/prompts/answer_coach.md`) is missing or "
+    "empty, so no answer can be written. Restore the file and ask again."
+)
 # Shown in the answer for any other error in a chat turn (a bug, an unexpected library error);
 # never the error's own text (T1.8, AC-13).
 TURN_ERROR_MESSAGE = "Something went wrong while answering your question. Please try again."
@@ -452,6 +460,8 @@ STATUS_LABELS: dict[str, str] = {
     "rejected": "Question not accepted",
     "guardrail": "Not something this assistant can advise on",
     "error": "Something went wrong",
+    # A coach's turn that only proposed a preference, or said why it could not (T9.7).
+    "memory": "About remembering a preference",
 }
 # How a source card (and the summary PDF) names a correction notice linked to a cited article.
 CORRECTION_LABELS: dict[str, str] = {
@@ -673,6 +683,40 @@ TOO_MANY_MEAL_PLANS_MESSAGE = (
     f"Not run: at most {MAX_MEAL_PLAN_CALLS_PER_ROUND} meal plan check is run from one reply."
 )
 TOOL_FAILED_MESSAGE = "Not available: the tool could not run, so there is no result."
+# The coach's long-term memory (T9.7, D12): `remember_preference`, offered only in a coach's chat,
+# proposes one of the coach's own working preferences; it is saved only when the coach approves it
+# on the card. The longest text a preference may have, the most proposals per turn, and how many
+# of the newest saved preferences reach the model (in <memories>, before the question).
+PREFERENCE_MAX_CHARS = 200
+MAX_PREFERENCE_PROPOSALS_PER_TURN = 1
+MEMORY_PREFERENCES_IN_PROMPT = 20
+# Kept in the conversation's state in place of a proposal once the coach has answered it.
+ANSWERED_PROPOSAL = "[answered]"
+PREFERENCE_PROPOSED_MESSAGE = (
+    "Proposed: the coach sees this preference on a card below the answer and decides there "
+    "whether to save it. It is not saved yet."
+)
+# Why a proposal was not made, by the code `src/preferences.py` gives; none repeats the text.
+PREFERENCE_REFUSED_MESSAGES: dict[str, str] = {
+    "invalid": (
+        f"Invalid call: the text must be one text of 1 to {PREFERENCE_MAX_CHARS} characters."
+    ),
+    "injection": (
+        "Not proposed: the text looks like an instruction to the assistant, so it cannot be saved."
+    ),
+    "guardrail": (
+        "Not proposed: the text is about a medical topic (a condition, pregnancy or medication) "
+        "or another topic the app refers to a professional, so it cannot be saved."
+    ),
+    "client_name": (
+        "Not proposed: the text names one of the coach's clients, and a preference must not hold "
+        "a client's personal data."
+    ),
+    "one_per_turn": (
+        f"Not proposed: at most {MAX_PREFERENCE_PROPOSALS_PER_TURN} preference is proposed per "
+        "turn."
+    ),
+}
 # Shown in the Tool results when an energy tool had no profile, above the "Add your details" button.
 PROFILE_NEEDED_HINT = "This calculation needs your details. Add them, then ask again."
 # Height of the macro chart in "Tool results", its axis and legend included: at 140 px the bar was a
