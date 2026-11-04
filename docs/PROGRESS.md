@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-04 · T9.26 Capstone plan: the gymer's own preferences shared with the coach, and gymer-drafted meal plans · PR not opened yet (closes NMH1988/fitcoach-ai-assistant#67)
+## 2026-11-04 · T9.26 Capstone plan: the gymer's own preferences shared with the coach, and gymer-drafted meal plans · NMH1988/fitcoach-ai-assistant#68 (closes NMH1988/fitcoach-ai-assistant#67)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): evaluation: reflection (suggestions for improving the project), in part; Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request): the Capstone design itself.
 - **What:** docs only. `docs/PRD.md`: three bullets after "Moved to the Capstone" (per-client memory owned by the gymer and shared through an opt-in `preferences` scope; gymer-drafted meal plans the coach approves, edits or rejects; the consent, export and delete conditions before any real user); the privacy section's "Preferences are never shared with a coach" points to them. `docs/IMPLEMENTATION_PLAN.md`: T9.26's row, section and the plan's status line.
 - **Why:** the owner asked whether long-term memory could remember per client ("this client is vegetarian", "that one likes to draft their own meal plans"). Sprint 3 keeps T9.7 as it is: a coach's note about a client would be a third person's, often health, data the client never approved. In the Capstone the gymer saves the preference and chooses to share it, which keeps the client's approval on every save; meal plans and the gymer's preferences were already Capstone items (T9.24), so this records how they fit together.
