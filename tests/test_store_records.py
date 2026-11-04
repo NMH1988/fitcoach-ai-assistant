@@ -1,4 +1,4 @@
-"""A gymer's records in the store (T9.6): written, read back, never changed in place, deleted."""
+"""A gymer's records and a coach's preferences in the store (T9.6, T9.7): written, read, deleted."""
 
 import sqlite3
 from datetime import date, timedelta
@@ -11,6 +11,9 @@ from tests import store_world as world
 
 GYMER = "gym-1"
 OTHER = "gym-2"
+COACH = "coach-1"
+# The kinds a gymer keeps; preferences are a coach's (T9.7), tested on their own below.
+GYMER_KINDS = tuple(kind for kind in records.RECORD_KINDS if kind != "preferences")
 DAY = date(2026, 10, 26)
 
 
@@ -50,8 +53,46 @@ def test_records_are_read_back_as_written(gymers):
         {"exercise_id": "squat", "set_no": 1, "reps": 5, "weight_kg": 100.0, "rpe": 8.0},
         {"exercise_id": "squat", "set_no": 2, "reps": 5, "weight_kg": 100.0, "rpe": None},
     ]
-    [preference] = records.list_preferences(gymers, GYMER, GYMER)
-    assert preference["text"] == "vegetarian"
+
+
+def test_a_coachs_preference_is_read_back_as_written(gymers):
+    """A coach's preference comes back with its text and the time it was saved (T9.7)."""
+    users.create_user(gymers, COACH, "coach", "Coach")
+    records.add_preference(gymers, COACH, world.PREFERENCE)
+    [preference] = records.list_preferences(gymers, COACH, COACH)
+    assert preference["text"] == world.PREFERENCE
+    assert preference["created_at"].endswith("+00:00")
+
+
+@pytest.mark.parametrize("owner", [GYMER, world.MISSING])
+def test_only_a_coach_keeps_preferences(gymers, owner):
+    """A gymer or a missing user gets NotFound for a preference, and nothing is written (T9.7)."""
+    users.create_user(gymers, COACH, "coach", "Coach")
+    with pytest.raises(access.NotFound):
+        records.add_preference(gymers, owner, world.PREFERENCE)
+    assert _count(gymers, "preferences") == 0
+    records.add_preference(gymers, COACH, world.PREFERENCE)  # the same call works for a coach
+
+
+def test_a_preference_longer_than_the_limit_is_refused(gymers):
+    """The store keeps a preference within config.PREFERENCE_MAX_CHARS (T9.7)."""
+    users.create_user(gymers, COACH, "coach", "Coach")
+    records.add_preference(gymers, COACH, "a" * config.PREFERENCE_MAX_CHARS)
+    with pytest.raises(values.StoreValueError, match="text"):
+        records.add_preference(gymers, COACH, "a" * (config.PREFERENCE_MAX_CHARS + 1))
+    assert _count(gymers, "preferences") == 1
+
+
+def test_a_coach_deletes_only_their_own_preference(gymers):
+    """Deleting another coach's preference is NotFound; the owner's delete removes it (T9.7)."""
+    users.create_user(gymers, COACH, "coach", "Coach")
+    users.create_user(gymers, "coach-2", "coach", "Coach Two")
+    preference_id = records.add_preference(gymers, COACH, world.PREFERENCE)
+    for record_id in (preference_id, 999, None, "1"):
+        with pytest.raises(access.NotFound):
+            records.delete_record(gymers, "coach-2", "preferences", record_id)
+    records.delete_record(gymers, COACH, "preferences", preference_id)
+    assert records.list_preferences(gymers, COACH, COACH) == []
 
 
 def test_a_user_sees_only_their_own_rows(gymers):
@@ -130,7 +171,7 @@ def test_the_record_functions_offer_no_update():
     assert not [name for name in names if name.startswith(("update", "edit", "set_", "change"))]
 
 
-@pytest.mark.parametrize("kind", records.RECORD_KINDS)
+@pytest.mark.parametrize("kind", GYMER_KINDS)
 def test_a_user_deletes_one_of_their_own_records(gymers, kind):
     """delete_record removes the one row (a workout with its sets) and nothing else."""
     world.add_records(gymers, GYMER)
@@ -151,7 +192,7 @@ def test_a_user_deletes_one_of_their_own_records(gymers, kind):
         assert _count(gymers, "exercise_sets") == 2  # the other gymer's two sets
 
 
-@pytest.mark.parametrize("kind", records.RECORD_KINDS)
+@pytest.mark.parametrize("kind", GYMER_KINDS)
 def test_deleting_someone_elses_or_a_missing_record_is_not_found(gymers, kind):
     """Another user's record, or an ID that does not exist, gives NotFound and deletes nothing."""
     world.add_records(gymers, OTHER)
@@ -294,7 +335,6 @@ ADDS = {
     "add_workout_session": lambda conn, owner: records.add_workout_session(
         conn, owner, performed_on=DAY, sets=[]
     ),
-    "add_preference": lambda conn, owner: records.add_preference(conn, owner, "vegetarian"),
     "add_profile_with_target": lambda conn, owner: records.add_profile_with_target(
         conn, owner, **PROFILE_WITH_TARGET
     ),
@@ -319,8 +359,8 @@ PROFILE_WITH_TARGET = {
 
 
 def test_every_add_function_is_in_the_gymer_only_test():
-    """ADDS lists every add_* function of records, so none escapes the test below."""
-    assert {name for name in dir(records) if name.startswith("add_")} == set(ADDS)
+    """ADDS lists every add_* function of records but the coach's add_preference (tested above)."""
+    assert {name for name in dir(records) if name.startswith("add_")} == {*ADDS, "add_preference"}
 
 
 @pytest.mark.parametrize("add", ADDS)

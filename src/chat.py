@@ -42,7 +42,7 @@ from langchain_core.messages.utils import count_tokens_approximately, trim_messa
 from langchain_core.runnables import Runnable
 from langchain_core.tools import StructuredTool
 
-from src import config, guard, i18n, llm, profile, usage
+from src import config, guard, i18n, llm, preferences, profile, usage
 from src.prompt_data import escape_prompt_data
 from src.rag import hybrid, query_translation
 from src.rag.hybrid import KeywordIndex
@@ -74,8 +74,9 @@ class Step(StrEnum):
 # answer: the model's answer; no_sources: no search found a relevant chunk and no tool gave a
 # result (BASIS_TOOL_STATUSES), so an answer would rest on nothing (AC-2); rejected: the guard
 # refused the input; guardrail: a domain guardrail refused or redirected it (AC-12); error: a
-# model, key or index problem.
-TurnKind = Literal["answer", "no_sources", "rejected", "guardrail", "error"]
+# model, key or index problem; memory: a coach's turn that proposed a preference (or had one
+# refused) and gave no answer with a basis, so a fixed line stands in for no_sources (T9.7).
+TurnKind = Literal["answer", "no_sources", "rejected", "guardrail", "error", "memory"]
 
 
 @dataclass(frozen=True)
@@ -222,10 +223,12 @@ def load_system_prompt(path: Path | None = None) -> str:
     return text
 
 
-def answer_system_prompt(prompt: str, language_part: str) -> str:
-    """Return the owner's answer prompt with the chosen language's part as its last section."""
-    # Both are the owner's fixed text (O1); the app's language control picks the part (T7.2).
-    return f"{prompt}\n\n{language_part}"
+def answer_system_prompt(prompt: str, language_part: str, coach_part: str | None = None) -> str:
+    """Return the owner's answer prompt, the chosen language's part, then a coach's part if any."""
+    # All are the owner's fixed text (O1, O8); the app's language control picks the part (T7.2),
+    # and only a coach's chat gets the part on remember_preference and <memories> (T9.7).
+    parts = [prompt, language_part, *([coach_part] if coach_part is not None else [])]
+    return "\n\n".join(parts)
 
 
 def search_queries(query: str, plan: QueryPlan | None) -> tuple[str, ...]:
@@ -349,13 +352,22 @@ def user_message(question: str) -> HumanMessage:
 
 
 def build_messages(
-    question: str, system_prompt: str, history: Sequence[BaseMessage] = ()
+    question: str,
+    system_prompt: str,
+    history: Sequence[BaseMessage] = (),
+    memories: Sequence[str] = (),
 ) -> list[BaseMessage]:
     """Return the system prompt, the conversation's earlier messages, then the question."""
     # The chunks come only in a search's tool message (T9.3); the profile is never sent: the tools
     # read it from the app (owner's choice in T9.3, 2026-10-29). history: the earlier questions and
-    # answers the model may see (T9.4, trim_history()).
-    return [SystemMessage(system_prompt), *history, user_message(question)]
+    # answers the model may see (T9.4, trim_history()). memories: a coach's saved preferences
+    # (T9.7), inside <memories> before the question in the user message, never in the system
+    # prompt; the conversation keeps the question alone (exchange_messages()).
+    question_message = user_message(question)
+    if memories:
+        block = preferences.memories_block(memories)
+        question_message = HumanMessage(f"{block}\n{question_message.text}")
+    return [SystemMessage(system_prompt), *history, question_message]
 
 
 def strip_citations(answer: str) -> str:
@@ -558,8 +570,17 @@ def fixed_text(result: TurnResult, lang: i18n.Language) -> str:
     # Shared by the chat and the summary PDF (T7.2), so the two cannot word a message differently.
     # An unknown key falls back to the English text rather than breaking every later run.
     if result.code is not None and result.code in i18n.TEXT[lang]:
+        if result.kind == "memory":
+            return memory_text(result.code, lang)
         return i18n.t(result.code, lang, **result.params)
     return result.text
+
+
+def memory_text(code: str, lang: i18n.Language) -> str:
+    """Return a coach's memory line with the reminder to ask anything else again on its own."""
+    # The turn had no basis, so a question asked beside the preference went unanswered (owner's
+    # choice after T9.7's code review round 2). The card reuses the line without the reminder.
+    return f"{i18n.t(code, lang)} {i18n.t('memory.ask_again', lang)}"
 
 
 def _cost_text(
@@ -638,6 +659,7 @@ def run_turn(
     language: i18n.Language = "en",
     prices: Callable[[], Mapping[str, ModelPrice] | None] | None = None,
     conversation: Conversation | None = None,
+    coach: preferences.CoachMemory | None = None,
 ) -> TurnResult:
     """Run one chat turn: guard, agent, tools; never raise for an error a user can cause."""
     # on_step(step) is called as each step starts; on_text(text) as the answer streams in. `user`
@@ -652,6 +674,8 @@ def run_turn(
     # line uses them, and the cost is null when there are none.
     # conversation is the session's memory (T9.4): the turn sees its earlier questions and answers
     # and, when answered, is kept in it. None: the turn stands alone (the evaluation run).
+    # coach is a coach's chat (T9.7): their client names and saved preferences, read from the
+    # store before the turn; it offers remember_preference and <memories>. None for a guest.
     if language not in config.ANSWER_LANGUAGE_PROMPT_PATHS:
         raise ValueError(f"Unknown answer language: {language!r}")
     turn_id = str(uuid.uuid4())
@@ -696,6 +720,7 @@ def run_turn(
             on_chunks=keep_chunks,
             search_log=search_log,
             turn_id=turn_id,
+            coach=coach,
         )
 
         def turn_graph(history: list[BaseMessage]) -> Mapping[str, Any]:
@@ -706,7 +731,7 @@ def run_turn(
 
         if conversation is None:
             return turn_graph([])["result"]
-        return conversation.run(turn_graph)
+        return conversation.run(turn_graph, turn_id)
 
     def failed(message: str, code: str, *, index_not_ready: bool = False) -> TurnResult:
         """Return an error result with the steps run and the tokens spent before the error."""

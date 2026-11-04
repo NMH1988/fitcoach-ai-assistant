@@ -11,7 +11,10 @@ needs no research passage (the Sprint 2 review, point 3).
 Its replies stay hidden until the answer has a basis: a search found a relevant chunk or a tool
 gave a result (`config.BASIS_TOOL_STATUSES`). A reply with no tool call before that, or a round
 whose searches found nothing with no tool result, ends the turn with the "not covered" message and
-no further model call (AC-2; owner's choice in T9.3, 2026-10-29).
+no further model call (AC-2; owner's choice in T9.3, 2026-10-29). In a coach's chat (T9.7) a
+`remember_preference` call is no basis either; a turn that proposed (or was refused) and then
+gave no answer with a basis ends with a fixed line about the proposal (kind `memory`) instead,
+unless its searches found nothing.
 
 The caller passes the text and the conversation's earlier messages (T9.4), and gets back only the
 `TurnResult` and the question the guard accepted: the messages and the tool runs are private state.
@@ -28,7 +31,7 @@ and mapped to a fixed message by `chat.run_turn()`.
 import logging
 import operator
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cache, partial
 from pathlib import Path
 from typing import Annotated, Any, NotRequired, TypedDict
@@ -47,7 +50,7 @@ from langgraph.prebuilt.tool_node import ToolCallRequest
 from langgraph.runtime import Runtime
 from langgraph.types import Command
 
-from src import chat, config, guard, i18n, llm, usage
+from src import chat, config, guard, i18n, llm, preferences, usage
 from src.agent import search
 from src.agent.search import SearchLog
 from src.chat import Step, TurnResult
@@ -83,6 +86,9 @@ class TurnOutput(TypedDict):
     result: TurnResult
     # Only when the guard accepted the text: the conversation keeps it with the answer (T9.4).
     question: NotRequired[str]
+    # A coach's preference that passed the checks (T9.7): the conversation graph pauses for the
+    # coach's answer once the turn is over. Never written by the turn.
+    proposal: NotRequired[str]
 
 
 class LoopInput(TypedDict):
@@ -138,6 +144,10 @@ class TurnContext:
     # is then not offered the search tool.
     search_log: SearchLog | None = None
     turn_id: str = ""
+    # A coach's chat (T9.7): the client names the proposals are checked against, and the saved
+    # preferences for <memories>. None for a guest, who is not offered remember_preference.
+    coach: preferences.CoachMemory | None = None
+    proposals: preferences.Proposals = field(default_factory=preferences.Proposals)
 
 
 def run_config() -> RunnableConfig:
@@ -174,6 +184,8 @@ def _tools(context: TurnContext) -> list[StructuredTool]:
     tools = list(context.tools().values())
     if context.search_log is not None:
         tools.append(search.search_tool_definition())
+    if context.coach is not None:
+        tools.append(preferences.tool_definition())
     return tools
 
 
@@ -222,6 +234,14 @@ def prepare(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
         config.LANGUAGE_PROMPT_MISSING_MESSAGE,
         "prompt.language_missing",
     )
+    coach_part = None
+    if context.coach is not None:
+        # Only a coach's chat names remember_preference and <memories> (T9.7, O8).
+        coach_part = load_prompt(
+            config.ANSWER_COACH_PROMPT_PATH,
+            config.COACH_PROMPT_MISSING_MESSAGE,
+            "prompt.coach_missing",
+        )
     # The index is opened first: a missing index is reported even when the key is missing. All
     # three are opened before the first model call, as before T9.3, so a turn that would search
     # meets a missing index or key before it spends anything.
@@ -229,14 +249,15 @@ def prepare(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
     context.translation_model()
     context.chat_model()
     context.on_step(Step.PLAN)
-    system = chat.answer_system_prompt(system_prompt, language_part)
+    system = chat.answer_system_prompt(system_prompt, language_part, coach_part)
+    memories = context.coach.preferences if context.coach is not None else ()
     return {
         "system_prompt": system,
         "translation_prompt": translation_prompt,
         # The conversation's latest questions and answers (T9.4), then the user's own question; the
         # chunks come in a search's tool message (T9.3).
         "messages": chat.build_messages(
-            state["question"], system, chat.trim_history(state.get("history") or [])
+            state["question"], system, chat.trim_history(state.get("history") or []), memories
         ),
         "tools_only": True,
     }
@@ -324,6 +345,11 @@ def run_checked_call(request: ToolCallRequest, execute: Callable[..., Any]) -> C
     elif call["name"] == search.SEARCH_TOOL and context.search_log is not None:
         # A search that runs is no tool run: it goes into the turn's SearchLog (T9.3).
         message, run = search.run_search(context, call, request.state["translation_prompt"])
+    elif call["name"] == preferences.PREFERENCE_TOOL and context.coach is not None:
+        # A proposal is no tool run either: it waits for the coach's answer (T9.7). For a guest the
+        # name is unknown, as the tool is not theirs (registry.run_tool_call() refuses it).
+        message = preferences.propose(context.coach, context.proposals, call, context.turn_id)
+        run = None
     else:
         message, run = registry.run_tool_call(context.tools(), call)
     if run is None:
@@ -339,7 +365,11 @@ def tool_node() -> ToolNode:
     # The tools it is built with give it the names and schemas; the turn's own tools (bound to
     # its profile) come from the context. handle_tool_errors=False: an error of ours is raised
     # to the turn's catch-all (T1.8), never written to the model.
-    definitions = [*registry.build_tools(None).values(), search.search_tool_definition()]
+    definitions = [
+        *registry.build_tools(None).values(),
+        search.search_tool_definition(),
+        preferences.tool_definition(),
+    ]
     return ToolNode(definitions, wrap_tool_call=run_checked_call, handle_tool_errors=False)
 
 
@@ -373,11 +403,23 @@ def end_round(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]
 
 
 def finish(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
-    """Build the turn's result: the answer with its cited sources, or "not covered"."""
+    """Build the turn's result: the answer with its sources, the memory line or "not covered"."""
     answer = state.get("answer")
     log = runtime.context.search_log or SearchLog()
     searches = tuple(log.searches)
     runs = tuple(state.get("runs", []))
+    proposals = runtime.context.proposals
+    # The proposal waits for the coach after the turn, whatever the turn's answer (T9.7).
+    pending = {"proposal": proposals.texts[0]} if proposals.texts else {}
+    if answer is None and (proposals.texts or proposals.refused) and not state.get("stopped"):
+        # The model was asked again after the proposal (owner's choice, 2026-11-03) and gave no
+        # answer with a basis: "keep answers short" asked for nothing else, so a fixed line about
+        # the proposal (or why none was made) stands in for "not covered" (AC-2 still holds).
+        code = "memory.proposed" if proposals.texts else f"memory.refused.{proposals.refused[0]}"
+        result = TurnResult(
+            "memory", chat.memory_text(code, "en"), searches=searches, tool_runs=runs, code=code
+        )
+        return {"result": result, **pending}
     if answer is None:
         # The tool runs stay with "not covered", so a tool that failed or a call that was refused
         # shows in Tool results rather than being hidden behind it (owner's choice, 2026-10-29).
@@ -388,7 +430,7 @@ def finish(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
             tool_runs=runs,
             code="answer.no_sources",
         )
-        return {"result": result}
+        return {"result": result, **pending}
     manifest = runtime.context.manifest or {}
     cards = chat.source_cards(log.chunks, chat.cited_labels(answer, len(log.chunks)), manifest)
     result = TurnResult(
@@ -398,7 +440,7 @@ def finish(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
         searches=searches,
         tool_runs=runs,
     )
-    return {"result": result}
+    return {"result": result, **pending}
 
 
 # --- Edges -----------------------------------------------------------------------------------

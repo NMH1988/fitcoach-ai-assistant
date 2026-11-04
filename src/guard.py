@@ -360,7 +360,9 @@ _DE_FOLDED_PATTERNS = [
 # and "more than" around a word ("(<sources say 25%) and > 1200 kcal") pass. A role line may follow
 # Markdown heading, quote, bold or italic markers (**System:**, > System:, __Assistant__:).
 _RAW_PATTERNS = [
-    r"<\s*(?:/\s*)?(?:system|user[\s_-]*input|sources?|assistant|user|developer|instructions?)"
+    r"<\s*(?:/\s*)?(?:system|user[\s_-]*input|sources?|assistant|user|developer|instructions?"
+    # The coach's saved preferences come inside <memories> (T9.7).
+    r"|memor(?:y|ies))"
     r"(?:\s+[\w:-]{1,40}\s*=\s*(?:\"[^\"<>\n]{0,100}\"|'[^'<>\n]{0,100}'|[^\s\"'<>]{1,100})){0,5}"
     r"\s*(?:/\s*)?>",
     r"<\|[a-z_]+\|>",
@@ -525,15 +527,15 @@ def _first_concern(views: set[str]) -> guardrails.Concern | None:
     return next((concern for concern in guardrails.Concern if concern in found), None)
 
 
-def check_message(text: str, limiter: RateLimiter) -> GuardResult:
-    """Clean `text` and run every check; only an accepted message counts against `limiter`."""
+def check_text(text: str, max_chars: int = config.MAX_INPUT_CHARS) -> GuardResult:
+    """Clean `text` and run every check but the rate limit (a proposed preference, T9.7)."""
     if len(text) > config.MAX_RAW_INPUT_CHARS:
         return _reject(Rejection.TOO_LONG, TOO_LONG_MESSAGE)
     # The model gets NFC text, so "10\u00b3 kcal" stays as typed; NFKC is only for detection.
     cleaned = clean_input(text)
     if not cleaned:
         return _reject(Rejection.EMPTY, EMPTY_MESSAGE)
-    if len(cleaned) > config.MAX_INPUT_CHARS:
+    if len(cleaned) > max_chars:
         return _reject(Rejection.TOO_LONG, TOO_LONG_MESSAGE)
     views = detection_views(text)
     if any(looks_like_injection(view) for view in views):
@@ -546,10 +548,18 @@ def check_message(text: str, limiter: RateLimiter) -> GuardResult:
             message=guardrails.MESSAGES[concern],
             concern=concern,
         )
+    return GuardResult(allowed=True, text=cleaned)
+
+
+def check_message(text: str, limiter: RateLimiter) -> GuardResult:
+    """Clean `text` and run every check; only an accepted message counts against `limiter`."""
+    decision = check_text(text)
+    if not decision.allowed:
+        return decision
     rejection = limiter.try_acquire()
     if rejection is not None:
         return rejection
-    return GuardResult(allowed=True, text=cleaned)
+    return decision
 
 
 def run_guarded[T](
