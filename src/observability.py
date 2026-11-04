@@ -36,6 +36,11 @@ EVENTS = frozenset(
         "store_unavailable",
         # A gymer's invitation code was refused (T9.12); its only field is the reason.
         "invite_refused",
+        # The coach's long-term memory (T9.7): a preference proposed, refused (the reason's code
+        # only) or answered on the card (the choice's outcome code only); never the text.
+        "preference_proposed",
+        "preference_refused",
+        "preference_decided",
         LOG_FAILED_EVENT,
     }
 )

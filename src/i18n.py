@@ -105,6 +105,7 @@ _EN: dict[str, str] = {
     "status.rejected": "Question not accepted",
     "status.guardrail": "Not something this assistant can advise on",
     "status.error": "Something went wrong",
+    "status.memory": "About remembering a preference",
     # The profile form and the sidebar.
     "profile.dialog_title": "Your details",
     "profile.form_hint": config.PROFILE_FORM_HINT,
@@ -349,6 +350,46 @@ _EN: dict[str, str] = {
         "Start a new conversation. The assistant forgets this one, and the summary and the session "
         "cost start again."
     ),
+    # The coach's long-term memory (T9.7): the proposal card under the answer, and what follows.
+    "memory.remember": "Remember: “{text}”?",
+    "memory.note": (
+        "A preference is about how you work: it is stored for your account and goes to the AI "
+        "model, through OpenRouter, with each question, so your chats follow it. It must not hold "
+        "a client's personal or health data: no names, ages, weights or conditions."
+    ),
+    "memory.save": "Save",
+    "memory.edit": "Edit",
+    "memory.discard": "Discard",
+    "memory.edit_label": "Preference",
+    "memory.save_edited": "Save edited",
+    "memory.cancel_edit": "Cancel",
+    "memory.locked": "Save, edit or discard the proposed preference first.",
+    "memory.proposed": "I proposed a preference to remember; you decide whether it is saved.",
+    "memory.ask_again": (
+        "If you also asked something else, I found no source to answer it from: ask it again on "
+        "its own."
+    ),
+    "memory.saved": "Saved. Your chats follow this preference; see or delete it in My data.",
+    "memory.discarded": "Not saved: the preference was discarded.",
+    "memory.failed": (
+        "The preference could not be saved, as the data store is not available right now."
+    ),
+    "memory.refused.invalid": (
+        "This cannot be saved as a preference: it must be one short text of at most "
+        f"{config.PREFERENCE_MAX_CHARS} characters."
+    ),
+    "memory.refused.injection": (
+        "This cannot be saved as a preference: it reads like an instruction to the assistant."
+    ),
+    "memory.refused.guardrail": (
+        "This cannot be saved as a preference: it is about a medical topic, such as a condition, "
+        "pregnancy or medication. A preference holds how you work, never a client's health data."
+    ),
+    "memory.refused.client_name": (
+        "This cannot be saved as a preference: it names one of your clients. A preference holds "
+        "how you work, never a client's personal data."
+    ),
+    "memory.refused.one_per_turn": "Only one preference can be proposed at a time.",
     # What the answers are based on, and the credits (the sidebar button's dialog).
     "about.title": "About the answers",
     "about.articles": (
@@ -499,6 +540,7 @@ _EN: dict[str, str] = {
     "prompt.answer_missing": config.PROMPT_MISSING_MESSAGE,
     "prompt.query_missing": config.QUERY_PROMPT_MISSING_MESSAGE,
     "prompt.language_missing": config.LANGUAGE_PROMPT_MISSING_MESSAGE,
+    "prompt.coach_missing": config.COACH_PROMPT_MISSING_MESSAGE,
     "key.missing": config.MISSING_KEY_MESSAGE,
     "key.secrets_file": config.SECRETS_FILE_MESSAGE,
     "turn.error": config.TURN_ERROR_MESSAGE,
@@ -594,9 +636,11 @@ _EN: dict[str, str] = {
     "profile.note_coach": (
         "Kept for this session only: a coach's details are not stored, but they go to the AI "
         "model, through OpenRouter, when a question needs them. Your account (an ID, your role and "
-        "display name) is stored in this app's data file on this computer. Chats are never stored, "
-        "but this chat's earlier questions and answers go to the AI model with each new question. "
-        "Use made-up data only: do not enter real health data."
+        "display name) and the working preferences you save in the chat are stored in this app's "
+        "data file on this computer; your newest preferences go to the AI model, through "
+        "OpenRouter, with each question. Chats are never stored, but this chat's earlier "
+        "questions and answers go to the AI model with each new question. Use made-up data only: "
+        "do not enter real health data."
     ),
     "profile.my_data_link": "See, export or delete it in My data",
     "profile.saved_on_save": "Saved to your account when you press Save (My data lists it).",
@@ -615,9 +659,9 @@ _EN: dict[str, str] = {
         "relationships, sharing choices and your coach's reads of your data are in the export."
     ),
     "my_data.intro_coach": (
-        "Everything the app stores about you: your account, and your clients and their reviews "
-        "once you have some (they are in the export). A coach keeps no records of their own, and "
-        "nothing of your chats is stored."
+        "Everything the app stores about you: your account, the working preferences you saved in "
+        "the chat, and your clients and their reviews once you have some (they are in the export). "
+        "Nothing else of your chats is stored."
     ),
     "my_data.account": "**Account:** {name} · {role} · created {created}",
     "my_data.count": "{count} stored",
@@ -1015,6 +1059,7 @@ _DE: dict[str, str] = {
     "status.rejected": "Frage nicht angenommen",
     "status.guardrail": "Dazu kann dieser Assistent nicht beraten",
     "status.error": "Etwas ist schiefgelaufen",
+    "status.memory": "Zum Merken einer Vorliebe",
     "profile.dialog_title": "Ihre Angaben",
     "profile.form_hint": (
         "Geben Sie Ihre Werte ein und klicken Sie dann auf Speichern. Die Werte werden beim "
@@ -1274,6 +1319,55 @@ _DE: dict[str, str] = {
         "Ein neues Gespräch beginnen. Der Assistent vergisst dieses, und die Zusammenfassung und "
         "die Kosten der Sitzung beginnen neu."
     ),
+    "memory.remember": "Merken: „{text}“?",
+    "memory.note": (
+        "Eine Vorliebe beschreibt, wie Sie arbeiten: Sie wird für Ihr Konto gespeichert und geht "
+        "mit jeder Frage über OpenRouter an das KI-Modell, damit Ihre Chats ihr folgen. Sie darf "
+        "keine persönlichen oder Gesundheitsdaten von Kundinnen und Kunden enthalten: keine Namen, "
+        "kein Alter, kein Gewicht und keine Erkrankungen."
+    ),
+    "memory.save": "Speichern",
+    "memory.edit": "Bearbeiten",
+    "memory.discard": "Verwerfen",
+    "memory.edit_label": "Vorliebe",
+    "memory.save_edited": "Bearbeitet speichern",
+    "memory.cancel_edit": "Abbrechen",
+    "memory.locked": "Speichern, bearbeiten oder verwerfen Sie zuerst die vorgeschlagene Vorliebe.",
+    "memory.proposed": (
+        "Ich habe eine Vorliebe zum Merken vorgeschlagen; Sie entscheiden, ob sie gespeichert wird."
+    ),
+    "memory.ask_again": (
+        "Falls Sie noch etwas anderes gefragt haben, habe ich keine Quelle für eine Antwort "
+        "gefunden: Stellen Sie diese Frage bitte noch einmal einzeln."
+    ),
+    "memory.saved": (
+        "Gespeichert. Ihre Chats folgen dieser Vorliebe; unter „Meine Daten“ sehen oder löschen "
+        "Sie sie."
+    ),
+    "memory.discarded": "Nicht gespeichert: Die Vorliebe wurde verworfen.",
+    "memory.failed": (
+        "Die Vorliebe konnte nicht gespeichert werden, da der Datenspeicher gerade nicht "
+        "verfügbar ist."
+    ),
+    "memory.refused.invalid": (
+        "Das kann nicht als Vorliebe gespeichert werden: Es muss ein kurzer Text mit höchstens "
+        f"{config.PREFERENCE_MAX_CHARS} Zeichen sein."
+    ),
+    "memory.refused.injection": (
+        "Das kann nicht als Vorliebe gespeichert werden: Es liest sich wie eine Anweisung an den "
+        "Assistenten."
+    ),
+    "memory.refused.guardrail": (
+        "Das kann nicht als Vorliebe gespeichert werden: Es geht um ein medizinisches Thema, etwa "
+        "eine Erkrankung, eine Schwangerschaft oder Medikamente. Eine Vorliebe beschreibt, wie Sie "
+        "arbeiten, nie Gesundheitsdaten von Kundinnen und Kunden."
+    ),
+    "memory.refused.client_name": (
+        "Das kann nicht als Vorliebe gespeichert werden: Es nennt eine Ihrer Kundinnen oder einen "
+        "Ihrer Kunden. Eine Vorliebe beschreibt, wie Sie arbeiten, nie persönliche Daten von "
+        "Kundinnen und Kunden."
+    ),
+    "memory.refused.one_per_turn": "Es kann jeweils nur eine Vorliebe vorgeschlagen werden.",
     "about.title": "Über die Antworten",
     "about.articles": (
         "**{articles} frei zugängliche Forschungsartikel**: {stands} ISSN-Positionspapiere und "
@@ -1466,6 +1560,11 @@ _DE: dict[str, str] = {
         "`answer_language_de.md`) fehlt oder ist leer, daher kann keine Antwort geschrieben "
         "werden. Stellen Sie die Datei wieder her und fragen Sie erneut."
     ),
+    "prompt.coach_missing": (
+        "Der Coach-Teil des Antwort-Prompts (`src/prompts/answer_coach.md`) fehlt oder ist "
+        "leer, daher kann keine Antwort geschrieben werden. Stellen Sie die Datei wieder her "
+        "und fragen Sie erneut."
+    ),
     "key.missing": (
         "Der OpenRouter-API-Schlüssel fehlt. Tragen Sie ihn in `.streamlit/secrets.toml` ein oder "
         f"setzen Sie die Umgebungsvariable {_KEY} und starten Sie die App dann neu."
@@ -1578,10 +1677,11 @@ _DE: dict[str, str] = {
     "profile.note_coach": (
         "Nur für diese Sitzung: Die Angaben eines Coachs werden nicht gespeichert, gehen aber über "
         "OpenRouter an das KI-Modell, wenn eine Frage sie braucht. Ihr Konto (eine ID, Ihre Rolle "
-        "und Ihr Anzeigename) wird in der Datendatei dieser App auf diesem Computer gespeichert. "
-        "Chats werden nie gespeichert, aber die früheren Fragen und Antworten dieses Chats gehen "
-        "mit jeder neuen Frage an das KI-Modell. Verwenden Sie nur erfundene Daten: Geben Sie "
-        "keine echten Gesundheitsdaten ein."
+        "und Ihr Anzeigename) und die Arbeitsvorlieben, die Sie im Chat speichern, werden in der "
+        "Datendatei dieser App auf diesem Computer gespeichert; Ihre neuesten Vorlieben gehen mit "
+        "jeder Frage über OpenRouter an das KI-Modell. Chats werden nie gespeichert, aber die "
+        "früheren Fragen und Antworten dieses Chats gehen mit jeder neuen Frage an das KI-Modell. "
+        "Verwenden Sie nur erfundene Daten: Geben Sie keine echten Gesundheitsdaten ein."
     ),
     "profile.my_data_link": "Unter Meine Daten ansehen, exportieren oder löschen",
     "profile.saved_on_save": (
@@ -1605,9 +1705,9 @@ _DE: dict[str, str] = {
         "Export."
     ),
     "my_data.intro_coach": (
-        "Alles, was die App über Sie speichert: Ihr Konto und, sobald Sie welche haben, Ihre "
-        "Kunden und deren Auswertungen (sie stehen im Export). Ein Coach hat keine eigenen "
-        "Einträge, und von Ihren Chats wird nichts gespeichert."
+        "Alles, was die App über Sie speichert: Ihr Konto, die Arbeitsvorlieben, die Sie im Chat "
+        "gespeichert haben, und, sobald Sie welche haben, Ihre Kunden und deren Auswertungen (sie "
+        "stehen im Export). Sonst wird von Ihren Chats nichts gespeichert."
     ),
     "my_data.account": "**Konto:** {name} · {role} · angelegt am {created}",
     "my_data.count": "{count} gespeichert",

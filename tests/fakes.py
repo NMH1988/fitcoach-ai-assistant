@@ -33,6 +33,8 @@ TEST_LANGUAGE_PARTS = {
     "en": "Test language part: write the answer in English.",
     "de": "Test language part: write the answer in German.",
 }
+# The coach's part of the answer prompt in tests (T9.7), so none depends on the owner's text (O8).
+TEST_COACH_PART = "Test coach part: propose a preference with remember_preference."
 
 # Bound at import, so UI tests that replace store.open_index can still open the fixture index.
 _open_index = store.open_index

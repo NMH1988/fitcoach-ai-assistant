@@ -13,13 +13,21 @@ removed messages until "New chat" deletes the thread (`Conversation.new_chat()`)
 
 Each browser session holds its own `Conversation` in `st.session_state` (never `st.cache_resource`),
 so sessions share nothing and a closed session's memory goes with it; nothing is written to disk.
+
+A coach's turn may end with a proposed preference (T9.7): `turn -> approve -> forget`, where
+`approve` pauses the graph with `interrupt()` before anything is written, carrying the text. The
+coach's answer on the card resumes it with `Command(resume=...)` (`Conversation.decide()`): Save
+checks the text again and writes it through the caller's `save`, Discard writes nothing. Either
+way the state's proposal is then replaced with `config.ANSWERED_PROPOSAL`, so the thread's latest
+state holds no proposed text; "New chat" deletes a pending one with the thread.
 """
 
+import logging
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import cache
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, Any, Literal, NotRequired, TypedDict
 
 from langchain_core.messages import AnyMessage, HumanMessage, RemoveMessage
 from langchain_core.runnables import RunnableConfig
@@ -29,15 +37,26 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
+from langgraph.types import Command, interrupt
 
 from src import chat, config
 from src.chat import TurnResult
+from src.preferences import PreferenceCheck
+
+logger = logging.getLogger(__name__)
+
+Choice = Literal["save", "discard"]
 
 
 class ConversationState(TypedDict):
     """The thread: the answered turns' questions and answers, oldest first."""
 
     messages: Annotated[list[AnyMessage], add_messages]
+    # The latest turn's proposed preference while it waits for the coach (T9.7), then
+    # config.ANSWERED_PROPOSAL; None after a turn that proposed nothing.
+    proposal: NotRequired[str | None]
+    # True while the latest turn's proposal waits for the coach's answer (routes to `approve`).
+    awaiting: NotRequired[bool]
 
 
 @dataclass(frozen=True)
@@ -50,6 +69,10 @@ class ConversationContext:
     results: list[TurnResult] = field(default_factory=list)
     # An error the turn raised, raised again by Conversation.run() once the run is over.
     errors: list[Exception] = field(default_factory=list)
+    # Saves a preference the coach approved (T9.7): checks it again and writes it to the store.
+    save: Callable[[str], PreferenceCheck] | None = None
+    # The outcome of the coach's answer: "saved", "discarded", "failed" or "refused.<code>".
+    outcomes: list[str] = field(default_factory=list)
 
 
 def turn(state: ConversationState, runtime: Runtime[ConversationContext]) -> dict[str, Any]:
@@ -64,15 +87,52 @@ def turn(state: ConversationState, runtime: Runtime[ConversationContext]) -> dic
         # text, which may hold the question, a chunk or a server's reply (code review, round 1).
         # BaseException (Streamlit's rerun and stop) is not caught.
         runtime.context.errors.append(exc)
-        return {}
+        return {"proposal": None, "awaiting": False}
     result: TurnResult = output["result"]
     runtime.context.results.append(result)
+    # A proposal waits for the coach in `approve`, whatever the turn's answer (T9.7).
+    proposal = output.get("proposal")
+    update: dict[str, Any] = {"proposal": proposal, "awaiting": proposal is not None}
     if result.kind != "answer":
         # A rejected, redirected, failed or "not covered" turn leaves the thread as it was.
-        return {}
+        return update
     messages = chat.exchange_messages(output["question"], result.text)
     # An answer that was only citations says nothing a later turn could use.
-    return {"messages": messages} if messages[1].text.strip() else {}
+    return {**update, "messages": messages} if messages[1].text.strip() else update
+
+
+def after_turn(state: ConversationState) -> str:
+    """Pause for the coach's answer when the turn proposed a preference; else go on."""
+    return "approve" if state.get("awaiting") else "forget"
+
+
+def _outcome(answer: object, context: ConversationContext) -> str:
+    """Carry out the coach's answer: save the (edited) text after checking it again, or not."""
+    if not isinstance(answer, Mapping) or answer.get("choice") != "save" or context.save is None:
+        # Discard, or anything that is not a clear Save: nothing is written.
+        return "discarded"
+    try:
+        checked = context.save(answer.get("text"))
+    except Exception as exc:
+        # Kept out of the checkpoint, as in `turn`; Conversation.decide() raises it again.
+        context.errors.append(exc)
+        return "failed"
+    return "saved" if checked.allowed else f"refused.{checked.code}"
+
+
+def approve(state: ConversationState, runtime: Runtime[ConversationContext]) -> dict[str, Any]:
+    """Pause with the proposed text until the coach answers; then save it or not (T9.7)."""
+    # The node runs again from the start on resume, when interrupt() returns the coach's answer;
+    # nothing is written before that.
+    answer = interrupt({"text": state["proposal"]})
+    runtime.context.outcomes.append(_outcome(answer, runtime.context))
+    # The proposed text leaves the thread's latest state, whatever the answer.
+    return {"proposal": config.ANSWERED_PROPOSAL, "awaiting": False}
+
+
+def _no_turn(_: list[AnyMessage]) -> Mapping[str, Any]:
+    """Stand for the turn while the graph resumes from `approve`, which never runs a turn."""
+    raise RuntimeError("A resumed conversation runs no turn.")
 
 
 def first_kept(messages: Sequence[AnyMessage], cap: int) -> int:
@@ -94,12 +154,14 @@ def forget(state: ConversationState) -> dict[str, Any]:
 
 @cache
 def conversation_builder() -> StateGraph:
-    """Return the conversation graph's builder: turn, then forget."""
+    """Return the conversation graph's builder: turn, approve a proposal if any, then forget."""
     builder = StateGraph(ConversationState, context_schema=ConversationContext)
     builder.add_node("turn", turn)
+    builder.add_node("approve", approve)
     builder.add_node("forget", forget)
     builder.add_edge(START, "turn")
-    builder.add_edge("turn", "forget")
+    builder.add_conditional_edges("turn", after_turn, ["approve", "forget"])
+    builder.add_edge("approve", "forget")
     builder.add_edge("forget", END)
     return builder
 
@@ -128,8 +190,42 @@ class Conversation:
         """Return the current thread's messages, oldest first."""
         return list(self.graph.get_state(self.config()).values.get("messages", []))
 
-    def run(self, run_turn: Callable[[list[AnyMessage]], Mapping[str, Any]]) -> TurnResult:
+    def pending(self) -> str | None:
+        """Return the proposed preference waiting for the coach's answer, or None (T9.7)."""
+        for paused in self.graph.get_state(self.config()).interrupts:
+            if isinstance(paused.value, Mapping) and isinstance(paused.value.get("text"), str):
+                return paused.value["text"]
+        return None
+
+    def decide(
+        self,
+        choice: Choice,
+        text: str | None,
+        save: Callable[[str], PreferenceCheck] | None,
+        turn_id: str = "",
+    ) -> str | None:
+        """Resume the paused graph with the coach's answer; return its outcome, or None."""
+        if self.pending() is None:
+            return None
+        context = ConversationContext(turn=_no_turn, save=save)
+        self.graph.invoke(
+            Command(resume={"choice": choice, "text": text}), self.config(), context=context
+        )
+        outcome = context.outcomes[0] if context.outcomes else None
+        # The outcome's code only, never the text; the turn's ID when a turn discards it.
+        logger.info("preference_decided", extra={"turn_id": turn_id or None, "code": outcome})
+        if context.errors:
+            raise context.errors[0]
+        return outcome
+
+    def run(
+        self, run_turn: Callable[[list[AnyMessage]], Mapping[str, Any]], turn_id: str = ""
+    ) -> TurnResult:
         """Run one turn on the current thread and return its result."""
+        if self.pending() is not None:
+            # The chat is locked while a proposal waits (views/chat.py); should a turn come all the
+            # same, the proposal is discarded first, so nothing is saved without an answer.
+            self.decide("discard", None, None, turn_id)
         context = ConversationContext(turn=run_turn)
         # LangGraph's default durability saves in the background, but the run waits for those
         # saves before invoke() returns, so the next turn sees this one. "sync" is not used: the
@@ -142,6 +238,6 @@ class Conversation:
 
     def new_chat(self) -> None:
         """Delete the current thread from memory and start a new one ("New chat")."""
-        # T9.7 discards a pending proposal here too.
+        # A pending proposal goes with the thread: it is discarded, never saved (T9.7).
         self.checkpointer.delete_thread(self.thread_id)
         self.thread_id = str(uuid.uuid4())

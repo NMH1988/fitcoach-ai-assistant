@@ -264,6 +264,11 @@ STORED_KINDS = (
     "workout_sessions",
     "preferences",
 )
+# The kinds each role keeps: a gymer's records, a coach's own working preferences (T9.7).
+STORED_KINDS_BY_ROLE: dict[str, tuple[str, ...]] = {
+    "gymer": tuple(kind for kind in STORED_KINDS if kind != "preferences"),
+    "coach": ("preferences",),
+}
 STORED_COLUMNS: dict[str, tuple[str, ...]] = {
     "profile_entries": ("saved", "height", "age", "sex", "activity", "goal"),
     "body_measurements": ("day", "weight"),
