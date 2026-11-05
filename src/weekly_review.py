@@ -54,7 +54,9 @@ ERROR_TEXTS: dict[str, str] = {
     "schema": "The reply did not follow the schema.",
     "unknown_evidence": "A citation names a label that is not in <sources>.",
     "calorie_floor": (
-        f"A recommendation gives an intake below {config.CALORIE_FLOOR_KCAL} kcal per day."
+        f"A recommendation names a kcal figure below {config.CALORIE_FLOOR_KCAL} kcal a day; "
+        "put the client's current intake in an observation and describe only the direction of "
+        "the change."
     ),
     "diagnosis": "A text names a medical condition or diagnosis.",
     "training_uncited": "A training recommendation does not cite a resistance training source.",

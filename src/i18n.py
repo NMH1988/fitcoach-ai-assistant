@@ -980,7 +980,9 @@ _EN: dict[str, str] = {
     ),
     "review.check.schema": "a section is empty or too long, or Observations has no text.",
     "review.check.calorie_floor": (
-        f"a recommendation gives an intake below {config.CALORIE_FLOOR_KCAL} kcal a day."
+        f"a recommendation names a kcal figure below {config.CALORIE_FLOOR_KCAL} kcal a day; put "
+        "the client's current intake in an observation and describe only the direction of the "
+        "change."
     ),
     "review.check.diagnosis": "a text names a medical condition or a diagnosis.",
     "review.check.training_uncited": "a training recommendation does not cite a training source.",
@@ -2146,7 +2148,9 @@ _DE: dict[str, str] = {
         "ein Abschnitt ist leer oder zu lang, oder Beobachtungen hat keinen Text."
     ),
     "review.check.calorie_floor": (
-        f"eine Empfehlung nennt eine Zufuhr unter {config.CALORIE_FLOOR_KCAL} kcal pro Tag."
+        f"eine Empfehlung nennt eine kcal-Zahl unter {config.CALORIE_FLOOR_KCAL} kcal pro Tag; "
+        "nennen Sie die aktuelle Zufuhr des Klienten in einer Beobachtung und beschreiben Sie nur "
+        "die Richtung der Änderung."
     ),
     "review.check.diagnosis": "ein Text nennt eine Erkrankung oder eine Diagnose.",
     "review.check.training_uncited": "eine Trainingsempfehlung zitiert keine Trainingsquelle.",

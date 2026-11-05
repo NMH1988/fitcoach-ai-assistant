@@ -585,6 +585,7 @@ def decide_review(
             elif snapshot.next in _STUCK:
                 stuck = _restart_stuck(graph, run, values, decision, final)
                 if stuck is not None:
+                    _log(stuck, values)
                     return stuck
                 graph.invoke(None, run, context=context)
             else:

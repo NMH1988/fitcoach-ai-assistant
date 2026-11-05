@@ -9,7 +9,7 @@ from datetime import date
 
 import pytest
 
-from src import config, dashboard, metrics
+from src import config, dashboard, i18n, metrics
 from src import weekly_review as wr
 from src.agent import graph
 from src.rag.retriever import RetrievedChunk, chunk_key
@@ -239,6 +239,10 @@ def test_a_recommended_intake_below_the_floor_is_refused(text):
         "Mindestens 1.200 kcal pro Tag.",
         "Keep intake at 1,500-1,800 kcal.",
         "Raise intake gradually from the current average toward the target.",
+        "Intake was 800 kcal below the target; raise it gradually.",
+        "Close the 800 kcal gap step by step.",
+        "Intake ran 800 kcal short of the target.",
+        "Die Zufuhr lag 800 kcal unter dem Ziel.",
     ],
 )
 def test_a_change_in_kcal_or_an_intake_above_the_floor_passes_the_floor(text):
@@ -561,3 +565,10 @@ def test_the_prompt_keeps_a_current_intake_below_the_floor_out_of_recommendation
     """O15, round 2: the prompt says where a current intake below the floor goes."""
     text = config.REVIEW_PROMPT_PATH.read_text(encoding="utf-8")
     assert "state it in an observation only" in text
+
+
+def test_the_floor_s_texts_say_where_a_current_intake_goes():
+    """The retry text and the coach's text name the strict rule (owner's wording, round 3)."""
+    assert "observation" in wr.ERROR_TEXTS["calorie_floor"]
+    assert "current intake in an observation" in i18n.t("review.check.calorie_floor", "en")
+    assert "in einer Beobachtung" in i18n.t("review.check.calorie_floor", "de")

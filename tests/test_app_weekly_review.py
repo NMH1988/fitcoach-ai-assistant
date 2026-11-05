@@ -325,3 +325,20 @@ def test_too_many_starts_in_the_window_are_refused_with_the_wait(monkeypatch, co
     at.run(timeout=30)
     assert any("starting reviews too fast" in item.value for item in at.warning)
     assert fake.calls == [] and _stored() == []
+
+
+def test_a_store_that_fails_on_a_decision_shows_its_fixed_message(monkeypatch, coach_world):
+    """Approve with the store failing: its fixed message shows after the rerun, nothing changes."""
+    from src import account as accounts
+
+    def unavailable(*args, **kwargs):
+        """Fail as a store that cannot be used does."""
+        raise accounts.StoreUnavailable
+
+    at = _drafted(monkeypatch, GOOD)
+    monkeypatch.setattr(view.review, "decide_review", unavailable)
+    _button(at, "Approve").click()
+    at.run(timeout=30)
+    assert any("cannot be opened right now" in item.value for item in at.error)
+    [row] = _stored()
+    assert row["status"] == "PENDING_REVIEW"

@@ -843,6 +843,13 @@ REVIEW_KCAL_CHANGE_AFTER: tuple[str, ...] = (
     "überschuss",
     "weniger",
     "mehr",
+    # A gap to the target ("800 kcal below the target", "an 800 kcal gap", "800 kcal short of
+    # it"), as average_minus_target gives it (owner's choice, 2026-11-05, code review round 3).
+    "below",
+    "under",
+    "short",
+    "gap",
+    "unter",
 )
 
 # Shown in the Tool results when an energy tool had no profile, above the "Add your details" button.
