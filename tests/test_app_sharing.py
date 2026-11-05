@@ -429,13 +429,13 @@ def test_a_relationship_ended_while_saving_is_an_info_not_a_success(monkeypatch,
             "en",
             "always sees your display name",
             "still sees your display name and the dates of the relationship",
-            "drafted by an AI model",
+            "go to an AI model through OpenRouter",
         ),
         (
             "de",
             "sieht immer Ihren Anzeigenamen",
             "weiterhin Ihren Anzeigenamen sowie Beginn und Ende der Verbindung",
-            "von einem KI-Modell entworfen",
+            "über OpenRouter an ein KI-Modell",
         ),
     ],
 )
@@ -449,3 +449,30 @@ def test_the_page_says_what_the_coach_keeps_seeing_and_who_drafts_reviews(
     assert end_line in page
     # The first scope box is nutrition's, in either language.
     assert ai_line in at.checkbox[0].label
+
+
+@pytest.mark.parametrize(
+    ("language", "nutrition", "others"),
+    [
+        (
+            "en",
+            "this week's figures (averages and totals, not your name or foods) go to an AI model "
+            "through OpenRouter",
+            "a weekly review your coach starts also sends this week's",
+        ),
+        (
+            "de",
+            "gehen die Zahlen dieser Woche (Durchschnitte und Summen, nicht Ihr Name oder Ihre "
+            "Lebensmittel) über OpenRouter an ein KI-Modell",
+            "sendet ein Wochenbericht Ihres Coaches auch die",
+        ),
+    ],
+)
+def test_each_scope_says_what_a_weekly_review_sends_to_the_model(
+    monkeypatch, connected_gymer, language, nutrition, others
+):
+    """T9.16: Nutrition names the AI model and OpenRouter; Training and Body say theirs go too."""
+    at = open_page(start(monkeypatch, user=signed_in(), language=language), navigation.SHARING)
+    labels = [box.label for box in at.checkbox]
+    assert nutrition in labels[0]
+    assert all(others in label for label in labels[1:3])

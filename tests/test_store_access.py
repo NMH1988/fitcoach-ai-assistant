@@ -94,11 +94,15 @@ WRITES = {
     "records.replace_meal_item",
     "reviews.save_review",
     "reviews.decide_review",
+    # T9.16: the review workflow's authorise step, the check before save_review; it reads only the
+    # client's open shares and the coach's own reviews of that week (tests/test_store_reviews.py).
+    "reviews.prepare_review",
 }
 INTERNALS = {
     # No user data in or out: opening the file, checks, and the access layer itself.
     "db.connect",
     "db.migrate",
+    "db.prepare_file",
     "db.schema_version",
     "db.transaction",
     "access.audit",

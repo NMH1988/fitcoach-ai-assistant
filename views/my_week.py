@@ -14,7 +14,7 @@ import streamlit as st
 from src import account as accounts
 from src import dashboard
 from src.store.access import NotFound
-from views import account, header, tables, week_view
+from views import account, header, tables, week_view, weekly_review
 from views.text import lang, t
 
 URL_PATH = "my-week"
@@ -31,7 +31,7 @@ def _reviews(week: dashboard.DashboardWeek) -> None:
         with st.container(border=True):
             st.markdown(f"**{tables.review_heading(review, lang())}**")
             st.caption(f":material/smart_toy: {tables.review_label(review, lang())}")
-            st.markdown(tables.review_markdown(review["final"] or {}))
+            weekly_review.show_text(review["final"] or {})
 
 
 def page() -> None:

@@ -533,10 +533,94 @@ def _review_texts(value: object) -> list[str]:
 
 
 def review_markdown(final: dict) -> str:
-    """Return an approved review's texts as a Markdown list, each escaped (T9.15's plain view)."""
-    # T9.16 fixes the review's fields; until then every text it holds is listed in order, each on
-    # one escaped line, so a model's or a coach's text adds no link, image or formatting.
+    """Return a review's texts as a Markdown list, each escaped (T9.15's plain view)."""
+    # The fallback for a review that does not have T9.16's fields: every text it holds is listed in
+    # order, each on one escaped line, so a model's or a coach's text adds no link, image or
+    # formatting.
     return "\n".join(f"- {one_line(text)}" for text in _review_texts(final))
+
+
+_REVIEW_SECTIONS = ("observations", "hypotheses", "recommendations")
+
+
+def has_review_fields(review: object) -> bool:
+    """Return True if a stored review text has T9.16's sections (each a list of items)."""
+    return isinstance(review, dict) and all(
+        isinstance(review.get(name), list)
+        and all(
+            isinstance(item, dict) and isinstance(item.get("text"), str) for item in review[name]
+        )
+        for name in _REVIEW_SECTIONS
+    )
+
+
+def _recommendation_lines(item: dict, lang: Language) -> list[str]:
+    """Return a recommendation as escaped lines: its kind and text, its label, training fields."""
+    kind = (
+        i18n.t(f"review.kind.{item.get('kind')}", lang)
+        if item.get("kind")
+        in (
+            "nutrition",
+            "training",
+        )
+        else ""
+    )
+    line = f"**{one_line(kind)}:** {one_line(item['text'])}" if kind else one_line(item["text"])
+    if item.get("model_suggestion"):
+        line += f" *({one_line(i18n.t('review.suggestion', lang))})*"
+    lines = [f"- {line}"]
+    for field in ("direction", "source_range", "population"):
+        value = item.get(field)
+        if isinstance(value, str) and value.strip():
+            label = one_line(i18n.t(f"review.{field}", lang))
+            lines.append(f"    - {label}: {one_line(value)}")
+    return lines
+
+
+def review_sections(review: dict, lang: Language) -> list[tuple[str, str]]:
+    """Return each non-empty section of a review as (heading, escaped Markdown list)."""
+    # Every text is escaped onto one line (one_line), so neither the model nor a coach adds a
+    # link, image, heading or HTML; the headings and labels are the app's own.
+    found = []
+    for name in _REVIEW_SECTIONS:
+        items = review.get(name) or []
+        if not items:
+            continue
+        if name == "recommendations":
+            lines = [line for item in items for line in _recommendation_lines(item, lang)]
+        else:
+            lines = [f"- {one_line(item['text'])}" for item in items]
+        found.append((i18n.t(f"review.{name}", lang), "\n".join(lines)))
+    return found
+
+
+def _label_number(label: object) -> int | None:
+    """Return the number of an [S#] label ("S2" is 2), or None for anything else."""
+    if isinstance(label, str) and label[:1] == "S" and label[1:].isdigit():
+        return int(label[1:])
+    return None
+
+
+def review_source_lines(review: dict, manifest: dict, lang: Language) -> list[tuple[str, str]]:
+    """Return each label the review cites as (escaped line, the source's link), in label order."""
+    # The review text keeps what each of its [S#] labels cited (weekly_review.cited_sources()), so
+    # a label in the text names the same source here; the manifest gives the title and the link
+    # (approved sources only, docs/SOURCES.md). A label or source the app does not know is left out.
+    cited = review.get("sources")
+    if not isinstance(cited, dict):
+        return []
+    found = []
+    for label in sorted(cited, key=lambda key: _label_number(key) or 0):
+        number = _label_number(label)
+        ref = cited[label]
+        source = manifest.get(ref.get("source_id")) if isinstance(ref, dict) else None
+        if number is None or source is None:
+            continue
+        line = i18n.t(
+            "review.source_line", lang, number=number, title=source.title, year=source.year
+        )
+        found.append((one_line(line), chat.markdown_url(source.url)))
+    return found
 
 
 def review_heading(review: dict, lang: Language) -> str:

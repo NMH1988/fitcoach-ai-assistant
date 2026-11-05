@@ -25,7 +25,9 @@ def full_world(store_conn):
         "evidence_refs": [("12", "12-3")],
     }
     approved = reviews.save_review(store_conn, world.COACH_A, world.SHARED, **review_args)
-    reviews.save_review(store_conn, world.COACH_A, world.SHARED, **review_args)  # stays pending
+    # Another week: a second review of a week that has a pending or approved one is refused.
+    next_week = {**review_args, "period_start": date(2026, 10, 26)}
+    reviews.save_review(store_conn, world.COACH_A, world.SHARED, **next_week)  # stays pending
     reviews.save_review(store_conn, world.COACH_B, world.OTHERS, **review_args)
     reviews.decide_review(store_conn, world.COACH_A, approved, "approve")
     records.list_meal_items(store_conn, world.COACH_A, world.SHARED)  # an audited read

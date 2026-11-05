@@ -733,3 +733,67 @@ def test_my_data_shows_a_workout_s_sets_and_volume():
     """My data's workouts table has the day, the number of sets and the volume (AC-24)."""
     cells = tables.stored_cells("workout_sessions", WORKOUT_ROW, "metric", "en")
     assert cells == ["2026-10-26", "2", "512 kg"]
+
+
+def _review_text() -> dict:
+    """Return a T9.16 review text with a hostile observation and a training recommendation."""
+    return {
+        "observations": [{"text": "![x](https://evil.example/a.png) # Big", "evidence": ["S2"]}],
+        "hypotheses": [],
+        "recommendations": [
+            {
+                "kind": "training",
+                "text": "Consider more leg work [S2].",
+                "evidence": ["S2"],
+                "model_suggestion": False,
+                "direction": "increase",
+                "source_range": "10-20 sets per week",
+                "population": "trained adults",
+            },
+            {
+                "kind": "nutrition",
+                "text": "Log every day.",
+                "evidence": [],
+                "model_suggestion": True,
+                "direction": None,
+                "source_range": None,
+                "population": None,
+            },
+        ],
+        "language": "en",
+        "sources": {"S2": {"source_id": "1", "chunk_id": "1-3"}, "S9": {"source_id": "zz"}},
+    }
+
+
+def test_a_review_s_sections_are_escaped_lines_under_the_app_s_headings():
+    """T9.16: empty sections are left out; texts escaped; kind, suggestion and training fields."""
+    sections = tables.review_sections(_review_text(), "en")
+    assert [heading for heading, _ in sections] == ["Observations", "Recommendations"]
+    observations = sections[0][1]
+    # Neither an image nor a link; a "#" in the middle of a line is no heading.
+    assert observations == r"- !\[x\](https\://evil.example/a.png) # Big"
+    lines = sections[1][1].split("\n")
+    assert lines[0] == r"- **Training:** Consider more leg work \[S2\]."
+    assert r"    - Range in the source: 10\-20 sets per week" in lines  # shown as 10-20
+    suggestion = "*(The model's suggestion, no source cited)*"
+    assert lines[-1] == f"- **Nutrition:** Log every day. {suggestion}"
+    german = tables.review_sections(_review_text(), "de")
+    assert [heading for heading, _ in german] == ["Beobachtungen", "Empfehlungen"]
+
+
+def test_a_review_s_sources_follow_its_labels_and_skip_what_the_app_does_not_know():
+    """[S2] lists source 1's title and link; an unknown source or a review with none is left out."""
+    manifest = chat.manifest_by_id()
+    lines = tables.review_source_lines(_review_text(), manifest, "en")
+    assert len(lines) == 1
+    line, url = lines[0]
+    assert line.startswith(r"\[S2\] ") and str(manifest["1"].year) in line
+    assert url == chat.markdown_url(manifest["1"].url)
+    assert tables.review_source_lines({"observations": []}, manifest, "en") == []
+
+
+def test_only_a_text_with_the_three_sections_counts_as_t9_16_s_fields():
+    """An older review (T9.15's free form) falls back to the plain escaped list."""
+    assert tables.has_review_fields(_review_text())
+    assert not tables.has_review_fields({"observations": ["x"]})
+    assert not tables.has_review_fields({"observations": [], "hypotheses": []})

@@ -781,12 +781,20 @@ _EN: dict[str, str] = {
     "scope.nutrition": "Nutrition",
     "scope.training": "Training",
     "scope.body": "Body",
+    # T9.16: what a weekly review sends, as the gymer agrees to it by ticking a scope.
     "scope_help.nutrition": (
-        "Food log, daily targets and the weekly reviews your coach approves (drafted by an AI "
-        "model)"
+        "Food log, daily targets and the weekly reviews your coach approves. When your coach "
+        "starts a weekly review, this week's figures (averages and totals, not your name or "
+        "foods) go to an AI model through OpenRouter, which drafts the review"
     ),
-    "scope_help.training": "Workouts",
-    "scope_help.body": "Weights and profile entries (height, age, sex, activity, goal)",
+    "scope_help.training": (
+        "Workouts. While shared, a weekly review your coach starts also sends this week's "
+        "training figures (sessions, sets, volume) to that AI model"
+    ),
+    "scope_help.body": (
+        "Weights and profile entries (height, age, sex, activity, goal). While shared, a weekly "
+        "review your coach starts also sends this week's weight figures to that AI model"
+    ),
     "clients.intro": (
         "Your clients and what each of them shares with you. A client chooses what you see, and "
         "can change it or end the relationship at any time."
@@ -907,6 +915,79 @@ _EN: dict[str, str] = {
     "review.heading": "Week of {week} · approved on {day}",
     "review.ai_label": "AI draft, approved by the coach",
     "review.ai_label_edited": "AI draft, edited and approved by the coach",
+    # The weekly review on the coach's Client week page and the gymer's My week (T9.16).
+    "review.section": "Weekly review",
+    "review.intro": (
+        "An AI model, reached through OpenRouter, drafts a review of a finished week from the "
+        "numbers this client shares with you and the app's research sources. It gets the numbers "
+        "for 'the client', never a name. You approve, edit or reject the draft; the client reads "
+        "it only once you approve it."
+    ),
+    "review.not_finished": "A week can be reviewed once it is over, from the Monday after it.",
+    "review.needs_nutrition": "A weekly review needs the client to share Nutrition.",
+    "review.start": "Draft weekly review",
+    "review.running": "Drafting the review. This can take a minute.",
+    "review.pending": "Draft for the week of {week}, waiting for your decision",
+    "review.rejected_note": "You rejected the draft for this week. You can draft a new one.",
+    "review.approve": "Approve",
+    "review.edit": "Edit",
+    "review.reject": "Reject",
+    "review.save_edit": "Approve my edit",
+    "review.cancel_edit": "Cancel",
+    "review.edit_help": (
+        "Change the texts, or empty one to leave it out. The kind of each recommendation, its "
+        "sources and the range quoted from a source stay as drafted."
+    ),
+    "review.observations": "Observations",
+    "review.hypotheses": "Possible reasons",
+    "review.recommendations": "Recommendations",
+    "review.kind.nutrition": "Nutrition",
+    "review.kind.training": "Training",
+    "review.suggestion": "The model's suggestion, no source cited",
+    "review.direction": "Direction",
+    "review.source_range": "Range in the source",
+    "review.population": "Studied in",
+    "review.sources": "Sources",
+    "review.source_line": "[S{number}] {title} ({year})",
+    "review.outcome.pending": "The draft is ready below for your decision.",
+    "review.outcome.not_found": (
+        "This client does not share everything this review needs right now (or is no longer "
+        "your client), so it cannot be drafted or decided."
+    ),
+    "review.outcome.exists": "A review of this week is already waiting or approved.",
+    "review.outcome.not_finished": (
+        "A week can be reviewed once it is over, from the Monday after it."
+    ),
+    "review.outcome.invalid": (
+        "The model's draft did not pass the app's checks twice, so no review was saved. You can "
+        "try again."
+    ),
+    "review.outcome.edit_invalid": "Your edit was not saved: {checks}",
+    "review.outcome.approved": "Approved: the client can now read the review.",
+    "review.outcome.edited": "Your edited review was approved: the client can now read it.",
+    "review.outcome.rejected": "Rejected: the client will not see this draft.",
+    "review.outcome.gone": "This draft can no longer be decided. Open the week again.",
+    "review.check.schema": "a section is empty or too long, or Observations has no text.",
+    "review.check.calorie_floor": (
+        f"a recommendation gives an intake below {config.CALORIE_FLOOR_KCAL} kcal a day."
+    ),
+    "review.check.diagnosis": "a text names a medical condition or a diagnosis.",
+    "review.check.training_uncited": "a training recommendation does not cite a training source.",
+    "review.check.training_fields": (
+        "a training recommendation needs its direction and the population studied."
+    ),
+    "review.check.source_range": "a training recommendation's range is not the source's.",
+    "review.check.program": (
+        "a training recommendation reads as a program (sets and reps, days, a plan)."
+    ),
+    "review.check.client_volume": (
+        "a training recommendation gives the client's own sets or volume; that number is yours to "
+        "set with the client."
+    ),
+    "review.check.number": "a number is not in the week's figures or the cited source.",
+    "review.check.suggestion_label": "a recommendation's source label does not match its sources.",
+    "review.check.unknown_evidence": "a text cites a source that was not found for this review.",
+    "prompt.review_missing": config.REVIEW_PROMPT_MISSING_MESSAGE,
     "sharing.no_coach": (
         "You have no coach. Enter the code your coach gave you and choose what they may see."
     ),
@@ -1842,11 +1923,20 @@ _DE: dict[str, str] = {
     "scope.training": "Training",
     "scope.body": "Körper",
     "scope_help.nutrition": (
-        "Ernährungstagebuch, Tagesziele und die Wochenberichte, die Ihr Coach freigibt (von "
-        "einem KI-Modell entworfen)"
+        "Ernährungstagebuch, Tagesziele und die Wochenberichte, die Ihr Coach freigibt. Wenn Ihr "
+        "Coach einen Wochenbericht startet, gehen die Zahlen dieser Woche (Durchschnitte und "
+        "Summen, nicht Ihr Name oder Ihre Lebensmittel) über OpenRouter an ein KI-Modell, das "
+        "den Bericht entwirft"
     ),
-    "scope_help.training": "Trainingseinheiten",
-    "scope_help.body": "Gewichte und Profileinträge (Größe, Alter, Geschlecht, Aktivität, Ziel)",
+    "scope_help.training": (
+        "Trainingseinheiten. Solange geteilt, sendet ein Wochenbericht Ihres Coaches auch die "
+        "Trainingszahlen dieser Woche (Einheiten, Sätze, Volumen) an dieses KI-Modell"
+    ),
+    "scope_help.body": (
+        "Gewichte und Profileinträge (Größe, Alter, Geschlecht, Aktivität, Ziel). Solange "
+        "geteilt, sendet ein Wochenbericht Ihres Coaches auch die Gewichtszahlen dieser Woche an "
+        "dieses KI-Modell"
+    ),
     "clients.intro": (
         "Ihre Klienten und was jeder von ihnen mit Ihnen teilt. Ein Klient entscheidet, was Sie "
         "sehen, und kann das jederzeit ändern oder die Verbindung beenden."
@@ -1971,6 +2061,98 @@ _DE: dict[str, str] = {
     "review.heading": "Woche vom {week} · freigegeben am {day}",
     "review.ai_label": "KI-Entwurf, vom Coach freigegeben",
     "review.ai_label_edited": "KI-Entwurf, vom Coach bearbeitet und freigegeben",
+    "review.section": "Wochenbericht",
+    "review.intro": (
+        "Ein KI-Modell, angebunden über OpenRouter, entwirft einen Bericht über eine "
+        "abgeschlossene Woche aus den Zahlen, die dieser Klient mit Ihnen teilt, und den "
+        "Forschungsquellen der App. Es erhält die Zahlen für 'den Klienten', nie einen Namen. Sie "
+        "geben den Entwurf frei, bearbeiten oder verwerfen ihn; der Klient liest ihn erst nach "
+        "Ihrer Freigabe."
+    ),
+    "review.not_finished": (
+        "Eine Woche kann ausgewertet werden, wenn sie vorbei ist, ab dem Montag danach."
+    ),
+    "review.needs_nutrition": "Für einen Wochenbericht muss der Klient Ernährung teilen.",
+    "review.start": "Wochenbericht entwerfen",
+    "review.running": "Der Bericht wird entworfen. Das kann eine Minute dauern.",
+    "review.pending": "Entwurf für die Woche vom {week}, wartet auf Ihre Entscheidung",
+    "review.rejected_note": (
+        "Sie haben den Entwurf für diese Woche verworfen. Sie können einen neuen entwerfen."
+    ),
+    "review.approve": "Freigeben",
+    "review.edit": "Bearbeiten",
+    "review.reject": "Verwerfen",
+    "review.save_edit": "Meine Bearbeitung freigeben",
+    "review.cancel_edit": "Abbrechen",
+    "review.edit_help": (
+        "Ändern Sie die Texte oder leeren Sie einen, um ihn wegzulassen. Die Art jeder "
+        "Empfehlung, ihre Quellen und der aus einer Quelle zitierte Bereich bleiben wie entworfen."
+    ),
+    "review.observations": "Beobachtungen",
+    "review.hypotheses": "Mögliche Gründe",
+    "review.recommendations": "Empfehlungen",
+    "review.kind.nutrition": "Ernährung",
+    "review.kind.training": "Training",
+    "review.suggestion": "Vorschlag des Modells, ohne Quelle",
+    "review.direction": "Richtung",
+    "review.source_range": "Bereich in der Quelle",
+    "review.population": "Untersucht bei",
+    "review.sources": "Quellen",
+    "review.source_line": "[S{number}] {title} ({year})",
+    "review.outcome.pending": "Der Entwurf steht unten zu Ihrer Entscheidung bereit.",
+    "review.outcome.not_found": (
+        "Dieser Klient teilt derzeit nicht alles, was dieser Bericht braucht (oder ist nicht mehr "
+        "Ihr Klient), daher kann er nicht entworfen oder entschieden werden."
+    ),
+    "review.outcome.exists": "Ein Bericht für diese Woche wartet bereits oder ist freigegeben.",
+    "review.outcome.not_finished": (
+        "Eine Woche kann ausgewertet werden, wenn sie vorbei ist, ab dem Montag danach."
+    ),
+    "review.outcome.invalid": (
+        "Der Entwurf des Modells hat die Prüfungen der App zweimal nicht bestanden, daher wurde "
+        "kein Bericht gespeichert. Sie können es erneut versuchen."
+    ),
+    "review.outcome.edit_invalid": "Ihre Bearbeitung wurde nicht gespeichert: {checks}",
+    "review.outcome.approved": "Freigegeben: Der Klient kann den Bericht jetzt lesen.",
+    "review.outcome.edited": (
+        "Ihr bearbeiteter Bericht wurde freigegeben: Der Klient kann ihn jetzt lesen."
+    ),
+    "review.outcome.rejected": "Verworfen: Der Klient sieht diesen Entwurf nicht.",
+    "review.outcome.gone": (
+        "Über diesen Entwurf kann nicht mehr entschieden werden. Öffnen Sie die Woche erneut."
+    ),
+    "review.check.schema": (
+        "ein Abschnitt ist leer oder zu lang, oder Beobachtungen hat keinen Text."
+    ),
+    "review.check.calorie_floor": (
+        f"eine Empfehlung nennt eine Zufuhr unter {config.CALORIE_FLOOR_KCAL} kcal pro Tag."
+    ),
+    "review.check.diagnosis": "ein Text nennt eine Erkrankung oder eine Diagnose.",
+    "review.check.training_uncited": "eine Trainingsempfehlung zitiert keine Trainingsquelle.",
+    "review.check.training_fields": (
+        "eine Trainingsempfehlung braucht ihre Richtung und die untersuchte Gruppe."
+    ),
+    "review.check.source_range": "der Bereich einer Trainingsempfehlung ist nicht der der Quelle.",
+    "review.check.program": (
+        "eine Trainingsempfehlung liest sich wie ein Trainingsplan (Sätze und Wiederholungen, "
+        "Tage, ein Plan)."
+    ),
+    "review.check.client_volume": (
+        "eine Trainingsempfehlung nennt eigene Sätze oder ein eigenes Volumen des Klienten; diese "
+        "Zahl legen Sie mit dem Klienten fest."
+    ),
+    "review.check.number": "eine Zahl steht weder in den Zahlen der Woche noch in der Quelle.",
+    "review.check.suggestion_label": (
+        "die Quellenangabe einer Empfehlung passt nicht zu ihren Quellen."
+    ),
+    "review.check.unknown_evidence": (
+        "ein Text zitiert eine Quelle, die für diesen Bericht nicht gefunden wurde."
+    ),
+    "prompt.review_missing": (
+        "Der Prompt für den Wochenbericht (`src/prompts/weekly_review_system.md`) fehlt oder ist "
+        "leer, daher kann kein Bericht entworfen werden. Stellen Sie die Datei wieder her und "
+        "versuchen Sie es erneut."
+    ),
     "sharing.no_coach": (
         "Sie haben keinen Coach. Geben Sie den Code ein, den Ihr Coach Ihnen gegeben hat, und "
         "wählen Sie, was er sehen darf."

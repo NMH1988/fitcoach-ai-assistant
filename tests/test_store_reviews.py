@@ -20,18 +20,19 @@ def relationships(store_conn):
     return world.build(store_conn)
 
 
-def _save(conn, coach=world.COACH_A, client=world.SHARED):
-    """Save a pending review of the test week and return its ID."""
+def _save(conn, coach=world.COACH_A, client=world.SHARED, week=WEEK, **extra):
+    """Save a pending review of the week (the test week by default) and return its ID."""
     return reviews.save_review(
         conn,
         coach,
         client,
-        period_start=WEEK,
+        period_start=week,
         metrics=METRICS,
         data_quality={"logged_days": 3},
         draft=DRAFT,
         model_version="openai/gpt-5-mini",
         evidence_refs=[("12", "12-3"), ("8", "8-1")],
+        **extra,
     )
 
 
@@ -116,16 +117,16 @@ def test_each_decision_stores_the_reviewer_the_time_and_an_audit_row(
 def test_only_an_approved_review_reaches_the_gymer(store_conn, relationships):
     """The gymer's own list holds the approved review only, never a pending or rejected one."""
     pending = _save(store_conn)
-    rejected = _save(store_conn)
-    approved = _save(store_conn)
+    rejected = _save(store_conn, week=date(2026, 10, 12))
+    approved = _save(store_conn, week=date(2026, 10, 26))
     reviews.decide_review(store_conn, world.COACH_A, rejected, "reject")
     reviews.decide_review(store_conn, world.COACH_A, approved, "approve")
     assert [r["id"] for r in reviews.list_reviews(store_conn, world.SHARED, world.SHARED)] == [
         approved
     ]
     assert [r["id"] for r in reviews.list_reviews(store_conn, world.COACH_A, world.SHARED)] == [
-        pending,
         rejected,
+        pending,
         approved,
     ]
 

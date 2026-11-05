@@ -12,7 +12,7 @@ import streamlit as st
 from src import account as accounts
 from src import dashboard
 from src.store.access import NotFound
-from views import account, header, week_view
+from views import account, header, week_view, weekly_review
 from views.text import t
 
 URL_PATH = "client-week"
@@ -88,3 +88,5 @@ def page() -> None:
             st.caption(t("client_week.gone"))
             return
         week_view.show(week, st.session_state["units"])
+        # The week's review: start it, decide it, or read it (T9.16).
+        weekly_review.coach_section(user, picked, monday, week)

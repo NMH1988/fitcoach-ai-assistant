@@ -11,6 +11,7 @@ import streamlit as st
 
 from src import account as accounts
 from src import chat, config
+from src.agent import review_threads
 from src.store import my_data, records
 from views import account, header, tables
 from views.text import lang, t
@@ -115,9 +116,15 @@ def delete_everything() -> None:
     user = account.current_user()
     if user_id is None or user is None or user["id"] != user_id:
         return
+    path = account.store_path()
     try:
-        with accounts.open_store(account.store_path()) as conn:
-            my_data.delete_user_data(conn, user_id)
+        with accounts.open_store(path) as conn:
+            # The review workflow's threads about or by the user go too (T9.16, AC-34).
+            my_data.delete_user_data(
+                conn,
+                user_id,
+                lambda threads: review_threads.delete_for_user(path, user_id, threads),
+            )
     except accounts.StoreUnavailable:
         st.session_state[FAILED_KEY] = True
         return

@@ -27,6 +27,7 @@ TABLES = {
     "preferences",
     "ai_reviews",
     "ai_evidence_refs",
+    "ai_review_scopes",
     "audit_log",
     "invite_attempts",
 }
@@ -116,6 +117,7 @@ VALID_ROWS = {
         "reviewed_at": None,
     },
     "ai_evidence_refs": {"review_id": 1, "source_id": "s1", "chunk_id": "s1-0"},
+    "ai_review_scopes": {"review_id": 1, "scope": "training"},
     "audit_log": {
         "actor_id": "c1",
         "subject_id": "g1",
@@ -191,7 +193,7 @@ def test_connect_creates_the_file_in_the_configured_folder_with_every_table(stor
         for row in store_conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
     }
     assert names == TABLES
-    assert db.schema_version(store_conn) == len(schema.MIGRATIONS) == 1
+    assert db.schema_version(store_conn) == len(schema.MIGRATIONS) == 2
 
 
 def test_the_store_folder_is_gitignored_and_inside_the_project():
@@ -207,7 +209,7 @@ def test_a_given_path_is_used_instead_of_the_config(tmp_path):
     """connect(path) opens that file and makes its folder."""
     path = tmp_path / "nested" / "other.sqlite3"
     with db.connect(path) as conn:
-        assert db.schema_version(conn) == 1
+        assert db.schema_version(conn) == 2
     assert path.is_file()
     assert not config.STORE_PATH.exists()
 
@@ -351,7 +353,7 @@ def test_a_read_only_database_is_made_0600_and_opens():
         pass
     os.chmod(config.STORE_PATH, 0o400)
     with db.connect() as conn:
-        assert db.schema_version(conn) == 1
+        assert db.schema_version(conn) == 2
     assert stat.S_IMODE(config.STORE_PATH.stat().st_mode) == 0o600
 
 
@@ -506,7 +508,7 @@ def test_connecting_again_keeps_the_data_and_the_version(tmp_path):
     with db.connect(path) as conn:
         _seed(conn)
     with db.connect(path) as conn:
-        assert db.schema_version(conn) == 1
+        assert db.schema_version(conn) == 2
         assert conn.execute("SELECT count(*) FROM users").fetchone()[0] == 2
 
 
@@ -685,3 +687,35 @@ def test_a_decided_review_is_never_changed(store_conn):
     store_conn.execute(decide, (NOW,))
     with pytest.raises(sqlite3.IntegrityError, match="never changed"):
         store_conn.execute("UPDATE ai_reviews SET status = 'PENDING_REVIEW' WHERE id = 1")
+
+
+def test_a_version_1_file_gets_its_reviews_filed_under_nutrition(tmp_path):
+    """Migration 2 (T9.16) gives an older review the nutrition scope and no thread, data kept."""
+    path = tmp_path / "old.sqlite3"
+    conn = sqlite3.connect(path, autocommit=True)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.executescript(schema.MIGRATIONS[0])
+    _seed(conn)
+    conn.close()
+    with db.connect(path) as conn:
+        assert db.schema_version(conn) == 2
+        rows = conn.execute("SELECT review_id, scope FROM ai_review_scopes")
+        scopes = [tuple(row) for row in rows]
+        assert scopes == [(1, "nutrition")]
+        assert conn.execute("SELECT thread_id FROM ai_reviews").fetchone()[0] is None
+
+
+@pytest.mark.parametrize("bad", ["", "lunch"])
+def test_a_review_scope_must_be_a_known_scope(store_conn, bad):
+    """ai_review_scopes refuses an empty or unknown scope."""
+    _seed(store_conn)
+    with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
+        _insert(store_conn, "ai_review_scopes", {"review_id": 1, "scope": bad})
+
+
+def test_an_empty_thread_id_is_refused(store_conn):
+    """A review's thread_id is NULL or a non-empty text."""
+    _seed(store_conn)
+    with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
+        _insert(store_conn, "ai_reviews", {**VALID_ROWS["ai_reviews"], "thread_id": ""})

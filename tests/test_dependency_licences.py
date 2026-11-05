@@ -91,7 +91,18 @@ class HandChecked:
 # Packages whose metadata the check cannot accept but whose licence the owner checked by hand, by
 # canonical name. An entry applies only while the package reads exactly `licence` and is in the
 # runtime set, so it cannot outlive the release it was written for.
-LICENCE_EXCEPTIONS: dict[str, HandChecked] = {}
+LICENCE_EXCEPTIONS: dict[str, HandChecked] = {
+    # T9.16: pulled in by langgraph-checkpoint-sqlite (its vector store; our code never loads the
+    # extension). The wheel's metadata lists two licences as free text and holds no licence file;
+    # the project's repository (github.com/asg017/sqlite-vec) has LICENSE-MIT and LICENSE-APACHE at
+    # the v0.1.9 tag, so it is dual licensed MIT or Apache-2.0, both allowed. Recorded for the
+    # owner's confirmation in T9.16's PR.
+    "sqlite-vec": HandChecked(
+        "MIT License, Apache License, Version 2.0",
+        "MIT or Apache-2.0: LICENSE-MIT and LICENSE-APACHE in the repository at tag v0.1.9",
+        "2026-11-05",
+    ),
+}
 
 
 @dataclass
@@ -525,6 +536,7 @@ def test_an_exception_for_a_package_not_in_the_set_fails():
     assert report.problems == ["gone has a licence exception but is not a runtime dependency"]
 
 
-def test_no_exceptions_today():
-    """Today every runtime dependency passes on its metadata alone; an entry needs a reason."""
-    assert LICENCE_EXCEPTIONS == {}
+def test_the_exceptions_are_the_ones_checked_by_hand():
+    """Only sqlite-vec (T9.16) needs a hand check today; every entry has a reason and a date."""
+    assert set(LICENCE_EXCEPTIONS) == {"sqlite-vec"}
+    assert all(entry.reason and entry.checked for entry in LICENCE_EXCEPTIONS.values())

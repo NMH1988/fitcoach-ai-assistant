@@ -272,6 +272,10 @@ STORE_DIR = PROJECT_ROOT / "data" / "store"
 STORE_PATH = STORE_DIR / "fitcoach.sqlite3"
 # How long a write waits for another session's write to finish before it fails.
 STORE_BUSY_TIMEOUT_SECONDS = 5
+# The weekly review workflow's checkpointer (T9.16, D12): a SqliteSaver file next to the store file
+# (so in the same gitignored folder, and next to the demo's temporary store in demo mode). It holds
+# a review's metrics, evidence and draft only while the run waits for the coach.
+REVIEW_THREADS_FILE_NAME = "review_threads.sqlite3"
 # Longest user ID the store accepts (T9.5's keyed hash is 64 hex characters).
 STORE_ID_MAX_CHARS = 128
 # Longest text the store accepts in any text field (a display name, a preference, a review's JSON
@@ -447,6 +451,10 @@ LANGUAGE_PROMPT_MISSING_MESSAGE = (
 COACH_PROMPT_MISSING_MESSAGE = (
     "The coach's part of the answer prompt (`src/prompts/answer_coach.md`) is missing or "
     "empty, so no answer can be written. Restore the file and ask again."
+)
+REVIEW_PROMPT_MISSING_MESSAGE = (
+    "The weekly review prompt (`src/prompts/weekly_review_system.md`) is missing or empty, so no "
+    "review can be drafted. Restore the file and try again."
 )
 # Shown in the answer for any other error in a chat turn (a bug, an unexpected library error);
 # never the error's own text (T1.8, AC-13).
@@ -721,6 +729,100 @@ PREFERENCE_REFUSED_MESSAGES: dict[str, str] = {
         "turn."
     ),
 }
+# The weekly review (T9.16, D17; src/weekly_review.py, src/agent/review.py). The model that drafts
+# it (on the allowlist, built by build_chat_model()) and its token cap; the owner's prompt (O15).
+REVIEW_MODEL = DEFAULT_ANSWER_MODEL
+REVIEW_MAX_TOKENS = DEFAULT_MAX_TOKENS
+REVIEW_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "weekly_review_system.md"
+# The blocks the review's user message holds, which the owner's prompt names (a test checks it).
+REVIEW_PROMPT_BLOCKS: tuple[str, ...] = ("<metrics>", "<sources>", "<language>")
+# The evidence search covers only the topics the metrics raise (D17): protein when the week's
+# average is below its target by more than this share of the target, energy balance when the
+# average kcal is off its target by more than this share either way, and training when the
+# training scope is in the review and a session was logged. One fixed query per topic, written by
+# us in English (the sources are English), searched with that topic as the filter, so no client
+# text reaches the embedding API.
+REVIEW_PROTEIN_GAP_SHARE = 0.10
+REVIEW_KCAL_GAP_SHARE = 0.10
+REVIEW_EVIDENCE_QUERIES: dict[str, str] = {
+    "protein": "daily protein intake per kilogram of body weight for muscle gain with resistance "
+    "training",
+    "energy_balance": "energy intake, energy deficit and surplus for body composition in "
+    "resistance-trained adults",
+    TRAINING_TOPIC: "weekly training volume, number of sets per muscle group and training "
+    "frequency for muscle hypertrophy",
+}
+# The most chunks the review's <sources> holds, over all its topics (labelled [S1]...).
+REVIEW_MAX_CHUNKS = 6
+# The schema's limits: items per list, and characters per text (the coach's edit too).
+REVIEW_MAX_ITEMS = 6
+REVIEW_TEXT_MAX_CHARS = 600
+REVIEW_FIELD_MAX_CHARS = 200
+# Validation (AC-27, AC-35; docs/PRD.md guardrails). Regular expressions, matched without case.
+# A diagnosis: a medical condition named for the client (English and German).
+REVIEW_DIAGNOSIS_PATTERNS: tuple[str, ...] = (
+    r"\bdiagnos",
+    r"\beating disorder",
+    r"\banorexi",
+    r"\bbulimi",
+    r"\bbinge[- ]eating",
+    r"\borthorexi",
+    r"\bdiabet",
+    r"\bthyroid",
+    r"\binsulin resistan",
+    r"\bdeficiency\b",
+    r"\bmalnutrition",
+    r"\bmalnourish",
+    r"\bdepressi",
+    r"\bsyndrome\b",
+    r"\bdisorder",
+    r"\bessst[öo]rung",
+    r"\bmagersucht",
+    r"\banorexie",
+    r"\bbulimie",
+    r"\bdiabetes",
+    r"\bschilddr[üu]s",
+    r"\binsulinresistenz",
+    r"mangel\b",
+    r"\bunterern[äa]hr",
+    r"\bsyndrom\b",
+    r"st[öo]rung\b",
+)
+# A program: sets and reps per exercise, a day-by-day plan (English and German).
+REVIEW_PROGRAM_PATTERNS: tuple[str, ...] = (
+    r"\b\d+\s*[x×]\s*\d+",
+    r"\b\d+\s*sets?\s+of\s+\d+",
+    r"\b\d+\s*(?:reps?|repetitions|wiederholungen|wdh)\b",
+    r"\b(?:day|tag)\s*\d+\b",
+    r"\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|montag|dienstag|mittwoch|"
+    r"donnerstag|freitag|samstag|sonntag)\s*:",
+    r"\b(?:training|workout)\s*(?:plan|program|programme|split)\b",
+    r"\btrainingsplan",
+)
+# A client's own set count or weekly volume in a training recommendation: the number for this
+# client is the coach's (PRD feature 26). The source's range is checked against its chunk instead.
+REVIEW_CLIENT_VOLUME_PATTERNS: tuple[str, ...] = (
+    r"\b\d+\s*(?:sets?|s[äa]tze?)\b",
+    r"\b\d+(?:[.,]\d+)*\s*kg\s*(?:total|volume|volumen|per week|pro woche)",
+    r"\bvolume\s+(?:of|von)\s+\d",
+)
+# A kcal figure in a recommendation is an intake, checked against the calorie floor, unless it is
+# a change: preceded by one of these words or a sign, or followed by one of the others.
+REVIEW_KCAL_CHANGE_BEFORE: tuple[str, ...] = ("by", "um", "+", "-", "−", "±", "about", "etwa")
+REVIEW_KCAL_CHANGE_AFTER: tuple[str, ...] = (
+    "deficit",
+    "surplus",
+    "less",
+    "more",
+    "fewer",
+    "lower",
+    "higher",
+    "defizit",
+    "überschuss",
+    "weniger",
+    "mehr",
+)
+
 # Shown in the Tool results when an energy tool had no profile, above the "Add your details" button.
 PROFILE_NEEDED_HINT = "This calculation needs your details. Add them, then ask again."
 # Height of the macro chart in "Tool results", its axis and legend included: at 140 px the bar was a

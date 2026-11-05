@@ -136,6 +136,7 @@ views/                      the Streamlit UI, one module per concern; logic stay
   client_week.py            the coach's Client week page: an active client picked (no query parameter), the week picker, the week's views (T9.15, AC-21)
   my_week.py                a gymer's My week page: their own week and the reviews a coach approved, read-only (T9.15)
   week_view.py              a week's nutrition, body and training views with their charts, "not shared" per scope; both week pages draw it (T9.15)
+  weekly_review.py          the weekly review under Client week (start, the draft, Approve, Edit, Reject) and a review's text on My week, escaped (T9.16)
   sharing.py                the gymer's Coach and sharing page: accept a code, the coach's name, scopes, end (T9.12)
 src/
   config.py                 models, limits, calorie floor, k values, paths, get_api_key()
@@ -157,11 +158,15 @@ src/
   agent/memory.py           the chat's memory: the conversation graph with an InMemorySaver, Conversation, "New chat" (T9.4); the approve node's pause for a coach's proposal (T9.7)
   preferences.py            the coach's long-term memory: remember_preference, the checks (guard, guardrails, clients' names), save(), the <memories> block (T9.7)
   agent/search.py           the agent's search_knowledge_base tool: the query's check, the search, the turn's SearchLog (T9.3)
+  agent/review.py           the weekly review as a fixed StateGraph with interrupt() for the coach's decision, start_review(), decide_review(), its Mermaid diagram (T9.16, D17)
+  agent/review_threads.py   the review's SqliteSaver file next to the store: open, delete a user's threads (T9.16, D12)
+  weekly_review.py          the review's schema (WeeklyReview), the week as aggregates for "the client", the messages, the checks on a draft and on an edit (T9.16)
   prompt_data.py            escaping for text inside prompt blocks (imports nothing from src)
   prompts/answer_system.md  the owner's answer system prompt (O1)
   prompts/answer_language_en.md, answer_language_de.md  its language part per UI language, joined to its end (O1, T7.2)
   prompts/answer_coach.md   the coach's part, joined after the language part in a coach's chat only (O8, T9.7)
   prompts/query_translation_system.md  the owner's query translation prompt (O7)
+  prompts/weekly_review_system.md  the owner's weekly review prompt (O15; T9.16's PR waits for it)
   usage.py                  token counting and cost from OpenRouter prices
   observability.py          the JSON log lines: formatter with an allowlist of fields, configure_logging() (T8.2)
   export_pdf.py             session summary PDF, built in memory
@@ -175,7 +180,7 @@ src/
     users.py                accounts, coach-client relationships (one coach per gymer), the scopes a client shares, the other side's display name (T9.12)
     invitations.py          a coach's single-use codes (hashed, expiring, cancellable) and a gymer accepting one, with the daily limit on tries (T9.12, D15)
     records.py              profile entries, weights, targets, meal items, workouts, a coach's preferences (T9.7); a profile saved with its target in one transaction, a meal edit as a new row (T9.13); sets on the exercise list with ranges from config, a workout edit replaced in one transaction (T9.14)
-    reviews.py              weekly reviews: save as PENDING_REVIEW, decide with an audit row, list
+    reviews.py              weekly reviews: prepare (authorise, one open review a week), save as PENDING_REVIEW with its scopes and thread, decide with an audit row, list; every scope a review used must stay shared (T9.16)
     my_data.py              export_user_data() as JSON, delete_user_data()
   rag/
     sources.py              manifest model, licence, DOI and author check on article XML, ATTRIBUTION.md text
@@ -310,6 +315,12 @@ Shown under each answer ("3,700 tokens · $0.0074", "<$0.0001" below a hundredth
 | Any of the fixed messages above in the German UI (T7.1) | The same message in German: each carries a key into `src/i18n.py` (`TurnResult.code`), so the UI shows it in the language chosen now |
 | Failure mid-answer | Chat history stays intact: `run_turn()` turns every error above into a `TurnResult` of kind `error` (or `rejected` for the guard, `guardrail` for a domain refusal or redirect), which the app shows in the answer bubble |
 | Any other error in a chat turn (a bug in our code or a library), not covered by the rows above | `TURN_ERROR_MESSAGE` ("Something went wrong while answering your question", code `turn.error`, in the chosen language), with the steps run and the tokens spent so far; `run_turn()` catches every `Exception` after the named ones (T1.8) and logs one ERROR record, `turn_error`, with only the error's type and the function that raised it (`llm.error_diagnostic()`), never its message or arguments, which may hold the question, a chunk or a server's reply. `BaseException` (Streamlit's rerun and stop) is not caught, so a turn Streamlit interrupts writes no `turn` record |
+| A weekly review (T9.16) the coach may not run: not their active client, nutrition not shared, the week not over, or a review of that week pending or approved | A fixed line under the week (`review.outcome.not_found`, `not_finished`, `exists`, in the chosen language); no model or embedding call, nothing saved |
+| A review draft that fails its checks twice (D17) | `review.outcome.invalid`: no review is saved and the run's thread is deleted; the coach may draft again |
+| A model, embedding, key, index or prompt error during a review | The error's own fixed message in the chosen language (`RunResult.error_code`, AC-30); no review, no thread, the client's records unchanged; one `llm_error` warning with codes only |
+| A coach's edit that fails a check (calorie floor, diagnosis, training) | `review.outcome.edit_invalid` with each failed check's text; nothing stored, the form stays open, the run waits again (AC-35) |
+| A decision after the client turned off a scope the review used, or the relationship ended | `review.outcome.not_found`; the review stays pending and its run waits (AC-22) |
+| A pending review whose run has no thread any more | `review.outcome.gone`; nothing changes |
 | Any other error outside a chat turn (a bug in the page itself) | Streamlit's generic error, with no message, type or traceback in the page (`client.showErrorDetails = "none"` in `.streamlit/config.toml`, T1.7; Streamlit still writes it in full to the server console) |
 
 The mapping lives in `src/llm.py`: callers wrap a model or embedding call in `with mapped_errors():`, which turns any OpenAI SDK error, and a malformed reply the client could not read, into an `LLMError` subclass whose message is fixed text (never the server's response, so never the key) and drops the original from the traceback. The original stays on `__context__` and its request holds the key, so it is never logged or shown; each `LLMError` carries a `diagnostic` instead (the error type and the function that raised it, no message text), which is safe to log. Malformed replies raise plain `ValueError`/`KeyError`/`TypeError`, so those are mapped only when the traceback passes through `openai` or `langchain_openai`; a bug of ours that langchain raises is mapped too, and the diagnostic shows where it came from. Each request has a `LLM_TIMEOUT_SECONDS` (60) timeout. Clients are built only through `src/llm.py`, and `model` and `max_tokens` are never passed at call time or changed on a built client (`.claude/rules/security-privacy.md`), so the allowlist and the cap are not bypassed as long as that rule is followed; `tests/test_client_rules.py` scans `src/`, `views/`, `app.py` and `scripts/` for a call-time setting, a pass-through (`model_kwargs`, `extra_body`), a changed or reconfigured client, or a client built outside `src/llm.py` (T9.2; what an `ast` scan cannot see is listed in its docstring).
@@ -334,6 +345,7 @@ Checked on PyPI on 2026-10-19. Licences are permissive, as the copyright policy 
 | langchain-text-splitters | 1.1.3 | MIT | chunking |
 | langgraph | 1.2.17 | MIT | the chat turn's `StateGraph` (T9.2; installed with langchain 1.4.6 before, now pinned; licence read in the package's own LICENSE file, 2026-10-26) |
 | langgraph-checkpoint | 4.3.0 | MIT | `InMemorySaver`, the chat's memory (T9.4; installed with langgraph before, imported directly, so pinned; licence read in the package's own LICENSE file, 2026-10-30; it pulls in nothing new: langchain-core and ormsgpack were already installed) |
+| langgraph-checkpoint-sqlite | 3.1.2 | MIT | `SqliteSaver`, the weekly review's threads (T9.16, D12; licence in its metadata, 2026-11-05). It pulls in aiosqlite 0.22.1 (MIT) and sqlite-vec 0.1.9 (MIT or Apache-2.0: its wheel gives the licence as free text and has no licence file, so `tests/test_dependency_licences.py` lists it as checked by hand, from LICENSE-MIT and LICENSE-APACHE in its repository at the v0.1.9 tag); our code loads neither the async saver nor the vector extension |
 | langgraph-prebuilt | 1.1.1 | MIT | `ToolNode` (T9.2; imported directly, so pinned too; licence checked the same way) |
 | openai | 3.35.1 | Apache-2.0 | the SDK under langchain-openai; pinned in T1.2 because `src/llm.py` maps its error classes and relies on its retries |
 | rank-bm25 | 0.2.2 | Apache-2.0 | BM25 (small and stable; last release 2022) |
@@ -347,7 +359,7 @@ Checked on PyPI on 2026-10-19. Licences are permissive, as the copyright policy 
 
 The table lists the pins; the packages they pull in are checked too. `tests/test_dependency_licences.py` (T1.11) reads the licence of every runtime dependency and of everything it pulls in (130 packages on Windows on 2026-11-02, after T9.5; on Linux, as in CI, uvloop comes in and colorama drops out) from the installed metadata, offline, in every CI run, Dependabot's bumps included. It allows MIT, MIT-0 (since T9.5), MIT-CMU, BSD, 0BSD, ISC, Apache-2.0, PSF-2.0, CNRI-Python, Zlib, CC0-1.0 and MPL-2.0 (certifi, orjson and tqdm, used unchanged), and fails on anything else (GPL, LGPL, AGPL, SSPL, proprietary, unrecognised or missing) unless the owner checked the package by hand and recorded it in the test's `LICENCE_EXCEPTIONS` (empty today). It reads the metadata as published: it cannot tell whether a package bundles code under another licence, and it does not check the dev tools below or the licences of data and fonts (`docs/TESTING.md`).
 
-Planned for Sprint 3 (section 16), each pinned and its licence checked in its ticket (copyright policy rule 9): `langgraph-checkpoint-sqlite` (T9.16; `langgraph` itself is pinned since T9.2), `langsmith` (T9.8), Ragas or DeepEval (T9.10). The store uses the standard library's `sqlite3` (D13).
+Planned for Sprint 3 (section 16), each pinned and its licence checked in its ticket (copyright policy rule 9): `langsmith` (T9.8), Ragas or DeepEval (T9.10) (`langgraph-checkpoint-sqlite` came with T9.16). The store uses the standard library's `sqlite3` (D13).
 
 Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 7.1.0 (MIT), ruff 0.17.1 (MIT), pip-audit 2.10.1 (Apache-2.0), httpx2 2.14.0 (BSD-3-Clause; the OpenAI SDK's HTTP library, whose `MockTransport` the T1.2 tests use), and pypdf 6.21.1 (BSD-3-Clause, no dependencies; reads the summary PDF's text back in the T5.2 tests; checked 2026-10-20). Not chosen: fpdf2 (LGPL-3.0, not permissive). Python **3.14** as in Sprint 1; every package above has a wheel or pure-Python build for it.
 
@@ -433,25 +445,55 @@ A tool never trusts an ID the model writes: a client ID is checked against the c
 
 **Memory (D12).** Short-term: an `InMemorySaver` per browser session and its `thread_id` in `st.session_state`; `trim_messages` limits what the model sees, and `RemoveMessage` deletes the oldest messages of the stored thread beyond a cap from config (what is stored); "New chat" discards any pending proposal, deletes the old thread from the checkpointer and starts a new `thread_id` (T9.4, owner's choice of 2026-10-25). Built in T9.4 as section 2, "The conversation", describes: the thread keeps each answered turn's question and answer only, never tool results or `<sources>` (owner's choice, 2026-10-30), so a T9.7 proposal paused for the user's answer belongs to the conversation graph, whose state is checkpointed, not to the turn's graph, which is not. Long-term (T9.7, as built; for the coach since T9.24, owner's decision, 2026-11-02): the coach's own working preferences ("keep answers short", "most of my clients are vegetarian"), proposed by `remember_preference`, saved in the store's `preferences` table only after the coach approves them, and given to the model of the coach's chat in a delimited `<memories>` block; not for a client's personal or health data (each proposal is checked against the guardrails and the names of the coach's current and former clients, and the coach approves every save, T9.7); guests and gymers have none.
 
-**The weekly review (D17).**
+**The weekly review (D17).** As built by T9.16 (`src/agent/review.py`), drawn from the compiled graph (`tests/test_agent_review.py` fails if it differs); a dotted edge is conditional:
 
 ```mermaid
-flowchart LR
-  A[authorise] -->|no access| X[end: not found]
-  A --> B[compute metrics]
-  B --> C[retrieve evidence]
-  C --> D[draft: structured output]
-  D --> E[validate]
-  E -->|invalid, first time| D
-  E -->|invalid again| Y[end: no review]
-  E --> P[save as PENDING_REVIEW]
-  P --> F[coach decision: interrupt]
-  F -->|scope revoked| Z[end: not found]
-  F -->|approve or edit| G[save and release]
-  F -->|reject| H[save as rejected]
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	authorise(authorise)
+	compute(compute)
+	retrieve(retrieve)
+	draft(draft)
+	validate(validate)
+	invalid(invalid)
+	save(save)
+	decide(decide)
+	release(release)
+	reject(reject)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> authorise;
+	authorise -.-> __end__;
+	authorise -. &nbsp;next&nbsp; .-> compute;
+	compute -.-> __end__;
+	compute -. &nbsp;next&nbsp; .-> retrieve;
+	decide -.-> reject;
+	decide -.-> release;
+	draft --> validate;
+	reject -.-> __end__;
+	reject -.-> decide;
+	release -.-> __end__;
+	release -.-> decide;
+	retrieve --> draft;
+	save -.-> __end__;
+	save -.-> decide;
+	validate -.-> draft;
+	validate -.-> invalid;
+	validate -.-> save;
+	invalid --> __end__;
+	decide -.-> decide;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
 ```
 
 The metrics are computed in Python with no model: logged days, averages over logged days against the active target, the weight trend, sessions and volume, and `data_quality`. As built for nutrition by T9.13: `src/metrics.week_metrics()` takes the records and the week's Monday (never a user ID) and returns each day's totals (None for a day not logged), the averages over the logged days ("3 of 7 days logged"), the target active on the Sunday (the latest started on or before it), the average minus the target, and the weight change (the week's latest weight minus the latest one before its Monday, owner's choice, 2026-11-03); fibre counts only the foods with a value and is marked incomplete otherwise; `src/diary.read_week()` reads the records through the store's access checks for the dashboards (T9.15) and the review (T9.16). The evidence search covers only the topics the metrics raise. `WeeklyReview` holds period, metrics, data_quality, observations, hypotheses, recommendations (each with a `kind`, nutrition or training, D22; a training one also has `direction`, `source_range` and `population`), evidence_refs and model_version. Validation checks the schema, that every evidence reference is a chunk retrieved in this run, that no intake is below the calorie floor, that there is no diagnosis, that every recommendation of kind training cites a `resistance_training` chunk retrieved in this run, holds no program and gives the source's range with its population, leaving the number for this client to the coach (D22): `source_range` is checked against its cited chunk, `population` must be filled and no field of a training recommendation holds the client's own set count or volume; and that the numbers quoted in observations, hypotheses and nutrition recommendations match the metrics (a number that appears in a cited chunk counts as a source number).
+
+As built by T9.16: `src/weekly_review.py` holds what the model writes (`WeeklyReview`: observations and hypotheses, each a text with the `[S#]` labels it cites, and recommendations with `kind`, `model_suggestion`, `direction`, `source_range` and `population`; period, metrics, data_quality, evidence references and the model version are added by the code, not written by the model), `aggregates()` (the week of `dashboard.client_week()` for the scopes the review uses, as numbers for "the client": no name, ID, food or date of birth), the messages (the owner's prompt as the system message; one user message with `<language>`, `<metrics>` and `<sources>`, and on the retry `<validation_errors>` with the fixed text of each failed check, never the draft's text) and the checks, each a code: `schema`, `unknown_evidence`, `calorie_floor` (a kcal figure in a recommendation counts as an intake unless it is written as a change: after "by" or a sign, before "deficit", "more" and the like, `config.REVIEW_KCAL_CHANGE_*`), `diagnosis` (`config.REVIEW_DIAGNOSIS_PATTERNS`, English and German), `training_uncited`, `training_fields`, `source_range` (compared after `normalise_range()`), `program` (`config.REVIEW_PROGRAM_PATTERNS`), `client_volume` (`config.REVIEW_CLIENT_VOLUME_PATTERNS`), `number` (each number, read with a decimal point or comma, must be a metric, rounded or not, or in a chunk the item cites; dates and labels are skipped) and `suggestion_label`. The coach's edit passes `schema`, `calorie_floor`, `diagnosis` and the training checks (`check_edit()`), not `number`: the coach writes their own figures. The evidence search (`review._search()`) runs only for the topics the metrics raise (`evidence_topics()`: protein or kcal off the target by more than `config.REVIEW_PROTEIN_GAP_SHARE` or `REVIEW_KCAL_GAP_SHARE`, training when a session was logged and training is shared), each with its fixed English query (`config.REVIEW_EVIDENCE_QUERIES`) and its topic as the filter, one embedding call for all, at most `config.REVIEW_MAX_CHUNKS` taken in turns; no client text reaches the embedding API. A stored review text keeps, beside the model's fields, its language and `sources` (what each cited `[S#]` label pointed to, `cited_sources()`), so both pages list the right source beside each label after the run is gone. A review records the scopes it used in `ai_review_scopes` (migration 2; older reviews get nutrition) and its thread in `ai_reviews.thread_id`; `reviews.prepare_review()` refuses a second review of a week that has a pending or approved one. The coach's decision resumes the run (`review.decide_review()`); a refused edit or a store that refuses the decision (a scope revoked, AC-22) pauses the run again, so the review waits, hidden from the coach's lists, until the client shares again or either side deletes their data.
 
 **The store (D13, D16).** Built in T9.6 (`src/store/`): SQLite in a gitignored directory set in config (`data/store/`); UTC timestamps (D21) and ISO dates for the days a user chose, both checked by the tables. The scopes cover: **body** the weights and profile entries, **nutrition** the meal items, targets and the coach's own reviews, **training** the workouts; preferences are never shared; the rule is written once, as the `open_shares` view; a coach's own list and export of their reviews keep only clients who still share nutrition, each audited, and a gymer never gets the model's draft (owner's choices, 2026-10-27). As built, the fields below changed from the plan: `meal_items` stores the day (`consumed_on`), the USDA name and the snapshot `kcal`, `protein_g`, `carbohydrate_g`, `fat_g`, `fiber_g` (as T9.13 needs); `ai_reviews` has `period_start` (the Monday) and `created_at`; `audit_log` has `subject_id` (whose data), so the audit rows about a user can be exported and deleted.
 
@@ -474,4 +516,4 @@ The metrics are computed in Python with no model: logged days, averages over log
 
 Snapshots and profile entries are never changed in place, and a new target is a new row; as built, a trigger refuses an UPDATE on every record table and on the audit log, so an edit is a delete and a new row. Every read of another user's data takes the acting user and checks the role, an active relationship and the scope.
 
-**UI (D20).** Guest: today's tabs. Gymer (no chat since T9.24): My profile, Today (log food and weight), Workouts, My week (with the approved reviews and, P1, the questions to the coach, T9.25), Coach and sharing, My data. Coach: Clients, a client's week, Reviews, Chat, My data. Demo mode adds a user picker (D18). As built by T9.5 (owner's choices, 2026-11-02): a coach has Chat (today's tabs, the home) and My data, a gymer My profile (the home) and My data, no chat; T9.13 added Today after My profile (owner's choice, 2026-11-03) and T9.14 Workouts after Today; T9.12 adds Clients (the coach's client list and invitations) and Coach and sharing (the gymer's); T9.15 adds the coach's Client week after Clients and the gymer's My week after Workouts (the reviews' own Reviews page is T9.16's); later tickets add their pages to `views/navigation.PAGES_BY_ROLE` and may change the home.
+**UI (D20).** Guest: today's tabs. Gymer (no chat since T9.24): My profile, Today (log food and weight), Workouts, My week (with the approved reviews and, P1, the questions to the coach, T9.25), Coach and sharing, My data. Coach: Clients, a client's week, Reviews, Chat, My data. Demo mode adds a user picker (D18). As built by T9.5 (owner's choices, 2026-11-02): a coach has Chat (today's tabs, the home) and My data, a gymer My profile (the home) and My data, no chat; T9.13 added Today after My profile (owner's choice, 2026-11-03) and T9.14 Workouts after Today; T9.12 adds Clients (the coach's client list and invitations) and Coach and sharing (the gymer's); T9.15 adds the coach's Client week after Clients and the gymer's My week after Workouts (T9.16 puts the weekly review under the week on Client week, with no separate Reviews page, owner's choice, 2026-11-05); later tickets add their pages to `views/navigation.PAGES_BY_ROLE` and may change the home.
