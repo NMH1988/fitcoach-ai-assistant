@@ -378,16 +378,30 @@ def normalise_range(text: str) -> str:
     return _SPACE_AROUND_DASH.sub("-", text).strip()
 
 
+def _is_change(before: str, after: str) -> bool:
+    """Return True if the words around a kcal figure make it a change, not an intake."""
+    if before.endswith(config.REVIEW_KCAL_SIGNS):
+        return True
+    words = before.split()
+    # "by around 300 kcal": the approximate word is skipped; "around 300 kcal" alone is no change.
+    if words and words[-1] in config.REVIEW_KCAL_APPROXIMATE:
+        words = words[:-1]
+    if words and words[-1] in config.REVIEW_KCAL_CHANGE_BEFORE:
+        return True
+    following = after.split()
+    return bool(following) and following[0].strip(".,;:") in config.REVIEW_KCAL_CHANGE_AFTER
+
+
 def _kcal_below_floor(text: str) -> bool:
     """Return True if the text gives an intake (not a change) below the calorie floor."""
     for match in _KCAL.finditer(text):
         before = text[: match.start()].rstrip().lower()
         after = text[match.end() :].lstrip().lower()
-        if any(before.endswith(word) for word in config.REVIEW_KCAL_CHANGE_BEFORE):
+        if _is_change(before, after):
             continue
-        if any(after.startswith(word) for word in config.REVIEW_KCAL_CHANGE_AFTER):
-            continue
-        if min(_number_values(match.group(1)), default=0) < config.CALORIE_FLOOR_KCAL:
+        # "1,200" or "2.500" may be read with either mark as the decimal one; an intake is the
+        # larger reading (1200 kcal, never 1.2), so "1.100 kcal" is still 1100 and below the floor.
+        if max(_number_values(match.group(1)), default=0) < config.CALORIE_FLOOR_KCAL:
             return True
     return False
 

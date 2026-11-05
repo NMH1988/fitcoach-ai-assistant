@@ -11,6 +11,7 @@ import pytest
 
 from src import config, dashboard, metrics
 from src import weekly_review as wr
+from src.agent import graph
 from src.rag.retriever import RetrievedChunk, chunk_key
 
 MONDAY = date(2026, 10, 19)
@@ -194,6 +195,9 @@ def test_a_label_not_retrieved_in_this_run_is_refused():
         "Eat 1.100 kcal a day.",
         "Keep intake at 1,000 calories.",
         "Täglich 1100 Kalorien.",
+        "Eat about 1100 kcal a day.",
+        "Aim for around 1,000 kcal.",
+        "Etwa 1.100 kcal am Tag.",
     ],
 )
 def test_a_recommended_intake_below_the_floor_is_refused(text):
@@ -211,6 +215,11 @@ def test_a_recommended_intake_below_the_floor_is_refused(text):
         "Eat about 200 kcal more on training days.",
         "Täglich um 300 kcal weniger.",
         "Keep intake at 2500 kcal.",
+        "Reduce by around 300 kcal.",
+        "Senken um etwa 300 kcal.",
+        "A change of -300 kcal.",
+        "Keep intake at or above 1,200 kcal per day.",
+        "Mindestens 1.200 kcal pro Tag.",
     ],
 )
 def test_a_change_in_kcal_or_an_intake_above_the_floor_passes_the_floor(text):
@@ -504,3 +513,14 @@ def test_evidence_refs_name_the_cited_chunks_once():
 def test_normalise_range(text, expected):
     """Case, dashes, spaces and "to" or "bis" between numbers are normalised."""
     assert wr.normalise_range(text) == expected
+
+
+def test_the_owner_s_review_prompt_names_its_blocks():
+    """O15: the owner's prompt file loads and names every block the review's message holds."""
+    text = graph.load_prompt(
+        config.REVIEW_PROMPT_PATH, config.REVIEW_PROMPT_MISSING_MESSAGE, "prompt.review_missing"
+    )
+    for block in (*config.REVIEW_PROMPT_BLOCKS, "<validation_errors>"):
+        assert block in text, block
+    # The calorie floor the prompt states is the one the code enforces.
+    assert f"{config.CALORIE_FLOOR_KCAL:,}" in text

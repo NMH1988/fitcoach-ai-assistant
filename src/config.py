@@ -807,8 +807,22 @@ REVIEW_CLIENT_VOLUME_PATTERNS: tuple[str, ...] = (
     r"\bvolume\s+(?:of|von)\s+\d",
 )
 # A kcal figure in a recommendation is an intake, checked against the calorie floor, unless it is
-# a change: preceded by one of these words or a sign, or followed by one of the others.
-REVIEW_KCAL_CHANGE_BEFORE: tuple[str, ...] = ("by", "um", "+", "-", "−", "±", "about", "etwa")
+# a change: the word before it (after an approximate word, if any) is one of these or it carries a
+# sign, or the word after it is one of the others. "About 1100 kcal" alone is an intake.
+REVIEW_KCAL_CHANGE_BEFORE: tuple[str, ...] = ("by", "um")
+REVIEW_KCAL_SIGNS: tuple[str, ...] = ("+", "-", "−", "±")
+REVIEW_KCAL_APPROXIMATE: tuple[str, ...] = (
+    "about",
+    "around",
+    "roughly",
+    "approximately",
+    "some",
+    "etwa",
+    "rund",
+    "ungefähr",
+    "ca.",
+    "circa",
+)
 REVIEW_KCAL_CHANGE_AFTER: tuple[str, ...] = (
     "deficit",
     "surplus",
