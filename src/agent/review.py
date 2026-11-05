@@ -71,11 +71,6 @@ Outcome = Literal[
     "error",
     "gone",
 ]
-# Every attempt at a draft: the first and the one retry (D17).
-MAX_DRAFTS = 2
-# The most supersteps a run can take: one per node with two drafts, plus the decision loops a
-# coach can cause by refused edits, which each wait for the coach; LangGraph counts per invoke.
-MAX_STEPS = 12
 _DECISIONS = ("approve", "edit", "reject")
 # The errors that end a run with a fixed message: the model or embedding service, the index, the
 # key. Each has (or gets here) the key of its message in src/i18n.py.
@@ -89,6 +84,12 @@ _SETUP_CODES: dict[type, str] = {
     config.MissingAPIKeyError: "key.missing",
 }
 _ENDED = frozenset({"approved", "edited", "rejected"})
+# The outcomes after which a run's thread is deleted: decided here, or decided elsewhere.
+_FINISHED = _ENDED | {"gone"}
+# Where a run may stand when the coach decides: waiting, or stuck after a failure in the
+# store with the coach's decision already taken (code review round 1).
+_WAITING = ("decide",)
+_STUCK = (("release",), ("reject",))
 
 
 class ReviewState(TypedDict, total=False):
@@ -239,7 +240,9 @@ def draft(state: ReviewState, runtime: Runtime[ReviewContext]) -> dict[str, Any]
     except llm.InvalidReplyError, llm.ReplyCutOffError:
         # A reply off the schema or cut off: a failed check like any other, retried once.
         return {"draft": None, "attempts": attempts}
-    parsed = reply.get("parsed") if isinstance(reply, Mapping) else None
+    if not isinstance(reply, Mapping):
+        return {"draft": None, "attempts": attempts}
+    parsed = reply.get("parsed")
     if reply.get("parsing_error") is not None or not isinstance(parsed, wr.WeeklyReview):
         return {"draft": None, "attempts": attempts}
     raw = reply.get("raw")
@@ -262,7 +265,7 @@ def after_validate(state: ReviewState) -> str:
     """Save a valid draft, retry once, then end with no review."""
     if not state.get("errors"):
         return "save"
-    return "draft" if state.get("attempts", 0) < MAX_DRAFTS else "invalid"
+    return "draft" if state.get("attempts", 0) < config.REVIEW_MAX_DRAFTS else "invalid"
 
 
 def invalid(state: ReviewState) -> dict[str, Any]:
@@ -349,7 +352,10 @@ def _decide_in_store(state: ReviewState, context: ReviewContext) -> dict[str, An
                 conn, state["coach_id"], state["review_id"], answer["decision"], final
             )
     except NotFound:
-        return {"decision": None, "outcome": "not_found"}
+        # Decided in another tab: the run ends. A scope revoked (AC-22): it waits again.
+        with account.open_store(context.store_path) as conn:
+            waiting = reviews.is_pending(conn, state["coach_id"], state["review_id"])
+        return {"decision": None, "outcome": "not_found" if waiting else "gone"}
     outcome = {"approve": "approved", "edit": "edited", "reject": "rejected"}[answer["decision"]]
     return {"outcome": outcome}
 
@@ -365,8 +371,8 @@ def reject(state: ReviewState, runtime: Runtime[ReviewContext]) -> dict[str, Any
 
 
 def after_decision(state: ReviewState) -> str:
-    """End once decided; wait again when the store refused (a scope revoked)."""
-    return END if state.get("outcome") in _ENDED else "decide"
+    """End once decided (here or in another tab); wait again when a scope was revoked."""
+    return END if state.get("outcome") in _FINISHED else "decide"
 
 
 def after_check(state: ReviewState) -> str:
@@ -423,7 +429,7 @@ def _run_config(thread_id: str, coach_id: str, client_id: str) -> RunnableConfig
             review_threads.COACH_KEY: coach_id,
             review_threads.CLIENT_KEY: client_id,
         },
-        "recursion_limit": MAX_STEPS,
+        "recursion_limit": config.REVIEW_MAX_STEPS,
     }
 
 
@@ -470,10 +476,12 @@ def start_review(
             graph.invoke(start, run, context=context)
         except _RUN_ERRORS as exc:
             # No review is saved and nothing of the client's logs changes (AC-30).
-            review_threads.delete_threads(saver, [thread_id])
+            _abandon(context, saver, coach_id, thread_id)
             return _failed(exc)
         except BaseException:
-            review_threads.delete_threads(saver, [thread_id])
+            # E.g. the review was saved, then its checkpoint could not be written: the run cannot
+            # wait for the coach, so its review goes too and the week can be run again.
+            _abandon(context, saver, coach_id, thread_id)
             raise
         values = graph.get_state(run).values
         result = _result(values)
@@ -496,13 +504,27 @@ def _log(result: RunResult, values: Mapping) -> None:
     )
 
 
-def waiting(context: ReviewContext, thread_id: str) -> Mapping | None:
-    """Return the state of a run that waits for the coach; None if there is no such run."""
-    with review_threads.open_saver(context.store_path) as saver:
-        snapshot = review_graph(saver).get_state({"configurable": {"thread_id": thread_id}})
-    if not snapshot.next or snapshot.next != ("decide",):
-        return None
-    return snapshot.values
+def _abandon(context: ReviewContext, saver: SqliteSaver, coach_id: str, thread_id: str) -> None:
+    """Remove what a failed run left: a review it saved, then its thread; as far as possible."""
+    try:
+        with account.open_store(context.store_path) as conn:
+            reviews.discard_pending(conn, coach_id, thread_id)
+    except account.StoreUnavailable:
+        pass  # left pending with no run: its coach can still reject it (decide_review below)
+    try:
+        review_threads.delete_threads(saver, [thread_id])
+    except Exception:  # noqa: BLE001 - the run's own error is the one to report
+        pass  # deleted with the user's data later, found by its metadata
+
+
+def _reject_without_run(context: ReviewContext, coach_id: str, review_id: int) -> RunResult:
+    """Reject a pending review whose run is gone, in the store, which checks access itself."""
+    try:
+        with account.open_store(context.store_path) as conn:
+            reviews.decide_review(conn, coach_id, review_id, "reject")
+    except NotFound:
+        return RunResult(outcome="not_found", review_id=review_id)
+    return RunResult(outcome="rejected", review_id=review_id)
 
 
 def decide_review(
@@ -514,21 +536,36 @@ def decide_review(
     final: Mapping | None = None,
 ) -> RunResult:
     """Resume a waiting review with the coach's decision; the thread goes once it is decided."""
+    # Three cases (code review round 1): the run waits at decide, so the decision resumes it; the
+    # run is stuck at release or reject after the store failed, so it finishes the decision the
+    # coach took then; or there is no run (its thread was lost), so only a rejection is possible,
+    # in the store, and an approval or an edit gets "gone" (draft the week again instead).
     with review_threads.open_saver(context.store_path) as saver:
         graph = review_graph(saver)
-        snapshot = graph.get_state({"configurable": {"thread_id": thread_id}})
-        values = snapshot.values
-        # Only the coach who started this run, for this review, may resume it.
-        if snapshot.next != ("decide",) or values.get("review_id") != review_id:
-            return RunResult(outcome="gone")
-        if values.get("coach_id") != coach_id:
-            return RunResult(outcome="not_found")
-        run = _run_config(thread_id, coach_id, values["client_id"])
-        answer = {"decision": decision, "final": None if final is None else dict(final)}
-        graph.invoke(Command(resume=answer), run, context=context)
-        values = graph.get_state(run).values
-        result = _result(values)
-        if result.outcome in _ENDED:
-            review_threads.delete_threads(saver, [thread_id])
-        _log(result, values)
+        snapshot = (
+            graph.get_state({"configurable": {"thread_id": thread_id}}) if thread_id else None
+        )
+        values = snapshot.values if snapshot is not None else {}
+        if snapshot is not None and values.get("review_id") == review_id and snapshot.next:
+            # Only the coach who started this run may resume it.
+            if values.get("coach_id") != coach_id:
+                return RunResult(outcome="not_found")
+            run = _run_config(thread_id, coach_id, values["client_id"])
+            if snapshot.next == _WAITING:
+                answer = {"decision": decision, "final": None if final is None else dict(final)}
+                graph.invoke(Command(resume=answer), run, context=context)
+            elif snapshot.next in _STUCK:
+                graph.invoke(None, run, context=context)
+            else:
+                return RunResult(outcome="gone")
+            values = graph.get_state(run).values
+            result = _result(values)
+            if result.outcome in _FINISHED:
+                review_threads.delete_threads(saver, [thread_id])
+            _log(result, values)
+            return result
+    if decision != "reject":
+        return RunResult(outcome="gone", review_id=review_id)
+    result = _reject_without_run(context, coach_id, review_id)
+    _log(result, {})
     return result

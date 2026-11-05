@@ -33,7 +33,6 @@ from src.rag.retriever import RetrievedChunk, chunk_key
 
 Kind = Literal["nutrition", "training"]
 NUTRIENTS = ("kcal", "protein_g", "carbohydrate_g", "fat_g")
-# The target's stored names for the same nutrients (nutrition_targets.carbs_g is carbohydrate_g).
 _LABEL = re.compile(r"\[?\bS(\d+)\b\]?")
 _DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\.\d{1,2}\.\d{4}\b")
 _NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
@@ -41,7 +40,13 @@ _DASHES = re.compile(r"[‐-―−-]")
 _TO_BETWEEN_NUMBERS = re.compile(r"(?<=\d)\s*(?:to|bis)\s*(?=\d)")
 _SPACE_AROUND_DASH = re.compile(r"\s*-\s*")
 _SPACES = re.compile(r"\s+")
-_KCAL = re.compile(r"(\d+(?:[.,]\d+)*)\s*(?:kcal|kilocalories|calories|kalorien)\b", re.I)
+# A kcal figure, or a range of two ("1,000-1,100 kcal", "1000 to 1100 kcal"): group 1 is the lower
+# end (None for one figure), group 2 the figure or the upper end.
+_KCAL = re.compile(
+    r"(?:(\d+(?:[.,]\d+)*)\s*(?:[\u2010-\u2015\u2212-]|to|bis)\s*)?"
+    r"(\d+(?:[.,]\d+)*)\s*(?:kcal|kilocalories|calories|kalorien)\b",
+    re.I,
+)
 
 # The fixed text the model gets back for each failed check, on the one retry (English, as the
 # prompt is; the coach sees these codes as their own texts in src/i18n.py).
@@ -378,18 +383,42 @@ def normalise_range(text: str) -> str:
     return _SPACE_AROUND_DASH.sub("-", text).strip()
 
 
-def _is_change(before: str, after: str) -> bool:
-    """Return True if the words around a kcal figure make it a change, not an intake."""
-    if before.endswith(config.REVIEW_KCAL_SIGNS):
-        return True
+def _words_before(before: str) -> list[str]:
+    """Return the words before a kcal figure, without an approximate word right before it."""
     words = before.split()
     # "by around 300 kcal": the approximate word is skipped; "around 300 kcal" alone is no change.
     if words and words[-1] in config.REVIEW_KCAL_APPROXIMATE:
         words = words[:-1]
+    return words
+
+
+def _is_change(before: str, after: str) -> bool:
+    """Return True if the words around a kcal figure make it a change, not an intake."""
+    # A sign right before the figure ("-300 kcal"); a dash between two figures is a range, which
+    # _KCAL takes whole, and a dash right after a digit is never read as a sign.
+    if before.endswith(config.REVIEW_KCAL_SIGNS) and not before[:-1].rstrip()[-1:].isdigit():
+        return True
+    words = _words_before(before)
     if words and words[-1] in config.REVIEW_KCAL_CHANGE_BEFORE:
         return True
     following = after.split()
     return bool(following) and following[0].strip(".,;:") in config.REVIEW_KCAL_CHANGE_AFTER
+
+
+def _is_current(before: str) -> bool:
+    """Return True if the words before a kcal figure give it as the client's current value."""
+    words = _words_before(before)
+    return bool(words) and (
+        words[-1] in config.REVIEW_KCAL_CURRENT_WORDS
+        or " ".join(words[-2:]) in config.REVIEW_KCAL_CURRENT_PHRASES
+    )
+
+
+def _kcal(text: str) -> float:
+    """Return a written kcal figure as an intake: "1,200" and "1.200" are 1200, never 1.2."""
+    # Either mark may be the decimal one; an intake is the larger reading, so "1.100 kcal" is
+    # still 1100 and below the floor.
+    return max(_number_values(text), default=0.0)
 
 
 def _kcal_below_floor(text: str) -> bool:
@@ -397,13 +426,29 @@ def _kcal_below_floor(text: str) -> bool:
     for match in _KCAL.finditer(text):
         before = text[: match.start()].rstrip().lower()
         after = text[match.end() :].lstrip().lower()
+        lower, upper = match.group(1), match.group(2)
         if _is_change(before, after):
             continue
-        # "1,200" or "2.500" may be read with either mark as the decimal one; an intake is the
-        # larger reading (1200 kcal, never 1.2), so "1.100 kcal" is still 1100 and below the floor.
-        if max(_number_values(match.group(1)), default=0) < config.CALORIE_FLOOR_KCAL:
+        if _is_current(before):
+            # "an average of 1050 kcal" states the week; "from 1100 to 1300 kcal" aims at 1300.
+            if lower is None:
+                continue
+            lower = None
+        # A range is an intake from its lower end: "1,000-1,600 kcal" is below the floor.
+        lowest = _kcal(upper) if lower is None else min(_kcal(lower), _kcal(upper))
+        if lowest < config.CALORIE_FLOOR_KCAL:
             return True
     return False
+
+
+def _is_a_range(text: str) -> bool:
+    """Return True if a source_range is long enough and holds a number and a word (its unit)."""
+    found = normalise_range(text)
+    return (
+        len(found) >= config.REVIEW_SOURCE_RANGE_MIN_CHARS
+        and any(char.isdigit() for char in found)
+        and any(char.isalpha() for char in found)
+    )
 
 
 def _training_checks(item: Mapping, cited: Sequence[RetrievedChunk]) -> list[str]:
@@ -414,8 +459,9 @@ def _training_checks(item: Mapping, cited: Sequence[RetrievedChunk]) -> list[str
         errors.append("training_uncited")
     if not all(item.get(field) for field in ("direction", "source_range", "population")):
         errors.append("training_fields")
-    elif training and not any(
-        normalise_range(item["source_range"]) in normalise_range(c.text) for c in training
+    elif training and not (
+        _is_a_range(item["source_range"])
+        and any(normalise_range(item["source_range"]) in normalise_range(c.text) for c in training)
     ):
         errors.append("source_range")
     # The source's range is checked against its chunk; the other fields must hold no program and

@@ -752,6 +752,14 @@ REVIEW_EVIDENCE_QUERIES: dict[str, str] = {
     TRAINING_TOPIC: "weekly training volume, number of sets per muscle group and training "
     "frequency for muscle hypertrophy",
 }
+# Every attempt at a draft: the first and the one retry (D17).
+REVIEW_MAX_DRAFTS = 2
+# The most supersteps one invoke of a review run may take: one per node with two drafts, and
+# a decision (LangGraph counts per invoke; a refused edit waits for the coach again).
+REVIEW_MAX_STEPS = 12
+# The shortest source_range a training recommendation may quote; it must also hold a number
+# and a word (a unit), so a bare "10" cannot match any chunk that has a 10.
+REVIEW_SOURCE_RANGE_MIN_CHARS = 6
 # The most chunks the review's <sources> holds, over all its topics (labelled [S1]...).
 REVIEW_MAX_CHUNKS = 6
 # The schema's limits: items per list, and characters per text (the coach's edit too).
@@ -823,6 +831,19 @@ REVIEW_KCAL_APPROXIMATE: tuple[str, ...] = (
     "ca.",
     "circa",
 )
+# A kcal figure the text gives as the client's current value ("an average of 1050 kcal",
+# "averaged 1050 kcal", "from 1050 kcal to ..."), not as an intake to aim for; a range after one of
+# these ("from 1100 to 1300 kcal") has only its upper end checked.
+REVIEW_KCAL_CURRENT_WORDS: tuple[str, ...] = (
+    "averaged",
+    "averaging",
+    "currently",
+    "from",
+    "durchschnittlich",
+    "derzeit",
+    "aktuell",
+)
+REVIEW_KCAL_CURRENT_PHRASES: tuple[str, ...] = ("average of", "durchschnitt von")
 REVIEW_KCAL_CHANGE_AFTER: tuple[str, ...] = (
     "deficit",
     "surplus",

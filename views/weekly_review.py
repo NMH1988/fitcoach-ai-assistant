@@ -14,7 +14,7 @@ from datetime import date, timedelta
 import streamlit as st
 
 from src import account as accounts
-from src import config, dashboard, i18n
+from src import config, dashboard, guard, i18n
 from src.agent import graph, review
 from src.chat import PromptMissingError
 from views import account, resources, tables
@@ -67,6 +67,10 @@ def _show_flash() -> None:
     result = st.session_state.pop(FLASH_KEY, None)
     if result is None:
         return
+    if isinstance(result, guard.GuardResult):
+        # The session's rate limit refused the run; its numbers fill the text in this language.
+        st.warning(t(f"review.{result.reason.value}", **result.params), icon=":material/timer:")
+        return
     if result.outcome == "error":
         # A fixed message in the chosen language (AC-30); never the service's own text.
         code = result.error_code if result.error_code in i18n.TEXT["en"] else "llm.error"
@@ -86,6 +90,12 @@ def _start(user: dict, client_id: str, monday: date) -> None:
         context = _context()
     except PromptMissingError as exc:
         _flash(review.RunResult(outcome="error", error_code=exc.code))
+        return
+    # A run spends model and embedding calls, so it counts against the session's limit, as a chat
+    # question does (code review round 1); a refusal makes no call.
+    refused = guard.session_limiter(st.session_state).try_acquire()
+    if refused is not None:
+        st.session_state[FLASH_KEY] = refused
         return
     try:
         with st.spinner(t("review.running")):

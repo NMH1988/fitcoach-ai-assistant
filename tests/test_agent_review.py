@@ -7,12 +7,13 @@ AC-30 (a model error saves nothing), AC-34 (threads deleted), AC-35 (the checks 
 import io
 import json
 import re
+import sqlite3
 from datetime import date
 from pathlib import Path
 
 import pytest
 
-from src import config, llm, observability
+from src import account, config, llm, observability
 from src.agent import review, review_threads
 from src.rag.retriever import RetrievedChunk, chunk_key
 from src.store import access, my_data, records, reviews, users
@@ -209,7 +210,7 @@ def test_two_failed_drafts_end_the_run_with_no_review(store_conn, relationships,
     """After the one retry the run ends: no review, no thread, the failed checks reported."""
     model = _model(*replies)
     result = _start(_context(model))
-    assert result.outcome == "invalid" and len(model.calls) == review.MAX_DRAFTS
+    assert result.outcome == "invalid" and len(model.calls) == config.REVIEW_MAX_DRAFTS
     assert result.errors
     assert _stored(store_conn) == [] and _threads() == set()
 
@@ -219,8 +220,7 @@ def test_two_failed_drafts_end_the_run_with_no_review(store_conn, relationships,
     [llm.LLMTimeoutError(diagnostic="x"), llm.ServiceUnavailableError(503, diagnostic="x")],
 )
 def test_a_model_error_saves_no_review_and_loses_no_log_entry(store_conn, relationships, error):
-    """A timeout or outage: no review, no thread, the client's logs unchanged, one log line
-    (AC-30)."""
+    """A timeout or outage: no review, no thread, the client's logs kept, one line (AC-30)."""
     before = records.list_meal_items(store_conn, world.SHARED, world.SHARED)
     stream = io.StringIO()
     observability.configure_logging(stream=stream)
@@ -334,8 +334,7 @@ def test_an_edit_that_fails_a_check_waits_for_another_decision(
 
 @pytest.mark.parametrize("scope", ["nutrition", "training", "body"])
 def test_a_scope_revoked_while_the_review_waits_blocks_its_resume(store_conn, relationships, scope):
-    """The decision is refused and the review keeps waiting; sharing again lets it through
-    (AC-22)."""
+    """The decision is refused, the review waits; sharing again lets it through (AC-22)."""
     started = _start(_context())
     thread = _pending(store_conn)["thread_id"]
     _revoke(store_conn, relationships, scope)
@@ -359,17 +358,6 @@ def test_only_the_coach_who_started_the_run_may_resume_it(store_conn, relationsh
     missing = review.decide_review(_context(), world.COACH_A, started.review_id, "nope", "approve")
     assert missing.outcome == "gone"
     assert _pending(store_conn)["status"] == "PENDING_REVIEW"
-
-
-def test_the_waiting_state_gives_the_chunks_for_the_ui(store_conn, relationships):
-    """waiting() returns the run's state while it waits, and None once it is decided."""
-    started = _start(_context())
-    thread = _pending(store_conn)["thread_id"]
-    state = review.waiting(_context(), thread)
-    assert state is not None and state["review_id"] == started.review_id
-    assert review.chunks_of(state) == []
-    review.decide_review(_context(), world.COACH_A, started.review_id, thread, "approve")
-    assert review.waiting(_context(), thread) is None
 
 
 def test_deleting_the_client_deletes_the_waiting_thread(store_conn, relationships):
@@ -591,3 +579,112 @@ def test_a_coach_cannot_read_a_review_through_another_coachs_thread(store_conn, 
     other = review.decide_review(_context(), world.COACH_B, started.review_id, thread, "reject")
     assert other.outcome == "not_found"
     assert _pending(store_conn)["status"] == "PENDING_REVIEW"
+
+
+class _FailingOnce:
+    """Make a store function raise StoreUnavailable on its first call, then work as before."""
+
+    def __init__(self, function):
+        """Keep the function to call after the first failure."""
+        self.function = function
+        self.failed = False
+
+    def __call__(self, *args, **kwargs):
+        """Fail once, then call the real function."""
+        if not self.failed:
+            self.failed = True
+            raise account.StoreUnavailable
+        return self.function(*args, **kwargs)
+
+
+def test_a_decision_stuck_after_a_store_failure_is_finished_next_time(
+    store_conn, relationships, monkeypatch
+):
+    """Approve fails in the store once; the next click finishes it instead of "gone"."""
+    started = _start(_context())
+    thread = _pending(store_conn)["thread_id"]
+    monkeypatch.setattr(review.reviews, "decide_review", _FailingOnce(reviews.decide_review))
+    with pytest.raises(account.StoreUnavailable):
+        review.decide_review(_context(), world.COACH_A, started.review_id, thread, "approve")
+    assert _pending(store_conn)["status"] == "PENDING_REVIEW" and _threads() == {thread}
+    again = review.decide_review(_context(), world.COACH_A, started.review_id, thread, "approve")
+    assert again.outcome == "approved" and _threads() == set()
+
+
+def test_a_review_saved_by_a_run_that_then_failed_is_discarded(
+    store_conn, relationships, monkeypatch
+):
+    """The review is saved, then the run fails: no pending review is left and the week reruns."""
+
+    def failing_save(state, runtime):
+        """Save the review as the node does, then fail as a lost checkpoint write would."""
+        review.save(state, runtime)
+        raise RuntimeError("checkpoint write failed")
+
+    builder, graph_of = review._builder, review.review_graph
+
+    def patched():
+        """Return the graph builder with the failing save node."""
+        found = builder()
+        found.nodes["save"].runnable = failing_save  # type: ignore[attr-defined]
+        return found
+
+    monkeypatch.setattr(review, "_builder", patched)
+    monkeypatch.setattr(
+        review,
+        "review_graph",
+        lambda saver: patched().compile(checkpointer=saver),
+    )
+    with pytest.raises(RuntimeError):
+        _start(_context())
+    assert _stored(store_conn) == [] and _threads() == set()
+    # Put back only these two: monkeypatch.undo() would also undo the fixture that points the
+    # store at a temporary file, and the next run would open the real data/store/ file.
+    monkeypatch.setattr(review, "_builder", builder)
+    monkeypatch.setattr(review, "review_graph", graph_of)
+    assert _start(_context()).outcome == "pending"
+
+
+def test_a_pending_review_with_no_run_can_be_rejected_but_not_approved(store_conn, relationships):
+    """With its thread lost, Approve and Edit say "gone"; Reject decides it in the store."""
+    started = _start(_context())
+    thread = _pending(store_conn)["thread_id"]
+    with review_threads.open_saver(config.STORE_PATH) as saver:
+        review_threads.delete_threads(saver, [thread])
+    approve = review.decide_review(_context(), world.COACH_A, started.review_id, thread, "approve")
+    assert approve.outcome == "gone"
+    other = review.decide_review(_context(), world.COACH_B, started.review_id, thread, "reject")
+    assert other.outcome == "not_found"
+    reject = review.decide_review(_context(), world.COACH_A, started.review_id, thread, "reject")
+    assert reject.outcome == "rejected"
+    assert _start(_context()).outcome == "pending"  # the week can be drafted again
+
+
+def test_a_review_decided_in_another_tab_ends_its_run(store_conn, relationships):
+    """Decided outside the run (another tab), the run's resume ends with "gone", thread deleted."""
+    started = _start(_context())
+    thread = _pending(store_conn)["thread_id"]
+    reviews.decide_review(store_conn, world.COACH_A, started.review_id, "reject")
+    result = review.decide_review(_context(), world.COACH_A, started.review_id, thread, "approve")
+    assert result.outcome == "gone" and _threads() == set()
+    [row] = _stored(store_conn)
+    assert row["status"] == "REJECTED"
+
+
+def test_a_threads_file_that_cannot_be_used_gives_the_store_s_fixed_error(monkeypatch):
+    """An error of the threads file is StoreUnavailable, with the class name logged only."""
+
+    def locked(*args, **kwargs):
+        """Fail as a file locked past the busy timeout does."""
+        raise sqlite3.OperationalError("database is locked: C:/secret/path")
+
+    monkeypatch.setattr(review_threads.sqlite3, "connect", locked)
+    stream = io.StringIO()
+    observability.configure_logging(stream=stream)
+    with pytest.raises(account.StoreUnavailable) as caught:
+        _start(_context())
+    # As account.open_store(): the fixed message, the OS error's text never shown or chained.
+    assert caught.value.__suppress_context__ and "secret" not in str(caught.value)
+    [line] = [json.loads(text) for text in stream.getvalue().splitlines()]
+    assert (line["event"], line["code"]) == ("store_unavailable", "OperationalError")
+    assert "secret" not in stream.getvalue()

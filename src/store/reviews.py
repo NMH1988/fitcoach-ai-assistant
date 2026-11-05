@@ -57,6 +57,13 @@ WHERE coach_id = ? AND client_id = ? AND period_start = ?
 # The scopes a coach may use for a client right now (the sharing rule is the open_shares view).
 _SHARED_SCOPES = "SELECT scope FROM open_shares WHERE coach_id = ? AND client_id = ?"
 _REVIEW = "SELECT client_id, coach_id, status, draft FROM ai_reviews WHERE id = ?"
+_STATUS = "SELECT status FROM ai_reviews WHERE id = ? AND coach_id = ?"
+_PENDING_OF_THREAD = """
+SELECT id FROM ai_reviews WHERE coach_id = ? AND thread_id = ? AND status = 'PENDING_REVIEW'
+"""
+_DISCARD_REFS = "DELETE FROM ai_evidence_refs WHERE review_id = ?"
+_DISCARD_SCOPES = "DELETE FROM ai_review_scopes WHERE review_id = ?"
+_DISCARD = "DELETE FROM ai_reviews WHERE id = ? AND status = 'PENDING_REVIEW'"
 _USED_SCOPES = "SELECT scope FROM ai_review_scopes WHERE review_id = ?"
 _DECIDE = """
 UPDATE ai_reviews
@@ -280,6 +287,29 @@ def decide_review(
             subject_id=review["client_id"],
             resource_id=review_id,
         )
+
+
+def is_pending(conn: sqlite3.Connection, coach_id: str, review_id: object) -> bool:
+    """Return True while the coach's own review is pending (its status only, no client data)."""
+    # The workflow asks after the store refused a decision: a review decided in another tab is no
+    # longer pending, while one whose client revoked a scope still is (T9.16, code review round 1).
+    if not values.is_row_id(review_id):
+        return False
+    row = conn.execute(_STATUS, (review_id, coach_id)).fetchone()
+    return row is not None and row["status"] == "PENDING_REVIEW"
+
+
+def discard_pending(conn: sqlite3.Connection, coach_id: str, thread_id: str) -> None:
+    """Delete the coach's pending review of a run that failed after saving it, if there is one."""
+    # The review was saved but its run cannot wait for the coach (its thread could not be
+    # written); no one has seen or decided it, so it goes with its evidence and scopes, and the
+    # week can be run again (T9.16, code review round 1). No audit row: nothing was decided.
+    thread = values.text(thread_id, "thread_id")
+    with transaction(conn):
+        for row in conn.execute(_PENDING_OF_THREAD, (coach_id, thread)).fetchall():
+            conn.execute(_DISCARD_REFS, (row["id"],))
+            conn.execute(_DISCARD_SCOPES, (row["id"],))
+            conn.execute(_DISCARD, (row["id"],))
 
 
 def list_reviews(conn: sqlite3.Connection, actor_id: str, subject_id: str) -> list[dict]:

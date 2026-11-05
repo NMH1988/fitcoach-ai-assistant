@@ -12,6 +12,7 @@ The file is prepared like the store's (owner-only on POSIX), opened per unit of 
 overwritten in the file and not left in the `-wal` file (docs/SECURITY.md).
 """
 
+import logging
 import sqlite3
 import uuid
 from collections.abc import Iterable, Iterator
@@ -21,7 +22,10 @@ from pathlib import Path
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from src import config
+from src.account import StoreUnavailable
 from src.store import db
+
+logger = logging.getLogger(__name__)
 
 # The metadata keys every checkpoint of a run carries (the run's config, src/agent/review.py).
 COACH_KEY = "coach_id"
@@ -43,20 +47,27 @@ def new_thread_id() -> str:
 @contextmanager
 def open_saver(store_path: Path) -> Iterator[SqliteSaver]:
     """Open the checkpointer file next to the store, set up, and close it after the block."""
-    target = threads_path(store_path)
-    db.prepare_file(target, own_folder=store_path == config.STORE_PATH)
-    # SqliteSaver serialises its own use of the connection with a lock; Streamlit may run the
-    # graph's nodes on another thread than the one that opened it.
-    conn = sqlite3.connect(
-        target, check_same_thread=False, timeout=config.STORE_BUSY_TIMEOUT_SECONDS
-    )
+    # A file that cannot be prepared, opened or written (another session holding its lock past the
+    # busy timeout, say) gives the store's one fixed error, with the class name logged only, as
+    # account.open_store() does: an error's text may name the path (T9.16, code review round 1).
     try:
-        conn.execute(_SECURE_DELETE_ON)
-        saver = SqliteSaver(conn)
-        saver.setup()
-        yield saver
-    finally:
-        conn.close()
+        target = threads_path(store_path)
+        db.prepare_file(target, own_folder=store_path == config.STORE_PATH)
+        # SqliteSaver serialises its own use of the connection with a lock; Streamlit may run the
+        # graph's nodes on another thread than the one that opened it.
+        conn = sqlite3.connect(
+            target, check_same_thread=False, timeout=config.STORE_BUSY_TIMEOUT_SECONDS
+        )
+        try:
+            conn.execute(_SECURE_DELETE_ON)
+            saver = SqliteSaver(conn)
+            saver.setup()
+            yield saver
+        finally:
+            conn.close()
+    except (db.StoreError, sqlite3.Error) as exc:
+        logger.warning("store_unavailable", extra={"code": type(exc).__name__})
+        raise StoreUnavailable from None
 
 
 def _threads_of(saver: SqliteSaver, user_id: str) -> set[str]:

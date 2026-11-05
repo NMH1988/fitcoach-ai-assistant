@@ -67,6 +67,8 @@ OWN_ONLY = {
     "records.delete_record",
     "my_data.export_user_data",
     "my_data.delete_user_data",
+    # T9.16: the status of the coach's own review, asked after the store refused a decision.
+    "reviews.is_pending",
 }
 WRITES = {
     # Each takes the user it writes for; the ones that change shared data check that it is the
@@ -97,6 +99,8 @@ WRITES = {
     # T9.16: the review workflow's authorise step, the check before save_review; it reads only the
     # client's open shares and the coach's own reviews of that week (tests/test_store_reviews.py).
     "reviews.prepare_review",
+    # T9.16: removes the coach's own pending review of a run that failed after saving it.
+    "reviews.discard_pending",
 }
 INTERNALS = {
     # No user data in or out: opening the file, checks, and the access layer itself.

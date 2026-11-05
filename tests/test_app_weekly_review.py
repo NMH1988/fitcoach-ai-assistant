@@ -280,3 +280,17 @@ def test_a_gymer_reads_an_approved_review_s_sections_and_label(monkeypatch):
         assert line in page
     assert "The model's suggestion, no source cited" in page
     assert any(item.value.endswith("AI draft, approved by the coach") for item in at.caption)
+
+
+def test_the_session_rate_limit_stops_a_new_run(monkeypatch, coach_world):
+    """A review counts against the session's limit: at the limit no model is called."""
+    from src import guard
+
+    fake = _model(monkeypatch, GOOD)
+    at = _week(monkeypatch)
+    limiter = guard.session_limiter(at.session_state)
+    limiter.total = limiter.per_session
+    _button(at, "Draft weekly review").click()
+    at.run(timeout=30)
+    assert any("reached its limit" in item.value for item in at.warning)
+    assert fake.calls == [] and _stored() == []

@@ -198,6 +198,13 @@ def test_a_label_not_retrieved_in_this_run_is_refused():
         "Eat about 1100 kcal a day.",
         "Aim for around 1,000 kcal.",
         "Etwa 1.100 kcal am Tag.",
+        "Aim for 1,000-1,100 kcal per day.",
+        "Aim for 1000 - 1100 kcal.",
+        "Aim for 1,000\u20131,600 kcal.",
+        "Eat 1000 to 1300 kcal.",
+        "Keep intake at 1050 kcal.",
+        "Aim for an intake of 1000 kcal.",
+        "Averaged 1050 kcal; aim for 1,000 kcal.",
     ],
 )
 def test_a_recommended_intake_below_the_floor_is_refused(text):
@@ -220,6 +227,11 @@ def test_a_recommended_intake_below_the_floor_is_refused(text):
         "A change of -300 kcal.",
         "Keep intake at or above 1,200 kcal per day.",
         "Mindestens 1.200 kcal pro Tag.",
+        "Keep intake at 1,500-1,800 kcal.",
+        "The client's average of 1050 kcal is below the 2000 kcal target; raise intake gradually.",
+        "Raise intake from 1050 kcal to 1500 kcal.",
+        "Raise intake from 1100 to 1300 kcal.",
+        "Derzeit 1050 kcal; die Zufuhr schrittweise erhöhen.",
     ],
 )
 def test_a_change_in_kcal_or_an_intake_above_the_floor_passes_the_floor(text):
@@ -286,6 +298,13 @@ def test_a_training_recommendation_without_its_fields_is_refused(field):
 def test_the_fields_are_optional_for_a_nutrition_recommendation():
     """A nutrition recommendation passes with no direction, range or population."""
     assert "training_fields" not in wr.validate(_good(), CHUNKS, METRICS)
+
+
+@pytest.mark.parametrize("quoted", ["10", "20", "10-20", "sets"])
+def test_a_source_range_too_short_or_without_a_number_and_a_word_is_refused(quoted):
+    """A bare "10" (in the chunk, but no range) or a word alone is no source range."""
+    draft = _with(("recommendations", 1, "source_range"), quoted)
+    assert "source_range" in wr.validate(draft, CHUNKS, METRICS)
 
 
 def test_a_source_range_found_in_no_cited_chunk_is_refused():
@@ -362,8 +381,7 @@ def test_a_number_not_in_the_metrics_is_refused(text):
     ],
 )
 def test_numbers_from_the_metrics_rounded_or_in_german_pass(text):
-    """A metric rounded, written with a decimal comma or signed passes; dates and labels are no
-    numbers."""
+    """A metric rounded, with a decimal comma or a sign passes; dates and labels are skipped."""
     draft = _with(("observations", 0, "text"), text)
     if "[S1]" in text:
         draft["observations"][0]["evidence"] = ["S1"]

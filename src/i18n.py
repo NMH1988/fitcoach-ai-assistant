@@ -789,7 +789,8 @@ _EN: dict[str, str] = {
     ),
     "scope_help.training": (
         "Workouts. While shared, a weekly review your coach starts also sends this week's "
-        "training figures (sessions, sets, volume) to that AI model"
+        "training figures (sessions, and for each exercise its sets, reps, volume and top weight) "
+        "to that AI model"
     ),
     "scope_help.body": (
         "Weights and profile entries (height, age, sex, activity, goal). While shared, a weekly "
@@ -966,7 +967,17 @@ _EN: dict[str, str] = {
     "review.outcome.approved": "Approved: the client can now read the review.",
     "review.outcome.edited": "Your edited review was approved: the client can now read it.",
     "review.outcome.rejected": "Rejected: the client will not see this draft.",
-    "review.outcome.gone": "This draft can no longer be decided. Open the week again.",
+    "review.outcome.gone": (
+        "This draft can no longer be approved or edited here (it was decided in another tab, or "
+        "its run was lost). Reject it, then draft the week again."
+    ),
+    "review.rate_window": (
+        "You are starting reviews too fast. Please wait {seconds} s and try again."
+    ),
+    "review.rate_session": (
+        "This session has reached its limit of {limit} requests to the AI model (questions and "
+        "reviews)."
+    ),
     "review.check.schema": "a section is empty or too long, or Observations has no text.",
     "review.check.calorie_floor": (
         f"a recommendation gives an intake below {config.CALORIE_FLOOR_KCAL} kcal a day."
@@ -1930,7 +1941,8 @@ _DE: dict[str, str] = {
     ),
     "scope_help.training": (
         "Trainingseinheiten. Solange geteilt, sendet ein Wochenbericht Ihres Coaches auch die "
-        "Trainingszahlen dieser Woche (Einheiten, Sätze, Volumen) an dieses KI-Modell"
+        "Trainingszahlen dieser Woche (Einheiten und je Übung Sätze, Wiederholungen, Volumen und "
+        "Höchstgewicht) an dieses KI-Modell"
     ),
     "scope_help.body": (
         "Gewichte und Profileinträge (Größe, Alter, Geschlecht, Aktivität, Ziel). Solange "
@@ -2119,7 +2131,16 @@ _DE: dict[str, str] = {
     ),
     "review.outcome.rejected": "Verworfen: Der Klient sieht diesen Entwurf nicht.",
     "review.outcome.gone": (
-        "Über diesen Entwurf kann nicht mehr entschieden werden. Öffnen Sie die Woche erneut."
+        "Dieser Entwurf kann hier nicht mehr freigegeben oder bearbeitet werden (er wurde in einem "
+        "anderen Tab entschieden, oder sein Ablauf ging verloren). Verwerfen Sie ihn und entwerfen "
+        "Sie die Woche erneut."
+    ),
+    "review.rate_window": (
+        "Sie starten Berichte zu schnell. Bitte warten Sie {seconds} s und versuchen Sie es erneut."
+    ),
+    "review.rate_session": (
+        "Diese Sitzung hat ihr Limit von {limit} Anfragen an das KI-Modell erreicht (Fragen und "
+        "Berichte)."
     ),
     "review.check.schema": (
         "ein Abschnitt ist leer oder zu lang, oder Beobachtungen hat keinen Text."
