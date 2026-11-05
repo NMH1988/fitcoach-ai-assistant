@@ -787,18 +787,14 @@ _EN: dict[str, str] = {
     ),
     "scope_help.training": "Workouts",
     "scope_help.body": "Weights and profile entries (height, age, sex, activity, goal)",
-    "relationship.active": "Active",
-    "relationship.ended": "Ended",
     "clients.intro": (
         "Your clients and what each of them shares with you. A client chooses what you see, and "
         "can change it or end the relationship at any time."
     ),
     "clients.none": "No clients yet. Create an invitation below and give the code to your client.",
     "clients.col.name": "Client",
-    "clients.col.status": "Status",
     "clients.col.since": "Since",
     "clients.col.ended": "Ended",
-    "clients.shared": "Shared",
     "clients.not_shared": "Not shared",
     "clients.invitations": "Invitations",
     "clients.invitations_note": (
@@ -822,6 +818,95 @@ _EN: dict[str, str] = {
     "clients.cancel_placeholder": "Choose a code",
     "clients.cancel": "Cancel this invitation",
     "sharing.unverified": "The app does not check a coach's qualifications.",
+    # The dashboards (T9.15): the coach's client list and client week, the gymer's My week.
+    "page.client_week": "Client week",
+    "page.my_week": "My week",
+    "clients.unverified": (
+        "The app does not check coaches' qualifications, yours included; your clients see the "
+        "same note."
+    ),
+    "clients.this_week": "This week, {start} to {end}.",
+    "clients.col.logged": "Days logged",
+    "clients.col.kcal": "Avg kcal / target",
+    "clients.col.sessions": "Sessions",
+    "clients.col.weight": "Latest weight",
+    "clients.col.review": "Weekly review",
+    "clients.open_pick": "Open a client's week",
+    "clients.open_placeholder": "Choose a client",
+    "clients.open_week": "Open the week",
+    "clients.former": "Former clients",
+    "clients.former_note": (
+        "Relationships that ended: on this page only the name and the days stay, and you can no "
+        "longer read their data."
+    ),
+    "client_week.intro": (
+        "One client's week, with only what they share with you. A day with nothing logged shows "
+        "as not logged, never as a day without eating."
+    ),
+    "client_week.pick": "Client",
+    "client_week.gone": "This client is no longer your active client.",
+    "client_week.no_clients": (
+        "You have no active clients. Invite one on the Clients page, then open their week here."
+    ),
+    "my_week.intro": (
+        "Your week: what you logged on Today and Workouts, and the weekly reviews a coach "
+        "approved. This page only shows them; you log and change entries on those pages."
+    ),
+    "my_week.reviews": "Weekly reviews",
+    "my_week.no_reviews": "No approved weekly review yet.",
+    "week.week_of": "Week of",
+    # The charts' day labels, Monday first, separated by commas.
+    "week.weekdays": "Mon,Tue,Wed,Thu,Fri,Sat,Sun",
+    "week.range": "{start} to {end}",
+    "week.logged_days": "{logged} of {days} days logged",
+    "week.nothing_logged": "Nothing logged",
+    "week.kcal_vs_target": "{average} / {target} kcal",
+    "week.kcal_no_target": "{average} kcal (no target)",
+    "week.weight_on": "{weight} ({day})",
+    "week.not_shared": "Not shared with you.",
+    "week.average_line": (
+        "Average over the logged days: {kcal} kcal, protein {protein} g, carbohydrate "
+        "{carbohydrate} g, fat {fat} g."
+    ),
+    "week.target_line": "Daily target: {kcal} kcal, {source}, from {day}.",
+    "week.target_by.system": "worked out from the profile",
+    "week.target_by.user": "set by hand",
+    "week.target_by.coach": "set by the coach",
+    "week.no_target": "No daily target yet.",
+    "week.kcal_heading": "Kcal per day",
+    "week.macros_heading": "Macros: average per logged day against the target",
+    "week.weight_heading": "Weight over {weeks} weeks",
+    "week.weight_latest": "Latest weight: {weight}.",
+    "week.weight_change": "Change since {day}: {change}.",
+    "week.no_weight": "No weight logged up to this week.",
+    "week.volume_heading": "Training volume per day",
+    "chart.not_logged": "not logged",
+    # The tooltips' titles (code review round 3), without the unit the value shows (round 4).
+    "chart.day": "Day",
+    "chart.macro": "Macro",
+    "chart.series": "Average or target",
+    "chart.per_day": "Per day",
+    "chart.weight": "Weight",
+    "chart.volume": "Volume",
+    "chart.average": "Average",
+    "chart.target": "Target",
+    "chart.grams_per_day": "g per day",
+    "chart.kcal_days_alt": "Kcal per day: {parts}",
+    "chart.target_alt": "target {target} kcal",
+    "chart.macros_alt": "Average per logged day against the target: {parts}",
+    "chart.weight_axis": "Weight ({unit})",
+    "chart.weight_alt": "Weights: {parts}",
+    "chart.volume_axis": "Volume ({unit})",
+    "chart.volume_alt": "Volume per day: {parts}",
+    "chart.no_workout": "no workout",
+    "review.none": "None",
+    "review.status.PENDING_REVIEW": "Pending",
+    "review.status.APPROVED": "Approved",
+    "review.status.REJECTED": "Rejected",
+    "review.status_line": "{status} · week of {week}",
+    "review.heading": "Week of {week} · approved on {day}",
+    "review.ai_label": "AI draft, approved by the coach",
+    "review.ai_label_edited": "AI draft, edited and approved by the coach",
     "sharing.no_coach": (
         "You have no coach. Enter the code your coach gave you and choose what they may see."
     ),
@@ -1762,8 +1847,6 @@ _DE: dict[str, str] = {
     ),
     "scope_help.training": "Trainingseinheiten",
     "scope_help.body": "Gewichte und Profileinträge (Größe, Alter, Geschlecht, Aktivität, Ziel)",
-    "relationship.active": "Aktiv",
-    "relationship.ended": "Beendet",
     "clients.intro": (
         "Ihre Klienten und was jeder von ihnen mit Ihnen teilt. Ein Klient entscheidet, was Sie "
         "sehen, und kann das jederzeit ändern oder die Verbindung beenden."
@@ -1773,10 +1856,8 @@ _DE: dict[str, str] = {
         "Klienten."
     ),
     "clients.col.name": "Klient",
-    "clients.col.status": "Status",
     "clients.col.since": "Seit",
     "clients.col.ended": "Beendet",
-    "clients.shared": "Geteilt",
     "clients.not_shared": "Nicht geteilt",
     "clients.invitations": "Einladungen",
     "clients.invitations_note": (
@@ -1801,6 +1882,95 @@ _DE: dict[str, str] = {
     "clients.cancel_placeholder": "Code wählen",
     "clients.cancel": "Diese Einladung zurückziehen",
     "sharing.unverified": "Die App prüft die Qualifikationen eines Coaches nicht.",
+    # Die Übersichten (T9.15).
+    "page.client_week": "Klientenwoche",
+    "page.my_week": "Meine Woche",
+    "clients.unverified": (
+        "Die App prüft die Qualifikationen von Coaches nicht, auch Ihre nicht; Ihre Klienten sehen "
+        "denselben Hinweis."
+    ),
+    "clients.this_week": "Diese Woche, {start} bis {end}.",
+    "clients.col.logged": "Erfasste Tage",
+    "clients.col.kcal": "Ø kcal / Ziel",
+    "clients.col.sessions": "Einheiten",
+    "clients.col.weight": "Letztes Gewicht",
+    "clients.col.review": "Wochenbericht",
+    "clients.open_pick": "Woche eines Klienten öffnen",
+    "clients.open_placeholder": "Klient wählen",
+    "clients.open_week": "Woche öffnen",
+    "clients.former": "Frühere Klienten",
+    "clients.former_note": (
+        "Beendete Verbindungen: Auf dieser Seite bleiben nur der Name sowie Beginn und Ende, und "
+        "Sie können ihre Daten nicht mehr lesen."
+    ),
+    "client_week.intro": (
+        "Die Woche eines Klienten, nur mit dem, was er mit Ihnen teilt. Ein Tag ohne Einträge "
+        "erscheint als nicht erfasst, nie als Tag ohne Essen."
+    ),
+    "client_week.pick": "Klient",
+    "client_week.gone": "Diese Person ist nicht mehr Ihr aktiver Klient.",
+    "client_week.no_clients": (
+        "Sie haben keine aktiven Klienten. Laden Sie auf der Seite Klienten jemanden ein und "
+        "öffnen Sie dann hier seine Woche."
+    ),
+    "my_week.intro": (
+        "Ihre Woche: was Sie unter Heute und Training erfasst haben, und die freigegebenen "
+        "Wochenberichte. Diese Seite zeigt sie nur an; Einträge erfassen und ändern Sie auf jenen "
+        "Seiten."
+    ),
+    "my_week.reviews": "Wochenberichte",
+    "my_week.no_reviews": "Noch kein freigegebener Wochenbericht.",
+    "week.week_of": "Woche vom",
+    "week.weekdays": "Mo,Di,Mi,Do,Fr,Sa,So",
+    "week.range": "{start} bis {end}",
+    "week.logged_days": "{logged} von {days} Tagen erfasst",
+    "week.nothing_logged": "Nichts erfasst",
+    "week.kcal_vs_target": "{average} / {target} kcal",
+    "week.kcal_no_target": "{average} kcal (kein Ziel)",
+    "week.weight_on": "{weight} ({day})",
+    "week.not_shared": "Nicht mit Ihnen geteilt.",
+    "week.average_line": (
+        "Durchschnitt über die erfassten Tage: {kcal} kcal, Eiweiß {protein} g, Kohlenhydrate "
+        "{carbohydrate} g, Fett {fat} g."
+    ),
+    "week.target_line": "Tagesziel: {kcal} kcal, {source}, ab {day}.",
+    "week.target_by.system": "aus dem Profil berechnet",
+    "week.target_by.user": "von Hand gesetzt",
+    "week.target_by.coach": "vom Coach gesetzt",
+    "week.no_target": "Noch kein Tagesziel.",
+    "week.kcal_heading": "Kcal pro Tag",
+    "week.macros_heading": "Makronährstoffe: Durchschnitt pro erfasstem Tag gegenüber dem Ziel",
+    "week.weight_heading": "Gewicht über {weeks} Wochen",
+    "week.weight_latest": "Letztes Gewicht: {weight}.",
+    "week.weight_change": "Veränderung seit {day}: {change}.",
+    "week.no_weight": "Bis zu dieser Woche ist kein Gewicht erfasst.",
+    "week.volume_heading": "Trainingsvolumen pro Tag",
+    "chart.not_logged": "nicht erfasst",
+    "chart.day": "Tag",
+    "chart.macro": "Makronährstoff",
+    "chart.series": "Durchschnitt oder Ziel",
+    "chart.per_day": "Pro Tag",
+    "chart.weight": "Gewicht",
+    "chart.volume": "Volumen",
+    "chart.average": "Durchschnitt",
+    "chart.target": "Ziel",
+    "chart.grams_per_day": "g pro Tag",
+    "chart.kcal_days_alt": "Kcal pro Tag: {parts}",
+    "chart.target_alt": "Ziel {target} kcal",
+    "chart.macros_alt": "Durchschnitt pro erfasstem Tag gegenüber dem Ziel: {parts}",
+    "chart.weight_axis": "Gewicht ({unit})",
+    "chart.weight_alt": "Gewichte: {parts}",
+    "chart.volume_axis": "Volumen ({unit})",
+    "chart.volume_alt": "Volumen pro Tag: {parts}",
+    "chart.no_workout": "kein Training",
+    "review.none": "Keiner",
+    "review.status.PENDING_REVIEW": "Offen",
+    "review.status.APPROVED": "Freigegeben",
+    "review.status.REJECTED": "Abgelehnt",
+    "review.status_line": "{status} · Woche vom {week}",
+    "review.heading": "Woche vom {week} · freigegeben am {day}",
+    "review.ai_label": "KI-Entwurf, vom Coach freigegeben",
+    "review.ai_label_edited": "KI-Entwurf, vom Coach bearbeitet und freigegeben",
     "sharing.no_coach": (
         "Sie haben keinen Coach. Geben Sie den Code ein, den Ihr Coach Ihnen gegeben hat, und "
         "wählen Sie, was er sehen darf."

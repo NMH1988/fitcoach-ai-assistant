@@ -339,6 +339,10 @@ WORKOUT_MAX_SETS = 40
 # The Workouts page's set fields: the reps shown at first, and the weight field's step per unit.
 WORKOUT_DEFAULT_REPS = 8
 WORKOUT_WEIGHT_STEP: dict[str, float] = {"metric": 2.5, "imperial": 5.0}
+# The dashboards (T9.15): the weight trend shows the weights of this many weeks, ending with the
+# chosen week's Sunday; each chart is this tall, its axes and legend included.
+WEIGHT_TREND_WEEKS = 8
+DASHBOARD_CHART_HEIGHT_PX = 240
 # Words that would make a training view give advice; the workout texts (`workouts.`, `muscle.` in
 # src/i18n.py and the exercise names) must hold none, as the views report facts only (T9.14).
 # Whole words or phrases, any case; an entry ending in "*" matches any word that starts with it.

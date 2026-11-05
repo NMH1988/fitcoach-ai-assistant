@@ -20,7 +20,7 @@ How the Streamlit app looks and where each piece of information lives. Accepted 
 
 ## The owner's UI decisions of 2026-10-30
 
-Built except the phone cards (T9.15). Chosen by the owner while reviewing the T9.15 dashboard mockups (Clients, a client's week, My week, dark mode, tablet 820 px and phone 390 px) on a Claude Design canvas, which is outside the repo; the tickets are in `docs/IMPLEMENTATION_PLAN.md` ("The owner's UI decisions of 2026-10-30"). The sections below describe what is built.
+Built (the phone cards with T9.15). Chosen by the owner while reviewing the T9.15 dashboard mockups (Clients, a client's week, My week, dark mode, tablet 820 px and phone 390 px) on a Claude Design canvas, which is outside the repo; the tickets are in `docs/IMPLEMENTATION_PLAN.md` ("The owner's UI decisions of 2026-10-30"). The sections below describe what is built.
 
 | Decision | What changes | Ticket |
 |---|---|---|
@@ -28,7 +28,7 @@ Built except the phone cards (T9.15). Chosen by the owner while reviewing the T9
 | The language control moves to the sidebar | `st.segmented_control` labelled "Language" ("Sprache" in German; owner's choice), options "English" and "Deutsch", no icon, values still `en`/`de`; the header row keeps only the "Not medical advice" badge. Replaces "Control" under "Language" | T9.23 (built) |
 | A custom CSS layer for the whole app | One stylesheet of our own, `assets/app.css`, loaded once per run with `st.html(config.APP_CSS_PATH)` (a style-only `st.html` takes no space). Rules aim at `.st-key-<key>` classes (from `st.container(key=...)`) and a few `data-testid` values on a tested list; nothing is loaded from another host (no `@import`, no `url(`, no CDN), so visitors' IPs stay off third-party hosts, as with the system font; no colours in it (owner's choice), so light and dark mode come from the theme; every rule changes only layout, spacing or visibility, so the page still works if Streamlit renames a class. Replaces "Native first" and its one exception. One exception since T9.5 (owner's choice, 2026-11-02): the app's title (`.st-key-app_title h1`, on the start page and in every page's header) may set its size, weight and a gradient from `config.TITLE_GRADIENT` with a solid fallback, each colour at least 3:1 on both modes' backgrounds (large text); `tests/test_stylesheet.py` allows nothing else in that rule and still refuses colour everywhere else; and the page menu's labels (`[data-testid="stSidebarNavLink"] [data-testid="stMarkdownContainer"]`) may set a font size of 1-1.99rem, nothing else | T9.23 (built), T9.5 (the two exceptions) |
 | A brand sidebar | `[theme.light.sidebar]` and `[theme.dark.sidebar]` in `.streamlit/config.toml`: deep green background, light text, the sidebar's own primary, secondary and border colours (values from the T9.15 mockups, as the Design system had none; contrast tested in both modes); `st.logo(":material/nutrition:")`, an icon, not an image file (owner's choice of icon, 2026-10-31). The sidebar's donut has its own palette, as the macro colours cannot keep 3:1 on deep green (owner's choice, 2026-10-31; "Theme") | T9.23 (built) |
-| Cards for the coach's client list on phones | Both the table and the cards are drawn (containers keyed `client_cards` and `client_table`); the stylesheet's media query at `config.PHONE_MAX_WIDTH_PX` (a test keeps the two equal) shows the cards on phones and the table on tablets and desktops, as Streamlit cannot read the screen width. Only this list: the rest of a phone layout stays in the Capstone (`docs/PRD.md`) | T9.15 |
+| Cards for the coach's client list on phones | Both the table and the cards are drawn (containers keyed `client_cards` and `client_table`); the stylesheet's media query at `config.PHONE_MAX_WIDTH_PX` (a test keeps the two equal) shows the cards on phones and the table on tablets and desktops, as Streamlit cannot read the screen width. Only this list: the rest of a phone layout stays in the Capstone (`docs/PRD.md`). As built: `.st-key-client_cards` is hidden by default, and the one `@media (max-width: 640px)` shows it (`display: flex`, Streamlit's own) and hides `.st-key-client_table` | T9.15 (built) |
 
 A week in progress counts its logged days out of the whole week, "4 of 7 days logged", as AC-26 words it (owner's choice, 2026-10-30; T9.15).
 
@@ -273,7 +273,7 @@ The Vega-Lite specs of the bar and the donut (`views/charts.py`) and the table r
 | The new name, "Fitcoach AI Assistant" | T9.22 (beyond the brief, owner's request) |
 | Brand sidebar, language control in the sidebar, the custom CSS layer | T9.23 (beyond the brief in part, owner's request) |
 | Pages per role, the account block, the welcome page, the privacy notes, My data, demo mode | T9.5 |
-| Cards for the coach's client list on phones (planned) | T9.15 |
+| The dashboards: Clients (this week per client, cards on phones, former clients), Client week, My week, and their charts | T9.15 |
 
 ## Open questions
 

@@ -7,10 +7,9 @@ without AppTest.
 import re
 from collections.abc import Sequence
 
-from src import chat, config, exercises, i18n, metrics, units, usage
+from src import chat, config, dashboard, exercises, i18n, metrics, units, usage
 from src.i18n import Language
 from src.profile import Goal
-from src.store.access import SCOPES
 from src.tools import registry
 from src.tools.energy import Macro, MacroTargetsResult, TdeeResult
 from src.tools.food import FoodLookupResult
@@ -421,32 +420,191 @@ def entry_label(kind: str, row: dict, system: units.UnitSystem, lang: Language) 
     )
 
 
-# The columns of the coach's client list (T9.12), as keys under "clients.col." in src/i18n.py;
-# one column per scope follows, headed with the scope's name.
-CLIENT_COLUMNS = ("name", "status", "since", "ended")
+# The columns of the coach's client list (T9.12; the week's values since T9.15), as keys under
+# "clients.col." in src/i18n.py; the former clients keep only their name and days (T9.15, from the
+# compliance review of T9.12).
+CLIENT_COLUMNS = ("name", "since", "logged", "kcal", "sessions", "weight", "review")
+FORMER_COLUMNS = ("name", "since", "ended")
 INVITATION_COLUMNS = ("created", "expires", "state")
 
 
-def client_table(rows: list[dict], lang: Language) -> dict[str, list[str]]:
-    """Return a coach's relationships as columns: name, status, dates, and each scope shared."""
-    names = (
-        *(i18n.t(f"clients.col.{name}", lang) for name in CLIENT_COLUMNS),
-        *(i18n.t(f"scope.{scope}", lang) for scope in SCOPES),
+def logged_days_line(week: metrics.WeekMetrics, lang: Language) -> str:
+    """Say how many days of the whole week were logged: "3 of 7 days logged" (AC-26)."""
+    # Out of seven, also for the week in progress (owner's choice, 2026-10-30).
+    return i18n.t("week.logged_days", lang, logged=week.logged_days, days=week.days_in_week)
+
+
+def kcal_vs_target(week: metrics.WeekMetrics, lang: Language) -> str:
+    """Return the average kcal over the logged days against the target: "2,150 / 2,400 kcal"."""
+    if week.average is None:
+        return i18n.t("week.nothing_logged", lang)
+    average = i18n.number(round(week.average.kcal), lang)
+    if week.target is None:
+        return i18n.t("week.kcal_no_target", lang, average=average)
+    target = i18n.number(round(week.target.kcal), lang)
+    return i18n.t("week.kcal_vs_target", lang, average=average, target=target)
+
+
+def average_line(average: metrics.Intake, lang: Language) -> str:
+    """Return the averages over the logged days on one line: kcal and the three macros in g."""
+    return i18n.t(
+        "week.average_line",
+        lang,
+        kcal=i18n.number(round(average.kcal), lang),
+        protein=i18n.number(round(average.protein_g), lang),
+        carbohydrate=i18n.number(round(average.carbohydrate_g), lang),
+        fat=i18n.number(round(average.fat_g), lang),
     )
-    cells = [
-        [
-            row["other_name"],
-            i18n.t(f"relationship.{row['status']}", lang),
-            _day(row["accepted_at"]),
-            "" if row["ended_at"] is None else _day(row["ended_at"]),
-            *(
-                i18n.t("clients.shared" if scope in row["scopes"] else "clients.not_shared", lang)
-                for scope in SCOPES
-            ),
-        ]
-        for row in rows
+
+
+def target_line(target: metrics.Target | None, lang: Language) -> str:
+    """Return the week's daily target, who set it and from when; or that there is none."""
+    if target is None:
+        return i18n.t("week.no_target", lang)
+    return i18n.t(
+        "week.target_line",
+        lang,
+        kcal=i18n.number(round(target.kcal), lang),
+        source=i18n.t(f"week.target_by.{target.set_by}", lang),
+        day=target.effective_from.isoformat(),
+    )
+
+
+def weight_change_text(change_kg: float, system: units.UnitSystem, lang: Language) -> str:
+    """Return a weight change with its sign, in the user's units: "+0.5 kg", "-0.6 kg"."""
+    # "+ 0.0" turns a change that rounds to -0.0 into 0.0, so it is never shown as "-0 kg".
+    value = round(change_kg if system == "metric" else units.kg_to_lb(change_kg), 1) + 0.0
+    sign = "+" if value > 0 else ""
+    return f"{sign}{i18n.plain(value, lang)} {units.weight_unit(system)}"
+
+
+def body_lines(
+    week: dashboard.DashboardWeek, system: units.UnitSystem, lang: Language
+) -> list[str]:
+    """Return the latest weight up to the week's Sunday and the week's change, as lines."""
+    latest = dashboard.latest_weight(week)
+    if latest is None:
+        return [i18n.t("week.no_weight", lang)]
+    lines = [i18n.t("week.weight_latest", lang, weight=weight_on(latest, system, lang))]
+    found = week.nutrition
+    if found.weight_change_kg is not None:
+        lines.append(
+            i18n.t(
+                "week.weight_change",
+                lang,
+                day=found.previous_weight_on.isoformat(),
+                change=weight_change_text(found.weight_change_kg, system, lang),
+            )
+        )
+    return lines
+
+
+def weight_on(found: tuple | None, system: units.UnitSystem, lang: Language) -> str:
+    """Return a (day, kg) weight as "78.4 kg (2026-11-02)", or a dash when there is none."""
+    if found is None:
+        return "–"
+    day, kg = found
+    return i18n.t(
+        "week.weight_on", lang, weight=units.format_weight(kg, system, lang), day=day.isoformat()
+    )
+
+
+def review_status(review: dict | None, lang: Language) -> str:
+    """Return a review's status and week ("Approved · week of 2026-10-26"), or "None"."""
+    if review is None:
+        return i18n.t("review.none", lang)
+    return i18n.t(
+        "review.status_line",
+        lang,
+        status=i18n.t(f"review.status.{review['status']}", lang),
+        week=review["period_start"],
+    )
+
+
+def _review_texts(value: object) -> list[str]:
+    """Return every text in a review's field: a text, a list of them, or mappings holding them."""
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+    if isinstance(value, dict):
+        return [text for item in value.values() for text in _review_texts(item)]
+    if isinstance(value, list):
+        return [text for item in value for text in _review_texts(item)]
+    return []
+
+
+def review_markdown(final: dict) -> str:
+    """Return an approved review's texts as a Markdown list, each escaped (T9.15's plain view)."""
+    # T9.16 fixes the review's fields; until then every text it holds is listed in order, each on
+    # one escaped line, so a model's or a coach's text adds no link, image or formatting.
+    return "\n".join(f"- {one_line(text)}" for text in _review_texts(final))
+
+
+def review_heading(review: dict, lang: Language) -> str:
+    """Return an approved review's week and the day the coach approved it."""
+    return i18n.t(
+        "review.heading", lang, week=review["period_start"], day=_day(review["reviewed_at"])
+    )
+
+
+def review_label(review: dict, lang: Language) -> str:
+    """Return the label that says a review is an AI draft the coach approved (AC-41)."""
+    return i18n.t(
+        "review.ai_label_edited" if review["edited_by_coach"] else "review.ai_label", lang
+    )
+
+
+def client_cells(
+    relationship: dict, week: dashboard.DashboardWeek, system: units.UnitSystem, lang: Language
+) -> dict[str, str]:
+    """Return one active client's row by column key; a scope not shared says so (T9.15)."""
+    not_shared = i18n.t("clients.not_shared", lang)
+
+    def shared(scope: str, value) -> str:
+        """Return the value when the scope is shared, else "Not shared"."""
+        return value() if scope in week.shared else not_shared
+
+    return {
+        "name": relationship["other_name"],
+        "since": _day(relationship["accepted_at"]),
+        "logged": shared("nutrition", lambda: logged_days_line(week.nutrition, lang)),
+        "kcal": shared("nutrition", lambda: kcal_vs_target(week.nutrition, lang)),
+        "sessions": shared("training", lambda: str(week.training.sessions)),
+        "weight": shared("body", lambda: weight_on(dashboard.latest_weight(week), system, lang)),
+        "review": shared("nutrition", lambda: review_status(dashboard.latest_review(week), lang)),
+    }
+
+
+def column_names(keys: tuple[str, ...], lang: Language) -> tuple[str, ...]:
+    """Return the translated headers of the client list's columns."""
+    return tuple(i18n.t(f"clients.col.{key}", lang) for key in keys)
+
+
+def client_table(rows: list[dict[str, str]], lang: Language) -> dict[str, list[str]]:
+    """Return the active clients' rows (client_cells) as columns, for st.dataframe."""
+    return columns(
+        column_names(CLIENT_COLUMNS, lang), [[row[key] for key in CLIENT_COLUMNS] for row in rows]
+    )
+
+
+def client_card(row: dict[str, str], lang: Language) -> str:
+    """Return one active client's row as a phone card in Markdown: the name, then each value."""
+    # The same cells as the table's row (criterion 2), escaped: a display name is the user's text.
+    names = column_names(CLIENT_COLUMNS, lang)
+    lines = [f"**{one_line(row['name'])}**"]
+    lines += [
+        f"**{one_line(name)}:** {one_line(row[key])}"
+        for key, name in zip(CLIENT_COLUMNS, names, strict=True)
+        if key != "name"
     ]
-    return columns(names, cells)
+    return "  \n".join(lines)
+
+
+def former_client_table(rows: list[dict], lang: Language) -> dict[str, list[str]]:
+    """Return the ended relationships as columns: the name and the days only (T9.15)."""
+    cells = [
+        [row["other_name"], _day(row["accepted_at"]), _day(row["ended_at"] or "")] for row in rows
+    ]
+    return columns(column_names(FORMER_COLUMNS, lang), cells)
 
 
 def invitation_table(rows: list[dict], lang: Language) -> dict[str, list[str]]:

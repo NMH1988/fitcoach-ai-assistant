@@ -16,6 +16,7 @@ import tomllib
 import pytest
 
 from src import config
+from views import clients
 
 # The data-testid values the stylesheet may aim at. Streamlit renames test ids without notice, so
 # each one is a known risk: if it is renamed, its rule stops applying and nothing else changes.
@@ -272,6 +273,36 @@ def test_the_dialog_rule_stays_scoped_to_the_dialog():
         ('[data-testid="stDialog"] [data-testid="InputInstructions"]', rules[0][1], None)
     ]
     assert _declarations(rules[0][1]) == [("display", "none")]
+
+
+def test_the_client_cards_are_hidden_outside_the_phone_query():
+    """T9.15: the cards are hidden by default, outside any @media, so wide screens get the table."""
+    rules = [rule for rule in _rules(_css()) if rule[0] == ".st-key-client_cards"]
+    defaults = [rule for rule in rules if rule[2] is None]
+    assert [_declarations(body) for _, body, _ in defaults] == [[("display", "none")]]
+    assert not [rule for rule in _rules(_css()) if "client_table" in rule[0] and rule[2] is None]
+
+
+def test_the_phone_query_shows_the_cards_and_hides_the_table():
+    """T9.15: one @media at config.PHONE_MAX_WIDTH_PX holds exactly the two swapping rules."""
+    queries = [
+        prelude for prelude, _ in _blocks(_without_comments(_css())) if prelude.startswith("@media")
+    ]
+    phone = f"@media (max-width: {config.PHONE_MAX_WIDTH_PX}px)"
+    assert queries.count(phone) == 1
+    inside = {
+        selector: _declarations(body) for selector, body, media in _rules(_css()) if media == phone
+    }
+    assert inside == {
+        ".st-key-client_cards": [("display", "flex")],
+        ".st-key-client_table": [("display", "none")],
+    }
+
+
+def test_the_client_list_containers_carry_the_stylesheet_s_keys():
+    """The keys the Clients page gives its containers are the ones the stylesheet aims at."""
+    css = _css()
+    assert f".st-key-{clients.CARDS_KEY}" in css and f".st-key-{clients.TABLE_KEY}" in css
 
 
 @pytest.mark.parametrize(

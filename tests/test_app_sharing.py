@@ -112,15 +112,16 @@ def coach_with_clients():
 
 
 def test_the_coach_sees_each_client_with_the_scopes_on(monkeypatch, coach_with_clients):
-    """The client list shows the display name, status and which scope is shared (criterion 5)."""
+    """The client list shows the name, active or former, and what is shared (criterion 5)."""
+    # Since T9.15 an active client's row holds the week's values, "Not shared" for a scope off,
+    # and an ended relationship is listed apart with its name and days.
     at = open_page(start(monkeypatch, user=signed_in()), navigation.CLIENTS)
-    table = at.dataframe[0].value
-    assert list(table["Client"]) == ["Alex", "Bo"]
-    assert list(table["Status"]) == ["Active", "Ended"]
-    assert list(table["Nutrition"]) == ["Shared", "Not shared"]
-    assert list(table["Training"]) == ["Not shared", "Not shared"]
-    assert list(table["Body"]) == ["Shared", "Not shared"]
-    assert table["Ended"][0] == "" and table["Ended"][1]
+    active, former = at.dataframe[0].value, at.dataframe[1].value
+    assert list(active["Client"]) == ["Alex"]
+    assert list(active["Days logged"]) == ["0 of 7 days logged"]  # nutrition shared
+    assert list(active["Latest weight"]) == ["70 kg (2026-11-02)"]  # body shared
+    assert list(active["Sessions"]) == ["Not shared"]  # training off
+    assert list(former["Client"]) == ["Bo"] and former["Ended"][0]
 
 
 def test_the_client_list_reads_names_through_the_relationship_checked_function(
@@ -185,9 +186,9 @@ def test_the_coach_cancels_a_code(monkeypatch):
 def test_the_clients_page_in_german(monkeypatch, coach_with_clients):
     """The client list's headers and values follow the language."""
     at = open_page(start(monkeypatch, user=signed_in(), language="de"), navigation.CLIENTS)
-    table = at.dataframe[0].value
-    assert list(table["Klient"]) == ["Alex", "Bo"]
-    assert list(table["Ernährung"]) == ["Geteilt", "Nicht geteilt"]
+    active, former = at.dataframe[0].value, at.dataframe[1].value
+    assert list(active["Klient"]) == ["Alex"] and list(former["Klient"]) == ["Bo"]
+    assert list(active["Einheiten"]) == ["Nicht geteilt"]
     assert "Einladungen" in page_text(at)
 
 
