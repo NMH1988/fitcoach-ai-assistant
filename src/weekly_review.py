@@ -405,15 +405,6 @@ def _is_change(before: str, after: str) -> bool:
     return bool(following) and following[0].strip(".,;:") in config.REVIEW_KCAL_CHANGE_AFTER
 
 
-def _is_current(before: str) -> bool:
-    """Return True if the words before a kcal figure give it as the client's current value."""
-    words = _words_before(before)
-    return bool(words) and (
-        words[-1] in config.REVIEW_KCAL_CURRENT_WORDS
-        or " ".join(words[-2:]) in config.REVIEW_KCAL_CURRENT_PHRASES
-    )
-
-
 def _kcal(text: str) -> float:
     """Return a written kcal figure as an intake: "1,200" and "1.200" are 1200, never 1.2."""
     # Either mark may be the decimal one; an intake is the larger reading, so "1.100 kcal" is
@@ -422,18 +413,17 @@ def _kcal(text: str) -> float:
 
 
 def _kcal_below_floor(text: str) -> bool:
-    """Return True if the text gives an intake (not a change) below the calorie floor."""
+    """Return True if the text holds a kcal figure below the floor that is not a change."""
+    # A recommendation names no kcal figure below the floor at all, not even the client's current
+    # intake: "an average of 1,000 kcal" reads as a target as easily as a fact, so the current value
+    # belongs in an observation (owner's choice, 2026-11-05, code review round 2; the prompt says
+    # so). Only a change ("by 300 kcal", "a 300 kcal deficit") is not an intake.
     for match in _KCAL.finditer(text):
         before = text[: match.start()].rstrip().lower()
         after = text[match.end() :].lstrip().lower()
         lower, upper = match.group(1), match.group(2)
         if _is_change(before, after):
             continue
-        if _is_current(before):
-            # "an average of 1050 kcal" states the week; "from 1100 to 1300 kcal" aims at 1300.
-            if lower is None:
-                continue
-            lower = None
         # A range is an intake from its lower end: "1,000-1,600 kcal" is below the floor.
         lowest = _kcal(upper) if lower is None else min(_kcal(lower), _kcal(upper))
         if lowest < config.CALORIE_FLOOR_KCAL:

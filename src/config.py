@@ -831,19 +831,6 @@ REVIEW_KCAL_APPROXIMATE: tuple[str, ...] = (
     "ca.",
     "circa",
 )
-# A kcal figure the text gives as the client's current value ("an average of 1050 kcal",
-# "averaged 1050 kcal", "from 1050 kcal to ..."), not as an intake to aim for; a range after one of
-# these ("from 1100 to 1300 kcal") has only its upper end checked.
-REVIEW_KCAL_CURRENT_WORDS: tuple[str, ...] = (
-    "averaged",
-    "averaging",
-    "currently",
-    "from",
-    "durchschnittlich",
-    "derzeit",
-    "aktuell",
-)
-REVIEW_KCAL_CURRENT_PHRASES: tuple[str, ...] = ("average of", "durchschnitt von")
 REVIEW_KCAL_CHANGE_AFTER: tuple[str, ...] = (
     "deficit",
     "surplus",

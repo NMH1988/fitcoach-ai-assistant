@@ -968,8 +968,8 @@ _EN: dict[str, str] = {
     "review.outcome.edited": "Your edited review was approved: the client can now read it.",
     "review.outcome.rejected": "Rejected: the client will not see this draft.",
     "review.outcome.gone": (
-        "This draft can no longer be approved or edited here (it was decided in another tab, or "
-        "its run was lost). Reject it, then draft the week again."
+        "This draft can no longer be approved or edited here: it was decided in another tab, "
+        "or its run was lost. If it still shows as waiting, reject it, then draft the week again."
     ),
     "review.rate_window": (
         "You are starting reviews too fast. Please wait {seconds} s and try again."
@@ -2131,9 +2131,9 @@ _DE: dict[str, str] = {
     ),
     "review.outcome.rejected": "Verworfen: Der Klient sieht diesen Entwurf nicht.",
     "review.outcome.gone": (
-        "Dieser Entwurf kann hier nicht mehr freigegeben oder bearbeitet werden (er wurde in einem "
-        "anderen Tab entschieden, oder sein Ablauf ging verloren). Verwerfen Sie ihn und entwerfen "
-        "Sie die Woche erneut."
+        "Dieser Entwurf kann hier nicht mehr freigegeben oder bearbeitet werden: Er wurde in "
+        "einem anderen Tab entschieden, oder sein Ablauf ging verloren. Wenn er noch als wartend "
+        "erscheint, verwerfen Sie ihn und entwerfen Sie die Woche erneut."
     ),
     "review.rate_window": (
         "Sie starten Berichte zu schnell. Bitte warten Sie {seconds} s und versuchen Sie es erneut."

@@ -688,3 +688,39 @@ def test_a_threads_file_that_cannot_be_used_gives_the_store_s_fixed_error(monkey
     [line] = [json.loads(text) for text in stream.getvalue().splitlines()]
     assert (line["event"], line["code"]) == ("store_unavailable", "OperationalError")
     assert "secret" not in stream.getvalue()
+
+
+def test_a_stuck_decision_takes_the_coach_s_new_click(store_conn, relationships, monkeypatch):
+    """Approve fails in the store once; Reject then rejects: the client never reads the draft."""
+    started = _start(_context())
+    thread = _pending(store_conn)["thread_id"]
+    monkeypatch.setattr(review.reviews, "decide_review", _FailingOnce(reviews.decide_review))
+    with pytest.raises(account.StoreUnavailable):
+        review.decide_review(_context(), world.COACH_A, started.review_id, thread, "approve")
+    result = review.decide_review(_context(), world.COACH_A, started.review_id, thread, "reject")
+    assert result.outcome == "rejected" and _threads() == set()
+    assert reviews.list_reviews(store_conn, world.SHARED, world.SHARED) == []
+
+
+def test_a_stuck_decision_replaced_by_an_edit_runs_the_edit_s_checks(
+    store_conn, relationships, monkeypatch
+):
+    """A refused edit leaves the stuck run as it was; a clean edit then replaces the approval."""
+    started = _start(_context())
+    thread = _pending(store_conn)["thread_id"]
+    monkeypatch.setattr(review.reviews, "decide_review", _FailingOnce(reviews.decide_review))
+    with pytest.raises(account.StoreUnavailable):
+        review.decide_review(_context(), world.COACH_A, started.review_id, thread, "approve")
+    bad = {**json.loads(_draft()), "hypotheses": [{"text": "Diabetes.", "evidence": []}]}
+    refused = review.decide_review(
+        _context(), world.COACH_A, started.review_id, thread, "edit", bad
+    )
+    assert (refused.outcome, refused.errors) == ("edit_invalid", ("diagnosis",))
+    good = json.loads(_draft())
+    good["observations"][0]["text"] = "One day logged."
+    edited = review.decide_review(
+        _context(), world.COACH_A, started.review_id, thread, "edit", good
+    )
+    assert edited.outcome == "edited"
+    [seen] = reviews.list_reviews(store_conn, world.SHARED, world.SHARED)
+    assert seen["final"]["observations"][0]["text"] == "One day logged."

@@ -294,3 +294,34 @@ def test_the_session_rate_limit_stops_a_new_run(monkeypatch, coach_world):
     at.run(timeout=30)
     assert any("reached its limit" in item.value for item in at.warning)
     assert fake.calls == [] and _stored() == []
+
+
+def test_a_store_that_fails_during_a_run_shows_its_fixed_message(monkeypatch, coach_world):
+    """The store's fixed message shows after the rerun, not lost to it (code review round 2)."""
+    from src import account as accounts
+
+    def unavailable(*args, **kwargs):
+        """Fail as a store that cannot be used does."""
+        raise accounts.StoreUnavailable
+
+    _model(monkeypatch, GOOD)
+    at = _week(monkeypatch)
+    monkeypatch.setattr(view.review, "start_review", unavailable)
+    _button(at, "Draft weekly review").click()
+    at.run(timeout=30)
+    assert any("cannot be opened right now" in item.value for item in at.error)
+
+
+def test_too_many_starts_in_the_window_are_refused_with_the_wait(monkeypatch, coach_world):
+    """The window limit: the coach is told how long to wait, and no model is called."""
+    from src import guard
+
+    fake = _model(monkeypatch, GOOD)
+    at = _week(monkeypatch)
+    limiter = guard.session_limiter(at.session_state)
+    for _ in range(limiter.per_window):
+        assert limiter.try_acquire() is None
+    _button(at, "Draft weekly review").click()
+    at.run(timeout=30)
+    assert any("starting reviews too fast" in item.value for item in at.warning)
+    assert fake.calls == [] and _stored() == []

@@ -64,6 +64,7 @@ Training recommendations have stricter evidence requirements:
 - If a suitable training source is absent, omit training recommendations rather than making an uncited suggestion.
 Safety
 - Never recommend an intake below 1,200 kcal per day.
+- If the client's current intake is below 1,200 kcal per day, state it in an observation only. A recommendation must not repeat any kcal figure below 1,200, not even the current one; describe the direction of the change instead.
 - Prefer describing the direction of a change without a number (for example, “reduce intake moderately”) rather than recommending a low absolute intake. Use a number for a change only if it appears in <metrics> (such as average_minus_target) or in a source cited by that recommendation. Any absolute intake recommendation must remain at or above 1,200 kcal per day.
 - Do not diagnose or name diseases or medical conditions in any field, including hypotheses.
 - If metrics suggest a potentially concerning pattern, such as very low intake or rapid weight loss, describe only the supported metrics and suggest that the coach discuss the situation with the client or an appropriate healthcare professional.

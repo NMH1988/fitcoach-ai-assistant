@@ -205,6 +205,16 @@ def test_a_label_not_retrieved_in_this_run_is_refused():
         "Keep intake at 1050 kcal.",
         "Aim for an intake of 1000 kcal.",
         "Averaged 1050 kcal; aim for 1,000 kcal.",
+        # No kcal figure below the floor in a recommendation, not even the current one (owner's
+        # choice, code review round 2): the current intake belongs in an observation.
+        "The client's average of 1050 kcal is below the 2000 kcal target; raise intake gradually.",
+        "Raise intake from 1050 kcal to 1500 kcal.",
+        "Raise intake from 1100 to 1300 kcal.",
+        "Derzeit 1050 kcal; die Zufuhr schrittweise erhöhen.",
+        "Aim for an average of 1,000 kcal per day.",
+        "Keep averaging 1,000 kcal.",
+        "Start from 1,000 kcal a day.",
+        "Eat from 1,000 to 1,300 kcal.",
     ],
 )
 def test_a_recommended_intake_below_the_floor_is_refused(text):
@@ -228,10 +238,7 @@ def test_a_recommended_intake_below_the_floor_is_refused(text):
         "Keep intake at or above 1,200 kcal per day.",
         "Mindestens 1.200 kcal pro Tag.",
         "Keep intake at 1,500-1,800 kcal.",
-        "The client's average of 1050 kcal is below the 2000 kcal target; raise intake gradually.",
-        "Raise intake from 1050 kcal to 1500 kcal.",
-        "Raise intake from 1100 to 1300 kcal.",
-        "Derzeit 1050 kcal; die Zufuhr schrittweise erhöhen.",
+        "Raise intake gradually from the current average toward the target.",
     ],
 )
 def test_a_change_in_kcal_or_an_intake_above_the_floor_passes_the_floor(text):
@@ -542,3 +549,15 @@ def test_the_owner_s_review_prompt_names_its_blocks():
         assert block in text, block
     # The calorie floor the prompt states is the one the code enforces.
     assert f"{config.CALORIE_FLOOR_KCAL:,}" in text
+
+
+def test_an_observation_may_state_a_current_intake_below_the_floor():
+    """The floor applies to recommendations: an observation of the week's low intake is a fact."""
+    draft = _with(("observations", 0, "text"), "The client averaged 1050 kcal on logged days.")
+    assert "calorie_floor" not in wr.check_edit(draft, CHUNKS)
+
+
+def test_the_prompt_keeps_a_current_intake_below_the_floor_out_of_recommendations():
+    """O15, round 2: the prompt says where a current intake below the floor goes."""
+    text = config.REVIEW_PROMPT_PATH.read_text(encoding="utf-8")
+    assert "state it in an observation only" in text

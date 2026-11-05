@@ -517,6 +517,34 @@ def _abandon(context: ReviewContext, saver: SqliteSaver, coach_id: str, thread_i
         pass  # deleted with the user's data later, found by its metadata
 
 
+def _restart_stuck(
+    graph: CompiledStateGraph,
+    run: RunnableConfig,
+    values: Mapping,
+    decision: str,
+    final: Mapping | None,
+) -> RunResult | None:
+    """Put the coach's new decision in place of a stuck one; a refused edit is returned."""
+    # The store failed after an earlier click; the decision to finish is the one the coach makes
+    # now, not the earlier one (code review round 2): the same click finishes it as it was, another
+    # replaces it as if the decide node had taken it, after the same checks on an edit.
+    answer = _decision({"decision": decision, "final": final})
+    if answer is None:
+        return RunResult(
+            outcome="edit_invalid", review_id=values.get("review_id"), errors=("schema",)
+        )
+    if answer == values.get("decision"):
+        return None
+    if answer["decision"] == "edit":
+        errors = wr.check_edit(answer["final"], chunks_of(values))
+        if errors:
+            return RunResult(
+                outcome="edit_invalid", review_id=values.get("review_id"), errors=tuple(errors)
+            )
+    graph.update_state(run, {"decision": answer, "errors": []}, as_node="decide")
+    return None
+
+
 def _reject_without_run(context: ReviewContext, coach_id: str, review_id: int) -> RunResult:
     """Reject a pending review whose run is gone, in the store, which checks access itself."""
     try:
@@ -555,6 +583,9 @@ def decide_review(
                 answer = {"decision": decision, "final": None if final is None else dict(final)}
                 graph.invoke(Command(resume=answer), run, context=context)
             elif snapshot.next in _STUCK:
+                stuck = _restart_stuck(graph, run, values, decision, final)
+                if stuck is not None:
+                    return stuck
                 graph.invoke(None, run, context=context)
             else:
                 return RunResult(outcome="gone")

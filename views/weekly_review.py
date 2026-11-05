@@ -101,7 +101,8 @@ def _start(user: dict, client_id: str, monday: date) -> None:
         with st.spinner(t("review.running")):
             result = review.start_review(context, user["id"], client_id, monday, lang())
     except accounts.StoreUnavailable:
-        st.error(t("account.store_unavailable"), icon=":material/error:")
+        # Shown on the next run, as the caller reruns the page at once (code review round 2).
+        _flash(review.RunResult(outcome="error", error_code="account.store_unavailable"))
         return
     if result.error_code and result.error_code.startswith("index."):
         # Open the index again next time, e.g. once the owner has rebuilt it.
@@ -118,7 +119,7 @@ def _decide(user: dict, row: dict, decision: str, final: dict | None = None) -> 
             context, user["id"], row["id"], row.get("thread_id") or "", decision, final
         )
     except accounts.StoreUnavailable:
-        st.error(t("account.store_unavailable"), icon=":material/error:")
+        _flash(review.RunResult(outcome="error", error_code="account.store_unavailable"))
         return
     if result.outcome != "edit_invalid":
         st.session_state.pop(EDIT_KEY, None)
