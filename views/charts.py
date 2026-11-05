@@ -333,7 +333,13 @@ def weight_trend(
                 # local time a browser west of UTC would show the day before (code review round 2).
                 "scale": {"type": "utc"},
                 # At most one tick a day: with fewer days than ticks, Vega labelled each day twice.
-                "axis": {"format": "%Y-%m-%d", "formatType": "utc", "tickMinStep": 86_400_000},
+                # Each label is the ISO day in UTC, as the rest of the page writes it: with
+                # `formatType: "utc"` Vega dropped the format and wrote "Thu 29" (English in the
+                # German UI too; the owner's screenshots of 2026-11-05).
+                "axis": {
+                    "labelExpr": "utcFormat(datum.value, '%Y-%m-%d')",
+                    "tickMinStep": 86_400_000,
+                },
             },
             "y": {
                 "field": "weight",

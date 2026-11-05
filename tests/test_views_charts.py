@@ -237,7 +237,10 @@ def test_the_weight_trend_is_in_the_user_s_units():
     assert chart.spec["encoding"]["y"]["scale"] == {"zero": False}
     # The days stay in UTC, as Vega reads an ISO day: no time zone moves a point (round 2).
     x = chart.spec["encoding"]["x"]
-    assert x["scale"] == {"type": "utc"} and x["axis"]["formatType"] == "utc"
+    assert x["scale"] == {"type": "utc"}
+    # The labels are ISO days in UTC, in any language (the owner's screenshots of 2026-11-05).
+    assert x["axis"]["labelExpr"] == "utcFormat(datum.value, '%Y-%m-%d')"
+    assert "format" not in x["axis"] and "formatType" not in x["axis"]
     assert chart.spec["encoding"]["tooltip"][0] == {
         "field": "day_text",
         "type": "nominal",
