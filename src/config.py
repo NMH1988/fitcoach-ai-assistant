@@ -818,6 +818,28 @@ REVIEW_CLIENT_VOLUME_PATTERNS: tuple[str, ...] = (
 # a change: the word before it (after an approximate word, if any) is one of these or it carries a
 # sign, or the word after it is one of the others. "About 1100 kcal" alone is an intake.
 REVIEW_KCAL_CHANGE_BEFORE: tuple[str, ...] = ("by", "um")
+# "by" and "um" make a change only with one of these verb stems earlier in the same sentence: "um
+# 1.000 kcal" alone means "around 1,000 kcal" (code review round 6).
+REVIEW_KCAL_CHANGE_VERBS: tuple[str, ...] = (
+    "raise",
+    "increase",
+    "reduce",
+    "lower",
+    "cut",
+    "drop",
+    "decrease",
+    "rise",
+    "go up",
+    "go down",
+    "erhöh",
+    "senk",
+    "reduzier",
+    "steiger",
+    "verringer",
+    "anheb",
+    "kürz",
+    "sinken",
+)
 REVIEW_KCAL_SIGNS: tuple[str, ...] = ("+", "-", "−", "±")
 REVIEW_KCAL_APPROXIMATE: tuple[str, ...] = (
     "about",

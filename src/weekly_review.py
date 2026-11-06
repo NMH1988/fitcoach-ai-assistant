@@ -43,10 +43,16 @@ _SPACES = re.compile(r"\s+")
 # A kcal figure, or a range of two ("1,000-1,100 kcal", "1000 to 1100 kcal"): group 1 is the lower
 # end (None for one figure), group 2 the figure or the upper end.
 _KCAL = re.compile(
-    r"(?:(\d+(?:[.,]\d+)*)\s*(?:[\u2010-\u2015\u2212-]|to|bis)\s*)?"
-    r"(\d+(?:[.,]\d+)*)\s*(?:kcal|kilocalories|calories|kalorien)\b",
+    r"(?:(\d+(?:[.,]\d+)*k?)\s*"
+    r"(?:[\u2010-\u2015\u2212-]|to|bis|and|und|up\s+to|bis\s+zu)\s*)?"
+    r"(\d+(?:[.,]\d+)*k?)\s*-?\s*"
+    r"(?:k?cals?|kilo\s?calories?|calories?|kilokalorien|kalorien)\b",
     re.I,
 )
+# A range is two figures joined by a dash, "to", "and" ("between 1,000 and 1,300 kcal"), "up to"
+# or their German words; a unit may follow a hyphen ("a 1,000-calorie day") and be written in any
+# of its usual forms ("kcals", "Kilokalorien"); "1k" is 1000 (code review round 6).
+_SENTENCE_END = re.compile(r"[.!?;]")
 
 # The fixed text the model gets back for each failed check, on the one retry (English, as the
 # prompt is; the coach sees these codes as their own texts in src/i18n.py).
@@ -56,7 +62,8 @@ ERROR_TEXTS: dict[str, str] = {
     "calorie_floor": (
         f"A recommendation names a kcal figure below {config.CALORIE_FLOOR_KCAL} kcal a day; "
         "put the client's current intake in an observation and describe only the direction of "
-        "the change."
+        'the change, or write a change as "reduce intake by 300 kcal" or "a 300 kcal '
+        'deficit".'
     ),
     "diagnosis": "A text names a medical condition or diagnosis.",
     "training_uncited": "A training recommendation does not cite a resistance training source.",
@@ -394,27 +401,37 @@ def _words_before(before: str) -> list[str]:
     return words
 
 
-def _is_change(before: str, after: str) -> bool:
+def _is_change(raw_before: str, after: str) -> bool:
     """Return True if the words around a kcal figure make it a change, not an intake."""
-    # A sign right before the figure ("-300 kcal"); a dash between two figures is a range, which
-    # _KCAL takes whole, and a dash right after a digit is never read as a sign.
-    if before.endswith(config.REVIEW_KCAL_SIGNS) and not before[:-1].rstrip()[-1:].isdigit():
+    before = raw_before.rstrip()
+    # A sign touching the figure ("-300 kcal"); "Target - 1,000 kcal" has a dash, not a sign, and
+    # a dash right after a digit is never read as a sign (code review round 6).
+    if (
+        raw_before.endswith(config.REVIEW_KCAL_SIGNS)
+        and not raw_before[:-1].rstrip()[-1:].isdigit()
+    ):
         return True
     words = _words_before(before)
     if words and words[-1] in config.REVIEW_KCAL_CHANGE_BEFORE:
-        return True
-    following = after.split()
+        # "by"/"um" with a change verb earlier in the sentence: "reduce intake by 300 kcal";
+        # "Die Zufuhr sollte um 1.000 kcal liegen" is an intake.
+        sentence = _SENTENCE_END.split(before)[-1]
+        if any(verb in sentence for verb in config.REVIEW_KCAL_CHANGE_VERBS):
+            return True
+    following = [word.strip(".,;:").rstrip(")") for word in after.split()]
     # Only closing marks are stripped: "1,000 kcal (less than usual)" is an intake with a remark,
-    # not a change (code review round 5).
-    return bool(following) and (
-        following[0].strip(".,;:").rstrip(")") in config.REVIEW_KCAL_CHANGE_AFTER
-    )
+    # not a change (code review round 5); "more or less" is no change (round 6).
+    if not following or following[0] not in config.REVIEW_KCAL_CHANGE_AFTER:
+        return False
+    return following[1:3] not in (["or", "less"], ["oder", "weniger"])
 
 
 def _kcal(text: str) -> float:
     """Return a written kcal figure as an intake: "1,200" and "1.200" are 1200, never 1.2."""
     # Either mark may be the decimal one; an intake is the larger reading, so "1.100 kcal" is
-    # still 1100 and below the floor.
+    # still 1100 and below the floor. "1k" is 1000.
+    if text.lower().endswith("k"):
+        return 1000 * max(_number_values(text[:-1]), default=0.0)
     return max(_number_values(text), default=0.0)
 
 
@@ -425,7 +442,7 @@ def _kcal_below_floor(text: str) -> bool:
     # belongs in an observation (owner's choice, 2026-11-05, code review round 2; the prompt says
     # so). Only a change ("by 300 kcal", "a 300 kcal deficit") is not an intake.
     for match in _KCAL.finditer(text):
-        before = text[: match.start()].rstrip().lower()
+        before = text[: match.start()].lower()
         after = text[match.end() :].lstrip().lower()
         lower, upper = match.group(1), match.group(2)
         if _is_change(before, after):

@@ -982,7 +982,7 @@ _EN: dict[str, str] = {
     "review.check.calorie_floor": (
         f"a recommendation names a kcal figure below {config.CALORIE_FLOOR_KCAL} kcal a day; put "
         "the client's current intake in an observation and describe only the direction of the "
-        "change."
+        "change, or write a change as 'reduce intake by 300 kcal' or 'a 300 kcal deficit'."
     ),
     "review.check.diagnosis": "a text names a medical condition or a diagnosis.",
     "review.check.training_uncited": "a training recommendation does not cite a training source.",
@@ -2150,7 +2150,8 @@ _DE: dict[str, str] = {
     "review.check.calorie_floor": (
         f"eine Empfehlung nennt eine kcal-Zahl unter {config.CALORIE_FLOOR_KCAL} kcal pro Tag; "
         "nennen Sie die aktuelle Zufuhr des Klienten in einer Beobachtung und beschreiben Sie nur "
-        "die Richtung der Änderung."
+        "die Richtung der Änderung, oder schreiben Sie eine Änderung als 'die Zufuhr um 300 kcal "
+        "senken' oder '300 kcal weniger'."
     ),
     "review.check.diagnosis": "ein Text nennt eine Erkrankung oder eine Diagnose.",
     "review.check.training_uncited": "eine Trainingsempfehlung zitiert keine Trainingsquelle.",
