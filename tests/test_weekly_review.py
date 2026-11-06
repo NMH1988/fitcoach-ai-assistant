@@ -254,6 +254,16 @@ def test_a_label_not_retrieved_in_this_run_is_refused():
         "Keep it at 1,000 kcal below.",
         "Start from 1,000 kcal a day.",
         "Eat from 1,000 to 1,300 kcal.",
+        # Round 8: an approximate word inside a range; "fall" inside other German words.
+        "Keep intake between about 1,000 and 1,300 kcal.",
+        "Keep intake between roughly 1,000 and 1,300 kcal.",
+        "Zwischen ca. 1.000 und 1.300 kcal.",
+        "Zwischen etwa 1.000 und 1.300 kcal pro Tag.",
+        "Keep intake between 1,000 and about 1,300 kcal.",
+        "Eat from 1,000 to about 1,300 kcal.",
+        "Die Zufuhr sollte ebenfalls um 1.000 kcal liegen.",
+        "Gegebenenfalls die Zufuhr um 1.000 kcal halten.",
+        "Auf jeden Fall um 1.000 kcal bleiben.",
     ],
 )
 def test_a_recommended_intake_below_the_floor_is_refused(text):
@@ -299,6 +309,20 @@ def test_a_recommended_intake_below_the_floor_is_refused(text):
         "Intake should fall by 300 kcal.",
         "Keep protein at 160 and 2,200 kcal.",
         "Aim for 1.5k kcal a day.",
+        # Round 8: one test per change verb added in round 7, and their German forms.
+        "Boost intake by 300 kcal.",
+        "Trim intake by 300 kcal.",
+        "Die Zufuhr um 300 kcal anpassen.",
+        "Wir empfehlen, die Zufuhr um 300 kcal anzupassen.",
+        "Die Zufuhr wird um 300 kcal angepasst.",
+        "Die Zufuhr um 300 kcal zurückfahren.",
+        "Wir empfehlen, die Zufuhr um 300 kcal zurückzufahren.",
+        "Die Zufuhr wird um 300 kcal zurückgefahren.",
+        "Die Zufuhr um 300 kcal herabsetzen.",
+        "Wir empfehlen, die Zufuhr um 300 kcal herabzusetzen.",
+        "Die Zufuhr wird um 300 kcal herabgesetzt.",
+        "Intake falls by 300 kcal on rest days.",
+        "Keep intake between about 1,500 and 1,800 kcal.",
     ],
 )
 def test_a_change_in_kcal_or_an_intake_above_the_floor_passes_the_floor(text):
@@ -609,6 +633,19 @@ def test_the_owner_s_review_prompt_names_its_blocks():
         assert block in text, block
     # The calorie floor the prompt states is the one the code enforces.
     assert f"{config.CALORIE_FLOOR_KCAL:,}" in text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Senken Sie die Zufuhr, z. B. Kohlenhydrate, um 300 kcal.",
+        "Passen Sie die Zufuhr um 300 kcal an.",
+    ],
+)
+def test_a_change_the_floor_check_cannot_read_is_refused(text):
+    """A change whose verb the check cannot see (cut off by "z. B.", or split) fails safe."""
+    draft = _with(("recommendations", 0, "text"), text)
+    assert "calorie_floor" in wr.check_edit(draft, CHUNKS)
 
 
 def test_an_observation_may_state_a_current_intake_below_the_floor():

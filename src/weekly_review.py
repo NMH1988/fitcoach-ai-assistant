@@ -43,19 +43,26 @@ _SPACES = re.compile(r"\s+")
 # A figure: digits with thousands or decimal marks, and "k" for a thousand when no letter follows
 # it ("1k kcal"; "1000kcal" is 1000, never 1000k: code review round 7).
 _FIGURE = r"\d+(?:[.,]\d+)*(?:k(?![a-z]))?"
+# One optional approximate word before a figure of a range ("between about 1,000 and 1,300 kcal",
+# "zwischen ca. 1.000 und etwa 1.300 kcal"), so the lower end is not lost (code review round 8).
+_APPROXIMATE = (
+    r"(?:(?:" + "|".join(re.escape(word) for word in config.REVIEW_KCAL_APPROXIMATE) + r")\s+)?"
+)
 # A kcal figure, or a range of two, checked from its lower end: "between X and Y" ("zwischen X und
 # Y"), or X and Y joined by a dash, "to", "bis", "up to" or "bis zu" ("pair" or "low" is the lower
 # end, "high" the figure or the upper end). A unit may follow a hyphen ("a 1,000-calorie day") and
 # be written in any of its usual forms ("kcals", "Kilokalorien") (code review rounds 6 and 7).
+_PAIR = r"(?:between|zwischen)\s+" + _APPROXIMATE + r"(?P<pair>" + _FIGURE + r")\s*(?:and|und)\s*"
+_LOW = r"(?P<low>" + _FIGURE + r")\s*(?:[\u2010-\u2015\u2212-]|to|bis|up\s+to|bis\s+zu)\s*"
+_UNIT = r"\s*-?\s*(?:k?cals?|kilo\s?calories?|calories?|kilokalorien|kalorien)\b"
 _KCAL = re.compile(
-    r"(?:(?:between|zwischen)\s+(?P<pair>" + _FIGURE + r")\s*(?:and|und)\s*"
-    r"|(?P<low>" + _FIGURE + r")\s*(?:[\u2010-\u2015\u2212-]|to|bis|up\s+to|bis\s+zu)\s*)?"
-    r"(?P<high>" + _FIGURE + r")\s*-?\s*"
-    r"(?:k?cals?|kilo\s?calories?|calories?|kilokalorien|kalorien)\b",
+    r"(?:" + _PAIR + r"|" + _LOW + r")?" + _APPROXIMATE + r"(?P<high>" + _FIGURE + r")" + _UNIT,
     re.I,
 )
 # A mark that ends a sentence: a full stop, "!", "?" or ";" before a capital letter or the end, so
-# "2.500", "ca." and "e.g." do not cut a sentence short (code review round 7).
+# "2.500", "ca." and "e.g." do not cut a sentence short (code review round 7). German capitalises
+# nouns, so "z. B." before a noun still ends one; a change verb before it is then not seen and the
+# figure is read as an intake, which fails safe (code review round 8).
 _SENTENCE_END = re.compile(r"[.!?;](?=\s+[A-ZÄÖÜ]|\s*$)")
 
 # The fixed text the model gets back for each failed check, on the one retry (English, as the
