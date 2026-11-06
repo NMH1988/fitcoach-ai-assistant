@@ -18,6 +18,7 @@ Either way:
 - When the key is missing, invalid or out of credit (401/402), the app shows a clear message instead of crashing.
 - GitHub secret scanning and push protection are on for the repo (Settings -> Code security), so an accidentally committed key is blocked or reported.
 - If a key ever leaks: revoke it on https://openrouter.ai/keys first, then clean up.
+- The optional USDA FoodData Central API key (`USDA_FDC_API_KEY`, T9.9) follows the same rules. It costs nothing, but visitors share its quota (1,000 requests an hour; USDA blocks the key for an hour beyond that), and USDA deactivates a key found in public: set it only behind the access gate (option 2), or leave it unset so the food lookup uses the local table only.
 
 ## Checklist before the first deploy
 

@@ -3,7 +3,8 @@
 `db` opens and migrates the file, `schema` holds the tables, `values` checks what is written,
 `access` decides who may read whose data, `users` holds accounts, relationships and consents,
 `invitations` the coaches' codes and their acceptance (T9.12), `records` the health records,
-`reviews` the weekly reviews, and `my_data` exports and deletes all of a user's rows.
+`reviews` the weekly reviews, `notifications` the in-app notifications worked out from those rows
+and the reader's read mark (T9.29), and `my_data` exports and deletes all of a user's rows.
 Every query is a constant string with `?` parameters (tests/test_store_sql_scan.py).
 The Capstone replaces this package with PostgreSQL.
 """
