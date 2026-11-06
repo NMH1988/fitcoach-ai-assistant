@@ -19,6 +19,7 @@ from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from src import config
@@ -44,6 +45,14 @@ def new_thread_id() -> str:
     return f"review-{uuid.uuid4().hex}"
 
 
+def _strict_serializer() -> JsonPlusSerializer:
+    """Return the checkpoint serializer that builds only LangGraph's safe list of types."""
+    # The default one rebuilds any Python class named in the file, so whoever could write the file
+    # could run code on the coach's next decision; a run's state is plain values, and Interrupt and
+    # Command are on the safe list (security-reviewer, 2026-11-06).
+    return JsonPlusSerializer(allowed_msgpack_modules=None)
+
+
 @contextmanager
 def open_saver(store_path: Path) -> Iterator[SqliteSaver]:
     """Open the checkpointer file next to the store, set up, and close it after the block."""
@@ -60,7 +69,7 @@ def open_saver(store_path: Path) -> Iterator[SqliteSaver]:
         )
         try:
             conn.execute(_SECURE_DELETE_ON)
-            saver = SqliteSaver(conn)
+            saver = SqliteSaver(conn, serde=_strict_serializer())
             saver.setup()
             yield saver
         finally:

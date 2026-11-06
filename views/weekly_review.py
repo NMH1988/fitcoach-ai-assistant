@@ -41,7 +41,7 @@ def show_text(text: dict) -> None:
     lines = tables.review_source_lines(text, resources.manifest(), lang())
     if lines:
         st.markdown(f"**{t('review.sources')}**")
-        st.markdown("\n".join(f"- [{line}]({url})" for line, url in lines))
+        st.markdown("\n".join(f"- {line}" for line in lines))
 
 
 def _context() -> review.ReviewContext:

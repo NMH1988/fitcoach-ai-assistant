@@ -1,5 +1,6 @@
 """views/tables.py: table rows, cells and text lines, built without Streamlit or AppTest (T8.1)."""
 
+import re
 from datetime import date
 from decimal import Decimal
 
@@ -58,6 +59,17 @@ def test_bold_label_bolds_only_the_label():
 def test_one_line_escapes_what_markdown_would_read_as_a_block_or_image(text, expected):
     """The text is on one line and a line start or image never becomes formatting."""
     assert tables.one_line(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["see www.attacker.example/w?w=82", "WWW.attacker.example", "x@attacker.example"],
+)
+def test_one_line_breaks_bare_autolinks(text):
+    """A bare www. host or e-mail address stays plain text: GFM links neither once escaped."""
+    line = tables.one_line(text)
+    assert re.search(r"(?i)www\.", line) is None
+    assert re.search(r"(?<!\\)@", line) is None
 
 
 def test_columns_turns_rows_into_named_columns():
@@ -786,10 +798,19 @@ def test_a_review_s_sources_follow_its_labels_and_skip_what_the_app_does_not_kno
     manifest = chat.manifest_by_id()
     lines = tables.review_source_lines(_review_text(), manifest, "en")
     assert len(lines) == 1
-    line, url = lines[0]
-    assert line.startswith(r"\[S2\] ") and str(manifest["1"].year) in line
-    assert url == chat.markdown_url(manifest["1"].url)
+    line = lines[0]
+    assert line.startswith(r"[\[S2\] ") and str(manifest["1"].year) in line
+    assert f"]({chat.markdown_url(manifest['1'].url)})" in line
     assert tables.review_source_lines({"observations": []}, manifest, "en") == []
+
+
+def test_a_review_s_sources_credit_the_authors_and_the_licence():
+    """Each source line names the authors and links the licence, as the chat's card does."""
+    manifest = chat.manifest_by_id()
+    line = tables.review_source_lines(_review_text(), manifest, "en")[0]
+    source = manifest["1"]
+    assert tables.one_line(chat.format_authors(source.authors)) in line
+    assert f"[{tables.one_line(source.license)}]({chat.markdown_url(source.license_url)})" in line
 
 
 def test_only_a_text_with_the_three_sections_counts_as_t9_16_s_fields():

@@ -251,6 +251,14 @@ def test_delete_hands_a_coachs_threads_to_the_callback(store_conn, relationships
     assert deleted == ["by-a"]
 
 
+def test_a_delete_without_the_threads_hook_is_refused(store_conn, relationships):
+    """A caller that forgets the threads hook gets an error and nothing is deleted."""
+    _save(store_conn, thread_id="about-shared")
+    with pytest.raises(TypeError):
+        my_data.delete_user_data(store_conn, world.SHARED)  # type: ignore[call-arg]
+    assert access.role_of(store_conn, world.SHARED) == "gymer"
+
+
 def test_a_failing_thread_delete_deletes_nothing(store_conn, relationships):
     """If the threads cannot be deleted, the store rolls back and the user is still there."""
     _save(store_conn, thread_id="about-shared")

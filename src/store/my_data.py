@@ -195,14 +195,15 @@ def export_user_data(conn: sqlite3.Connection, user_id: str) -> str:
 def delete_user_data(
     conn: sqlite3.Connection,
     user_id: str,
-    delete_threads: Callable[[list[str]], None] | None = None,
+    delete_threads: Callable[[list[str]], None],
 ) -> None:
     """Delete the user and every row about them, in one transaction; NotFound if there is none."""
     # delete_threads (T9.16) gets the threads of the user's reviews and deletes them, and every
     # other thread about or by the user, from the checkpointer file (src/agent/review_threads.py;
     # the store imports no LangGraph). It runs last, inside the transaction, even with no thread
     # listed (a crashed run leaves one with no review): if it fails, no row is deleted and the user
-    # can try again.
+    # can try again. It is required, so no caller can report a deletion that left the threads'
+    # copies of a client's week behind (compliance-reviewer, 2026-11-06).
     user_id = values.user_id(user_id)
     one = (user_id,)
     both = (user_id, user_id)
@@ -226,5 +227,4 @@ def delete_user_data(
         conn.execute(_DELETE_PROFILES, one)
         conn.execute(_DELETE_PREFERENCES, one)
         conn.execute(_DELETE_USER, one)
-        if delete_threads is not None:
-            delete_threads(threads)
+        delete_threads(threads)

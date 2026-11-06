@@ -12,6 +12,7 @@ from streamlit.util import calc_hash
 from src import account, config, observability
 from src.profile import UserProfile
 from src.store import db, records, users
+from tests.store_world import no_threads
 from views import account as views_account
 from views import navigation
 
@@ -469,7 +470,7 @@ def _reset_store() -> None:
     from src.store import my_data
 
     with db.connect() as conn:
-        my_data.delete_user_data(conn, USER_ID)
+        my_data.delete_user_data(conn, USER_ID, no_threads)
 
 
 # --- Failures after sign-in (code review round 1) -------------------------------------------------

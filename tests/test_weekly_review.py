@@ -484,9 +484,11 @@ def test_a_number_not_in_the_metrics_is_refused(text):
 )
 def test_numbers_from_the_metrics_rounded_or_in_german_pass(text):
     """A metric rounded, with a decimal comma or a sign passes; dates and labels are skipped."""
-    draft = _with(("observations", 0, "text"), text)
+    # A text that cites a label goes in a hypothesis: an observation cites nothing.
     if "[S1]" in text:
-        draft["observations"][0]["evidence"] = ["S1"]
+        draft = _with(("hypotheses", 0), {"text": text, "evidence": ["S1"]})
+    else:
+        draft = _with(("observations", 0, "text"), text)
     assert wr.validate(draft, CHUNKS, METRICS) == []
 
 
@@ -667,6 +669,43 @@ def test_an_observation_may_state_a_current_intake_below_the_floor():
     """The floor applies to recommendations: an observation of the week's low intake is a fact."""
     draft = _with(("observations", 0, "text"), "The client averaged 1050 kcal on logged days.")
     assert "calorie_floor" not in wr.check_edit(draft, CHUNKS)
+
+
+ADVICE_FROM_A_SOURCE = "Eating 800 kcal a day is a common approach [S1]."
+CHUNK_800 = [_chunk("12", 3, "Some diets give 800 kcal a day for a short time.", ["protein"])]
+
+
+def test_an_observation_that_cites_a_source_is_refused():
+    """Observations come from the metrics only: a citation is refused (security-reviewer)."""
+    draft = _with(("observations", 0), {"text": ADVICE_FROM_A_SOURCE, "evidence": ["S1"]})
+    assert "observation_evidence" in wr.validate(draft, CHUNK_800, METRICS)
+
+
+def test_a_hypothesis_that_cites_a_source_gets_the_floor_check():
+    """A source's sub-floor figure in a cited hypothesis is refused, in a draft and an edit."""
+    draft = _with(("hypotheses", 0), {"text": ADVICE_FROM_A_SOURCE, "evidence": ["S1"]})
+    assert "calorie_floor" in wr.validate(draft, CHUNK_800, METRICS)
+    assert "calorie_floor" in wr.check_edit(draft, CHUNK_800)
+
+
+def test_a_hypothesis_without_a_citation_may_name_the_current_intake():
+    """The client's own low intake in an uncited hypothesis is a fact, as in an observation."""
+    text = "The average of 1050 kcal may explain the weight change."
+    draft = _with(("hypotheses", 0), {"text": text, "evidence": []})
+    assert "calorie_floor" not in wr.check_edit(draft, CHUNKS)
+
+
+def test_the_coach_is_told_to_check_every_figure():
+    """The coach is the first check: the review's intro says the code checks miss some wordings."""
+    assert "check every figure, especially calories" in i18n.t("review.intro", "en")
+    assert "jede Zahl, besonders die Kalorien" in i18n.t("review.intro", "de")
+
+
+def test_every_check_code_has_its_texts():
+    """Each check the model can fail has a retry text and the coach's text in English and German."""
+    for code in wr.ERROR_TEXTS:
+        for lang in ("en", "de"):
+            assert i18n.t(f"review.check.{code}", lang) != f"review.check.{code}", (code, lang)
 
 
 def test_the_prompt_keeps_a_current_intake_below_the_floor_out_of_recommendations():

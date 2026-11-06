@@ -1,8 +1,11 @@
 """The weekly review's checkpointer file (T9.16, D12): where it is, deleting a user's threads."""
 
+import dataclasses
+import sqlite3
 from typing import TypedDict
 
 import pytest
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
@@ -21,21 +24,39 @@ class _State(TypedDict, total=False):
     text: str
 
 
+BUILT: list[str] = []
+
+
+@dataclasses.dataclass
+class _Planted:
+    """A class an attacker could name in the threads file: building it records the build."""
+
+    note: str
+
+    def __post_init__(self) -> None:
+        """Record that the class was built (in a real attack: run the attacker's code)."""
+        BUILT.append(self.note)
+
+
 def _hold(state: _State) -> dict:
     """Wait for a decision, as the review's decide node does."""
     interrupt({"waiting": True})
     return {}
 
 
-def _paused_run(saver, thread_id: str, coach: str, client: str) -> None:
-    """Run a one-node graph to its pause, with the coach and client as checkpoint metadata."""
+def _graph(saver):
+    """Return a one-node graph that pauses, as the review's decide node does."""
     builder = StateGraph(_State)
     builder.add_node("hold", _hold)
     builder.add_edge(START, "hold")
     builder.add_edge("hold", END)
-    graph = builder.compile(checkpointer=saver)
-    graph.invoke(
-        {"text": f"{CANARY} {thread_id}"},
+    return builder.compile(checkpointer=saver)
+
+
+def _paused_run(saver, thread_id: str, coach: str, client: str, text: object = None) -> None:
+    """Run a one-node graph to its pause, with the coach and client as checkpoint metadata."""
+    _graph(saver).invoke(
+        {"text": f"{CANARY} {thread_id}" if text is None else text},
         {
             "configurable": {"thread_id": thread_id},
             "metadata": {review_threads.COACH_KEY: coach, review_threads.CLIENT_KEY: client},
@@ -74,6 +95,36 @@ def test_a_paused_run_survives_closing_the_file():
     with review_threads.open_saver(config.STORE_PATH) as saver:
         _paused_run(saver, "t-1", world.COACH_A, world.SHARED)
     assert _threads(config.STORE_PATH) == {"t-1"}
+
+
+def test_the_saver_refuses_classes_outside_the_safe_list():
+    """A class planted in the threads file is never built when the run is read back."""
+    BUILT.clear()
+    # The attacker writes the file with LangGraph's default, permissive serializer.
+    path = review_threads.threads_path(config.STORE_PATH)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path, check_same_thread=False)
+    try:
+        attacker = SqliteSaver(conn)
+        attacker.setup()
+        _paused_run(attacker, "t-planted", world.COACH_A, world.SHARED, _Planted("planted"))
+    finally:
+        conn.close()
+    BUILT.clear()
+    with review_threads.open_saver(config.STORE_PATH) as saver:
+        state = _graph(saver).get_state({"configurable": {"thread_id": "t-planted"}})
+    assert BUILT == []
+    assert not isinstance(state.values.get("text"), _Planted)
+
+
+def test_a_paused_run_reads_back_with_the_strict_serializer():
+    """A review run's plain values and its pause survive the strict serializer."""
+    with review_threads.open_saver(config.STORE_PATH) as saver:
+        _paused_run(saver, "t-plain", world.COACH_A, world.SHARED)
+    with review_threads.open_saver(config.STORE_PATH) as saver:
+        state = _graph(saver).get_state({"configurable": {"thread_id": "t-plain"}})
+    assert state.values["text"] == f"{CANARY} t-plain"
+    assert state.next == ("hold",) and state.tasks[0].interrupts
 
 
 @pytest.mark.parametrize(

@@ -17,6 +17,8 @@ from src.tools.food import FoodLookupResult
 # The start of a line Markdown would read as a block: "#", "-", "+", "=" or "1." / "1)". A ">"
 # (quote) is not here: chat.escape_markdown() escapes it first, so keep both in step.
 LINE_START = re.compile(r"^(\d*)([#+=.)-])")
+# A bare "www." host, any case, which GFM would link with no scheme.
+_BARE_WWW = re.compile(r"\b(www)\.", re.I)
 # The columns of the Details tab's table of a turn's calls (T5.1), as keys in src/i18n.py.
 USAGE_COLUMNS = ("step", "model", "input", "cached", "output", "reasoning", "cost")
 # A call of the answer step is named with its round ("Answer, round 2"), read back for the UI.
@@ -38,9 +40,11 @@ def bold_label(line: str) -> str:
 
 def one_line(text: str) -> str:
     """Return text on one line, escaped, so it adds no formatting, image or link to a list."""
-    # GFM still links a bare "www." or e-mail address (no scheme, nothing to escape); it is shown,
-    # never loaded, and no raw HTML gets through.
     line = chat.escape_markdown(" ".join(text.split()))
+    # GFM links a bare "www." host or an e-mail address with no scheme to escape; escaping the dot
+    # and the "@" keeps them plain text, so a model's text cannot offer a link that carries a
+    # client's figure to another host (security-reviewer, 2026-11-06).
+    line = _BARE_WWW.sub(r"\1\\.", line).replace("@", r"\@")
     # A line start Markdown reads as a heading, quote, list or rule ("# Big", "> x", "1. x").
     return LINE_START.sub(r"\1\\\2", line)
 
@@ -601,11 +605,13 @@ def _label_number(label: object) -> int | None:
     return None
 
 
-def review_source_lines(review: dict, manifest: dict, lang: Language) -> list[tuple[str, str]]:
-    """Return each label the review cites as (escaped line, the source's link), in label order."""
+def review_source_lines(review: dict, manifest: dict, lang: Language) -> list[str]:
+    """Return each source the review cites as a Markdown line with its credit, in label order."""
     # The review text keeps what each of its [S#] labels cited (weekly_review.cited_sources()), so
-    # a label in the text names the same source here; the manifest gives the title and the link
-    # (approved sources only, docs/SOURCES.md). A label or source the app does not know is left out.
+    # a label in the text names the same source here; the manifest gives the title, the link, the
+    # authors and the licence (approved sources only, docs/SOURCES.md), credited as the chat's
+    # source card does, as a review may quote a source's range (copyright policy rule 6;
+    # compliance-reviewer, 2026-11-06). A label or source the app does not know is left out.
     cited = review.get("sources")
     if not isinstance(cited, dict):
         return []
@@ -619,7 +625,11 @@ def review_source_lines(review: dict, manifest: dict, lang: Language) -> list[tu
         line = i18n.t(
             "review.source_line", lang, number=number, title=source.title, year=source.year
         )
-        found.append((one_line(line), chat.markdown_url(source.url)))
+        found.append(
+            f"[{one_line(line)}]({chat.markdown_url(source.url)})"
+            f" · {one_line(chat.format_authors(source.authors))}"
+            f" · [{one_line(source.license)}]({chat.markdown_url(source.license_url)})"
+        )
     return found
 
 

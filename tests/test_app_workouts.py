@@ -11,6 +11,7 @@ from streamlit.util import calc_hash
 
 from src import account, units
 from src.store import db, my_data, records
+from tests.store_world import no_threads
 from tests.test_app_account import (
     PROFILE,
     USER_ID,
@@ -341,7 +342,7 @@ def test_an_account_deleted_in_another_tab_stops_the_save(gymer):
     """Save after the account was deleted elsewhere stores nothing and says the account is gone."""
     _add_set(gymer, "squat", 5, 100.0, None)
     with db.connect() as conn:
-        my_data.delete_user_data(conn, USER_ID)
+        my_data.delete_user_data(conn, USER_ID, no_threads)
     # The click's callback runs before the page works out that the account is gone.
     button(gymer, "Save workout").click().run(timeout=30)
     assert not gymer.exception
@@ -355,7 +356,7 @@ def test_an_account_deleted_after_the_profile_check_stops_the_save(gymer, monkey
     """A Save whose account goes between the profile check and the write says it is gone."""
     _add_set(gymer, "squat", 5, 100.0, None)
     with db.connect() as conn:
-        my_data.delete_user_data(conn, USER_ID)
+        my_data.delete_user_data(conn, USER_ID, no_threads)
     # The profile check passes, so the write itself finds no account (round 6).
     monkeypatch.setattr(account, "has_profile_entries", lambda conn, user_id: True)
     button(gymer, "Save workout").click().run(timeout=30)
@@ -370,7 +371,7 @@ def test_a_deleted_account_s_draft_leaves_the_session(gymer):
     # A notice left for the next run (as a save leaves one) must go too.
     gymer.session_state[workouts.NOTICE_KEY] = ("success", "workouts.saved")
     with db.connect() as conn:
-        my_data.delete_user_data(conn, USER_ID)
+        my_data.delete_user_data(conn, USER_ID, no_threads)
     gymer.run(timeout=30)
     keys = (workouts.DRAFT_KEY, workouts.EDITING_KEY, workouts.KEPT_DAY_KEY, workouts.NOTICE_KEY)
     for key in keys:

@@ -32,6 +32,7 @@ from tests.fakes import (
     tool_reply,
     write_food_table,
 )
+from tests.store_world import no_threads
 
 LOGGER = logging.getLogger("src.test_observability")
 
@@ -734,8 +735,8 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
             errors.append(error)
     my_data.export_user_data(conn, "CANARY-GYM")
     my_data.export_user_data(conn, "CANARY-COACH")
-    my_data.delete_user_data(conn, "CANARY-COACH")
-    my_data.delete_user_data(conn, "CANARY-GYM")
+    my_data.delete_user_data(conn, "CANARY-COACH", no_threads)
+    my_data.delete_user_data(conn, "CANARY-GYM", no_threads)
     return errors
 
 

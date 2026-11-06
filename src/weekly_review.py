@@ -73,8 +73,13 @@ _SENTENCE_END = re.compile(r"[.!?;](?=\s+[A-ZÄÖÜ]|\s*$)")
 ERROR_TEXTS: dict[str, str] = {
     "schema": "The reply did not follow the schema.",
     "unknown_evidence": "A citation names a label that is not in <sources>.",
+    "observation_evidence": (
+        "An observation cites a source; observations come from <metrics> only, so leave their "
+        "evidence empty."
+    ),
     "calorie_floor": (
-        f"A recommendation names a kcal figure below {config.CALORIE_FLOOR_KCAL} kcal a day; "
+        "A recommendation, or a hypothesis that cites a source, names a kcal figure below "
+        f"{config.CALORIE_FLOOR_KCAL} kcal a day; "
         "put the client's current intake in an observation and describe only the direction of "
         'the change, or write a change as "reduce intake by 300 kcal" or "a 300 kcal '
         'deficit".'
@@ -529,6 +534,13 @@ def _safety_checks(review: Mapping, chunks: Sequence[RetrievedChunk]) -> list[st
     for item in _items(review):
         if _matches_any(config.REVIEW_DIAGNOSIS_PATTERNS, _texts(item)):
             errors.append("diagnosis")
+    # A hypothesis that cites a source gets the floor check too: its figure comes from the source,
+    # not the client's week, and may read as advice (security-reviewer, 2026-11-06); one without a
+    # citation may name the client's own current intake, as an observation does.
+    cited_hypotheses = [h for h in review.get("hypotheses", ()) if h.get("evidence")]
+    for item in cited_hypotheses:
+        if any(_kcal_below_floor(text) for text in _texts(item)):
+            errors.append("calorie_floor")
     for item in review.get("recommendations", ()):
         if any(_kcal_below_floor(text) for text in _texts(item)):
             errors.append("calorie_floor")
@@ -547,6 +559,10 @@ def validate(review: Mapping, chunks: Sequence[RetrievedChunk], metrics: Mapping
     by_label = label_numbers(chunks)
     errors: list[str] = []
     allowed = _metric_values(metrics) | {float(config.CALORIE_FLOOR_KCAL)}
+    # An observation comes from <metrics> only (the prompt says so): a citation would let it carry a
+    # source's figure, worded as advice, past the floor check (security-reviewer, 2026-11-06).
+    if any(item.get("evidence") for item in review.get("observations", ())):
+        errors.append("observation_evidence")
     for item in _items(review):
         labels = item.get("evidence", ())
         if any(label not in by_label for label in labels):

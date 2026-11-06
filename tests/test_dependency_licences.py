@@ -95,8 +95,9 @@ LICENCE_EXCEPTIONS: dict[str, HandChecked] = {
     # T9.16: pulled in by langgraph-checkpoint-sqlite (its vector store; our code never loads the
     # extension). The wheel's metadata lists two licences as free text and holds no licence file;
     # the project's repository (github.com/asg017/sqlite-vec) has LICENSE-MIT and LICENSE-APACHE at
-    # the v0.1.9 tag, so it is dual licensed MIT or Apache-2.0, both allowed. Recorded for the
-    # owner's confirmation in T9.16's PR.
+    # the v0.1.9 tag, so it is dual licensed MIT or Apache-2.0, both allowed. The owner read both
+    # files at the tag and confirmed them on 2026-11-06 (standard texts, "Copyright 2024 Alex
+    # Garcia", nothing that narrows them) in T9.16's PR.
     "sqlite-vec": HandChecked(
         "MIT License, Apache License, Version 2.0",
         "MIT or Apache-2.0: LICENSE-MIT and LICENSE-APACHE in the repository at tag v0.1.9",

@@ -922,7 +922,8 @@ _EN: dict[str, str] = {
         "An AI model, reached through OpenRouter, drafts a review of a finished week from the "
         "numbers this client shares with you and the app's research sources. It gets the numbers "
         "for 'the client', never a name. You approve, edit or reject the draft; the client reads "
-        "it only once you approve it."
+        "it only once you approve it. The app's checks do not catch every wording: check every "
+        "figure, especially calories, before you approve."
     ),
     "review.not_finished": "A week can be reviewed once it is over, from the Monday after it.",
     "review.needs_nutrition": "A weekly review needs the client to share Nutrition.",
@@ -980,9 +981,13 @@ _EN: dict[str, str] = {
     ),
     "review.check.schema": "a section is empty or too long, or Observations has no text.",
     "review.check.calorie_floor": (
-        f"a recommendation names a kcal figure below {config.CALORIE_FLOOR_KCAL} kcal a day; put "
-        "the client's current intake in an observation and describe only the direction of the "
-        "change, or write a change as 'reduce intake by 300 kcal' or 'a 300 kcal deficit'."
+        "a recommendation, or a possible reason that cites a source, names a kcal figure below "
+        f"{config.CALORIE_FLOOR_KCAL} kcal a day; put the client's current intake in an "
+        "observation and describe only the direction of the change, or write a change as "
+        "'reduce intake by 300 kcal' or 'a 300 kcal deficit'."
+    ),
+    "review.check.observation_evidence": (
+        "an observation cites a source; observations come from the week's figures only."
     ),
     "review.check.diagnosis": "a text names a medical condition or a diagnosis.",
     "review.check.training_uncited": "a training recommendation does not cite a training source.",
@@ -2081,7 +2086,8 @@ _DE: dict[str, str] = {
         "abgeschlossene Woche aus den Zahlen, die dieser Klient mit Ihnen teilt, und den "
         "Forschungsquellen der App. Es erhält die Zahlen für 'den Klienten', nie einen Namen. Sie "
         "geben den Entwurf frei, bearbeiten oder verwerfen ihn; der Klient liest ihn erst nach "
-        "Ihrer Freigabe."
+        "Ihrer Freigabe. Die Prüfungen der App erkennen nicht jede Formulierung: Prüfen "
+        "Sie vor der Freigabe jede Zahl, besonders die Kalorien."
     ),
     "review.not_finished": (
         "Eine Woche kann ausgewertet werden, wenn sie vorbei ist, ab dem Montag danach."
@@ -2148,10 +2154,13 @@ _DE: dict[str, str] = {
         "ein Abschnitt ist leer oder zu lang, oder Beobachtungen hat keinen Text."
     ),
     "review.check.calorie_floor": (
-        f"eine Empfehlung nennt eine kcal-Zahl unter {config.CALORIE_FLOOR_KCAL} kcal pro Tag; "
-        "nennen Sie die aktuelle Zufuhr des Klienten in einer Beobachtung und beschreiben Sie nur "
-        "die Richtung der Änderung, oder schreiben Sie eine Änderung als 'die Zufuhr um 300 kcal "
-        "senken' oder '300 kcal weniger'."
+        "eine Empfehlung oder ein möglicher Grund mit Quelle nennt eine kcal-Zahl unter "
+        f"{config.CALORIE_FLOOR_KCAL} kcal pro Tag; nennen Sie die aktuelle Zufuhr des Klienten in "
+        "einer Beobachtung und beschreiben Sie nur die Richtung der Änderung, oder schreiben Sie "
+        "eine Änderung als 'die Zufuhr um 300 kcal senken' oder '300 kcal weniger'."
+    ),
+    "review.check.observation_evidence": (
+        "eine Beobachtung zitiert eine Quelle; Beobachtungen stammen nur aus den Zahlen der Woche."
     ),
     "review.check.diagnosis": "ein Text nennt eine Erkrankung oder eine Diagnose.",
     "review.check.training_uncited": "eine Trainingsempfehlung zitiert keine Trainingsquelle.",
