@@ -195,6 +195,6 @@ The owner drafts the system prompt(s) and the evaluation questions; Claude revie
 
 ## Open items
 
-- Deployment: the app runs locally for the review; a public demo comes later (`docs/DEPLOYMENT.md`). Not deployed for now because of the hosting cost (owner's decision, 2026-11-06): the README images and the video (T9.27, T9.28) show the app instead.
+- Deployment: the app runs locally for the review; a public demo comes later (`docs/DEPLOYMENT.md`). Not deployed for now because of the hosting cost (owner's decision, 2026-11-06); a public deployment would also need the privacy notice and the GDPR review first ("Sprint 3" above: out of scope, and the privacy change). The README images and the video (T9.27, T9.28) show the app instead.
 - The repo's own code licence (e.g. MIT). Without one, others may view the code but not reuse it.
 - The Capstone project: the parts of the owner's product plan that Sprint 3 leaves out ("Moved to the Capstone" above).
