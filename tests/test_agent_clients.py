@@ -304,6 +304,9 @@ def test_a_store_that_fails_gives_the_fixed_tool_failure(relationships):
         "[r]: https://x.example/?a;client-1",
         "see WWW.x.example/a,client-1",
         "[client-1](https://x.example)",
+        # Code review round 3: a reference definition's destination on the next line, with no
+        # scheme (a protocol-relative URL).
+        "See [details][r].\n[r]:\n//x.example/?n=client-1",
     ],
 )
 def test_no_name_is_put_into_a_line_that_may_hold_a_link(text):

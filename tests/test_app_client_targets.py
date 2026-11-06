@@ -84,7 +84,7 @@ def test_a_coach_sets_a_shared_client_s_targets(monkeypatch):
 
 
 @pytest.mark.usefixtures("coach_world")
-def test_the_form_starts_from_the_week_s_active_target(monkeypatch):
+def test_the_form_starts_from_the_client_s_target_today(monkeypatch):
     """The fields hold the client's current target, so a small change is one field."""
     at = _client_week(monkeypatch, chosen=ALEX)
     current = _targets_of(ALEX)[-1]

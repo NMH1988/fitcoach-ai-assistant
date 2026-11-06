@@ -449,8 +449,10 @@ def build_tools(
 # A line that holds any of these may hold a link, a URL, an autolink or an e-mail address: every
 # reference on it stays as written, so no name can end up in a link's target, whatever its
 # Markdown form (inline, angle brackets, reference definitions, bare URLs). One simple rule instead
-# of a pattern for each form (code review rounds 1 and 2; owner's rule for text heuristics).
-LINK_MARKERS: tuple[str, ...] = ("](", "]:", "<", "://", "www.", "@")
+# of a pattern for each form (code review rounds 1-3; owner's rule for text heuristics). Two slashes
+# alone, not "://", so a URL with no scheme (a reference definition's destination on its own line)
+# counts too (round 3).
+LINK_MARKERS: tuple[str, ...] = ("](", "]:", "<", "//", "www.", "@")
 
 
 def name_references(text: str, names: Mapping[str, str], quote: Callable[[str], str]) -> str:

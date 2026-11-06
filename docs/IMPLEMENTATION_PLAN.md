@@ -1035,7 +1035,7 @@ Made by the owner while reviewing the T9.15 dashboard mockups on a Claude Design
 - [ ] A script scores the owner's evaluation questions (O2) on faithfulness, answer relevancy and, if the owner writes reference answers (O14), context precision and recall, from the agent's answers and retrieved chunks, and writes the scores per question into `results.json` - unit tests with a mocked judge.
 - [ ] A report in `docs/TESTING.md` gives the scores, the cost of the run, what they show and their limits (an LLM judging an LLM, a small question set) - owner live run (O13) and review.
 
-### T9.17 Coach assistant: client tools, a follow-up flag, coach-set targets (M, should) · status: in review · issue #117
+### T9.17 Coach assistant: client tools, a follow-up flag, coach-set targets (M, should) · status: in review · issue #117 (NMH1988/fitcoach-ai-assistant#20)
 **Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 2, core 3 (the target form, the follow-up column, the client tools' result tables), evaluation: core concepts (how function calling is implemented; error scenarios and edge cases: the opaque references and their one "not found"); Sprint 2 (`docs/BRIEF.md`): core 2 (tools), core 5 (tool call results shown); beyond the brief (owner's request): the coach's tools.
 **Depends on:** T9.16, O15
 **Acceptance criteria**
