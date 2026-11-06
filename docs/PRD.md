@@ -191,9 +191,10 @@ The owner drafts the system prompt(s) and the evaluation questions; Claude revie
 - Because of that, a strict copyright policy applies (`.claude/rules/copyright.md`): open licences only (public domain, CC0, CC BY), nothing that needs permission, licence checked on the article itself, text only, attribution, raw documents not committed. The brief only asks for a relevant knowledge base.
 - Light and dark mode (T7.3). German support (T7.1, T7.2) is an optional task in the brief (Hard 4) but goes beyond this PRD's original English-only scope.
 - Sprint 3: the coach role, invitations and sharing, the workout log and the dashboards (section "Sprint 3" above), the training principles (feature 26), the coach-first product model (T9.24) and the questions to the coach (feature 27, P1).
+- README screenshots and a short GIF (T9.27) and a presentation video with offline narration (T9.28) (owner's request, 2026-11-06): they show recruiters what the app does, as it is not deployed; synthetic data from demo mode only, and the video file stays out of the repo.
 
 ## Open items
 
-- Deployment: the app runs locally for the review; a public demo comes later (`docs/DEPLOYMENT.md`).
+- Deployment: the app runs locally for the review; a public demo comes later (`docs/DEPLOYMENT.md`). Not deployed for now because of the hosting cost (owner's decision, 2026-11-06); a public deployment would also need the privacy notice and the GDPR review first ("Sprint 3" above: out of scope, and the privacy change). The README images and the video (T9.27, T9.28) show the app instead.
 - The repo's own code licence (e.g. MIT). Without one, others may view the code but not reuse it.
 - The Capstone project: the parts of the owner's product plan that Sprint 3 leaves out ("Moved to the Capstone" above).
