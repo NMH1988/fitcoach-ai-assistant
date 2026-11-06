@@ -9,8 +9,10 @@ import streamlit as st
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 APP_TITLE = "Fitcoach AI Assistant"
+# Names training principles beside nutrition (feature 26; T9.11a, wording approved by the owner).
 APP_INTRO = (
-    "Evidence-based nutrition answers for adults who lift weights, with the research behind them."
+    "Evidence-based answers on nutrition and resistance training principles for adults who lift "
+    "weights, with the research behind them."
 )
 # Shown on every page state (docs/PRD.md, domain guardrails).
 DISCLAIMER = (

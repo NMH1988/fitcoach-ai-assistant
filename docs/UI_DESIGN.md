@@ -171,7 +171,7 @@ T7.1 built the control and the German UI; T7.2 adds German answers and the Germa
 #### Ask
 
 - **New chat (T9.4, AC-31):** an `st.button` "New chat" ("Neuer Chat") with `:material/add_comment:` above the messages, switched off while the chat is empty, its help line saying the assistant forgets this conversation and the summary and session cost start again. A click deletes the session's conversation from memory, starts a new thread and clears the chat (the rate limit is kept). The model sees the earlier questions and answers of the current chat (the latest that fit `HISTORY_MAX_TOKENS`); the page shows the whole chat as before.
-- Messages in `st.container(height=...)` so the input stays in view; `st.chat_input("Ask about nutrition for your training")` directly below it, inside the tab (inline, not pinned).
+- Messages in `st.container(height=...)` so the input stays in view; `st.chat_input("Ask about nutrition or training principles")` (T9.11a) directly below it, inside the tab (inline, not pinned).
 - User messages: `st.chat_message("user")`.
 - Assistant messages: `st.chat_message("assistant", avatar=":material/nutrition:")`, containing in order:
   1. **Progress** while the turn runs: `st.status(":shimmer[Searching sources]", type="compact")` with `type="step"` children (check input, plan the answer, search the research, tools, answer; since T9.3 the search step shows only when the model searches). Collapses to a static label when done (core 5). Each step holds a one-line caption on what it does: in Streamlit 1.66 a step without content ends the timeline and hides the steps after it (found in T3.1). Past turns show the same collapsed status.

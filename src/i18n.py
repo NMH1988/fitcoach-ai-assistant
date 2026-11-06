@@ -360,9 +360,10 @@ _EN: dict[str, str] = {
     "card.more": "More in the Details tab.",
     # The Ask tab.
     "ask.invitation": (
-        "Ask a question about nutrition for strength training. Answers cite the research they use."
+        "Ask a question about nutrition or resistance training principles. Answers cite the "
+        "research they use."
     ),
-    "ask.placeholder": "Ask about nutrition for your training",
+    "ask.placeholder": "Ask about nutrition or training principles",
     # The button that starts a new conversation (T9.4, AC-31).
     "ask.new_chat": "New chat",
     "ask.new_chat_help": (
@@ -1164,8 +1165,8 @@ _DE: dict[str, str] = {
     # A name is not translated: the German UI and PDF show the English one (T9.22).
     "app.title": config.APP_TITLE,
     "app.intro": (
-        "Evidenzbasierte Antworten zur Ernährung für Erwachsene, die Krafttraining machen, mit "
-        "der Forschung dahinter."
+        "Evidenzbasierte Antworten zu Ernährung und Trainingsprinzipien für Erwachsene, die "
+        "Krafttraining machen, mit der Forschung dahinter."
     ),
     "app.not_medical_advice": "Keine medizinische Beratung",
     "app.disclaimer": (
@@ -1478,10 +1479,10 @@ _DE: dict[str, str] = {
     "card.filters_dropped": "Nichts passte zu diesen Filtern, daher wurden sie gelockert.",
     "card.more": "Mehr im Tab „Details“.",
     "ask.invitation": (
-        "Stellen Sie eine Frage zur Ernährung für Krafttraining. Die Antworten zitieren die "
-        "Forschung, die sie nutzen."
+        "Stellen Sie eine Frage zur Ernährung oder zu Trainingsprinzipien im Krafttraining. Die "
+        "Antworten zitieren die Forschung, die sie nutzen."
     ),
-    "ask.placeholder": "Fragen Sie zur Ernährung für Ihr Training",
+    "ask.placeholder": "Fragen Sie zu Ernährung oder Trainingsprinzipien",
     "ask.new_chat": "Neuer Chat",
     "ask.new_chat_help": (
         "Ein neues Gespräch beginnen. Der Assistent vergisst dieses, und die Zusammenfassung und "
