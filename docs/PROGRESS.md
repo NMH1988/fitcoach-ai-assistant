@@ -17,6 +17,15 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-11-06 · Plan the README images and the presentation video (T9.27, T9.28) · NMH1988/fitcoach-ai-assistant#74 (closes NMH1988/fitcoach-ai-assistant#73)
+- **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 5 (examples of common use cases) and evaluation: problem definition, in part; Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request, 2026-11-06). Planning only, no code.
+- **What:** docs only. `docs/IMPLEMENTATION_PLAN.md`: T9.27 (README screenshots and a short GIF) and T9.28 (a presentation video with offline narration), their rows among the extras, their sections, their place in the cut order and the plan's status line. `docs/PRD.md`: a "Beyond the brief" bullet, and under "Open items" the owner's decision not to deploy for now.
+- **Why:** the owner will not deploy the app for now because of the hosting cost (about €6 a month for a small VPS in the EU; Streamlit Community Cloud cannot run the FastAPI server the Capstone's real-time chat needs), so images in the README and a video are how recruiters see it. Two tickets, as they use different tools and the video file stays out of the repo; T9.28 builds on T9.27's capture script.
+- **Decisions & gotchas:**
+  - The owner chose an offline machine voice for the narration (2026-11-06). Kokoro-82M is proposed (weights Apache-2.0; espeak-ng, GPLv3, used only as a local tool, not shipped); Piper's `en_US-lessac` and the Windows voices are ruled out (T9.28's notes). Every tool's licence is read on its own page and recorded in `docs/SOURCES.md` before it is downloaded, with the owner's approval.
+  - Images come from demo mode with synthetic data only, and are taken once the tickets that change the UI are done (T9.16, and T9.17 and T9.25 if built).
+- **Follow-ups:** T9.27 (NMH1988/fitcoach-ai-assistant#71), T9.28 (NMH1988/fitcoach-ai-assistant#72).
+
 ## 2026-11-03 · T9.15 Coach and gymer dashboards · NMH1988/fitcoach-ai-assistant#66 (closes NMH1988/fitcoach-ai-assistant#18)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 3 (a UI for every function), core 2, evaluation: Technical (use of the front-end library); Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request): the dashboards. PRD feature 18, AC-21, AC-26, AC-41.
 - **What:**
