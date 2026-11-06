@@ -32,6 +32,16 @@ and printed, T9.21), models, language and date, and for each run only IDs and co
 ended, the expected sources found and cited, the sources cited that were not expected, the tools,
 tokens and cost). It holds no answer, question or chunk text, so one run can be committed as
 data/eval_baseline.json; scripts/check_eval_baseline.py compares a later run with it.
+
+With `--score` (T9.10) it also scores every answer with DeepEval (the `eval` extra:
+`pip install -e ".[dev,eval]"`): faithfulness (whether the answer's claims are supported by the
+chunks the answer model got; not scored when it got none) and answer relevancy (whether its
+statements address the question), judged by `config.EVAL_JUDGE_MODEL` through
+`src/eval_scoring.py`. A turn that ended in anything but an answer (a guard or guardrail stop, no
+sources, an error) is not scored. Ctrl-C during the scoring, or a judge error every later call
+would hit too (a rejected key, no credit), leaves the rest unscored, and both files are written.
+The scores go into the results file, per run and as each metric's mean with the judge's tokens
+and cost; the judge's reasons go into the report only, as they are model text.
 """
 
 import argparse
@@ -41,6 +51,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from langchain_chroma import Chroma
 from langchain_core.language_models import BaseChatModel
@@ -245,11 +256,86 @@ def summary_lines(runs: Sequence[EvalRun]) -> list[str]:
     return lines
 
 
-def run_records(runs: Sequence[EvalRun]) -> list[eval_results.RunRecord]:
+def score_runs(runs: Sequence[EvalRun], judge: Any) -> list[dict[str, Any]]:
+    """Score each run's answer with DeepEval (T9.10); a run that gave no answer is not scored."""
+    from src import eval_scoring  # Only with --score: DeepEval is in the eval extra.
+
+    # The answers are paid for, so the report and the results file are always written: once the
+    # owner stops the scoring (Ctrl-C) or the judge hits an error every later call would hit too
+    # (a rejected key, no credit), the remaining answers get that note without a call.
+    scores = []
+    stopped: str | None = None
+    for run in runs:
+        if run.result.kind != "answer":
+            scores.append(eval_scoring.not_scored(eval_scoring.NO_ANSWER))
+            continue
+        if stopped:
+            scores.append(eval_scoring.not_scored(stopped))
+            continue
+        chunks = [chunk.text for chunk in run.chunks]
+        try:
+            run_scores = eval_scoring.score_answer(
+                run.item.question, run.result.text, chunks, judge
+            )
+        except KeyboardInterrupt:
+            stopped = eval_scoring.INTERRUPTED
+            print("Scoring stopped: the rest is not scored.", file=sys.stderr)
+            run_scores = eval_scoring.not_scored(stopped)
+        scores.append(run_scores)
+        stopped = stopped or eval_scoring.stop_note(run_scores)
+    return scores
+
+
+def judge_failed(scores: Sequence[Mapping[str, Any]]) -> int:
+    """Return how many scores are missing because the judge failed or was stopped (Ctrl-C)."""
+    from src import eval_scoring
+
+    return sum(
+        score.score is None and score.note not in eval_scoring.SKIPPED
+        for run_scores in scores
+        for score in run_scores.values()
+    )
+
+
+def score_lines(
+    runs: Sequence[EvalRun], scores: Sequence[Mapping[str, Any]], summary: Mapping
+) -> list[str]:
+    """Return the printed scores: one line per run, then each metric's mean and the judge's cost."""
+    lines = ["Scores (DeepEval, T9.10):"]
+    for run, run_scores in zip(runs, scores, strict=True):
+        parts = [f"{name} {_score_text(score)}" for name, score in run_scores.items()]
+        lines.append(f"  {run.label}: " + ", ".join(parts))
+    for name, metric in summary["metrics"].items():
+        mean = "none" if metric["mean"] is None else f"{metric['mean']:.4f}"
+        scored, not_scored = metric["scored"], metric["not_scored"]
+        lines.append(f"{name}: mean {mean} over {scored} answers ({not_scored} not scored)")
+    cost = summary["cost_usd"]
+    lines.append(
+        f"judge {summary['judge_model']} ({summary['library']}): {summary['tokens']:,} tokens, "
+        + (f"${cost}" if cost is not None else "cost unknown")
+    )
+    return lines
+
+
+def _score_text(score: Any) -> str:
+    """Return a score as '0.8333', or its note in brackets when it has none."""
+    return f"{score.score:.4f}" if score.score is not None else f"({score.note})"
+
+
+def run_records(
+    runs: Sequence[EvalRun], scores: Sequence[Mapping[str, Any]] | None = None
+) -> list[eval_results.RunRecord]:
     """Return each run as a results-file record: IDs and counts only, never any text (T8.4)."""
     records = []
-    for run in runs:
+    for number, run in enumerate(runs):
         met = expectation(run)
+        # Only the number and the code of each score: the judge's reason is model text (T9.10).
+        run_scores = None
+        if scores is not None:
+            run_scores = {
+                name: eval_results.Score(score.score, score.note)
+                for name, score in scores[number].items()
+            }
         records.append(
             eval_results.RunRecord(
                 id=run.item.id,
@@ -265,6 +351,7 @@ def run_records(runs: Sequence[EvalRun]) -> list[eval_results.RunRecord]:
                 tools=tuple((tool.name or "unknown", tool.status) for tool in run.result.tool_runs),
                 tokens=run.cost.tokens,
                 cost_usd=eval_results.cost_text(run.cost.cost),
+                scores=run_scores,
             )
         )
     return records
@@ -289,7 +376,25 @@ def _chunk_block(label: int, chunk: RetrievedChunk) -> str:
     return f"{head}\n\n{_fence(chunk.text)}"
 
 
-def report_text(runs: Sequence[EvalRun], started: datetime, language: i18n.Language = "en") -> str:
+def _score_block(run_scores: Mapping[str, Any]) -> list[str]:
+    """Return a run's scores for the report, with the judge's reasons and any error's type."""
+    line = " · ".join(f"{name} {_score_text(score)}" for name, score in run_scores.items())
+    parts = [f"**Scores:** {line}"]
+    for name, score in run_scores.items():
+        if score.diagnostic:
+            parts.append(f"**{name} error:** {chat.escape_markdown(score.diagnostic)}")
+        if score.reason:
+            # The judge's own text, fenced like the answer, so it stays text when previewed.
+            parts += [f"**{name}, judge's reason:**", _fence(score.reason)]
+    return parts
+
+
+def report_text(
+    runs: Sequence[EvalRun],
+    started: datetime,
+    language: i18n.Language = "en",
+    scores: Sequence[Mapping[str, Any]] | None = None,
+) -> str:
     """Return the full Markdown report: each run's answer, tool results and chunks found."""
     parts = [
         f"# Evaluation run {started:%Y-%m-%d %H:%M}",
@@ -297,7 +402,7 @@ def report_text(runs: Sequence[EvalRun], started: datetime, language: i18n.Langu
         f"**Answer language:** {language}",
         _fence("\n".join(summary_lines(runs))),
     ]
-    for run in runs:
+    for number, run in enumerate(runs):
         result = run.result
         parts += [
             f"## {run.label}",
@@ -306,6 +411,8 @@ def report_text(runs: Sequence[EvalRun], started: datetime, language: i18n.Langu
             f"**Session profile:** {'the fixed profile' if run.with_profile else 'none'}",
             f"**Turn:** {result.kind} · {usage.format_turn(run.cost)}",
         ]
+        if scores is not None:
+            parts += _score_block(scores[number])
         if result.searches is not None:
             if not result.searches:
                 parts.append("**Searches:** none")
@@ -336,12 +443,16 @@ def report_text(runs: Sequence[EvalRun], started: datetime, language: i18n.Langu
 
 
 def write_report(
-    runs: Sequence[EvalRun], started: datetime, folder: Path, language: i18n.Language = "en"
+    runs: Sequence[EvalRun],
+    started: datetime,
+    folder: Path,
+    language: i18n.Language = "en",
+    scores: Sequence[Mapping[str, Any]] | None = None,
 ) -> Path:
     """Write the full report into the folder and return its path."""
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / f"run-{started:%Y%m%d-%H%M%S}.md"
-    path.write_text(report_text(runs, started, language), encoding="utf-8")
+    path.write_text(report_text(runs, started, language, scores), encoding="utf-8")
     return path
 
 
@@ -365,6 +476,11 @@ def main(args: Sequence[str] | None = None) -> int:
         default="en",
         help="the answer language, as the app's language control sets it (T7.2)",
     )
+    parser.add_argument(
+        "--score",
+        action="store_true",
+        help="also score each answer with DeepEval, judged by config.EVAL_JUDGE_MODEL (T9.10)",
+    )
     options = parser.parse_args(sys.argv[1:] if args is None else args)
     if options.repeat < 1:
         print("--repeat must be at least 1.", file=sys.stderr)
@@ -374,6 +490,23 @@ def main(args: Sequence[str] | None = None) -> int:
     except QuestionsFileError as exc:
         print(exc, file=sys.stderr)
         return 2
+    scoring = None
+    if options.score:
+        # Checked before any question is asked, so a run that cannot be scored costs nothing.
+        try:
+            from src import eval_scoring
+        except ModuleNotFoundError:
+            print('--score needs DeepEval: pip install -e ".[dev,eval]"', file=sys.stderr)
+            return 2
+        except ImportError as exc:
+            print(f"Evaluation not run: {exc}", file=sys.stderr)
+            return 2
+        try:
+            eval_scoring.check_ready()
+        except eval_scoring.ScoringNotReady as exc:
+            print(f"Evaluation not run: {exc}", file=sys.stderr)
+            return 2
+        scoring = eval_scoring
     started = datetime.now()
     # The commit of the code that runs: `src` is read from the project folder, which is not always
     # the folder the command was started in (T8.3's two wrong runs). Read now, as the modules are
@@ -387,6 +520,12 @@ def main(args: Sequence[str] | None = None) -> int:
         translation_model = llm.build_chat_model(
             config.QUERY_TRANSLATION_MODEL, config.QUERY_TRANSLATION_MAX_TOKENS
         )
+        # The judge comes from the allowlist like the app's models; DeepEval gets only this client.
+        judge_model = (
+            llm.build_chat_model(config.EVAL_JUDGE_MODEL, config.EVAL_JUDGE_MAX_TOKENS)
+            if scoring
+            else None
+        )
     except store.IndexNotReadyError as exc:
         print(f"Evaluation not run: {exc}", file=sys.stderr)
         return 1
@@ -396,24 +535,46 @@ def main(args: Sequence[str] | None = None) -> int:
     except config.MissingAPIKeyError:
         print(f"Evaluation not run: {config.MISSING_KEY_MESSAGE}", file=sys.stderr)
         return 1
+    prices = _prices()
     runs = evaluate(
         items,
         index=index,
         chat_model=chat_model,
         translation_model=translation_model,
         manifest=chat.manifest_by_id(),
-        prices=_prices(),
+        prices=prices,
         repeat=options.repeat,
         language=options.language,
     )
     print(f"Answer language: {options.language}")
     print("\n".join(summary_lines(runs)))
-    report = write_report(runs, started, config.EVAL_RUNS_DIR, options.language)
+    scores, score_summary, failed = None, None, 0
+    if scoring and judge_model is not None:
+        recorder = usage.UsageRecorder()
+        scores = score_runs(runs, scoring.Judge(judge_model, recorder))
+        judge_usage = usage.price_turn(recorder.calls, prices)
+        score_summary = eval_results.score_summary(
+            run_records(runs, scores),
+            config.EVAL_SCORE_METRICS,
+            judge_model=usage.model_name(judge_model),
+            library=scoring.library(),
+            tokens=judge_usage.tokens,
+            cost=judge_usage.cost,
+        )
+        print("\n".join(score_lines(runs, scores, score_summary)))
+        failed = judge_failed(scores)
+        if failed:
+            print(
+                f"{failed} scores missing: the judge failed or the scoring was stopped "
+                "(see the report).",
+                file=sys.stderr,
+            )
+    report = write_report(runs, started, config.EVAL_RUNS_DIR, options.language, scores)
     print(f"Full report: {report}")
     git_at_end = eval_results.git_state(config.PROJECT_ROOT)
     results = eval_results.write_results(
         eval_results.results_document(
-            run_records(runs),
+            run_records(runs, scores),
             git=git_at_start,
             git_at_end=git_at_end,
             models={
@@ -425,13 +586,14 @@ def main(args: Sequence[str] | None = None) -> int:
             repeat=options.repeat,
             started=started,
             questions_file=options.path.name,
+            scores=score_summary,
         ),
         report.with_suffix(".json"),
     )
     print(f"Results file: {results}")
     if note := eval_results.change_note(git_at_start, git_at_end):
         print(note)
-    return 1 if any(run.result.kind == "error" for run in runs) else 0
+    return 1 if failed or any(run.result.kind == "error" for run in runs) else 0
 
 
 if __name__ == "__main__":

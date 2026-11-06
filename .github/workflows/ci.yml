@@ -35,7 +35,9 @@ jobs:
           python-version-file: .python-version
           cache: pip
           cache-dependency-path: pyproject.toml
-      - run: pip install -e ".[dev]"
+      # The eval extra (DeepEval, T9.10) too: the scoring tests run with a mocked judge, and the
+      # licence check walks the extra.
+      - run: pip install -e ".[dev,eval]"
       # LLM and embedding calls must be mocked in tests; CI never needs an OpenRouter key.
       - run: pytest --cov=. --cov-report=term-missing
 
