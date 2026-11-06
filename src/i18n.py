@@ -656,12 +656,13 @@ _EN: dict[str, str] = {
     ),
     "my_data.intro_gymer": (
         "Everything the app stores about you: your account and your records below; your coach "
-        "relationships, sharing choices and your coach's reads of your data are in the export."
+        "relationships, sharing choices, your questions to the coach with the answers, and your "
+        "coach's reads of your data are in the export."
     ),
     "my_data.intro_coach": (
         "Everything the app stores about you: your account, the working preferences you saved in "
-        "the chat, and your clients and their reviews once you have some (they are in the export). "
-        "Nothing else of your chats is stored."
+        "the chat, and your clients, their reviews and the questions and answers under them once "
+        "you have some (they are in the export). Nothing else of your chats is stored."
     ),
     "my_data.account": "**Account:** {name} · {role} · created {created}",
     "my_data.count": "{count} stored",
@@ -863,6 +864,41 @@ _EN: dict[str, str] = {
     ),
     "my_week.reviews": "Weekly reviews",
     "my_week.no_reviews": "No approved weekly review yet.",
+    # Questions to the coach under an approved review (T9.25): never sent to a model.
+    "questions.heading": "Questions to the coach",
+    "questions.note": (
+        "Your coach answers here, not an AI model, and your question is not sent to one. The "
+        "answer is not medical advice, and the app does not check coaches' qualifications. For "
+        "pain or an injury, see a doctor; in an emergency, call 112."
+    ),
+    "questions.ask_label": "Your question to the coach",
+    "questions.ask": "Send question",
+    "questions.sent": "Your question was sent. The coach sees it under this review.",
+    "questions.waiting": "Your question is waiting for the coach's answer.",
+    "questions.used_up": "You have asked {max} questions under this review, the most it takes.",
+    # One fixed message for every refusal by the store (an ended relationship, a scope turned off),
+    # for both sides; it names no scope (code review rounds 1 and 2 of T9.24).
+    "questions.closed": "Questions can no longer be asked or answered under this review.",
+    "questions.refused": "This question was not sent.",
+    "questions.empty": "Please type some text first.",
+    "questions.too_long": "Please keep it to at most {max} characters.",
+    "questions.none": "The client has not asked a question under this review.",
+    "questions.answer_label": "Your answer",
+    "questions.answer": "Send answer",
+    "questions.answer_note": (
+        "Your client reads your answer under this review. It is not sent to an AI model. Keep it "
+        "to general guidance, and refer pain, injuries and medical questions to a doctor."
+    ),
+    "questions.answered": "Your answer was sent.",
+    "questions.answered_already": "This question has an answer already.",
+    "questions.open_weeks": (
+        "Unanswered questions from this client under the reviews of the weeks of {weeks}. Pick the "
+        "week to answer."
+    ),
+    "questions.label.my_question": "Your question · {time}",
+    "questions.label.client_question": "The client's question · {time}",
+    "questions.label.coach_answer": "Written by the coach, not by AI · {time}",
+    "questions.label.my_answer": "Your answer · {time}",
     "week.week_of": "Week of",
     # The charts' day labels, Monday first, separated by commas.
     "week.weekdays": "Mon,Tue,Wed,Thu,Fri,Sat,Sun",
@@ -1800,13 +1836,14 @@ _DE: dict[str, str] = {
     ),
     "my_data.intro_gymer": (
         "Alles, was die App über Sie speichert: Ihr Konto und unten Ihre Einträge; Ihre "
-        "Coach-Beziehungen, Ihre Freigaben und die Zugriffe Ihres Coachs auf Ihre Daten stehen im "
-        "Export."
+        "Coach-Beziehungen, Ihre Freigaben, Ihre Fragen an den Coach mit den Antworten und die "
+        "Zugriffe Ihres Coachs auf Ihre Daten stehen im Export."
     ),
     "my_data.intro_coach": (
         "Alles, was die App über Sie speichert: Ihr Konto, die Arbeitsvorlieben, die Sie im Chat "
-        "gespeichert haben, und, sobald Sie welche haben, Ihre Kunden und deren Auswertungen (sie "
-        "stehen im Export). Sonst wird von Ihren Chats nichts gespeichert."
+        "gespeichert haben, und, sobald Sie welche haben, Ihre Kunden, deren Auswertungen und die "
+        "Fragen und Antworten darunter (sie stehen im Export). Sonst wird von Ihren Chats nichts "
+        "gespeichert."
     ),
     "my_data.account": "**Konto:** {name} · {role} · angelegt am {created}",
     "my_data.count": "{count} gespeichert",
@@ -2029,6 +2066,44 @@ _DE: dict[str, str] = {
     ),
     "my_week.reviews": "Wochenberichte",
     "my_week.no_reviews": "Noch kein freigegebener Wochenbericht.",
+    "questions.heading": "Fragen an den Coach",
+    "questions.note": (
+        "Ihr Coach antwortet hier, kein KI-Modell, und Ihre Frage wird an keines gesendet. Die "
+        "Antwort ist keine medizinische Beratung, und die App prüft die Qualifikationen von "
+        "Coaches nicht. Bei Schmerzen oder einer Verletzung wenden Sie sich an eine Ärztin oder "
+        "einen Arzt; im Notfall rufen Sie 112 an."
+    ),
+    "questions.ask_label": "Ihre Frage an den Coach",
+    "questions.ask": "Frage senden",
+    "questions.sent": "Ihre Frage wurde gesendet. Der Coach sieht sie unter diesem Wochenbericht.",
+    "questions.waiting": "Ihre Frage wartet auf die Antwort des Coachs.",
+    "questions.used_up": (
+        "Sie haben unter diesem Wochenbericht {max} Fragen gestellt, mehr sind nicht möglich."
+    ),
+    "questions.closed": (
+        "Unter diesem Wochenbericht können keine Fragen mehr gestellt oder beantwortet werden."
+    ),
+    "questions.refused": "Diese Frage wurde nicht gesendet.",
+    "questions.empty": "Geben Sie zuerst einen Text ein.",
+    "questions.too_long": "Bitte schreiben Sie höchstens {max} Zeichen.",
+    "questions.none": "Ihr Klient hat unter diesem Wochenbericht noch keine Frage gestellt.",
+    "questions.answer_label": "Ihre Antwort",
+    "questions.answer": "Antwort senden",
+    "questions.answer_note": (
+        "Ihr Klient liest Ihre Antwort unter diesem Wochenbericht. Sie wird an kein KI-Modell "
+        "gesendet. Bleiben Sie bei allgemeinen Hinweisen und verweisen Sie bei Schmerzen, "
+        "Verletzungen und medizinischen Fragen an eine Ärztin oder einen Arzt."
+    ),
+    "questions.answered": "Ihre Antwort wurde gesendet.",
+    "questions.answered_already": "Diese Frage ist schon beantwortet.",
+    "questions.open_weeks": (
+        "Unbeantwortete Fragen dieses Klienten unter den Wochenberichten der Wochen ab {weeks}. "
+        "Wählen Sie die Woche, um zu antworten."
+    ),
+    "questions.label.my_question": "Ihre Frage · {time}",
+    "questions.label.client_question": "Frage Ihres Klienten · {time}",
+    "questions.label.coach_answer": "Vom Coach geschrieben, nicht von der KI · {time}",
+    "questions.label.my_answer": "Ihre Antwort · {time}",
     "week.week_of": "Woche vom",
     "week.weekdays": "Mo,Di,Mi,Do,Fr,Sa,So",
     "week.range": "{start} bis {end}",

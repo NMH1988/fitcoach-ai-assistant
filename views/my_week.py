@@ -5,24 +5,28 @@ changes a target, whoever set it; only the week picker is a control. The week co
 `dashboard.own_week()`, the same views as the coach's Client week, every scope. A review shows only
 when the coach approved it (the store never gives a gymer a pending or rejected review, or the
 model's draft), labelled as an AI draft the coach approved (AC-41); a former coach's approved
-reviews show too, so no text says "your coach" (compliance run 1). P1: T9.25 adds the questions
-to the coach under each review.
+reviews show too, so no text says "your coach" (compliance run 1). Under each review, T9.25's
+questions to the coach (views/questions.py): the thread, still readable once the relationship has
+ended, and a box to ask while the coach may read the review.
 """
 
 import streamlit as st
 
 from src import account as accounts
 from src import dashboard
+from src.store import questions as store_questions
 from src.store.access import NotFound
-from views import account, header, tables, week_view, weekly_review
+from views import account, header, questions, tables, week_view, weekly_review
 from views.text import lang, t
 
 URL_PATH = "my-week"
 WEEK_KEY = "my_week_week"
 
 
-def _reviews(week: dashboard.DashboardWeek) -> None:
-    """Show the approved reviews, newest first, each with its week and the AI draft label."""
+def _reviews(
+    user: dict, week: dashboard.DashboardWeek, rows: list[dict], askable: frozenset[int]
+) -> None:
+    """Show the approved reviews, newest first, each with its week, the AI label and its thread."""
     st.subheader(t("my_week.reviews"))
     if not week.reviews:
         st.caption(t("my_week.no_reviews"))
@@ -32,6 +36,9 @@ def _reviews(week: dashboard.DashboardWeek) -> None:
             st.markdown(f"**{tables.review_heading(review, lang())}**")
             st.caption(f":material/smart_toy: {tables.review_label(review, lang())}")
             weekly_review.show_text(review["final"] or {})
+            st.divider()
+            thread = [row for row in rows if row["review_id"] == review["id"]]
+            questions.gymer_thread(user, review, thread, askable)
 
 
 def page() -> None:
@@ -48,6 +55,8 @@ def page() -> None:
         try:
             with accounts.open_store(account.store_path()) as conn:
                 week = dashboard.own_week(conn, user["id"], monday)
+                rows = store_questions.list_questions(conn, user["id"], user["id"])
+                askable = store_questions.askable_reviews(conn, user["id"])
         except accounts.StoreUnavailable:
             st.error(t("account.store_unavailable"), icon=":material/error:")
             return
@@ -55,4 +64,4 @@ def page() -> None:
             return  # the account was deleted in another tab: the next run shows the welcome page
         week_view.show(week, st.session_state["units"])
         st.divider()
-        _reviews(week)
+        _reviews(user, week, rows, askable)
