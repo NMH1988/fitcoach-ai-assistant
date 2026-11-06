@@ -50,7 +50,9 @@ def one_line(text: str) -> str:
     # No link either: a model's text could otherwise offer one that carries a client's figure to
     # another host (security-reviewer and code review round 11, 2026-11-06).
     unlinked = _AUTOLINK_STARTS.sub(lambda found: found.group() + WORD_JOINER, text)
-    line = chat.escape_markdown(" ".join(unlinked.split()))
+    # An escaped "&" keeps Markdown from decoding a character reference ("&#58;", "&commat;")
+    # into the colon, dot or "@" of a link after the joiners are placed (code review round 13).
+    line = chat.escape_markdown(" ".join(unlinked.split())).replace("&", r"\&")
     # A line start Markdown reads as a heading, quote, list or rule ("# Big", "> x", "1. x").
     return LINE_START.sub(r"\1\\\2", line)
 

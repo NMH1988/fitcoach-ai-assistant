@@ -1,5 +1,6 @@
 """views/tables.py: table rows, cells and text lines, built without Streamlit or AppTest (T8.1)."""
 
+import html
 import re
 from datetime import date
 from decimal import Decimal
@@ -66,6 +67,14 @@ def test_one_line_escapes_what_markdown_would_read_as_a_block_or_image(text, exp
 GFM_URL = re.compile(r"(https?://|www(?=\.))[-.\w]+", re.I | re.ASCII)
 GFM_EMAIL = re.compile(r"[-.+\w]+@[-\w]+(?:\.[-\w]+)+", re.ASCII)
 UNESCAPE = re.compile(r"\\(.)")
+# A character reference Markdown decodes while it parses, unless its "&" is escaped.
+REFERENCE = re.compile(r"(?<!\\)&(?:#\d+|#[xX][0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]*);")
+
+
+def _parsed(markdown: str) -> str:
+    """Return the text Markdown leaves for remark-gfm: references decoded, escapes removed."""
+    decoded = REFERENCE.sub(lambda found: html.unescape(found.group()), markdown)
+    return UNESCAPE.sub(r"\1", decoded)
 
 
 @pytest.mark.parametrize(
@@ -80,14 +89,20 @@ UNESCAPE = re.compile(r"\\(.)")
         # Round 12: an underscore before the host or scheme (remark-gfm accepts it there).
         "x_www.attacker.example/?k=1043",
         "_https://attacker.example",
+        # Round 13: a character reference Markdown would decode into the colon, dot or "@".
+        "https&#58;//attacker.example?k=1043",
+        "www&period;attacker.example",
+        "x&#64;attacker.example",
+        "x&commat;attacker.example",
     ],
 )
 def test_one_line_leaves_no_text_that_markdown_turns_into_a_link(text):
     """No www. host, URL or e-mail address stays linkable (checked in a browser, 2026-11-06)."""
-    rendered = UNESCAPE.sub(r"\1", tables.one_line(text))
+    rendered = _parsed(tables.one_line(text))
     assert GFM_URL.search(rendered) is None and GFM_EMAIL.search(rendered) is None
-    # Without the word joiner the same text would be a link: the patterns above are the real ones.
-    assert GFM_URL.search(text) or GFM_EMAIL.search(text)
+    # Without one_line() the same text would be a link: the patterns above are the real ones.
+    unescaped = _parsed(text)
+    assert GFM_URL.search(unescaped) or GFM_EMAIL.search(unescaped)
     assert rendered.replace(tables.WORD_JOINER, "") == text  # shown as written
 
 
