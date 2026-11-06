@@ -11,6 +11,7 @@ from streamlit.runtime.secrets import Secrets
 
 from src import chat, config, i18n, observability, tracing, usage
 from src.store import db
+from src.tools import food_api
 from tests.fakes import TEST_COACH_PART, TEST_LANGUAGE_PARTS
 
 
@@ -77,6 +78,34 @@ def tracing_is_off(monkeypatch):
     # this teardown: turn it off first, so tracing never stays on into the next test.
     monkeypatch.setattr(config, "tracing_requested", lambda: False)
     tracing.configure_tracing()
+
+
+class _NoFoodApiNetwork:
+    """An opener for the FoodData Central client that records any request and never sends it."""
+
+    def __init__(self) -> None:
+        """Start with no request seen."""
+        self.requests = 0
+
+    def open(self, request, timeout):
+        """Record the request and fail it as an offline network would."""
+        self.requests += 1
+        raise OSError("no network in tests")
+
+
+@pytest.fixture(autouse=True)
+def no_food_api_network(monkeypatch):
+    """Keep every test off the FoodData Central API (T9.9); fail one that tried to reach it."""
+    # The key's env var is removed too, so the app's own tools are built without the API unless a
+    # test sets a key. A request that still gets through fails the test at teardown, as the tool
+    # turns the error into a "not found" that could pass unnoticed. Yields the real opener, which
+    # the redirect test checks.
+    monkeypatch.delenv(config.FOOD_API_KEY_NAME, raising=False)
+    original = food_api._OPENER
+    fake = _NoFoodApiNetwork()
+    monkeypatch.setattr(food_api, "_OPENER", fake)
+    yield original
+    assert fake.requests == 0, "a test sent a request to the FoodData Central API"
 
 
 @pytest.fixture(autouse=True)

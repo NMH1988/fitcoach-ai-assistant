@@ -18,7 +18,8 @@ from typing import Literal, cast
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from rapidfuzz import fuzz, process, utils
 
-from src import config
+from src import config, i18n
+from src.i18n import Language
 
 # The columns of data/usda_foods.csv; values are per 100 g of the food as described.
 TABLE_COLUMNS: tuple[str, ...] = (
@@ -108,6 +109,23 @@ class Nutrients(BaseModel):
     fiber_g: float | None
 
 
+# What happened when the chat's food tool asked the USDA FoodData Central API (T9.9): it found the
+# food, found no close match, did not send the name (not plain English words), had used up the
+# turn's searches, or failed (the request timed out, the service was down, the key's quota was used
+# up, the key was refused, or the answer could not be read).
+ApiCode = Literal[
+    "found",
+    "no_match",
+    "name_refused",
+    "turn_limit",
+    "timeout",
+    "unavailable",
+    "rate_limited",
+    "key_rejected",
+    "bad_response",
+]
+
+
 class FoodLookupResult(BaseModel):
     """What the tool returns: the scaled nutrients of the matched food, or why there are none."""
 
@@ -120,6 +138,20 @@ class FoodLookupResult(BaseModel):
     # Other close USDA names when found; "did you mean" suggestions when not found.
     alternatives: list[str] = Field(default_factory=list)
     source: str = SOURCE
+    # Where the values came from (T9.9): the committed Foundation Foods table, or the FoodData
+    # Central API, with the USDA data type of the food it found (one of FOOD_API_DATA_TYPES).
+    origin: Literal["table", "api"] = "table"
+    data_type: str | None = None
+    # None when the API was not asked (a match in the table, no key, or not the chat's tool).
+    api_code: ApiCode | None = None
+
+
+def food_source_line(result: FoodLookupResult, lang: Language) -> str:
+    """Return the line under a found food's values: the table's source, or the API's (T9.9)."""
+    # Shared by the tool results in the app and the summary PDF, so both credit the same data.
+    if result.origin == "api":
+        return i18n.t("usda.api_source_line", lang, data_type=result.data_type or "")
+    return i18n.t("usda.source_line", lang)
 
 
 def read_usda_release(path: Path | None = None) -> str:
@@ -300,11 +332,26 @@ def lookup_food_nutrition(
     return _found(ranked[0][0], args.grams, [f.description for f, _ in ranked[1 : 1 + limit]])
 
 
-def _found(food: Food, grams: float, alternatives: list[str]) -> FoodLookupResult:
-    """Return the "found" result for this food and amount."""
+def _found(
+    food: Food, grams: float, alternatives: list[str], data_type: str | None = None
+) -> FoodLookupResult:
+    """Return the "found" result for this food and amount; data_type for a food from the API."""
     message = f"{grams:g} g of {food.description}, from per-100 g USDA values."
+    if data_type is not None:
+        message = (
+            "Not in the USDA Foundation Foods table; found through the USDA FoodData Central API "
+            f"({data_type}): {message}"
+        )
     if food.fiber_g is None:
         message += " USDA reports no fiber value for this food."
+    extra = {}
+    if data_type is not None:
+        extra = {
+            "source": config.FOOD_API_SOURCE.format(data_type=data_type),
+            "origin": "api",
+            "data_type": data_type,
+            "api_code": "found",
+        }
     return FoodLookupResult(
         status="found",
         message=message,
@@ -313,6 +360,7 @@ def _found(food: Food, grams: float, alternatives: list[str]) -> FoodLookupResul
         fdc_id=food.fdc_id,
         nutrients=_scale(food, grams),
         alternatives=alternatives,
+        **extra,
     )
 
 
