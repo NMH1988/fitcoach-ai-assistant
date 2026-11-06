@@ -213,7 +213,17 @@ def test_a_label_not_retrieved_in_this_run_is_refused():
         "Derzeit 1050 kcal; die Zufuhr schrittweise erhöhen.",
         "Aim for an average of 1,000 kcal per day.",
         "Keep averaging 1,000 kcal.",
-        # A gap word with no reference after it is no gap (code review round 4).
+        # A gap written as "below", "under", "short of" or "unter" is no change (code review
+        # rounds 4 and 5; owner's choice, 2026-11-06), with or without a reference after it.
+        "Intake was 800 kcal below the target; raise it gradually.",
+        "Intake ran 800 kcal short of the target.",
+        "Die Zufuhr lag 800 kcal unter dem Ziel.",
+        "Intake was 800 kcal under the client's maintenance needs.",
+        "Die Zufuhr lag 800 kcal unter dem Bedarf.",
+        "Essen Sie 1.000 kcal unter Aufsicht, bei Bedarf mehr.",
+        "Eat 1,000 kcal under targeted supervision.",
+        "Aim for 1,000 kcal (below the target) this week.",
+        "Eat 1,000 kcal (less than usual).",
         "Eat 1,000 kcal under supervision.",
         "Halten Sie 1.000 kcal unter der Woche ein.",
         "Try 1,000 kcal short term.",
@@ -244,12 +254,8 @@ def test_a_recommended_intake_below_the_floor_is_refused(text):
         "Mindestens 1.200 kcal pro Tag.",
         "Keep intake at 1,500-1,800 kcal.",
         "Raise intake gradually from the current average toward the target.",
-        "Intake was 800 kcal below the target; raise it gradually.",
         "Close the 800 kcal gap step by step.",
-        "Intake ran 800 kcal short of the target.",
-        "Intake was 800 kcal under the client's maintenance needs.",
-        "Die Zufuhr lag 800 kcal unter dem Bedarf.",
-        "Die Zufuhr lag 800 kcal unter dem Ziel.",
+        "Raise intake by 800 kcal toward the target, step by step.",
     ],
 )
 def test_a_change_in_kcal_or_an_intake_above_the_floor_passes_the_floor(text):
@@ -579,3 +585,9 @@ def test_the_floor_s_texts_say_where_a_current_intake_goes():
     assert "observation" in wr.ERROR_TEXTS["calorie_floor"]
     assert "current intake in an observation" in i18n.t("review.check.calorie_floor", "en")
     assert "in einer Beobachtung" in i18n.t("review.check.calorie_floor", "de")
+
+
+def test_the_prompt_asks_for_a_gap_as_a_change():
+    """O15, round 5: the prompt says how to write a gap to the target."""
+    text = config.REVIEW_PROMPT_PATH.read_text(encoding="utf-8")
+    assert "Write a gap to the target as a change" in text

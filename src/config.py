@@ -843,28 +843,13 @@ REVIEW_KCAL_CHANGE_AFTER: tuple[str, ...] = (
     "überschuss",
     "weniger",
     "mehr",
-    # A gap to the target ("an 800 kcal gap"), as average_minus_target gives it (owner's choice,
-    # 2026-11-05, code review round 3).
+    # "an 800 kcal gap" (code review round 3). "800 kcal below the target", "short of" and
+    # "unter" are not changes: they also read as an intake ("1,000 kcal under supervision", "unter
+    # der Woche"), and every attempt to tell the two apart by the words around them left a hole
+    # (code review rounds 4 and 5), so the owner chose (2026-11-06) to drop them; the prompt asks
+    # for a gap as a change ("raise intake by ...") or as percent_of_target.
     "gap",
 )
-# Words after a kcal figure that make it a gap to the target only when a reference follows within
-# REVIEW_KCAL_REFERENCE_WORDS words ("800 kcal below the target", "800 kcal short of the
-# client's needs", "800 kcal unter dem Ziel"): alone they may mean something else ("under
-# supervision", "short term", "unter der Woche"), and the figure is then an intake (owner's
-# choice, 2026-11-05, code review round 4). "short" also needs "of" right after it.
-REVIEW_KCAL_GAP_WORDS: tuple[str, ...] = ("below", "under", "short", "unter")
-REVIEW_KCAL_REFERENCES: tuple[str, ...] = (
-    "target",
-    "goal",
-    "maintenance",
-    "needs",
-    "requirement",
-    "ziel",
-    "zielwert",
-    "bedarf",
-    "erhaltungsbedarf",
-)
-REVIEW_KCAL_REFERENCE_WORDS = 3
 
 # Shown in the Tool results when an energy tool had no profile, above the "Add your details" button.
 PROFILE_NEEDED_HINT = "This calculation needs your details. Add them, then ask again."
