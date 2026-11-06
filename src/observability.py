@@ -17,7 +17,7 @@ import threading
 from datetime import UTC, datetime
 from typing import IO
 
-from src import config
+from src import config, tracing
 
 # The app's logger: every module's `logging.getLogger(__name__)` under `src.` reports through it.
 LOGGER_NAME = "src"
@@ -53,9 +53,9 @@ EVENTS = frozenset(
 UNNAMED_EVENT = "unnamed_event"
 _PLAIN = (str, int, float, bool, type(None))
 # The libraries whose own loggers could write a prompt, the profile or the key at DEBUG level (the
-# OpenAI SDK logs its request options, httpcore its headers). They bypass the allowlist, so
-# configure_logging() keeps them at WARNING.
-_CHATTY_LIBRARIES = ("openai", "httpx", "httpcore")
+# OpenAI SDK logs its request options, httpcore its headers, LangSmith its runs before they are
+# sent). They bypass the allowlist, so configure_logging() keeps them at WARNING.
+_CHATTY_LIBRARIES = ("openai", "httpx", "httpcore", "langsmith")
 
 # The only fields a record may carry besides ts, level, logger and event. None of them holds text
 # the user typed or the model wrote (docs/SECURITY.md, "What is logged").
@@ -144,7 +144,7 @@ _LOCK = threading.Lock()
 
 
 def configure_logging(level: str | int | None = None, stream: IO[str] | None = None) -> None:
-    """Send the app's log lines to stderr as JSON; calling it again keeps the one handler."""
+    """Send the app's log lines to stderr as JSON, and set up masked tracing or turn it off."""
     # No file handler: the lines go to the process's stderr and the host decides where they land.
     # `stream` is for tests. propagate is off, so a handler on the root logger cannot print the
     # same record in its own format.
@@ -161,3 +161,6 @@ def configure_logging(level: str | int | None = None, stream: IO[str] | None = N
         logger.propagate = False
         for name in _CHATTY_LIBRARIES:
             logging.getLogger(name).setLevel(logging.WARNING)
+    # Here because the page and every script call this first (T9.8): tracing is off unless the
+    # app's flag and the LangSmith key are set, whatever LangSmith's own environment flag says.
+    tracing.configure_tracing()

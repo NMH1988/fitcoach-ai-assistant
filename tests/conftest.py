@@ -9,7 +9,7 @@ import streamlit as st
 from streamlit import config as st_config
 from streamlit.runtime.secrets import Secrets
 
-from src import chat, config, i18n, observability, usage
+from src import chat, config, i18n, observability, tracing, usage
 from src.store import db
 from src.tools import food_api
 from tests.fakes import TEST_COACH_PART, TEST_LANGUAGE_PARTS
@@ -56,6 +56,30 @@ def no_price_fetch(monkeypatch):
     return cache
 
 
+# LangSmith's own flags: tracing must stay off in tests even if the machine sets them (T9.8).
+LANGSMITH_ENV_FLAGS = (
+    "LANGSMITH_TRACING",
+    "LANGSMITH_TRACING_V2",
+    "LANGCHAIN_TRACING_V2",
+    "LANGCHAIN_TRACING",
+)
+
+
+@pytest.fixture(autouse=True)
+def tracing_is_off(monkeypatch):
+    """Keep LangSmith tracing off in every test, whatever the owner's secrets or env say (T9.8)."""
+    # The tracing tests set the flag again and use a fake LangSmith session (tests/test_tracing.py).
+    monkeypatch.setattr(config, "tracing_requested", lambda: False)
+    for name in (*LANGSMITH_ENV_FLAGS, config.LANGSMITH_API_KEY_NAME, config.TRACING_FLAG_NAME):
+        monkeypatch.delenv(name, raising=False)
+    tracing.configure_tracing()
+    yield
+    # A test may have set the flag again on this same monkeypatch, which is undone only after
+    # this teardown: turn it off first, so tracing never stays on into the next test.
+    monkeypatch.setattr(config, "tracing_requested", lambda: False)
+    tracing.configure_tracing()
+
+
 class _NoFoodApiNetwork:
     """An opener for the FoodData Central client that records any request and never sends it."""
 
@@ -94,7 +118,7 @@ def app_logger_is_reset():
     logger.setLevel(logging.NOTSET)
     logger.propagate = True
     # configure_logging() also keeps these libraries' loggers at WARNING.
-    for name in ("openai", "httpx", "httpcore"):
+    for name in ("openai", "httpx", "httpcore", "langsmith"):
         logging.getLogger(name).setLevel(logging.NOTSET)
 
 
