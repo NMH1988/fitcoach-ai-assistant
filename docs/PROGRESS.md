@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-06 · T9.29 In-app notifications for coaches and gymers · NMH1988/fitcoach-ai-assistant#<PR> (closes NMH1988/fitcoach-ai-assistant#76)
+## 2026-11-06 · T9.29 In-app notifications for coaches and gymers · NMH1988/fitcoach-ai-assistant#81 (closes NMH1988/fitcoach-ai-assistant#76)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 3 (user interface: a user learns what changed without opening each page), in part; Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request, 2026-11-06). PRD feature 28, AC-43.
 - **What:**
   - Store: migration 3 adds `notification_reads` (id, user_id, read_up_to; no-update trigger); `src/store/notifications.py`: `list_notifications()` works the notifications out of the reader's own `coach_clients` and `consents` rows and, for a gymer, the approved `ai_reviews` about them (kind, time, the other side's display name, scope, week), and `mark_all_read()` adds the reader's mark and deletes their earlier ones in one transaction; `my_data` exports and deletes the read mark.
