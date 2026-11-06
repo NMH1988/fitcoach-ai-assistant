@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-06 · T9.25 Questions to the coach under an approved review · NMH1988/fitcoach-ai-assistant#<PR> (closes NMH1988/fitcoach-ai-assistant#61)
+## 2026-11-06 · T9.25 Questions to the coach under an approved review · NMH1988/fitcoach-ai-assistant#80 (closes NMH1988/fitcoach-ai-assistant#61)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 3 in part (a UI for the gymer to ask and the coach to answer); Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request): questions to the coach (PRD feature 27, AC-42, owner's decision, 2026-11-02, T9.24).
 - **What:**
   - Store: migration 3 (`schema._V3`) adds `review_questions` (never updated, no cascade) and rebuilds `audit_log` with `review_answered` (`access.Action` too); `src/store/questions.py`: `ask_question()`, `answer_question()` (with its audit row), `list_questions()` (through `authorised_read()`, audited for a coach), `askable_reviews()`, `NotYourTurn`; `my_data` exports the threads each side may read (a coach's audited per client) and deletes them with their reviews and every row the user wrote.
