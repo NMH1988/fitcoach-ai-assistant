@@ -8,11 +8,18 @@ Full threat model and controls: `docs/SECURITY.md`.
 - Never hardcode, log, print, display, or put the owner's key in exceptions, `st.session_state`, tests, issues, PRs or commit messages. Never open the real secrets file. (If the "bring your own key" option in `docs/DEPLOYMENT.md` is built, a visitor's own key may live in the session only, under the same never-log, never-show rules.)
 - **No anonymous visitor may spend the owner's key.** A public deployment must use one of the options in `docs/DEPLOYMENT.md`. Until then the app runs locally only.
 
+## The LangSmith key and tracing (T9.8)
+
+- The LangSmith key is read only by `config.get_langsmith_api_key()`, from `.streamlit/secrets.toml` or `LANGSMITH_API_KEY`, under the same rules as the OpenRouter key: never hardcoded, logged, printed, shown, put in a run, a test, an issue, a PR or a commit.
+- Tracing is off unless the app's flag `FITCOACH_TRACING` and the key are both set. Never turn tracing on another way (LangSmith's `LANGSMITH_TRACING`, `tracing_context`, `langsmith.configure`, a tracer passed in `callbacks`, `@traceable`): only `tracing.configure_tracing()` installs the client, and only its client masks. Never use `.with_retry()` or a LangGraph `RetryPolicy`: a retry's event carries the error's message and the reply past the mask (`tests/test_tracing.py` scans for these, and for an import of `langsmith` outside `src/tracing.py`).
+- Every run is masked by `tracing.mask()` (an allowlist by key). A new state field, tool result or metadata key must not hold data under a kept key's name (`code`, `status`, `kind`, `name`, `type`, a token or counter key, `turn_id`, LangGraph's node fields); a new kind of run with personal data gets a case in `tests/test_tracing.py`.
+- Every new graph run carries a `turn_id` in its config's metadata (`tracing.run_metadata()`), the same one its log lines carry.
+
 ## Logs
 
 - Log only through the app's loggers (`logging.getLogger(__name__)` in `src/`; `views/`, `scripts/` and `app.py` write no log lines, which `tests/test_observability.py` scans for): `src/observability.py` writes JSON lines to stderr and keeps only the fields on its allowlist. Add a field to `ALLOWED_FIELDS` only if it is an id, a count, a code, a status or a duration, and update the list in `docs/SECURITY.md`.
 - **Never log** the question, a rewrite, the answer, chunk text, a profile value, a tool argument or result, the key, an error's message or traceback (`exc_info`), or a name the model made up (a tool name). Log `LLMError.diagnostic` or `llm.error_diagnostic(exc)` instead of an error. Use a fixed event name, never an f-string or `%s` argument with data.
-- The event is one of `observability.EVENTS` (`turn`, `guard_rejected`, ...; add a new one there); anything else is written as `unnamed_event`. Field values are plain (text, numbers, booleans, `None`, flat lists): pass `llm.error_diagnostic(exc)`, never `exc`. Never turn up the level of the `openai`, `httpx` or `httpcore` loggers (at DEBUG they log the prompt, the profile and the key); `configure_logging()` keeps them at WARNING.
+- The event is one of `observability.EVENTS` (`turn`, `guard_rejected`, ...; add a new one there); anything else is written as `unnamed_event`. Field values are plain (text, numbers, booleans, `None`, flat lists): pass `llm.error_diagnostic(exc)`, never `exc`. Never turn up the level of the `openai`, `httpx`, `httpcore` or `langsmith` loggers (at DEBUG they log the prompt, the profile and the key); `configure_logging()` keeps them at WARNING.
 - Every new log call carries the `turn_id` when it runs inside a turn. A new ending of a turn needs a test in `tests/test_observability.py` that its lines hold none of the canary values.
 
 ## Model clients

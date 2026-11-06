@@ -24,6 +24,10 @@ dependencies = [
     # tests/test_dependency_licences.py.
     "langgraph-checkpoint-sqlite==3.1.2",
     "langgraph-prebuilt==1.1.1",
+    # Masked LangSmith tracing (T9.8): already pulled in by langchain-core, pinned on its own so
+    # its version moves only through a reviewed bump. MIT (the LICENSE in
+    # github.com/langchain-ai/langsmith-sdk and the wheel's metadata, checked 2026-11-06).
+    "langsmith==0.14.12",
     # Used directly by src/llm.py (its error classes); its retry policy is what the tests pin.
     "openai==3.35.1",
     "pydantic==2.14.1",

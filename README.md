@@ -95,6 +95,10 @@ The app runs locally only for now; a public deployment needs one of the options 
 - **Demo mode:** with no `[auth]` section, set `DEMO_MODE = true` in `.streamlit/secrets.toml` (or `DEMO_MODE=1` in the environment). The start page offers a "Demo user" picker with a coach and two gymers, all made up (no guest), on a temporary database that is deleted when the app stops.
 - **Neither:** the app runs for guests; nothing is stored.
 
+### Tracing with LangSmith (optional)
+
+Off by default. To see each turn's run tree (the graph's nodes, the tools called, statuses, token counts, timing) in LangSmith, create a LangSmith account in the **EU** region, then set `FITCOACH_TRACING = true` and `LANGSMITH_API_KEY` in `.streamlit/secrets.toml` (or the environment). Every question, answer, profile value, logged value, review text and tool argument or result is replaced by `[masked]` before it is sent, and each trace carries the `turn_id` of the turn's log lines (T9.8; what is sent: [`docs/SECURITY.md`](docs/SECURITY.md)). LangSmith's own `LANGSMITH_TRACING` flag is ignored.
+
 ### Data and evaluation scripts
 
 These are not needed to run the app:

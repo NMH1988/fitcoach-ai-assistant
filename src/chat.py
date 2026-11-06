@@ -726,7 +726,9 @@ def run_turn(
         def turn_graph(history: list[BaseMessage]) -> Mapping[str, Any]:
             """Run the turn's graph after these earlier messages and return its output."""
             return graph.chat_graph().invoke(
-                {"text": text, "history": history}, context=context, config=graph.run_config()
+                {"text": text, "history": history},
+                context=context,
+                config=graph.run_config(turn_id),
             )
 
         if conversation is None:
