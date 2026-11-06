@@ -30,7 +30,7 @@ One chat turn runs as a LangGraph agent whose tools include the knowledge base s
 4. **Search: hybrid retrieval** (`src/rag/`): vector search in a local Chroma index plus BM25 keyword search, for the query and each rewrite, merged with Reciprocal Rank Fusion; a distance limit decides whether the sources cover the query at all. The passages come back to the agent as delimited data.
 5. **Answer with tools** (`src/chat.py`, `src/tools/`): with the system prompt (`src/prompts/answer_system.md`), the passages found and the tool results (the tools read the profile from the app, so only their results carry profile values to the model; at most 4 rounds and 2 searches), the model writes the answer with `[S#]` citations.
 
-The knowledge base is 20 open-access sports nutrition articles (ISSN position stands and peer-reviewed reviews, all CC BY) and one correction notice, plus 10 open-access resistance training reviews (CC BY; T9.19), split into chunks with their licence and citation data. The rules for answers drawn from those reviews (cited principles only, no workout programs) come with T9.20, which merges right after them. Food values come from USDA FoodData Central Foundation Foods (CC0). Models run through OpenRouter: `openai/gpt-5-mini` for answers, `openai/gpt-5-nano` for query translation, `qwen/qwen3-embedding-8b` for embeddings.
+The knowledge base is 20 open-access sports nutrition articles (ISSN position stands and peer-reviewed reviews, all CC BY) and one correction notice, plus 10 open-access resistance training reviews (CC BY; T9.19), split into chunks with their licence and citation data. The rules for answers drawn from those reviews (cited principles only, no workout programs) come with T9.20, which merges right after them. Food values come from USDA FoodData Central Foundation Foods (CC0), and, with an optional key, from the FoodData Central API for foods the table lacks (CC0; T9.9). Models run through OpenRouter: `openai/gpt-5-mini` for answers, `openai/gpt-5-nano` for query translation, `qwen/qwen3-embedding-8b` for embeddings.
 
 ## Course brief coverage
 
@@ -95,6 +95,10 @@ The app runs locally only for now; a public deployment needs one of the options 
 - **Sign in with Google:** create a Google OAuth client for `http://localhost:8501/oauth2callback` in Testing mode, add the accounts that may sign in as test users, then fill the `[auth]` and `[account]` sections of `.streamlit/secrets.toml` (commented out in the example). Step by step: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md), "Sign-in with Google on localhost". The app then opens on a start page with only "Sign in with Google" (no guest once sign-in is set up; a copy without it opens as a guest). At the first sign-in you choose Coach or Gymer (once) and a display name; a gymer's details are saved when they press Save (the first time after ticking that they understand they are stored), and My data shows, exports or deletes them.
 - **Demo mode:** with no `[auth]` section, set `DEMO_MODE = true` in `.streamlit/secrets.toml` (or `DEMO_MODE=1` in the environment). The start page offers a "Demo user" picker with a coach and two gymers, all made up (no guest), on a temporary database that is deleted when the app stops.
 - **Neither:** the app runs for guests; nothing is stored.
+
+### Food lookup through the USDA API (optional)
+
+The chat's food lookup reads the committed USDA Foundation Foods table. With a free FoodData Central API key (https://fdc.nal.usda.gov/api-key-signup/), it also searches the USDA FoodData Central API for a food the table does not have (olive oil, butter, tofu): set `USDA_FDC_API_KEY` in `.streamlit/secrets.toml` (commented out in the example) or in the environment. Only the food's name is sent; the result names the API as its source. Without the key the app works as before.
 
 ### Data and evaluation scripts
 

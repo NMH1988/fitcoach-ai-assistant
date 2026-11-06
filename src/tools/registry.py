@@ -39,8 +39,9 @@ from src.tools.food import (
     FoodLookupResult,
     invalid_lookup_message,
     lookup_chosen_food,
-    lookup_food_nutrition,
 )
+from src.tools.food_api import FoodSearch, TurnBudget
+from src.tools.food_api import lookup as lookup_with_api
 from src.tools.meal_plan import (
     MealPlanArgs,
     MealPlanResult,
@@ -69,9 +70,11 @@ MACRO_DESCRIPTION = (
 )
 FOOD_DESCRIPTION = (
     "Nutrients (kcal, protein, carbohydrate, fat, fiber) in an amount of one food, from the USDA "
-    "FoodData Central Foundation Foods table. Check matched_name before using the values: the "
-    "closest USDA food may not be the one asked for (e.g. 'pasta' can match a pasta sauce); if it "
-    "differs, say so or look up one of the alternatives by its exact name. The table's names are "
+    "FoodData Central Foundation Foods table, or, for a food not in it, from the USDA FoodData "
+    "Central API when the app can reach it (source says which). Check matched_name before using "
+    "the values: the closest USDA food may not be the one asked for (e.g. 'pasta' can match a "
+    "pasta sauce); if it differs, say so or look up one of the alternatives by its exact name. "
+    "The table's names are "
     "English: give the food in English, translating a name the user wrote in another language "
     "(e.g. 'Haferflocken' as 'rolled oats')."
 )
@@ -181,12 +184,20 @@ def _no_arguments_message(_: ValidationError) -> str:
 def build_tools(
     profile: UserProfile | None,
     table: Sequence[Food] | None = None,
+    food_api: FoodSearch | None = None,
+    client_names: Sequence[str] = (),
     clients: CoachClients | None = None,
 ) -> dict[str, StructuredTool]:
     """Return the tools by name, bound to this profile (or None) and a coach's clients (T9.17)."""
     # `table` replaces the committed foods table (tests); the model can never set it. Run the
     # model's calls only through run_tool_call(): LangChain's own `tool.invoke()` skips the check
     # for the NoArgs tools and would run them with the model's extra fields dropped.
+    # `food_api` (T9.9) is the FoodData Central search the food tool asks when the table has no
+    # match; None (no key, the evaluation run, the tests) keeps the table alone. The tools are
+    # built once per turn, so the budget bounds one turn's searches. The meal plan tool never asks
+    # the API (owner's choice, 2026-11-06). `client_names` are a coach's clients' names (T9.7): a
+    # food name holding one is not sent to the API.
+    budget = TurnBudget()
 
     def tdee() -> TdeeResult | ToolNotice:
         """Return the energy needs of the profile, or "profile needed"."""
@@ -197,8 +208,8 @@ def build_tools(
         return _profile_needed() if profile is None else macro_targets(profile)
 
     def food(food: str, grams: float) -> FoodLookupResult:
-        """Return the nutrients of the food for the grams."""
-        return lookup_food_nutrition(food, grams, table)
+        """Return the nutrients of the food for the grams: the table, then the API if not found."""
+        return lookup_with_api(food, grams, food_api, budget, table, client_names)
 
     def meal_plan(items: list[dict]) -> MealPlanResult | ToolNotice:
         """Return the foods' totals against the profile's daily targets, or "profile needed"."""

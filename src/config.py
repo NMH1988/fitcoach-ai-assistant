@@ -654,6 +654,64 @@ FOOD_MAX_ALTERNATIVES = 3
 # Decimal places of the scaled values (grams of nutrients); kcal are rounded to whole numbers.
 FOOD_DECIMALS = 1
 
+# The USDA FoodData Central API (T9.9; docs/SOURCES.md #21; copyright policy rule 10, changed with
+# the owner's approval on 2026-11-06): the chat's food tool asks it only when the Foundation Foods
+# table has no close match, and only when the owner's api.data.gov key is set. One search per
+# lookup, with only the food name and the fixed fields below in the request body; the key goes in a
+# header, never in the URL; redirects are refused, so the key never reaches another host.
+FOOD_API_URL = "https://api.nal.usda.gov/fdc/v1/foods/search"
+FOOD_API_KEY_NAME = "USDA_FDC_API_KEY"
+# The example secrets file's placeholder (.streamlit/secrets.toml.example) counts as no key.
+FOOD_API_KEY_PLACEHOLDER = "your-fdc-api-key-here"
+# The data types USDA makes itself, which its pages say are public domain (CC0 1.0). Branded and
+# Experimental foods are left out: USDA's pages do not confirm CC0 for them (copyright policy rule
+# 2; checked 2026-11-06).
+FOOD_API_DATA_TYPES = ("Foundation", "SR Legacy", "Survey (FNDDS)")
+# Foods asked for per search; enough for the fuzzy match to find the plain food among variants.
+FOOD_API_PAGE_SIZE = 25
+# Each attempt's timeout; a timeout, a connection error or a 5xx answer is tried once more.
+FOOD_API_TIMEOUT_SECONDS = 5
+FOOD_API_MAX_ATTEMPTS = 2
+FOOD_API_RETRY_PAUSE_SECONDS = 0.5
+# A 25-food answer is far below this; anything bigger is not a search result.
+FOOD_API_MAX_BYTES = 5_000_000
+# API searches in one chat turn; the rest use the local table only. Bounds the time a turn waits and
+# the key's hourly quota (1,000 requests an hour on api.data.gov).
+FOOD_API_MAX_CALLS_PER_TURN = 6
+# A food name sent to the API: plain English words (ASCII letters, digits, spaces and , ' % ( ) / -,
+# a "." only between digits), at most this many words and digits in all ("85% lean ground beef"
+# and "1.5% milk" pass; a phone or card number, spaced or not, does not).
+FOOD_API_MAX_WORDS = 10
+FOOD_API_MAX_DIGITS = 4
+# Longer USDA names from the API are left out (the longest Foundation Foods name is 129 characters).
+FOOD_API_MAX_DESCRIPTION_CHARS = 200
+# Per-100 g values above these are not a food's and are left out.
+FOOD_API_MAX_KCAL = 1000
+FOOD_API_MAX_GRAMS_PER_100G = 100.5
+# What a food found through the API names as its source, in the tool result the model reads.
+FOOD_API_SOURCE = "USDA FoodData Central API, {data_type} (CC0 1.0), https://fdc.nal.usda.gov/"
+# What a "not found" names as its source once both the table and the API were searched.
+FOOD_API_NO_MATCH_SOURCE = (
+    "USDA FoodData Central, Foundation Foods and the FoodData Central API (CC0 1.0), "
+    "https://fdc.nal.usda.gov/"
+)
+# The line under a food lookup's values when they came from the API, in the app and the summary PDF.
+FOOD_API_SOURCE_LINE = (
+    "Source: USDA FoodData Central API, {data_type} (CC0). Values per 100 g, scaled."
+)
+# The credit for the API's data, as USDA's API guide suggests it (read 2026-11-06), in
+# ATTRIBUTION.md and the summary PDF.
+FOOD_API_CITATION = (
+    "U.S. Department of Agriculture, Agricultural Research Service. FoodData Central, 2019. "
+    "fdc.nal.usda.gov."
+)
+FOOD_API_CHANGES = (
+    "Foundation, SR Legacy and Survey (FNDDS) foods, searched by name at the time of a lookup and "
+    "not stored; values per 100 g: energy (kcal; Atwater specific factors where reported, else "
+    "general factors, else the reported energy), protein, carbohydrate (by difference), total fat "
+    "and total dietary fiber, scaled to the amount asked for; negative values are set to 0."
+)
+
 # evaluate_meal_plan (T4.5): foods in one day's plan, each looked up like lookup_food_nutrition.
 # Bounds the lookups and the tool message's length (each food comes back with its USDA name and
 # alternatives); 20 covers a day of meals and snacks.
@@ -1012,6 +1070,21 @@ def get_api_key() -> str:
             # `from None` keeps the parser's message (it may quote file content) out of tracebacks.
             raise SecretsFileError(".streamlit/secrets.toml could not be parsed.") from None
         raise MissingAPIKeyError(f"{API_KEY_NAME} is not set.")
+    return key
+
+
+def get_food_api_key() -> str | None:
+    """Return the USDA FoodData Central API key from st.secrets or the environment, or None."""
+    # Optional (T9.9): without it the food tool uses the local table only. Same rules as the
+    # OpenRouter key: never logged, shown, stored in the session or put in an error.
+    value = _secret(FOOD_API_KEY_NAME)
+    secret = value.strip() if isinstance(value, str) else ""
+    key = secret or os.environ.get(FOOD_API_KEY_NAME, "").strip()
+    # A key with a line break, another non-printable character or a non-ASCII one inside would
+    # make http.client raise an error (one that quotes the header), so it is not used (compliance
+    # run 1's question; code review round 2). api.data.gov keys are ASCII letters and digits.
+    if not key or key == FOOD_API_KEY_PLACEHOLDER or not (key.isascii() and key.isprintable()):
+        return None
     return key
 
 

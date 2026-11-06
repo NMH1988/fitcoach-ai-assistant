@@ -4,7 +4,7 @@ import streamlit as st
 
 from src.tools import coach_clients, meal_plan, registry
 from src.tools.energy import TdeeResult
-from src.tools.food import FoodLookupResult
+from src.tools.food import FoodLookupResult, food_source_line
 from src.tools.meal_plan import MealPlanResult
 from views import profile_form, tables
 from views import targets as daily_targets
@@ -70,7 +70,7 @@ def show_food(result: FoodLookupResult) -> None:
             )
         return
     table(tables.food_rows(result, lang()))
-    st.caption(t("usda.source_line"))
+    st.caption(food_source_line(result, lang()))
 
 
 def show_meal_plan(result: MealPlanResult) -> None:

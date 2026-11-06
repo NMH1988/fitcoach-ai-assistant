@@ -51,7 +51,7 @@ from src.rag.sources import (
 )
 from src.tools import coach_clients, meal_plan, registry
 from src.tools.energy import FORMULA_SOURCES, MACRO_SOURCES, FormulaSource, Macro, TdeeResult
-from src.tools.food import FoodLookupResult, FoodTableError, read_usda_release
+from src.tools.food import FoodLookupResult, FoodTableError, food_source_line, read_usda_release
 from src.tools.meal_plan import MealPlanResult
 from src.units import UnitSystem
 
@@ -474,7 +474,7 @@ def _food_flowables(result: FoodLookupResult, lang: Language = "en") -> list[Flo
     }
     if result.alternatives:
         rows[i18n.t("food.close_alternatives", lang)] = "; ".join(result.alternatives)
-    return [_table(rows), _para(i18n.t("usda.source_line", lang), "small")]
+    return [_table(rows), _para(food_source_line(result, lang), "small")]
 
 
 def _meal_plan_flowables(result: MealPlanResult, lang: Language = "en") -> list[Flowable]:
@@ -643,6 +643,15 @@ def _usda_credit() -> str:
     )
 
 
+def _food_api_credit() -> str:
+    """Return the credit for foods found through the FoodData Central API (T9.9)."""
+    return (
+        f"USDA FoodData Central API. {config.FOOD_API_CITATION} Licence: {config.USDA_LICENSE}, "
+        f"{config.USDA_LICENSE_URL}. Changes: {config.FOOD_API_CHANGES} No endorsement by USDA "
+        "is implied."
+    )
+
+
 def _credits(
     turns: Sequence[tuple[str, TurnResult]],
     targets: registry.MacroToolResult | None,
@@ -696,6 +705,13 @@ def _credits(
         isinstance(run.result, FoodLookupResult | MealPlanResult) and run.status != "invalid"
         for run in runs
     )
+    # A food found through the API (T9.9), or the API's names offered as suggestions, is credited
+    # as its data, beside the table's credit.
+    uses_food_api = any(
+        isinstance(run.result, FoodLookupResult)
+        and (run.result.origin == "api" or run.result.api_code == "no_match")
+        for run in runs
+    )
 
     flowables: list[Flowable] = [
         Paragraph(escape(i18n.t("pdf.credits", lang)), STYLES["h1"]),
@@ -711,6 +727,8 @@ def _credits(
     if uses_usda:
         flowables.append(Paragraph(escape(i18n.t("pdf.food_data", lang)), STYLES["h3"]))
         flowables.append(_para(_usda_credit(), "small"))
+        if uses_food_api:
+            flowables.append(_para(_food_api_credit(), "small"))
     # Every PDF embeds the font, so its credit is always there.
     flowables.append(Paragraph(escape(i18n.t("pdf.font", lang)), STYLES["h3"]))
     flowables.append(_para(i18n.t("pdf.font_credit", lang), "small"))

@@ -265,6 +265,9 @@ _EN: dict[str, str] = {
     "nutrient.fat": "Fat",
     "nutrient.fiber": "Fiber",
     "usda.source_line": config.USDA_SOURCE_LINE,
+    # A food found through the FoodData Central API (T9.9); {data_type} is USDA's own name of the
+    # data type ("SR Legacy"), kept in English like the food names.
+    "usda.api_source_line": config.FOOD_API_SOURCE_LINE,
     "meal.source_line": config.MEAL_PLAN_SOURCE_LINE,
     "meal.food_asked": "Food asked",
     "meal.other_names": "Other close USDA names",
@@ -582,23 +585,31 @@ _EN: dict[str, str] = {
         "Sign in with Google to keep your profile, daily targets, food log and workouts (as a "
         "gymer) or to use the app's AI assistant (as a coach). A coach's questions (and the "
         "coach's own details, when a question needs them) go to the AI model through OpenRouter."
+        " Food names from a question may also go to USDA's FoodData Central API (US), when this "
+        "copy of the app has its key."
     ),
     "start.demo_title": "Try a made-up user",
     "start.demo": (
         "Demo mode: pick a made-up user below to try a coach's or a gymer's pages (what they save "
         "is deleted when the app stops). A coach's questions (and the coach's own details, when a "
         "question needs them) go to the AI model through OpenRouter."
+        " Food names from a question may also go to USDA's FoodData Central API (US), when this "
+        "copy of the app has its key."
     ),
     "start.demo_placeholder": "Choose a demo user",
     "account.guest_note": (
         "You are using the app as a guest: this app stores nothing; your questions (and your "
         "details, when a question needs them) go to the AI model through OpenRouter."
+        " Food names from a question may also go to USDA's FoodData Central API (US), when this "
+        "copy of the app has its key."
     ),
     "account.secrets_broken": (
         "Sign-in is off: `.streamlit/secrets.toml` could not be read (a TOML syntax error?). Fix "
         "the file and restart the app. Until then this app stores nothing, and the chat answers "
         "only if the API key is set as an environment variable (your questions then go to the AI "
         "model through OpenRouter)."
+        " Food names from a question may also go to USDA's FoodData Central API (US), when this "
+        "copy of the app has its key."
     ),
     "role.coach": "Coach",
     "role.gymer": "Gymer",
@@ -611,6 +622,8 @@ _EN: dict[str, str] = {
         "Sign-in is off: this copy of the app has no Google sign-in set up. "
         "You can use the chat as a guest: this app stores nothing, and your questions (and your "
         "details, when a question needs them) go to the AI model through OpenRouter."
+        " Food names from a question may also go to USDA's FoodData Central API (US), when this "
+        "copy of the app has its key."
     ),
     "account.not_set_up": (
         "Sign-in is not fully set up: a secret in `.streamlit/secrets.toml` is missing, shorter "
@@ -664,7 +677,9 @@ _EN: dict[str, str] = {
         "display name) and the working preferences you save in the chat are stored in this app's "
         "data file on this computer; your newest preferences go to the AI model, through "
         "OpenRouter, with each question. Chats are never stored, but this chat's earlier "
-        "questions and answers go to the AI model with each new question. Use made-up data only: "
+        "questions and answers go to the AI model with each new question. Food names from a "
+        "question may also go to USDA's FoodData Central API (US), when this copy of the app has "
+        "its key. Use made-up data only: "
         "do not enter real health data."
     ),
     "profile.my_data_link": "See, export or delete it in My data",
@@ -1382,6 +1397,9 @@ _DE: dict[str, str] = {
     "usda.source_line": (
         "Quelle: USDA FoodData Central, Foundation Foods (CC0). Werte pro 100 g, umgerechnet."
     ),
+    "usda.api_source_line": (
+        "Quelle: USDA FoodData Central API, {data_type} (CC0). Werte pro 100 g, umgerechnet."
+    ),
     "meal.source_line": (
         "Quelle: USDA FoodData Central, Foundation Foods (CC0). Werte pro 100 g, umgerechnet. "
         "Ziele: die Tagesziele aus Ihren Angaben."
@@ -1768,6 +1786,8 @@ _DE: dict[str, str] = {
         "und Ihre Trainingseinheiten zu behalten (als Gymer) oder den KI-Assistenten der App zu "
         "nutzen (als Coach). Die Fragen eines Coachs (und seine eigenen Angaben, wenn eine Frage "
         "sie braucht) gehen über OpenRouter an das KI-Modell."
+        " Lebensmittelnamen aus einer Frage können außerdem an die FoodData Central API des USDA "
+        "(USA) gehen, wenn diese Kopie der App ihren Schlüssel hat."
     ),
     "start.demo_title": "Einen erfundenen Nutzer ausprobieren",
     "start.demo": (
@@ -1775,17 +1795,23 @@ _DE: dict[str, str] = {
         "Gymers auszuprobieren (was sie speichern, wird beim Beenden der App gelöscht). Die Fragen "
         "eines Coachs (und seine eigenen Angaben, wenn eine Frage sie braucht) gehen über "
         "OpenRouter an das KI-Modell."
+        " Lebensmittelnamen aus einer Frage können außerdem an die FoodData Central API des USDA "
+        "(USA) gehen, wenn diese Kopie der App ihren Schlüssel hat."
     ),
     "start.demo_placeholder": "Demo-Nutzer wählen",
     "account.guest_note": (
         "Sie nutzen die App als Gast: Diese App speichert nichts; Ihre Fragen (und Ihre Angaben, "
         "wenn eine Frage sie braucht) gehen über OpenRouter an das KI-Modell."
+        " Lebensmittelnamen aus einer Frage können außerdem an die FoodData Central API des USDA "
+        "(USA) gehen, wenn diese Kopie der App ihren Schlüssel hat."
     ),
     "account.secrets_broken": (
         "Die Anmeldung ist aus: `.streamlit/secrets.toml` konnte nicht gelesen werden "
         "(ein TOML-Syntaxfehler?). Korrigieren Sie die Datei und starten Sie die App neu. Bis "
         "dahin speichert diese App nichts, und der Chat antwortet nur, wenn der API-Schlüssel als "
         "Umgebungsvariable gesetzt ist (Ihre Fragen gehen dann über OpenRouter an das KI-Modell)."
+        " Lebensmittelnamen aus einer Frage können außerdem an die FoodData Central API des USDA "
+        "(USA) gehen, wenn diese Kopie der App ihren Schlüssel hat."
     ),
     "role.coach": "Coach",
     "role.gymer": "Gymer",
@@ -1798,6 +1824,8 @@ _DE: dict[str, str] = {
         "Die Anmeldung ist aus: In dieser Kopie der App ist keine Google-Anmeldung eingerichtet. "
         "Sie können den Chat als Gast nutzen: Diese App speichert nichts, und Ihre Fragen (und "
         "Ihre Angaben, wenn eine Frage sie braucht) gehen über OpenRouter an das KI-Modell."
+        " Lebensmittelnamen aus einer Frage können außerdem an die FoodData Central API des USDA "
+        "(USA) gehen, wenn diese Kopie der App ihren Schlüssel hat."
     ),
     "account.not_set_up": (
         "Die Anmeldung ist nicht vollständig eingerichtet: Ein Geheimnis in "
@@ -1859,6 +1887,8 @@ _DE: dict[str, str] = {
         "Datendatei dieser App auf diesem Computer gespeichert; Ihre neuesten Vorlieben gehen mit "
         "jeder Frage über OpenRouter an das KI-Modell. Chats werden nie gespeichert, aber die "
         "früheren Fragen und Antworten dieses Chats gehen mit jeder neuen Frage an das KI-Modell. "
+        "Lebensmittelnamen aus einer Frage können außerdem an die FoodData Central API des USDA "
+        "(USA) gehen, wenn diese Kopie der App ihren Schlüssel hat. "
         "Verwenden Sie nur erfundene Daten: Geben Sie keine echten Gesundheitsdaten ein."
     ),
     "profile.my_data_link": "Unter Meine Daten ansehen, exportieren oder löschen",
