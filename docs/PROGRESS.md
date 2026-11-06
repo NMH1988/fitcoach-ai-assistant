@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-06 · T9.8 LangSmith tracing with personal data masked · NMH1988/fitcoach-ai-assistant#<PR> (closes NMH1988/fitcoach-ai-assistant#11)
+## 2026-11-06 · T9.8 LangSmith tracing with personal data masked · NMH1988/fitcoach-ai-assistant#85 (closes NMH1988/fitcoach-ai-assistant#11)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Hard 2 (an LLM observability tool), Sprint 2 review point 1 (request tracing); Sprint 2 (`docs/BRIEF.md`): Medium 10 (logging and monitoring). PRD AC-33.
 - **What:**
   - `src/tracing.py`: `configure_tracing()` (run by `observability.configure_logging()`, so by the page and every script): off unless `FITCOACH_TRACING` and `LANGSMITH_API_KEY` are both set, and then LangSmith is turned off globally; on, one `langsmith.Client` for the EU endpoint with `mask()` as its anonymizer and no runtime info, installed as LangSmith's global client (built once per key). `mask()`: an allowlist by key that keeps the shape, token counts, counters, LangGraph's node fields, the model name, the app's tool names, statuses, kinds and codes, and `turn_id`; every other text and number becomes `[masked]`, tool arguments whole, an error its class name, a key that is not an identifier `[masked key N]`.
