@@ -688,7 +688,16 @@ STORE_CANARY_TEXTS = (*CANARY_TEXTS, "CANARY-COACH", "CANARY-GYM", "2345.6", "57
 def _store_scenario(conn, codes: list[str]) -> list[Exception]:
     """Write, read, refuse, export and delete canary data through every store function."""
     from src import diary, metrics, sharing
-    from src.store import access, invitations, my_data, records, reviews, users, values
+    from src.store import (
+        access,
+        invitations,
+        my_data,
+        notifications,
+        records,
+        reviews,
+        users,
+        values,
+    )
 
     errors: list[Exception] = []
     users.create_user(conn, "CANARY-COACH", "coach", "CANARY-NAME coach")
@@ -754,7 +763,9 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
             sharing.accept_code(conn, gymer, typed, ["body"])
         except invitations.InvitationRefused as error:
             errors.append(error)
-    sharing.accept_code(conn, "CANARY-NEW", invitation.code, ["body", "nutrition"])
+    relationship_new = sharing.accept_code(
+        conn, "CANARY-NEW", invitation.code, ["body", "nutrition"]
+    )
     users.display_name_of(conn, "CANARY-COACH", "CANARY-NEW")
     users.list_relationships(conn, "CANARY-COACH")
     users.list_relationships(conn, "CANARY-NEW")
@@ -842,6 +853,13 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
             bad()
         except (values.StoreValueError, access.NotFound, diary.DiaryError) as error:
             errors.append(error)
+    # T9.29: the notifications name the canary users and scopes; listing, marking and the
+    # gymer's approved (edited) review leave nothing in a log line.
+    users.end_relationship(conn, "CANARY-NEW", relationship_new)
+    for user_id in ("CANARY-COACH", "CANARY-GYM", "CANARY-NEW"):
+        notifications.list_notifications(conn, user_id)
+        notifications.mark_all_read(conn, user_id)
+        notifications.list_notifications(conn, user_id)
     my_data.export_user_data(conn, "CANARY-GYM")
     my_data.export_user_data(conn, "CANARY-COACH")
     my_data.delete_user_data(conn, "CANARY-COACH", no_threads)

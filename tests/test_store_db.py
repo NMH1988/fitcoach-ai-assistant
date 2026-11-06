@@ -30,6 +30,7 @@ TABLES = {
     "ai_review_scopes",
     "audit_log",
     "invite_attempts",
+    "notification_reads",
 }
 NOW = "2026-10-27T10:00:00+00:00"
 DAY = "2026-10-27"
@@ -127,6 +128,7 @@ VALID_ROWS = {
         "created_at": NOW,
     },
     "invite_attempts": {"user_id": "g1", "day": DAY, "count": 1},
+    "notification_reads": {"user_id": "g1", "read_up_to": NOW},
 }
 NON_NEGATIVE = [
     ("profile_entries", "age"),
@@ -159,6 +161,7 @@ IMMUTABLE = [
     "exercise_sets",
     "preferences",
     "audit_log",
+    "notification_reads",
 ]
 
 
@@ -193,7 +196,7 @@ def test_connect_creates_the_file_in_the_configured_folder_with_every_table(stor
         for row in store_conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
     }
     assert names == TABLES
-    assert db.schema_version(store_conn) == len(schema.MIGRATIONS) == 2
+    assert db.schema_version(store_conn) == len(schema.MIGRATIONS) == 3
 
 
 def test_the_store_folder_is_gitignored_and_inside_the_project():
@@ -209,7 +212,7 @@ def test_a_given_path_is_used_instead_of_the_config(tmp_path):
     """connect(path) opens that file and makes its folder."""
     path = tmp_path / "nested" / "other.sqlite3"
     with db.connect(path) as conn:
-        assert db.schema_version(conn) == 2
+        assert db.schema_version(conn) == len(schema.MIGRATIONS)
     assert path.is_file()
     assert not config.STORE_PATH.exists()
 
@@ -353,7 +356,7 @@ def test_a_read_only_database_is_made_0600_and_opens():
         pass
     os.chmod(config.STORE_PATH, 0o400)
     with db.connect() as conn:
-        assert db.schema_version(conn) == 2
+        assert db.schema_version(conn) == len(schema.MIGRATIONS)
     assert stat.S_IMODE(config.STORE_PATH.stat().st_mode) == 0o600
 
 
@@ -439,6 +442,35 @@ def test_every_timestamp_column_refuses_a_time_that_is_not_utc(store_conn):
                 _insert(store_conn, table, {**VALID_ROWS[table], column: bad})
 
 
+def test_a_read_mark_holds_a_utc_time_only(store_conn):
+    """notification_reads.read_up_to refuses a local time, another offset or a day (T9.29, D21)."""
+    _seed(store_conn)
+    for bad in (
+        "2026-10-27T10:00:00",
+        "2026-10-27T10:00:00+01:00",
+        DAY,
+        "2026-02-30T10:00:00+00:00",
+    ):
+        with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
+            _insert(store_conn, "notification_reads", {"user_id": "g1", "read_up_to": bad})
+
+
+def test_a_version_2_file_gets_the_read_mark_table_with_its_data_kept(tmp_path):
+    """Migration 3 (T9.29) adds notification_reads, empty, and keeps the rows already there."""
+    path = tmp_path / "old.sqlite3"
+    conn = sqlite3.connect(path, autocommit=True)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.executescript(schema.MIGRATIONS[0])
+    conn.executescript(schema.MIGRATIONS[1])
+    _seed(conn)
+    conn.close()
+    with db.connect(path) as conn:
+        assert db.schema_version(conn) == 3
+        assert conn.execute("SELECT count(*) FROM users").fetchone()[0] == 2
+        assert conn.execute("SELECT count(*) FROM notification_reads").fetchone()[0] == 0
+
+
 @pytest.mark.parametrize(
     ("table", "column"),
     [
@@ -508,7 +540,7 @@ def test_connecting_again_keeps_the_data_and_the_version(tmp_path):
     with db.connect(path) as conn:
         _seed(conn)
     with db.connect(path) as conn:
-        assert db.schema_version(conn) == 2
+        assert db.schema_version(conn) == len(schema.MIGRATIONS)
         assert conn.execute("SELECT count(*) FROM users").fetchone()[0] == 2
 
 
@@ -699,7 +731,7 @@ def test_a_version_1_file_gets_its_reviews_filed_under_nutrition(tmp_path):
     _seed(conn)
     conn.close()
     with db.connect(path) as conn:
-        assert db.schema_version(conn) == 2
+        assert db.schema_version(conn) == len(schema.MIGRATIONS)
         rows = conn.execute("SELECT review_id, scope FROM ai_review_scopes")
         scopes = [tuple(row) for row in rows]
         assert scopes == [(1, "nutrition")]
