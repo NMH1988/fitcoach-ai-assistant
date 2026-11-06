@@ -612,7 +612,7 @@ def _log_turn(
     seconds: float,
     prices: Callable[[], Mapping[str, ModelPrice] | None] | None,
 ) -> None:
-    """Write the turn's one INFO record, and a warning for each tool call that failed (T8.2)."""
+    """Write the turn's INFO record, a warning per failed tool call and a food_api line (T9.9)."""
     # Only ids, counts, codes and statuses: no question, rewrite, answer, chunk text, profile value
     # or tool argument, and no tool name the model made up (a run's name is None then).
     for run in trace.tool_runs:
