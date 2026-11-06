@@ -93,6 +93,9 @@ def coach_target_notice() -> None:
         ),
         icon=":material/sports:",
     )
+    # A coach's numbers become the active target: the app does not check their qualifications
+    # (PRD, Users and roles; T9.17 compliance run 1).
+    st.caption(f":material/info: {t('sharing.unverified')}")
 
 
 def tab() -> None:

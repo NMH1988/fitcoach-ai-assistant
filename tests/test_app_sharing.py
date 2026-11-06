@@ -476,3 +476,22 @@ def test_each_scope_says_what_a_weekly_review_sends_to_the_model(
     labels = [box.label for box in at.checkbox]
     assert nutrition in labels[0]
     assert all(others in label for label in labels[1:3])
+
+
+@pytest.mark.parametrize(
+    ("language", "phrase"),
+    [
+        ("en", "your coach can also ask the app's AI assistant about your weeks"),
+        ("de", "kann Ihr Coach auch den KI-Assistenten der App nach Ihren Wochen fragen"),
+    ],
+)
+@pytest.mark.parametrize("world", ["gymer_and_coach", "connected_gymer"])
+def test_the_scopes_say_what_the_coach_s_assistant_sends(
+    monkeypatch, request, world, language, phrase
+):
+    """T9.17 (compliance run 1): one line above the boxes, on the code form and the scopes form."""
+    request.getfixturevalue(world)
+    at = open_page(start(monkeypatch, user=signed_in(), language=language), navigation.SHARING)
+    captions = [str(item.value) for item in at.caption]
+    assert [text for text in captions if phrase in text]
+    assert "OpenRouter" in i18n.t("sharing.assistant", language)

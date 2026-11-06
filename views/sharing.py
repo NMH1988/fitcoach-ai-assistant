@@ -63,6 +63,8 @@ def _accept(user: dict) -> None:
             key=CODE_KEY,
         )
         st.caption(t("sharing.choose"))
+        # What the coach's assistant sends, once for the three boxes (T9.17, compliance run 1).
+        st.caption(t("sharing.assistant"))
         chosen = [scope for scope in SCOPES if st.checkbox(_scope_label(scope), value=False)]
         submitted = st.form_submit_button(
             t("sharing.accept"), type="primary", icon=":material/handshake:"
@@ -88,6 +90,8 @@ def _share(user: dict, relationship: dict) -> None:
     """Show the scopes the gymer shares, to turn each on or off."""
     st.subheader(t("sharing.what"))
     st.caption(t("sharing.choose"))
+    # What the coach's assistant sends, once for the three boxes (T9.17, compliance run 1).
+    st.caption(t("sharing.assistant"))
     # Keyed by the relationship, so a new coach's form never starts from an old one's ticks.
     keys = {scope: f"sharing_{relationship['id']}_{scope}" for scope in SCOPES}
     reset = st.session_state.pop(RESET_KEY, False)

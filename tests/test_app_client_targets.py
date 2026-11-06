@@ -285,3 +285,33 @@ def test_a_dialog_save_keeps_the_coach_s_target_and_says_so(monkeypatch):
     assert _targets_of(USER_ID)[-1]["set_by"] == "coach"
     notes = [item.value for item in at.sidebar.info]
     assert "Your details are saved. Your daily target stays the one your coach set." in notes
+
+
+@pytest.mark.parametrize(
+    ("language", "unverified"),
+    [
+        ("en", "The app does not check a coach's qualifications."),
+        ("de", "Die App prüft die Qualifikationen eines Coaches nicht."),
+    ],
+)
+@pytest.mark.usefixtures("coached_gymer")
+def test_the_coach_s_target_says_qualifications_are_not_checked(monkeypatch, language, unverified):
+    """Under the coach's target, the app says it does not check coaches (compliance run 1)."""
+    at = open_page(start(monkeypatch, user=signed_in(), language=language), navigation.PROFILE)
+    assert unverified in "\n".join(str(item.value) for item in at.caption)
+
+
+@pytest.mark.parametrize(
+    ("language", "phrase"),
+    [
+        ("en", "cannot change them while they share nutrition with you"),
+        ("de", "kann sie nicht ändern, solange er die Ernährung mit Ihnen teilt"),
+    ],
+)
+@pytest.mark.usefixtures("coach_world")
+def test_the_form_says_the_client_cannot_change_it_while_sharing(monkeypatch, language, phrase):
+    """The form claims no more than the store does (compliance run 1)."""
+    at = start(monkeypatch, user=signed_in(), language=language)
+    at = open_page(at, navigation.CLIENT_WEEK)
+    at.selectbox(key="client_week_pick").set_value(ALEX).run(timeout=30)
+    assert phrase in _page_text(at)

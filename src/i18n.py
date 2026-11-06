@@ -679,7 +679,8 @@ _EN: dict[str, str] = {
         "OpenRouter, with each question. Chats are never stored, but this chat's earlier "
         "questions and answers go to the AI model with each new question. Food names from a "
         "question may also go to USDA's FoodData Central API (US), when this copy of the app has "
-        "its key. Use made-up data only: "
+        "its key. When you ask about your clients, the figures they share go to the AI model "
+        "through OpenRouter, under a reference, never their names. Use made-up data only: "
         "do not enter real health data."
     ),
     "profile.my_data_link": "See, export or delete it in My data",
@@ -840,6 +841,14 @@ _EN: dict[str, str] = {
         "Weights and profile entries (height, age, sex, activity, goal). While shared, a weekly "
         "review your coach starts also sends this week's weight figures to that AI model"
     ),
+    # T9.17: what the coach's assistant sends, shown once above the scope boxes (compliance run 1,
+    # wording approved by the owner, 2026-11-07).
+    "sharing.assistant": (
+        "While a scope is shared, your coach can also ask the app's AI assistant about your "
+        "weeks: that scope's figures (each day's totals, averages, your target, weight or "
+        "training figures), for any week your coach asks about, go to the AI model through "
+        "OpenRouter, under a reference, never your name."
+    ),
     "clients.intro": (
         "Your clients and what each of them shares with you. A client chooses what you see, and "
         "can change it or end the relationship at any time."
@@ -909,7 +918,8 @@ _EN: dict[str, str] = {
     "client_targets.heading": "Daily targets",
     "client_targets.intro": (
         "Set this client's daily targets from today. The client sees them as set by you and cannot "
-        "change or delete them; the energy target is never below {floor} kcal a day."
+        "change them while they share nutrition with you; the energy target is never below "
+        "{floor} kcal a day."
     ),
     "client_targets.not_shared": "Targets can be set only while the client shares nutrition.",
     "client_targets.kcal": "Energy (kcal a day)",
@@ -1888,7 +1898,9 @@ _DE: dict[str, str] = {
         "jeder Frage über OpenRouter an das KI-Modell. Chats werden nie gespeichert, aber die "
         "früheren Fragen und Antworten dieses Chats gehen mit jeder neuen Frage an das KI-Modell. "
         "Lebensmittelnamen aus einer Frage können außerdem an die FoodData Central API des USDA "
-        "(USA) gehen, wenn diese Kopie der App ihren Schlüssel hat. "
+        "(USA) gehen, wenn diese Kopie der App ihren Schlüssel hat. Wenn Sie nach Ihren Klienten "
+        "fragen, gehen die Zahlen, die sie teilen, über OpenRouter an das KI-Modell, unter einer "
+        "Referenz, nie mit ihrem Namen. "
         "Verwenden Sie nur erfundene Daten: Geben Sie keine echten Gesundheitsdaten ein."
     ),
     "profile.my_data_link": "Unter Meine Daten ansehen, exportieren oder löschen",
@@ -2105,6 +2117,12 @@ _DE: dict[str, str] = {
     "clients.cancel_placeholder": "Code wählen",
     "clients.cancel": "Diese Einladung zurückziehen",
     "sharing.unverified": "Die App prüft die Qualifikationen eines Coaches nicht.",
+    "sharing.assistant": (
+        "Solange ein Bereich geteilt ist, kann Ihr Coach auch den KI-Assistenten der App nach "
+        "Ihren Wochen fragen: Die Zahlen dieses Bereichs (Tagessummen, Durchschnitte, Ihr Ziel, "
+        "Gewichts- oder Trainingszahlen) gehen für jede Woche, nach der Ihr Coach fragt, über "
+        "OpenRouter an das KI-Modell, unter einer Referenz, nie mit Ihrem Namen."
+    ),
     # Die Übersichten (T9.15).
     "page.client_week": "Klientenwoche",
     "page.my_week": "Meine Woche",
@@ -2140,8 +2158,8 @@ _DE: dict[str, str] = {
     "client_targets.heading": "Tagesziele",
     "client_targets.intro": (
         "Legen Sie die Tagesziele dieses Klienten ab heute fest. Der Klient sieht sie als von "
-        "Ihnen gesetzt und kann sie weder ändern noch löschen; das Energieziel liegt nie unter "
-        "{floor} kcal pro Tag."
+        "Ihnen gesetzt und kann sie nicht ändern, solange er die Ernährung mit Ihnen teilt; das "
+        "Energieziel liegt nie unter {floor} kcal pro Tag."
     ),
     "client_targets.not_shared": (
         "Ziele können nur gesetzt werden, solange der Klient die Ernährung teilt."
