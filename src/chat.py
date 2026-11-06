@@ -51,6 +51,7 @@ from src.rag.retriever import RetrievedChunk, embed_queries
 from src.rag.sources import ManifestError, Source, license_url_for, load_manifest
 from src.rag.store import IndexNotReadyError
 from src.tools import registry
+from src.tools.coach_clients import CoachClients
 from src.tools.registry import ToolRun
 from src.usage import CallUsage, ModelPrice, UsageRecorder
 
@@ -660,6 +661,7 @@ def run_turn(
     prices: Callable[[], Mapping[str, ModelPrice] | None] | None = None,
     conversation: Conversation | None = None,
     coach: preferences.CoachMemory | None = None,
+    clients: CoachClients | None = None,
 ) -> TurnResult:
     """Run one chat turn: guard, agent, tools; never raise for an error a user can cause."""
     # on_step(step) is called as each step starts; on_text(text) as the answer streams in. `user`
@@ -676,6 +678,8 @@ def run_turn(
     # and, when answered, is kept in it. None: the turn stands alone (the evaluation run).
     # coach is a coach's chat (T9.7): their client names and saved preferences, read from the
     # store before the turn; it offers remember_preference and <memories>. None for a guest.
+    # clients is a coach's client tools (T9.17): the coach, the store and the chat's references,
+    # which give list_my_clients and get_client_week. None for a guest.
     if language not in config.ANSWER_LANGUAGE_PROMPT_PATHS:
         raise ValueError(f"Unknown answer language: {language!r}")
     turn_id = str(uuid.uuid4())
@@ -706,7 +710,7 @@ def run_turn(
         # Each factory runs at most once a turn; the prepare node calls them in order (T9.2).
         context = graph.TurnContext(
             chat_model=cache(chat_model),
-            tools=cache(partial(registry.build_tools, user)),
+            tools=cache(partial(registry.build_tools, user, clients=clients)),
             on_step=step,
             on_text=on_text,
             recorder=recorder,

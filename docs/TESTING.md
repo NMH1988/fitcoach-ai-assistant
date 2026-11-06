@@ -123,6 +123,7 @@ Known problems found before T6.1, still open (details in the "Live checks" rows 
 13. **German answers are not measured yet** (T7.2): the German questions were only searched as written (T3.6). **Measured in T7.2:** see "Evaluation results (T7.2, German)" below.
 14. **The distance limit (0.62) rests on about 40 questions** (T3.1's 28 and these 16); in these runs the nearest chunk, over the question and its rewrites, was at 0.22-0.31 for each covered question, 0.37-0.40 for q12 and 0.43 for q11; the questions' own distances were not measured here.
 15. **Known limits accepted earlier:** the input guard and guardrails are patterns, so reworded attacks or concerns can pass and are left to the prompt's rules (`docs/SECURITY.md`); the dark-mode Save button text is 3.4:1 (T7.3).
+16. **The follow-up flag is loud early in the week** (T9.17): the Clients page and `list_my_clients` judge the current week, Monday to Sunday, as the criterion says, so on a Monday most clients who share nutrition have fewer than `FOLLOW_UP_MIN_LOGGED_DAYS` logged days, and those who share training have no workout yet; both are flagged until the week fills (owner's choice, 2026-11-06, code review round 1). A scope revoked during a coach's chat leaves the answers given before it in the chat's memory until "New chat"; the store blocks the next read (`docs/SECURITY.md`).
 
 ### Evaluation results (T7.2, German)
 

@@ -129,9 +129,10 @@ def _average(totals: list[Intake]) -> Intake | None:
     return Intake(**sums, fiber_complete=all(day.fiber_complete for day in totals))
 
 
-def _active_target(targets: Iterable[dict], sunday: date) -> Target | None:
-    """Return the latest target started on or before the Sunday (by day, then by row ID)."""
-    started = [row for row in targets if _day(row["effective_from"]) <= sunday]
+def active_target(targets: Iterable[dict], day: date) -> Target | None:
+    """Return the latest target started on or before the day (by day, then by row ID)."""
+    # A week's target is the one active on its Sunday; a gymer's page asks for today's (T9.17).
+    started = [row for row in targets if _day(row["effective_from"]) <= day]
     if not started:
         return None
     row = max(started, key=lambda row: (row["effective_from"], row["id"]))
@@ -166,7 +167,7 @@ def week_metrics(
             by_day[day].append(item)
     totals = tuple((day, day_totals(by_day[day])) for day in days)
     average = _average([day_total for _, day_total in totals if day_total is not None])
-    target = _active_target(targets, sunday)
+    target = active_target(targets, sunday)
     difference = None
     if average is not None and target is not None:
         difference = {

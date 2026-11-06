@@ -411,3 +411,22 @@ def test_a_gymer_with_no_approved_review_is_told_so(monkeypatch):
     store_account("gymer", profile=PROFILE)
     at = _my_week(monkeypatch)
     assert "No approved weekly review yet." in texts(at)
+
+
+# --- T9.17: the follow-up flag in the client list ----------------------------------------------
+
+
+def test_the_list_flags_a_client_for_follow_up(monkeypatch, coach_world):
+    """Alex logged 3 days (fewer than 4): flagged; Bo shares training only and trained: not."""
+    at = _clients(monkeypatch)
+    table = at.get_by_key(clients.TABLE_KEY).dataframe[0].value
+    assert list(table["Follow up"]) == ["Yes: few days logged", "No"]
+    cards = [item.value for item in at.get_by_key(clients.CARDS_KEY).markdown]
+    assert r"**Follow up:** Yes\: few days logged" in cards[0]
+
+
+def test_the_follow_up_flag_in_german(monkeypatch, coach_world):
+    """The column and its values are German when German is chosen."""
+    at = _clients(monkeypatch, language="de")
+    table = at.get_by_key(clients.TABLE_KEY).dataframe[0].value
+    assert list(table["Nachfassen"]) == ["Ja: wenige Tage erfasst", "Nein"]

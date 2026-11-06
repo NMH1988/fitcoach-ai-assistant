@@ -51,14 +51,21 @@ def _records(stored: dict[str, list[dict]]) -> None:
 def _delete_one(user: dict, stored: dict[str, list[dict]]) -> None:
     """Let the user pick one of their records and delete it."""
     system = st.session_state["units"]
+    # A target the coach set is not offered: the store would refuse it (T9.17).
     entries = {
         (kind, row["id"]): tables.entry_label(kind, row, system, lang())
         for kind, rows in stored.items()
         for row in rows
+        if not tables.set_by_coach(kind, row)
     }
-    if not entries:
+    coach_set = any(tables.set_by_coach(kind, row) for kind, rows in stored.items() for row in rows)
+    if not entries and not coach_set:
         return
     st.subheader(t("my_data.delete_one"))
+    if coach_set:
+        st.caption(f":material/info: {t('my_data.coach_target_note')}")
+    if not entries:
+        return
     picked = st.selectbox(
         t("my_data.entry"),
         list(entries),

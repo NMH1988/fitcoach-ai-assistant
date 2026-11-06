@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-from src.tools import meal_plan, registry
+from src.tools import coach_clients, meal_plan, registry
 from src.tools.energy import TdeeResult
 from src.tools.food import FoodLookupResult
 from src.tools.meal_plan import MealPlanResult
@@ -16,6 +16,8 @@ TOOL_ICONS = {
     registry.MACRO_TOOL: ":material/target:",
     registry.FOOD_TOOL: ":material/restaurant:",
     registry.MEAL_PLAN_TOOL: ":material/fact_check:",
+    coach_clients.LIST_TOOL: ":material/groups:",
+    coach_clients.WEEK_TOOL: ":material/calendar_month:",
     None: ":material/block:",
 }
 
@@ -100,8 +102,10 @@ def show_meal_plan(result: MealPlanResult) -> None:
     st.caption(t("meal.source_line"))
 
 
-def show_tool_run(run: registry.ToolRun, key: str) -> None:
+def show_tool_run(run: registry.ToolRun, key: str, names: dict[str, str] | None = None) -> None:
     """Show one tool result under its heading; without a profile, a button opens the form."""
+    # names: a coach's client references with the display names shown in their place (T9.17).
+    names = names or {}
     name = run.name if run.name in registry.TOOL_TITLES else None
     st.markdown(f"**{TOOL_ICONS[name]} {t(f'tool.title.{name or "none"}')}**")
     result = run.result
@@ -118,12 +122,21 @@ def show_tool_run(run: registry.ToolRun, key: str) -> None:
         show_food(result)
     elif isinstance(result, MealPlanResult) and result.status != "invalid":
         show_meal_plan(result)
+    elif isinstance(result, coach_clients.ClientListResult):
+        # st.dataframe shows a display name as plain text (docs/SECURITY.md).
+        st.dataframe(
+            tables.client_list_tool_table(result, names, lang()), hide_index=True, width="stretch"
+        )
+    elif isinstance(result, coach_clients.ClientWeekResult):
+        table(tables.client_week_tool_rows(result, names, st.session_state["units"], lang()))
     else:
         # A refused or failed call: the fixed message the model got, never what it sent.
         st.caption(result.message)
 
 
-def show_tool_runs(runs: tuple[registry.ToolRun, ...], turn: int) -> None:
+def show_tool_runs(
+    runs: tuple[registry.ToolRun, ...], turn: int, names: dict[str, str] | None = None
+) -> None:
     """Show each tool result of a turn in one "Tool results" expander (AC-6)."""
     # Open when a result needs the profile, so the "Add your details" button is in view.
     needs_profile = any(run.status == "profile_needed" for run in runs)
@@ -133,4 +146,4 @@ def show_tool_runs(runs: tuple[registry.ToolRun, ...], turn: int) -> None:
         for number, run in enumerate(runs):
             if number:
                 st.divider()
-            show_tool_run(run, key=f"tool_profile_{turn}_{number}")
+            show_tool_run(run, key=f"tool_profile_{turn}_{number}", names=names)

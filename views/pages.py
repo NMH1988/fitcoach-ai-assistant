@@ -57,6 +57,8 @@ def profile_page() -> None:
     with header.main_column():
         header.show()
         account.store_notice()
+        # The target the gymer's coach set, if it is the active one (T9.17): read-only.
+        targets.coach_target_notice()
         targets.tab()
 
 

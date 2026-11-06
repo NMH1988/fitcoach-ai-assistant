@@ -7,6 +7,11 @@ until the coach answers (the page reruns after the turn, so at once); the answer
 conversation (`Conversation.decide()`), which checks the text again and writes it to the store
 only on Save, and a fixed line in the chat says what happened. The card is read from the
 conversation on every run, so it survives a rerun, and "New chat" discards it with the thread.
+
+A coach's chat also reads the coach's clients (T9.17): the model names a client by the chat's
+reference (`client-1`), kept in the session with the user ID and display name it stands for, and
+this page shows the display name in its place, in the answer as it streams, in the answer and in
+the tool results; the conversation's memory keeps the reference. "New chat" forgets them.
 """
 
 import streamlit as st
@@ -17,7 +22,8 @@ from src import account as accounts
 from src import chat as turns
 from src import config, guard, preferences, usage
 from src.store.access import NotFound
-from views import account, resources, sources, tool_results, usage_view
+from src.tools import coach_clients
+from views import account, resources, sources, tables, tool_results, usage_view
 from views.text import lang, t
 
 ASSISTANT_AVATAR = ":material/nutrition:"
@@ -25,6 +31,8 @@ ASSISTANT_AVATAR = ":material/nutrition:"
 EDITING_KEY = "memory_editing"
 EDIT_TEXT_KEY = "memory_edit_text"
 EDIT_REFUSED_KEY = "memory_edit_refused"
+# The coach's client references for this chat (T9.17), with the coach they belong to.
+CLIENT_REFS_KEY = "client_refs"
 
 
 def status_label(result: turns.TurnResult) -> str:
@@ -64,7 +72,45 @@ def show_steps(result: turns.TurnResult) -> None:
 def fixed_text(result: turns.TurnResult) -> str:
     """Return a turn's fixed message in the language chosen now, or the model's own answer."""
     # Past turns follow the language too; the answer stays in the language it was written in.
-    return turns.fixed_text(result, lang())
+    text = turns.fixed_text(result, lang())
+    return with_client_names(text) if result.kind == "answer" else text
+
+
+def client_refs() -> coach_clients.ClientRefs | None:
+    """Return the session coach's client references for this chat; None for anyone else."""
+    user_id = coach_id()
+    if user_id is None:
+        return None
+    kept = st.session_state.get(CLIENT_REFS_KEY)
+    if kept is None or kept[0] != user_id:
+        # Another user in this session (clear_session() drops them too): start again.
+        kept = (user_id, coach_clients.ClientRefs())
+        st.session_state[CLIENT_REFS_KEY] = kept
+    return kept[1]
+
+
+def with_client_names(text: str) -> str:
+    """Return the model's text with each client reference shown as the client's display name."""
+    refs = client_refs()
+    if refs is None:
+        return text
+    # A display name is a user's own text: shown as written, never as Markdown or a link.
+    return coach_clients.name_references(text, refs.names(), tables.one_line)
+
+
+def coach_clients_for_turn() -> coach_clients.CoachClients | None:
+    """Return what a coach's client tools need for one turn; None for anyone else (T9.17)."""
+    user_id = coach_id()
+    refs = client_refs()
+    if user_id is None or refs is None:
+        return None
+    path = account.store_path()
+    return coach_clients.CoachClients(
+        coach_id=user_id,
+        open_store=lambda: accounts.open_store(path),
+        refs=refs,
+        today=accounts.today,
+    )
 
 
 def show_result(result: turns.TurnResult, turn: int) -> None:
@@ -89,7 +135,9 @@ def show_result(result: turns.TurnResult, turn: int) -> None:
                 for card in result.sources:
                     sources.card(card)
         if result.tool_runs:
-            tool_results.show_tool_runs(result.tool_runs, turn)
+            refs = client_refs()
+            names = refs.names() if refs is not None else None
+            tool_results.show_tool_runs(result.tool_runs, turn, names)
 
 
 def show_note(code: str) -> None:
@@ -275,8 +323,9 @@ def run_turn(question: str, turn: int) -> None:
 
     def show_text(text: str) -> None:
         """Show the answer so far, so the user reads it while the model is still writing."""
-        # Model output as Markdown, never with unsafe_allow_html (docs/SECURITY.md).
-        answer_slot.markdown(text)
+        # Model output as Markdown, never with unsafe_allow_html (docs/SECURITY.md); a client's
+        # reference shows as their name (T9.17).
+        answer_slot.markdown(with_client_names(text))
 
     # The model sends its answer in fast bursts; reveal it at a steady, readable pace.
     on_text = turns.PacedWriter(show_text, config.ANSWER_WORDS_PER_SECOND)
@@ -302,6 +351,8 @@ def run_turn(question: str, turn: int) -> None:
         conversation=st.session_state["conversation"],
         # A coach's client names and saved preferences (T9.7); None for a guest.
         coach=coach_memory(),
+        # A coach's client tools and this chat's references (T9.17); None for a guest.
+        clients=coach_clients_for_turn(),
     )
     if result.index_not_ready:
         # Open the index again on the next turn, e.g. once the owner has rebuilt it.
@@ -332,6 +383,8 @@ def new_chat() -> None:
     st.session_state["messages"].clear()
     # A pending proposal went with the thread (T9.7), and its Edit field goes with it.
     _close_edit()
+    # The client references go with the chat (T9.17): the next chat lists the clients again.
+    st.session_state.pop(CLIENT_REFS_KEY, None)
 
 
 def tab() -> None:

@@ -14,7 +14,7 @@ from reportlab.pdfbase import pdfmetrics
 from src import chat, config, export_pdf, guardrails, i18n
 from src.guardrails import Concern
 from src.rag.sources import ARTICLE_CHANGES_NOTE, Source
-from src.tools import meal_plan, registry
+from src.tools import coach_clients, meal_plan, registry
 from src.tools.energy import FORMULA_SOURCES, MACRO_SOURCES, TDEE_METHOD
 from src.tools.food import lookup_food_nutrition
 from src.tools.registry import (
@@ -524,7 +524,15 @@ def test_every_turn_kind_has_a_label():
 
 def test_tool_titles_match_the_tools():
     """Every tool, and a refused call (None), has a heading in the app and the PDF."""
-    assert set(registry.TOOL_TITLES) == {TDEE_TOOL, MACRO_TOOL, FOOD_TOOL, MEAL_PLAN_TOOL, None}
+    coach = {coach_clients.LIST_TOOL, coach_clients.WEEK_TOOL}  # a coach's chat only (T9.17)
+    assert set(registry.TOOL_TITLES) == {
+        TDEE_TOOL,
+        MACRO_TOOL,
+        FOOD_TOOL,
+        MEAL_PLAN_TOOL,
+        *coach,
+        None,
+    }
 
 
 def test_the_fonts_cover_every_character_of_the_approved_sources():

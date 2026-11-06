@@ -2,12 +2,18 @@
 
 A preference is a coach's own working preference since T9.7 (it was a gymer's before T9.24).
 
-Each `add_*` writes a row for the acting user only, who must be a gymer (a coach-set target arrives
-with T9.17), or for `add_preference()` a coach; weight, height and age keep the profile form's
-ranges and a target the calorie floor. Each `list_*` takes the acting user and the user whose data
-it reads and goes through `access.authorised_read()`: the user's own data, or a coach's read within
-the scope the data belongs to (body, nutrition, training); preferences are never shared. Records are
-never changed in place (a trigger refuses it): a new profile entry or target is a new row, and an
+Each `add_*` writes a row for the acting user only, who must be a gymer, or for `add_preference()` a
+coach; weight, height and age keep the profile form's ranges and a target the calorie floor. The
+one write into another user's records is a coach's target for a client (`add_client_target()`,
+T9.17): only while the client shares nutrition with that coach, audited as `target_set`. A
+coach-set target is the gymer's to read, never to delete alone (`delete_record()` refuses it; only
+`my_data.delete_user_data()` removes it), and a profile Save keeps it while the gymer shares
+nutrition with a coach (`add_profile_with_target()`; owner's choices, 2026-11-06).
+
+Each `list_*` takes the acting user and the user whose data it reads and goes through
+`access.authorised_read()`: the user's own data, or a coach's read within the scope the data
+belongs to (body, nutrition, training); preferences are never shared. Records are never changed in
+place (a trigger refuses it): a new profile entry or target is a new row, and an
 edit is `delete_record()` and a new row, so a meal's nutrient snapshot stays as it was taken (T9.13
 takes it from the foods table); a workout's edit is both in one transaction
 (`replace_workout_session()`, T9.14). A set names an exercise of T9.14's list and keeps the ranges
@@ -24,10 +30,12 @@ from typing import Literal, get_args
 from src import config, exercises, metrics
 from src.profile import ActivityLevel, Goal, Sex
 from src.store import values
-from src.store.access import NotFound, authorised_read, role_of
+from src.store.access import NotFound, audit, authorise_read, authorised_read, role_of
 from src.store.db import transaction
 
 Meal = Literal["breakfast", "lunch", "dinner", "snack"]
+# Who may set a target through add_target() and the profile Save: the app or the gymer. A coach's
+# target is written only by add_client_target(), which sets "coach" itself (T9.17).
 TargetSource = Literal["system", "user"]
 RecordKind = Literal[
     "profile_entries",
@@ -64,6 +72,15 @@ _TARGETS = """
 SELECT id, kcal, protein_g, carbs_g, fat_g, set_by, calc_version, effective_from, created_at
 FROM nutrition_targets WHERE user_id = ? ORDER BY effective_from, id
 """
+# Who set the gymer's latest target (by day, then row ID, as metrics picks the active one).
+_LATEST_TARGET_SOURCE = """
+SELECT set_by FROM nutrition_targets WHERE user_id = ?
+ORDER BY effective_from DESC, id DESC LIMIT 1
+"""
+# Whether the gymer shares nutrition with a coach now, read from the sharing rule's one view, so an
+# ended relationship, or a new coach the gymer does not share nutrition with, does not count
+# (owner's choice, 2026-11-06, code review round 1).
+_SHARES_NUTRITION = "SELECT 1 FROM open_shares WHERE client_id = ? AND scope = 'nutrition'"
 _ADD_MEAL = """
 INSERT INTO meal_items (
     user_id, consumed_on, meal, fdc_id, food_name, grams,
@@ -98,7 +115,8 @@ _ADD_PREFERENCE = "INSERT INTO preferences (user_id, text, created_at) VALUES (?
 _PREFERENCES = "SELECT id, text, created_at FROM preferences WHERE user_id = ? ORDER BY id"
 _DELETE_PROFILE = "DELETE FROM profile_entries WHERE id = ? AND user_id = ?"
 _DELETE_WEIGHT = "DELETE FROM body_measurements WHERE id = ? AND user_id = ?"
-_DELETE_TARGET = "DELETE FROM nutrition_targets WHERE id = ? AND user_id = ?"
+# A coach-set target is never deleted by the gymer alone (T9.17); delete_user_data() removes it.
+_DELETE_TARGET = "DELETE FROM nutrition_targets WHERE id = ? AND user_id = ? AND set_by <> 'coach'"
 _DELETE_MEAL = "DELETE FROM meal_items WHERE id = ? AND user_id = ?"
 _DELETE_SETS = """
 DELETE FROM exercise_sets
@@ -220,12 +238,55 @@ def add_target(
     calc_version: str | None = None,
 ) -> int:
     """Add a new daily target row for the user (a target is never changed); return its ID."""
+    # Only "system" or "user": a coach's target goes through add_client_target() (T9.17).
+    source = values.choice(set_by, "set_by", get_args(TargetSource))
     row = _target_row(
-        user_id, kcal, protein_g, carbs_g, fat_g, set_by, effective_from, calc_version
+        user_id, kcal, protein_g, carbs_g, fat_g, source, effective_from, calc_version
     )
     with transaction(conn):
         _check_gymer(conn, user_id)
         return conn.execute(_ADD_TARGET, row).lastrowid
+
+
+def add_client_target(
+    conn: sqlite3.Connection,
+    coach_id: str,
+    client_id: str,
+    *,
+    kcal: float,
+    protein_g: float,
+    carbs_g: float,
+    fat_g: float,
+    effective_from: date,
+) -> int:
+    """Add a coach's daily target for a client who shares nutrition with them; return its ID."""
+    # The row is checked before the transaction, so a bad value writes nothing. The share check,
+    # the insert and the audit row are one transaction: a coach of a gymer, an active relationship
+    # and nutrition shared (open_shares); anything else, the coach's own ID included (for which
+    # authorise_read() returns False), is the same NotFound, with no row and no audit row.
+    try:
+        values.user_id(client_id)
+    except values.StoreValueError:
+        raise NotFound from None  # as a read of a subject that is not an ID
+    row = _target_row(client_id, kcal, protein_g, carbs_g, fat_g, "coach", effective_from, None)
+    # From today at the latest: a target set for later would keep a Save from writing the gymer's
+    # own target while it is not yet the active one (code review round 1).
+    if effective_from > metrics.berlin_day():
+        raise values.StoreValueError("effective_from", "must not be after today")
+    with transaction(conn):
+        if authorise_read(conn, coach_id, client_id, "nutrition") is not True:
+            raise NotFound
+        target_id = conn.execute(_ADD_TARGET, row).lastrowid
+        # Who set what kind of record about whom and when, never a value (PRD, Audit).
+        audit(
+            conn,
+            coach_id,
+            "target_set",
+            "nutrition_targets",
+            subject_id=client_id,
+            resource_id=target_id,
+        )
+        return target_id
 
 
 def _target_row(
@@ -234,11 +295,11 @@ def _target_row(
     protein_g: float,
     carbs_g: float,
     fat_g: float,
-    set_by: TargetSource,
+    set_by: str,
     effective_from: date,
     calc_version: str | None,
 ) -> tuple:
-    """Return a checked target row, ready for _ADD_TARGET."""
+    """Return a checked target row, ready for _ADD_TARGET; the caller has checked set_by."""
     return (
         values.user_id(user_id),
         # The calorie floor holds in code, whoever sets the target (docs/PRD.md, guardrails).
@@ -246,11 +307,19 @@ def _target_row(
         values.number(protein_g, "protein_g"),
         values.number(carbs_g, "carbs_g"),
         values.number(fat_g, "fat_g"),
-        values.choice(set_by, "set_by", get_args(TargetSource)),
+        set_by,
         None if calc_version is None else values.text(calc_version, "calc_version"),
         values.date_text(effective_from, "effective_from"),
         values.utc_text(),
     )
+
+
+def _keeps_coach_target(conn: sqlite3.Connection, user_id: str) -> bool:
+    """Return True if the latest target is a coach's and the gymer shares nutrition with a coach."""
+    latest = conn.execute(_LATEST_TARGET_SOURCE, (user_id,)).fetchone()
+    if latest is None or latest["set_by"] != "coach":
+        return False
+    return conn.execute(_SHARES_NUTRITION, (user_id,)).fetchone() is not None
 
 
 def add_profile_with_target(
@@ -270,18 +339,26 @@ def add_profile_with_target(
     set_by: TargetSource,
     day: date,
     calc_version: str | None = None,
-) -> None:
-    """Add a profile entry, its weight (unless None) and its target in one transaction (T9.13)."""
-    # One transaction, so a profile entry never stays without the target worked out from it.
+) -> bool:
+    """Add a profile entry, its weight and its target in one transaction; False: target kept."""
+    # One transaction, so a profile entry never stays without the target worked out from it,
+    # except while the gymer shares nutrition with a coach and the latest target was set by a
+    # coach: that target then stays the active one and no target is written (T9.17, owner's
+    # choices, 2026-11-06). Otherwise (no coach, or nutrition not shared) a Save writes its
+    # target, which then replaces the coach's.
     profile = _profile_row(user_id, height_cm, age, sex, activity, goal)
     weight = None if weight_kg is None else _weight_row(user_id, weight_kg, day)
-    target = _target_row(user_id, kcal, protein_g, carbs_g, fat_g, set_by, day, calc_version)
+    source = values.choice(set_by, "set_by", get_args(TargetSource))
+    target = _target_row(user_id, kcal, protein_g, carbs_g, fat_g, source, day, calc_version)
     with transaction(conn):
         _check_gymer(conn, user_id)
         conn.execute(_ADD_PROFILE, profile)
         if weight is not None:
             conn.execute(_ADD_WEIGHT, weight)
+        if _keeps_coach_target(conn, user_id):
+            return False
         conn.execute(_ADD_TARGET, target)
+        return True
 
 
 def list_targets(conn: sqlite3.Connection, actor_id: str, subject_id: str) -> list[dict]:
@@ -547,6 +624,7 @@ def list_preferences(conn: sqlite3.Connection, actor_id: str, subject_id: str) -
 
 def delete_record(conn: sqlite3.Connection, user_id: str, kind: RecordKind, record_id: int) -> None:
     """Delete one of the user's own records (a workout with its sets); NotFound if not theirs."""
+    # A target their coach set is NotFound too (T9.17): _DELETE_TARGET leaves it in place.
     values.choice(kind, "kind", RECORD_KINDS)
     if not values.is_row_id(record_id):
         raise NotFound

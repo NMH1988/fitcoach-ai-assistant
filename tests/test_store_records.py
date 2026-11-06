@@ -6,7 +6,7 @@ from datetime import date, timedelta
 import pytest
 
 from src import account, config
-from src.store import access, records, users, values
+from src.store import access, my_data, records, users, values
 from tests import store_world as world
 
 GYMER = "gym-1"
@@ -359,8 +359,9 @@ PROFILE_WITH_TARGET = {
 
 
 def test_every_add_function_is_in_the_gymer_only_test():
-    """ADDS lists every add_* function of records but the coach's add_preference (tested above)."""
-    assert {name for name in dir(records) if name.startswith("add_")} == {*ADDS, "add_preference"}
+    """ADDS lists every add_* function but a coach's (add_preference, add_client_target)."""
+    coaches = {"add_preference", "add_client_target"}
+    assert {name for name in dir(records) if name.startswith("add_")} == {*ADDS, *coaches}
 
 
 @pytest.mark.parametrize("add", ADDS)
@@ -376,7 +377,7 @@ def test_only_a_gymer_keeps_records(gymers, owner, add):
 
 
 def test_a_target_cannot_claim_to_be_set_by_a_coach(gymers):
-    """Until T9.17 adds the coach's path, a gymer's own target is set by the system or the user."""
+    """add_target() refuses "coach": only add_client_target() writes a coach's target (T9.17)."""
     with pytest.raises(values.StoreValueError, match="set_by"):
         records.add_target(
             gymers,
@@ -719,3 +720,142 @@ def test_sets_that_are_not_exercise_sets_are_a_store_value_error(gymers, sets):
     with pytest.raises(values.StoreValueError, match="sets"):
         records.add_workout_session(gymers, GYMER, performed_on=DAY, sets=sets)
     assert _count(gymers, "workout_sessions") == 0
+
+
+# --- T9.17: a coach's target for a client --------------------------------------------------------
+
+COACH_TARGET = {"kcal": 2100.0, "protein_g": 170.0, "carbs_g": 200.0, "fat_g": 65.0}
+
+
+@pytest.fixture
+def coached(store_conn):
+    """Build the made-up world of two coaches and four gymers; return the relationship IDs."""
+    return world.build(store_conn)
+
+
+def _set_target(conn, coach=world.COACH_A, client=world.SHARED, **changes):
+    """Set a coach's target for a client with the test's values; return its ID."""
+    return records.add_client_target(
+        conn, coach, client, **{**COACH_TARGET, **changes}, effective_from=DAY
+    )
+
+
+def _audit(conn):
+    """Return every audit row as a dict, by ID."""
+    return [dict(row) for row in conn.execute("SELECT * FROM audit_log ORDER BY id")]
+
+
+def test_a_coach_sets_a_shared_clients_target_with_one_audit_row(store_conn, coached):
+    """The new row is the coach's; the audit row names the row, never a value."""
+    target_id = _set_target(store_conn)
+    rows = records.list_targets(store_conn, world.SHARED, world.SHARED)
+    [target] = [row for row in rows if row["id"] == target_id]
+    assert (target["kcal"], target["set_by"], target["calc_version"]) == (2100.0, "coach", None)
+    assert target["effective_from"] == DAY.isoformat()
+    [row] = _audit(store_conn)
+    assert row["actor_id"] == world.COACH_A
+    assert row["subject_id"] == world.SHARED
+    assert (row["action"], row["resource_type"], row["resource_id"]) == (
+        "target_set",
+        "nutrition_targets",
+        target_id,
+    )
+    assert "2100" not in str(row)
+
+
+def test_a_coach_cannot_set_a_target_under_the_calorie_floor(store_conn, coached):
+    """The floor holds for a coach too: refused before the transaction, nothing written."""
+    before = _count(store_conn, "nutrition_targets")
+    with pytest.raises(values.StoreValueError, match="kcal"):
+        _set_target(store_conn, kcal=config.CALORIE_FLOOR_KCAL - 1)
+    assert _count(store_conn, "nutrition_targets") == before
+    assert _audit(store_conn) == []
+    _set_target(store_conn, kcal=config.CALORIE_FLOOR_KCAL)  # the floor itself is allowed
+
+
+def test_a_failure_after_the_insert_leaves_no_target_and_no_audit_row(
+    store_conn, coached, monkeypatch
+):
+    """The share check, the insert and the audit row are one transaction."""
+    before = _count(store_conn, "nutrition_targets")
+
+    def failing_audit(*args, **kwargs):
+        """Fail as the audit row is written."""
+        raise sqlite3.OperationalError("disk full")
+
+    monkeypatch.setattr(records, "audit", failing_audit)
+    with pytest.raises(sqlite3.OperationalError):
+        _set_target(store_conn)
+    assert _count(store_conn, "nutrition_targets") == before
+
+
+def test_the_gymer_cannot_delete_a_target_their_coach_set(store_conn, coached):
+    """delete_record() refuses a coach's target with NotFound and deletes nothing."""
+    target_id = _set_target(store_conn)
+    with pytest.raises(access.NotFound):
+        records.delete_record(store_conn, world.SHARED, "nutrition_targets", target_id)
+    ids = [row["id"] for row in records.list_targets(store_conn, world.SHARED, world.SHARED)]
+    assert target_id in ids
+
+
+def test_the_gymer_still_deletes_a_system_or_user_target(store_conn, coached):
+    """Only a coach's target is kept from delete_record(); the gymer's own still go."""
+    _set_target(store_conn)
+    for source in ("system", "user"):
+        own = records.add_target(
+            store_conn, world.SHARED, **COACH_TARGET, set_by=source, effective_from=DAY
+        )
+        records.delete_record(store_conn, world.SHARED, "nutrition_targets", own)
+    stored = records.list_targets(store_conn, world.SHARED, world.SHARED)
+    sources = [row["set_by"] for row in stored]
+    assert sources == ["system", "coach"]  # world.add_records' target and the coach's
+
+
+@pytest.mark.parametrize("who", [world.SHARED, world.COACH_A])
+def test_deleting_everything_removes_a_coach_set_target(store_conn, coached, who):
+    """Only delete_user_data() removes a coach's target: the gymer's, or the coach's (AC-34)."""
+    target_id = _set_target(store_conn)
+    my_data.delete_user_data(store_conn, who, world.no_threads)
+    found = "SELECT 1 FROM nutrition_targets WHERE id = ?"
+    if who == world.SHARED:
+        assert store_conn.execute(found, (target_id,)).fetchone() is None
+    else:
+        # The coach's delete takes the audit rows that name them; the gymer's row stays theirs.
+        assert store_conn.execute(found, (target_id,)).fetchone() is not None
+        assert _audit(store_conn) == []
+
+
+def test_a_profile_save_keeps_the_coachs_target_while_the_gymer_has_a_coach(store_conn, coached):
+    """With the coach's target the latest and a coach now, a Save writes no target (T9.17)."""
+    _set_target(store_conn)
+    before = _count(store_conn, "nutrition_targets")
+    written = records.add_profile_with_target(store_conn, world.SHARED, **PROFILE_WITH_TARGET)
+    assert written is False
+    assert _count(store_conn, "nutrition_targets") == before
+    assert len(records.list_profile_entries(store_conn, world.SHARED, world.SHARED)) == 2
+    latest = records.list_targets(store_conn, world.SHARED, world.SHARED)[-1]
+    assert latest["set_by"] == "coach"
+
+
+def test_a_profile_save_replaces_the_coachs_target_once_the_relationship_ended(store_conn, coached):
+    """Without a coach, a Save writes its target again, which becomes the latest."""
+    _set_target(store_conn)
+    users.end_relationship(store_conn, world.SHARED, coached[world.SHARED])
+    later = {**PROFILE_WITH_TARGET, "day": DAY + timedelta(days=1)}
+    assert records.add_profile_with_target(store_conn, world.SHARED, **later) is True
+    latest = records.list_targets(store_conn, world.SHARED, world.SHARED)[-1]
+    assert latest["set_by"] == "system"
+
+
+def test_a_profile_save_replaces_it_when_nutrition_is_not_shared(store_conn, coached):
+    """A coach the gymer shares no nutrition with does not keep an earlier coach's target."""
+    _set_target(store_conn)
+    users.set_consent(store_conn, world.SHARED, coached[world.SHARED], "nutrition", False)
+    assert records.add_profile_with_target(store_conn, world.SHARED, **PROFILE_WITH_TARGET)
+    assert records.list_targets(store_conn, world.SHARED, world.SHARED)[-1]["set_by"] == "system"
+
+
+def test_a_profile_save_with_a_coach_but_no_coach_target_writes_its_target(store_conn, coached):
+    """A coach alone does not stop the Save: only the coach's target as the latest does."""
+    assert records.add_profile_with_target(store_conn, world.SHARED, **PROFILE_WITH_TARGET)
+    assert records.list_targets(store_conn, world.SHARED, world.SHARED)[-1]["set_by"] == "system"

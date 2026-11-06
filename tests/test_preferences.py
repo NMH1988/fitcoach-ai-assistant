@@ -87,9 +87,24 @@ def test_the_text_is_cleaned_before_it_is_proposed():
     assert checked.allowed and checked.text == "keep answers short"
 
 
+@pytest.mark.parametrize(
+    "text",
+    ["client-2 is vegetarian", "Remember that CLIENT-1 trains early", "keep client-12 brief"],
+)
+def test_a_client_reference_is_refused(text):
+    """A client named by the chat's reference is refused at the proposal and the Save (T9.17)."""
+    assert preferences.check_preference(text, NAMES).code == "client_reference"
+
+
+@pytest.mark.parametrize("text", ["most clients are beginners", "my client-facing tone is warm"])
+def test_words_like_client_are_not_a_reference(text):
+    """Only "client-" followed by a number is a reference."""
+    assert preferences.check_preference(text, NAMES).allowed
+
+
 def test_every_refusal_code_has_a_message():
     """Each code check_preference() can give has a fixed message for the model."""
-    codes = {"invalid", "injection", "guardrail", "client_name", "one_per_turn"}
+    codes = {"invalid", "injection", "guardrail", "client_name", "client_reference", "one_per_turn"}
     assert set(config.PREFERENCE_REFUSED_MESSAGES) == codes
 
 

@@ -20,6 +20,13 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from src import config
 from src.profile import UserProfile
 from src.prompt_data import escape_prompt_data
+from src.tools import coach_clients
+from src.tools.coach_clients import (
+    ClientListResult,
+    ClientNotice,
+    ClientWeekResult,
+    CoachClients,
+)
 from src.tools.energy import (
     MacroTargetsResult,
     TdeeResult,
@@ -87,6 +94,9 @@ TOOL_TITLES: dict[str | None, str] = {
     MACRO_TOOL: "Daily targets",
     FOOD_TOOL: "Food lookup",
     MEAL_PLAN_TOOL: "Meal plan check",
+    # A coach's chat only (T9.17).
+    coach_clients.LIST_TOOL: "Your clients this week",
+    coach_clients.WEEK_TOOL: "A client's week",
     None: "Tool call not run",
 }
 
@@ -115,7 +125,16 @@ class MacroToolResult(BaseModel):
     targets: MacroTargetsResult
 
 
-ToolResult = TdeeResult | MacroToolResult | FoodLookupResult | MealPlanResult | ToolNotice
+ToolResult = (
+    TdeeResult
+    | MacroToolResult
+    | FoodLookupResult
+    | MealPlanResult
+    | ToolNotice
+    | ClientListResult
+    | ClientWeekResult
+    | ClientNotice
+)
 
 
 @dataclass(frozen=True)
@@ -160,9 +179,11 @@ def _no_arguments_message(_: ValidationError) -> str:
 
 
 def build_tools(
-    profile: UserProfile | None, table: Sequence[Food] | None = None
+    profile: UserProfile | None,
+    table: Sequence[Food] | None = None,
+    clients: CoachClients | None = None,
 ) -> dict[str, StructuredTool]:
-    """Return the tools by name, the energy and meal plan tools bound to this profile (or None)."""
+    """Return the tools by name, bound to this profile (or None) and a coach's clients (T9.17)."""
     # `table` replaces the committed foods table (tests); the model can never set it. Run the
     # model's calls only through run_tool_call(): LangChain's own `tool.invoke()` skips the check
     # for the NoArgs tools and would run them with the model's extra fields dropped.
@@ -189,7 +210,7 @@ def build_tools(
             return ToolNotice(status="error", message=config.TOOL_FAILED_MESSAGE)
         return evaluate_meal_plan(items, daily.targets, table)
 
-    return {
+    tools = {
         TDEE_TOOL: StructuredTool.from_function(
             func=tdee,
             name=TDEE_TOOL,
@@ -219,6 +240,10 @@ def build_tools(
             handle_validation_error=invalid_meal_plan_message,
         ),
     }
+    if clients is not None:
+        # Only a coach's chat reads the coach's clients, through the coach's session (T9.17).
+        tools.update(coach_clients.build_tools(clients, _no_arguments_message))
+    return tools
 
 
 # The fixed message for arguments that fail a tool's schema; none repeats what was sent.
@@ -227,6 +252,8 @@ _INVALID_MESSAGES: dict[str, Callable[[ValidationError], str]] = {
     MACRO_TOOL: _no_arguments_message,
     FOOD_TOOL: invalid_lookup_message,
     MEAL_PLAN_TOOL: invalid_meal_plan_message,
+    coach_clients.LIST_TOOL: _no_arguments_message,
+    coach_clients.WEEK_TOOL: coach_clients.invalid_week_message,
 }
 
 

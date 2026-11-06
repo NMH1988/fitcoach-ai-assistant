@@ -27,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from src import config, guard
 from src.prompt_data import escape_prompt_data
 from src.store import records, users
+from src.tools.coach_clients import REFERENCE
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +133,10 @@ def check_preference(text: object, client_names: Sequence[str]) -> PreferenceChe
     views = {decision.text, *guard.detection_views(text)}
     if any(names_in(view, client_names) for view in views):
         return PreferenceCheck(False, code="client_name")
+    # A client named by the chat's reference ("client-2", T9.17) is a client too, and the same
+    # reference stands for another client in a later chat (code review round 1).
+    if any(REFERENCE.search(view) for view in views):
+        return PreferenceCheck(False, code="client_reference")
     return PreferenceCheck(True, text=decision.text)
 
 

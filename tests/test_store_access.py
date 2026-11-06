@@ -122,6 +122,12 @@ INTERNALS = {
 }
 
 
+# A coach's writes into a client's records (T9.17): each runs access.authorise_read() for the
+# scope the record belongs to inside its write transaction, so it is refused exactly where a read
+# is (REFUSED, a scope not shared, the coach's own ID), with no row and no audit row.
+COACH_WRITES = {"records.add_client_target": "nutrition"}
+
+
 # The one read of another user's data that does not go through access.authorised_read() (T9.12):
 # the other side's display name, allowed for both sides of an active or ended relationship, checked
 # by the function itself and not audited (owner's choices, 2026-10-28 and 2026-11-03).
@@ -254,7 +260,7 @@ def test_every_public_store_function_is_classified():
             and not name.startswith("_")
         }
     reads = {f"{READS[name][0].__module__.rsplit('.', 1)[1]}.{name}" for name in READS}
-    groups = [reads, OWN_ONLY, WRITES, INTERNALS, NAME_READS]
+    groups = [reads, OWN_ONLY, WRITES, INTERNALS, NAME_READS, set(COACH_WRITES)]
     assert found == set().union(*groups)
     assert sum(len(group) for group in groups) == len(found)  # no function in two groups
 
@@ -609,3 +615,73 @@ def test_the_relationship_list_of_a_missing_user(store_conn, relationships, user
     """A missing user gets NotFound; an ID that is not text a value error."""
     with pytest.raises((access.NotFound, ValueError)):
         users.list_relationships(store_conn, user)
+
+
+# --- T9.17: a coach's writes into a client's records -------------------------------------------
+
+COACH_WRITE_CALLS = {
+    "records.add_client_target": lambda conn, coach, client: records.add_client_target(
+        conn,
+        coach,
+        client,
+        kcal=2100.0,
+        protein_g=170.0,
+        carbs_g=200.0,
+        fat_g=65.0,
+        effective_from=world.DAY,
+    ),
+}
+
+
+def _target_count(conn):
+    """Return the number of stored targets."""
+    return conn.execute("SELECT count(*) FROM nutrition_targets").fetchone()[0]
+
+
+def test_every_coach_write_has_a_call_here():
+    """Each function of the coach-writes group is run by the tests below."""
+    assert set(COACH_WRITE_CALLS) == set(COACH_WRITES)
+
+
+@pytest.mark.parametrize("write", COACH_WRITES)
+@pytest.mark.parametrize("case", REFUSED)
+def test_every_refused_pair_gives_not_found_and_writes_nothing(
+    store_conn, relationships, write, case
+):
+    """A coach's write is refused where a read is: one NotFound, no row, no audit row."""
+    actor, subject = REFUSED[case]
+    before = _target_count(store_conn)
+    with pytest.raises(access.NotFound) as caught:
+        COACH_WRITE_CALLS[write](store_conn, actor, subject)
+    assert type(caught.value) is access.NotFound
+    assert str(caught.value) == "not found"
+    assert _target_count(store_conn) == before
+    assert _audit_rows(store_conn) == []
+
+
+@pytest.mark.parametrize("write", COACH_WRITES)
+def test_a_coach_write_into_their_own_records_is_refused(store_conn, relationships, write):
+    """authorise_read() is False for the coach's own ID, which the write refuses too."""
+    before = _target_count(store_conn)
+    with pytest.raises(access.NotFound):
+        COACH_WRITE_CALLS[write](store_conn, world.COACH_A, world.COACH_A)
+    assert _target_count(store_conn) == before
+    assert _audit_rows(store_conn) == []
+
+
+@pytest.mark.parametrize("write", COACH_WRITES)
+def test_a_coach_write_needs_its_scope_while_others_are_shared(store_conn, relationships, write):
+    """A client sharing body and training but not the write's scope refuses it (AC-22)."""
+    users.set_consent(
+        store_conn, world.SHARED, relationships[world.SHARED], COACH_WRITES[write], False
+    )
+    before = _target_count(store_conn)
+    with pytest.raises(access.NotFound):
+        COACH_WRITE_CALLS[write](store_conn, world.COACH_A, world.SHARED)
+    assert _target_count(store_conn) == before
+    assert _audit_rows(store_conn) == []
+    scope = COACH_WRITES[write]
+    users.set_consent(store_conn, world.SHARED, relationships[world.SHARED], scope, True)
+    COACH_WRITE_CALLS[write](store_conn, world.COACH_A, world.SHARED)  # allowed once shared again
+    [row] = _audit_rows(store_conn)
+    assert row["action"] == "target_set"
