@@ -388,6 +388,14 @@ def render_attribution(
             f"- **USDA FoodData Central.** {_md(citation)}. "
             f"Licence: {config.USDA_LICENSE}, {_url(config.USDA_LICENSE_URL)}. "
             f"Changes: {_md(config.USDA_CHANGES)} No endorsement by USDA is implied.",
+            "",
+            "When a food is not in that table and the app has a FoodData Central API key, the "
+            "food lookup tool searches the FoodData Central API at the time of the lookup (T9.9); "
+            "nothing it returns is stored or committed.",
+            "",
+            f"- **USDA FoodData Central API.** {_md(config.FOOD_API_CITATION)} "
+            f"Licence: {config.USDA_LICENSE}, {_url(config.USDA_LICENSE_URL)}. "
+            f"Changes: {_md(config.FOOD_API_CHANGES)} No endorsement by USDA is implied.",
         ]
     if formula_sources:
         # The energy tools (T4.2) use numbers from these articles; none of their text is used.
