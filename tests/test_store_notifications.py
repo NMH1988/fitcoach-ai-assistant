@@ -380,8 +380,9 @@ def test_a_gymer_s_deletion_takes_the_coach_s_notifications_about_them(people, m
     """No "ended" and nothing left about the gymer; the coach's unread count still works."""
     rel = users.start_relationship(people, COACH, GYM)
     users.set_consent(people, GYM, rel, "body", True)
-    _relationship(people, COACH, OTHER_GYM, accepted=0)
-    _clock(monkeypatch, 1)  # after Gym Oskar's event, so the coach has read everything
+    oskar = _relationship(people, COACH, OTHER_GYM, accepted=0)
+    # After Gym Oskar's event, so it is read; Gym Noor's events (the real clock) stay unread.
+    _clock(monkeypatch, 1)
     notifications.mark_all_read(people, COACH)
     notifications.mark_all_read(people, GYM)
     my_data.delete_user_data(people, GYM, no_threads)
@@ -390,6 +391,9 @@ def test_a_gymer_s_deletion_takes_the_coach_s_notifications_about_them(people, m
     assert all(kind != "ended" for kind, *_ in seen)
     assert all(user != GYM for user, _ in _marks(people))
     assert _unread(people, COACH) == []
+    # The count still works after the deletion: a new event is unread.
+    _consent(people, oskar, "training", granted=10)
+    assert _unread(people, COACH) == ["scope_started"]
 
 
 def test_a_coach_s_deletion_takes_the_gymer_s_notifications_about_them(people, monkeypatch):

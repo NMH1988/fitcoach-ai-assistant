@@ -1841,7 +1841,7 @@ _DE: dict[str, str] = {
     ),
     "my_data.intro_coach": (
         "Alles, was die App über Sie speichert: Ihr Konto, die Arbeitsvorlieben, die Sie im Chat "
-        "gespeichert haben, sobald Sie welche haben, Ihre Kunden und deren Auswertungen, und Ihre "
+        "gespeichert haben, Ihre Kunden und deren Auswertungen, sobald Sie welche haben, und Ihre "
         "Lesemarkierung der Benachrichtigungen (wann Sie sie zuletzt als gelesen markiert haben); "
         "sie stehen im Export. Sonst wird von Ihren Chats nichts gespeichert."
     ),
