@@ -668,7 +668,7 @@ def test_details_escapes_the_question_and_the_rewrites(monkeypatch):
     [listing] = [m.value for m in tab.markdown if m.value.startswith("1. ")]
     assert "](https://" not in listing
     # The word joiner after the scheme keeps remark-gfm from linking the URL (tables.one_line).
-    assert "!\\[x\\](https⁠\\://evil.example/q)" in listing
+    assert "!\\[x\\](https\u2060\\://evil.example/q)" in listing
     assert r"\*\*protein\*\*" in listing
 
 

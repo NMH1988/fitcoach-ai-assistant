@@ -53,7 +53,7 @@ def test_bold_label_bolds_only_the_label():
         ("1. step", r"1\. step"),
         ("- item", r"\- item"),
         ("> quote", r"\> quote"),
-        ("![x](http://evil)", "!\\[x\\](http⁠\\://evil)"),
+        ("![x](http://evil)", "!\\[x\\](http\u2060\\://evil)"),
     ],
 )
 def test_one_line_escapes_what_markdown_would_read_as_a_block_or_image(text, expected):
@@ -77,6 +77,9 @@ UNESCAPE = re.compile(r"\\(.)")
         "plain https://attacker.example/x?k=1050",
         "http://attacker.example",
         "mailto:x@attacker.example",
+        # Round 12: an underscore before the host or scheme (remark-gfm accepts it there).
+        "x_www.attacker.example/?k=1043",
+        "_https://attacker.example",
     ],
 )
 def test_one_line_leaves_no_text_that_markdown_turns_into_a_link(text):
@@ -594,7 +597,7 @@ def test_a_review_s_texts_are_listed_escaped():
     }
     assert tables.review_markdown(final).split("\n") == [
         "- Logged 3 of 7 days.",
-        "- !\\[x\\](https⁠\\://evil.example/a.png)",  # neither an image nor a link
+        "- !\\[x\\](https\u2060\\://evil.example/a.png)",  # neither an image nor a link
         r"- \# Big",
     ]
 
@@ -799,7 +802,7 @@ def test_a_review_s_sections_are_escaped_lines_under_the_app_s_headings():
     assert [heading for heading, _ in sections] == ["Observations", "Recommendations"]
     observations = sections[0][1]
     # Neither an image nor a link; a "#" in the middle of a line is no heading.
-    assert observations == "- !\\[x\\](https⁠\\://evil.example/a.png) # Big"
+    assert observations == "- !\\[x\\](https\u2060\\://evil.example/a.png) # Big"
     lines = sections[1][1].split("\n")
     assert lines[0] == r"- **Training:** Consider more leg work \[S2\]."
     assert r"    - Range in the source: 10\-20 sets per week" in lines  # shown as 10-20

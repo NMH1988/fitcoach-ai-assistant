@@ -21,9 +21,11 @@ LINE_START = re.compile(r"^(\d*)([#+=.)-])")
 # case), a scheme's colon ("https:", "http:") and an e-mail address's "@". It finds them in the
 # text after the Markdown is parsed, so a backslash escape does not stop it; a word joiner (U+2060,
 # invisible) does, as its patterns need "www" right before the dot, the colon right after the
-# scheme and a letter right before the "@" (checked in a browser, 2026-11-06).
-_AUTOLINK_STARTS = re.compile(r"\b(?:www(?=\.)|https?(?=:)|mailto(?=:))|(?=@)", re.I)
-WORD_JOINER = "⁠"
+# scheme and a letter right before the "@" (checked in a browser, 2026-11-06). No word
+# boundary: remark-gfm links after any punctuation, "_" included ("x_www."), and a joiner
+# too many ("wwww.") does no harm (code review round 12).
+_AUTOLINK_STARTS = re.compile(r"(?:www(?=\.)|https?(?=:)|mailto(?=:))|(?=@)", re.I)
+WORD_JOINER = "\u2060"
 # The columns of the Details tab's table of a turn's calls (T5.1), as keys in src/i18n.py.
 USAGE_COLUMNS = ("step", "model", "input", "cached", "output", "reasoning", "cost")
 # A call of the answer step is named with its round ("Answer, round 2"), read back for the UI.
