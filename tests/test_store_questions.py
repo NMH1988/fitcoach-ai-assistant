@@ -345,3 +345,14 @@ def test_the_question_row_cannot_be_changed(store_conn, approved):
     questions.ask_question(store_conn, world.SHARED, approved, QUESTION)
     with pytest.raises(sqlite3.IntegrityError, match="never changed in place"):
         store_conn.execute("UPDATE review_questions SET text = 'changed'")
+
+
+def test_an_answer_to_a_question_no_longer_open_is_refused(store_conn, approved):
+    """A stale answer (its question answered in another tab, a new one asked) is not stored."""
+    first = questions.ask_question(store_conn, world.SHARED, approved, QUESTION)
+    questions.answer_question(store_conn, world.COACH_A, approved, ANSWER, first)
+    second = questions.ask_question(store_conn, world.SHARED, approved, QUESTION)
+    with pytest.raises(questions.NotYourTurn):
+        questions.answer_question(store_conn, world.COACH_A, approved, ANSWER, first)
+    assert questions.answer_question(store_conn, world.COACH_A, approved, ANSWER, second)
+    assert [row["kind"] for row in _rows(store_conn)] == ["question", "answer"] * 2

@@ -284,9 +284,11 @@ def test_a_delete_then_a_store_failure_leaves_no_stored_profile(monkeypatch, gym
 
 
 def test_my_data_says_where_the_relationships_are(monkeypatch, gymer_with_records):
-    """The gymer's intro says the relationships, sharing and the coach's reads are in the export."""
+    """The intro says the relationships, sharing, questions and the coach's reads are exported."""
     at = open_my_data(start(monkeypatch, user=signed_in()))
-    assert "sharing choices and your coach's reads of your data are in the export" in texts(at)
+    page = texts(at)
+    assert "relationships, sharing choices, your questions to the coach with the answers" in page
+    assert "your coach's reads of your data are in the export" in page
 
 
 def test_demo_mode_opens_on_the_start_page(monkeypatch, demo_store_is_fresh):

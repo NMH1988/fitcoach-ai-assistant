@@ -129,7 +129,7 @@ def gymer_thread(user: dict, review: dict, rows: list[dict], askable: frozenset[
         )
 
 
-def _answer(user_id: str, review_id: int) -> None:
+def _answer(user_id: str, review_id: int, question_id: int) -> None:
     """Write the coach's typed answer; keep the outcome (the fixed message when refused)."""
     # A callback, as _ask(): it runs even when the next run no longer shows the client.
     cleaned = guard.clean_input(st.session_state.get(_answer_key(review_id)) or "")
@@ -138,7 +138,7 @@ def _answer(user_id: str, review_id: int) -> None:
         return
     try:
         with accounts.open_store(account.store_path()) as conn:
-            questions.answer_question(conn, user_id, review_id, cleaned)
+            questions.answer_question(conn, user_id, review_id, cleaned, question_id)
     except NotFound:
         # The relationship ended or a scope the review used was turned off while the page was
         # open: the review (or the client) is hidden now, so the message shows at the page's top.
@@ -177,5 +177,5 @@ def coach_thread(user: dict, review: dict, rows: list[dict]) -> None:
                 t("questions.answer"),
                 icon=":material/send:",
                 on_click=_answer,
-                args=(user["id"], review["id"]),
+                args=(user["id"], review["id"], rows[-1]["id"]),
             )

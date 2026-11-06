@@ -32,7 +32,7 @@ class NotYourTurn(ValueError):
 
 _REVIEW = "SELECT client_id, coach_id, status FROM ai_reviews WHERE id = ?"
 _USED_SCOPES = "SELECT scope FROM ai_review_scopes WHERE review_id = ?"
-_KINDS = "SELECT kind FROM review_questions WHERE review_id = ? ORDER BY id"
+_KINDS = "SELECT id, kind FROM review_questions WHERE review_id = ? ORDER BY id"
 _INSERT = """
 INSERT INTO review_questions (review_id, author_id, kind, text, created_at) VALUES (?, ?, ?, ?, ?)
 """
@@ -127,9 +127,9 @@ def _check_coach_reads(conn: sqlite3.Connection, review: sqlite3.Row, review_id:
             raise NotFound
 
 
-def _kinds(conn: sqlite3.Connection, review_id: int) -> list[str]:
-    """Return the kinds of the thread's rows, oldest first."""
-    return [row["kind"] for row in conn.execute(_KINDS, (review_id,))]
+def _thread(conn: sqlite3.Connection, review_id: int) -> list[sqlite3.Row]:
+    """Return the IDs and kinds of the thread's rows, oldest first."""
+    return conn.execute(_KINDS, (review_id,)).fetchall()
 
 
 def ask_question(conn: sqlite3.Connection, gymer_id: str, review_id: int, text: str) -> int:
@@ -142,7 +142,7 @@ def ask_question(conn: sqlite3.Connection, gymer_id: str, review_id: int, text: 
         if review["client_id"] != gymer_id or role_of(conn, gymer_id) != "gymer":
             raise NotFound
         _check_coach_reads(conn, review, review_id)
-        kinds = _kinds(conn, review_id)
+        kinds = [row["kind"] for row in _thread(conn, review_id)]
         waiting = bool(kinds) and kinds[-1] == "question"
         if waiting or kinds.count("question") >= config.REVIEW_THREAD_MAX_QUESTIONS:
             raise NotYourTurn
@@ -151,8 +151,17 @@ def ask_question(conn: sqlite3.Connection, gymer_id: str, review_id: int, text: 
     return cursor.lastrowid
 
 
-def answer_question(conn: sqlite3.Connection, coach_id: str, review_id: int, text: str) -> int:
+def answer_question(
+    conn: sqlite3.Connection,
+    coach_id: str,
+    review_id: int,
+    text: str,
+    question_id: int | None = None,
+) -> int:
     """Write the coach's answer to the open question under a review they wrote; return its ID."""
+    # question_id names the question the coach saw: if another has become the open one since
+    # (answered in another tab, then a new question asked), the answer is refused, not stored
+    # under a question it does not answer (code review round 2).
     body = values.text(text, "text", config.REVIEW_THREAD_MAX_CHARS)
     if not values.is_row_id(review_id):
         raise NotFound
@@ -161,8 +170,10 @@ def answer_question(conn: sqlite3.Connection, coach_id: str, review_id: int, tex
         if review["coach_id"] != coach_id:
             raise NotFound
         _check_coach_reads(conn, review, review_id)
-        kinds = _kinds(conn, review_id)
-        if not kinds or kinds[-1] != "question":
+        rows = _thread(conn, review_id)
+        if not rows or rows[-1]["kind"] != "question":
+            raise NotYourTurn
+        if question_id is not None and rows[-1]["id"] != question_id:
             raise NotYourTurn
         cursor = conn.execute(_INSERT, (review_id, coach_id, "answer", body, values.utc_text()))
         # IDs, the action, the kind of data and the time; never the text (AC-29, AC-42).

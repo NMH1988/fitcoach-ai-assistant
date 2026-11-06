@@ -414,18 +414,19 @@ def test_a_question_answered_in_another_tab_meanwhile(monkeypatch, coach_world):
 
 
 def _store_fails_on_send(monkeypatch):
-    """Make the store unavailable from now on, as a locked or broken file would."""
+    """Make only the send fail, as a store locked at that moment would; the page still draws."""
 
-    def broken(path):
-        """Raise the app's store error instead of opening the file."""
+    def broken(*args):
+        """Raise the app's store error instead of writing."""
         raise accounts.StoreUnavailable
 
-    monkeypatch.setattr(accounts, "open_store", broken)
+    monkeypatch.setattr(questions, "ask_question", broken)
+    monkeypatch.setattr(questions, "answer_question", broken)
 
 
 @pytest.mark.parametrize("role", ["gymer", "coach"])
 def test_a_store_that_fails_on_send_shows_its_fixed_message(monkeypatch, request, role):
-    """The store failing as a question or an answer is sent: one fixed message, no error."""
+    """The store failing as a question or an answer is sent: its message once, the page drawn."""
     if role == "gymer":
         world = request.getfixturevalue("gymer_world")
         at = _my_week(monkeypatch)
@@ -441,4 +442,24 @@ def test_a_store_that_fails_on_send_shows_its_fixed_message(monkeypatch, request
     send.click()
     at.run(timeout=30)
     assert not at.exception
-    assert i18n.t("account.store_unavailable", "en") in page_text(at)
+    unavailable = i18n.t("account.store_unavailable", "en")
+    assert [item.value for item in at.warning].count(unavailable) == 1
+    assert "Questions to the coach" in page_text(at)  # the page itself was drawn
+    assert [row["kind"] for row in _rows()] == (["question"] if role == "coach" else [])
+    assert _flash_left(at) is None
+
+
+def _flash_left(at: AppTest):
+    """Return an outcome still waiting in the session (None once shown)."""
+    return at.session_state["questions_flash"] if "questions_flash" in at.session_state else None
+
+
+def test_a_stale_answer_is_not_stored_under_a_newer_question(monkeypatch, coach_world):
+    """Answered in another tab and a new question asked: the old page's answer is refused."""
+    at = _client_week(monkeypatch)
+    with db.connect() as conn:
+        questions.answer_question(conn, USER_ID, coach_world["trained"], ANSWER)
+        questions.ask_question(conn, CLIENT, coach_world["trained"], QUESTION)
+    at = _answer(at, coach_world["trained"], "An answer to the first question")
+    assert [row["kind"] for row in _rows()] == ["question", "answer", "question"]
+    assert "This question has an answer already." in page_text(at)
