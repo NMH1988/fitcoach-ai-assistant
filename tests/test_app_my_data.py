@@ -274,7 +274,9 @@ def test_a_delete_then_a_store_failure_leaves_no_stored_profile(monkeypatch, gym
     def failing_after_the_delete(path=None):
         """Let the delete's own opening work, then fail as connect() does."""
         count["opens"] += 1
-        if count["opens"] > 3:  # this run's resolve(), the page's list and the delete
+        # This run's resolve(), the sidebar's notification bell (T9.29), the page's list and the
+        # delete.
+        if count["opens"] > 4:
             raise db.StoreError("C:/private/folder")
         return real(path)
 
@@ -284,9 +286,12 @@ def test_a_delete_then_a_store_failure_leaves_no_stored_profile(monkeypatch, gym
 
 
 def test_my_data_says_where_the_relationships_are(monkeypatch, gymer_with_records):
-    """The gymer's intro says the relationships, sharing and the coach's reads are in the export."""
+    """The gymer's intro says the relationships, sharing, the coach's reads and the read mark."""
     at = open_my_data(start(monkeypatch, user=signed_in()))
-    assert "sharing choices and your coach's reads of your data are in the export" in texts(at)
+    assert (
+        "sharing choices, your coach's reads of your data and your notification read mark"
+        in texts(at)
+    )
 
 
 def test_demo_mode_opens_on_the_start_page(monkeypatch, demo_store_is_fresh):

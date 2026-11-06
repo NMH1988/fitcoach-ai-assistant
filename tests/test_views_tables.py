@@ -1,5 +1,6 @@
 """views/tables.py: table rows, cells and text lines, built without Streamlit or AppTest (T8.1)."""
 
+import dataclasses
 import html
 import re
 from datetime import date
@@ -8,6 +9,7 @@ from decimal import Decimal
 import pytest
 
 from src import chat, config, dashboard, i18n, metrics, usage
+from src.store.notifications import Notification
 from src.tools import energy, registry
 from src.tools.food import FoodLookupResult, Nutrients
 from tests.fakes import PROFILE
@@ -855,3 +857,63 @@ def test_only_a_text_with_the_three_sections_counts_as_t9_16_s_fields():
     assert tables.has_review_fields(_review_text())
     assert not tables.has_review_fields({"observations": ["x"]})
     assert not tables.has_review_fields({"observations": [], "hypotheses": []})
+
+
+# --- Notifications (T9.29) ------------------------------------------------------------------------
+
+
+def _notification(kind: str, **fields) -> Notification:
+    """Return a made-up notification of a kind, unread, from Bo."""
+    return Notification(kind, "2026-11-04T12:00:00+00:00", fields.pop("name", "Bo"), **fields)
+
+
+@pytest.mark.parametrize(
+    ("stamp", "shown"),
+    [
+        ("2026-11-04T12:00:00+00:00", "2026-11-04 13:00"),  # winter time, UTC+1
+        ("2026-07-01T10:00:00+00:00", "2026-07-01 12:00"),  # summer time, UTC+2
+        ("2026-11-04T23:30:00+00:00", "2026-11-05 00:30"),  # the next day in Berlin
+    ],
+)
+def test_a_notification_s_time_is_shown_in_berlin(stamp, shown):
+    """A stored UTC time is shown in Berlin time, to the minute (D21)."""
+    assert tables.berlin_time(stamp) == shown
+
+
+@pytest.mark.parametrize(
+    ("notification", "role", "language", "text"),
+    [
+        (_notification("connected", scopes=("nutrition", "body")), "coach", "en",
+         "Bo connected and shares: Nutrition, Body."),
+        (_notification("connected"), "coach", "en", "Bo connected and shares nothing yet."),
+        (_notification("connected", scopes=("body",)), "gymer", "en", "You are connected with Bo."),
+        (_notification("scope_started", scopes=("training",)), "coach", "de",
+         "Bo teilt jetzt Training."),
+        (_notification("scope_stopped", scopes=("body",)), "coach", "en",
+         "Bo stopped sharing Body."),
+        (_notification("ended"), "gymer", "de", "Ihre Verbindung mit Bo ist beendet."),
+        (_notification("review_approved", week="2026-10-05"), "gymer", "en",
+         "Bo approved your weekly review for the week of 2026-10-05."),
+    ],
+)  # fmt: skip
+def test_each_kind_reads_as_its_sentence(notification, role, language, text):
+    """Each kind names the other side, the scope or the week, in the reader's language."""
+    assert tables.notification_text(notification, role, language) == text
+
+
+def test_a_notification_s_name_is_escaped():
+    """The other side's display name adds no Markdown to the line."""
+    text = tables.notification_text(_notification("ended", name="Bo *x*"), "coach", "en")
+    assert "*x*" not in text and r"\*x\*" in text
+
+
+def test_an_unread_notification_is_marked_new_in_words():
+    """Unread reads "New" (not a colour only); a read one has the time and the sentence only."""
+    unread = _notification("ended")
+    read = dataclasses.replace(unread, unread=False)
+    assert tables.notification_line(unread, "coach", "en") == (
+        ":material/fiber_new: **New** · 2026-11-04 13:00 · Your relationship with Bo ended."
+    )
+    assert tables.notification_line(read, "coach", "de") == (
+        "2026-11-04 13:00 · Ihre Verbindung mit Bo ist beendet."
+    )
