@@ -17,6 +17,15 @@ from src.tools.food import FoodLookupResult
 # The start of a line Markdown would read as a block: "#", "-", "+", "=" or "1." / "1)". A ">"
 # (quote) is not here: chat.escape_markdown() escapes it first, so keep both in step.
 LINE_START = re.compile(r"^(\d*)([#+=.)-])")
+# Where Streamlit's Markdown (remark-gfm) starts a link of its own in plain text: "www." (any
+# case), a scheme's colon ("https:", "http:") and an e-mail address's "@". It finds them in the
+# text after the Markdown is parsed, so a backslash escape does not stop it; a word joiner (U+2060,
+# invisible) does, as its patterns need "www" right before the dot, the colon right after the
+# scheme and a letter right before the "@" (checked in a browser, 2026-11-06). No word
+# boundary: remark-gfm links after any punctuation, "_" included ("x_www."), and a joiner
+# too many ("wwww.") does no harm (code review round 12).
+_AUTOLINK_STARTS = re.compile(r"(?:www(?=\.)|https?(?=:)|mailto(?=:))|(?=@)", re.I)
+WORD_JOINER = "\u2060"
 # The columns of the Details tab's table of a turn's calls (T5.1), as keys in src/i18n.py.
 USAGE_COLUMNS = ("step", "model", "input", "cached", "output", "reasoning", "cost")
 # A call of the answer step is named with its round ("Answer, round 2"), read back for the UI.
@@ -38,9 +47,12 @@ def bold_label(line: str) -> str:
 
 def one_line(text: str) -> str:
     """Return text on one line, escaped, so it adds no formatting, image or link to a list."""
-    # GFM still links a bare "www." or e-mail address (no scheme, nothing to escape); it is shown,
-    # never loaded, and no raw HTML gets through.
-    line = chat.escape_markdown(" ".join(text.split()))
+    # No link either: a model's text could otherwise offer one that carries a client's figure to
+    # another host (security-reviewer and code review round 11, 2026-11-06).
+    unlinked = _AUTOLINK_STARTS.sub(lambda found: found.group() + WORD_JOINER, text)
+    # An escaped "&" keeps Markdown from decoding a character reference ("&#58;", "&commat;")
+    # into the colon, dot or "@" of a link after the joiners are placed (code review round 13).
+    line = chat.escape_markdown(" ".join(unlinked.split())).replace("&", r"\&")
     # A line start Markdown reads as a heading, quote, list or rule ("# Big", "> x", "1. x").
     return LINE_START.sub(r"\1\\\2", line)
 
@@ -533,10 +545,100 @@ def _review_texts(value: object) -> list[str]:
 
 
 def review_markdown(final: dict) -> str:
-    """Return an approved review's texts as a Markdown list, each escaped (T9.15's plain view)."""
-    # T9.16 fixes the review's fields; until then every text it holds is listed in order, each on
-    # one escaped line, so a model's or a coach's text adds no link, image or formatting.
+    """Return a review's texts as a Markdown list, each escaped (T9.15's plain view)."""
+    # The fallback for a review that does not have T9.16's fields: every text it holds is listed in
+    # order, each on one escaped line, so a model's or a coach's text adds no link, image or
+    # formatting.
     return "\n".join(f"- {one_line(text)}" for text in _review_texts(final))
+
+
+_REVIEW_SECTIONS = ("observations", "hypotheses", "recommendations")
+
+
+def has_review_fields(review: object) -> bool:
+    """Return True if a stored review text has T9.16's sections (each a list of items)."""
+    return isinstance(review, dict) and all(
+        isinstance(review.get(name), list)
+        and all(
+            isinstance(item, dict) and isinstance(item.get("text"), str) for item in review[name]
+        )
+        for name in _REVIEW_SECTIONS
+    )
+
+
+def _recommendation_lines(item: dict, lang: Language) -> list[str]:
+    """Return a recommendation as escaped lines: its kind and text, its label, training fields."""
+    kind = (
+        i18n.t(f"review.kind.{item.get('kind')}", lang)
+        if item.get("kind")
+        in (
+            "nutrition",
+            "training",
+        )
+        else ""
+    )
+    line = f"**{one_line(kind)}:** {one_line(item['text'])}" if kind else one_line(item["text"])
+    if item.get("model_suggestion"):
+        line += f" *({one_line(i18n.t('review.suggestion', lang))})*"
+    lines = [f"- {line}"]
+    for field in ("direction", "source_range", "population"):
+        value = item.get(field)
+        if isinstance(value, str) and value.strip():
+            label = one_line(i18n.t(f"review.{field}", lang))
+            lines.append(f"    - {label}: {one_line(value)}")
+    return lines
+
+
+def review_sections(review: dict, lang: Language) -> list[tuple[str, str]]:
+    """Return each non-empty section of a review as (heading, escaped Markdown list)."""
+    # Every text is escaped onto one line (one_line), so neither the model nor a coach adds a
+    # link, image, heading or HTML; the headings and labels are the app's own.
+    found = []
+    for name in _REVIEW_SECTIONS:
+        items = review.get(name) or []
+        if not items:
+            continue
+        if name == "recommendations":
+            lines = [line for item in items for line in _recommendation_lines(item, lang)]
+        else:
+            lines = [f"- {one_line(item['text'])}" for item in items]
+        found.append((i18n.t(f"review.{name}", lang), "\n".join(lines)))
+    return found
+
+
+def _label_number(label: object) -> int | None:
+    """Return the number of an [S#] label ("S2" is 2), or None for anything else."""
+    if isinstance(label, str) and label[:1] == "S" and label[1:].isdigit():
+        return int(label[1:])
+    return None
+
+
+def review_source_lines(review: dict, manifest: dict, lang: Language) -> list[str]:
+    """Return each source the review cites as a Markdown line with its credit, in label order."""
+    # The review text keeps what each of its [S#] labels cited (weekly_review.cited_sources()), so
+    # a label in the text names the same source here; the manifest gives the title, the link, the
+    # authors and the licence (approved sources only, docs/SOURCES.md), credited as the chat's
+    # source card does, as a review may quote a source's range (copyright policy rule 6;
+    # compliance-reviewer, 2026-11-06). A label or source the app does not know is left out.
+    cited = review.get("sources")
+    if not isinstance(cited, dict):
+        return []
+    found = []
+    for label in sorted(cited, key=lambda key: _label_number(key) or 0):
+        number = _label_number(label)
+        ref = cited[label]
+        source = manifest.get(ref.get("source_id")) if isinstance(ref, dict) else None
+        if number is None or source is None:
+            continue
+        line = i18n.t(
+            "review.source_line", lang, number=number, title=source.title, year=source.year
+        )
+        found.append(
+            f"[{one_line(line)}]({chat.markdown_url(source.url)})"
+            f" · {one_line(chat.format_authors(source.authors))}"
+            f" · [{one_line(source.license)}]({chat.markdown_url(source.license_url)})"
+        )
+    return found
 
 
 def review_heading(review: dict, lang: Language) -> str:

@@ -19,6 +19,10 @@ HEIGHT = 181.7
 PREFERENCE = "keep answers short"
 
 
+def no_threads(thread_ids: list[str]) -> None:
+    """Delete no review threads: the test writes no checkpointer file (delete_user_data's hook)."""
+
+
 def add_records(conn, user_id):
     """Give a gymer one record of every kind."""
     records.add_profile_entry(

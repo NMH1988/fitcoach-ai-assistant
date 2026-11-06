@@ -10,6 +10,7 @@ from streamlit.util import calc_hash
 from src import config, demo
 from src.store import db, records
 from src.store import my_data as stored_data
+from tests.store_world import no_threads
 from tests.test_app_account import (
     APP,
     AUTH,
@@ -241,7 +242,7 @@ def test_a_deleted_demo_user_stays_on_the_start_page(monkeypatch, demo_store_is_
     from src.store import my_data
 
     with db.connect(resources.demo_store()) as conn:
-        my_data.delete_user_data(conn, demo.OTHER_GYMER.id)
+        my_data.delete_user_data(conn, demo.OTHER_GYMER.id, no_threads)
     at.selectbox(key="demo_user_start").set_value(demo.OTHER_GYMER.id).run(timeout=30)
     assert "Set up your account" not in texts(at)
     assert "pick a made-up user below to try" in texts(at)
@@ -318,6 +319,6 @@ def test_a_prepared_export_leaves_the_session_when_the_account_is_gone(
     button(at, "Prepare the export").click().run(timeout=30)
     assert at.session_state[my_data_page.EXPORT_KEY]
     with db.connect() as conn:
-        stored_data.delete_user_data(conn, USER_ID)
+        stored_data.delete_user_data(conn, USER_ID, no_threads)
     at.run(timeout=30)
     assert my_data_page.EXPORT_KEY not in at.session_state

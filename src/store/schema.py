@@ -273,5 +273,27 @@ BEGIN SELECT RAISE(ABORT, 'a decided review is never changed'); END;
 PRAGMA user_version = 1;
 """
 
-# In order: MIGRATIONS[0] creates version 1.
-MIGRATIONS: tuple[str, ...] = (_V1,)
+# T9.16: the weekly review workflow. A review records every scope its metrics used (nutrition
+# always; body when the weight trend is in it, training when the training week is), and a coach
+# reads or decides it only while every one of them is shared (owner's choice, 2026-10-27). A
+# review written before this version used nutrition alone. thread_id names the review's thread in
+# the workflow's checkpointer file (src/agent/review_threads.py), so deleting a user's data deletes
+# its threads too (AC-34).
+_V2 = """
+CREATE TABLE ai_review_scopes (
+    review_id INTEGER NOT NULL REFERENCES ai_reviews (id),
+    scope TEXT NOT NULL CHECK (scope IN ('nutrition', 'training', 'body')),
+    PRIMARY KEY (review_id, scope)
+) STRICT;
+
+INSERT INTO ai_review_scopes (review_id, scope) SELECT id, 'nutrition' FROM ai_reviews;
+
+ALTER TABLE ai_reviews ADD COLUMN thread_id TEXT
+    CHECK (thread_id IS NULL OR length(thread_id) > 0);
+CREATE INDEX ai_reviews_week ON ai_reviews (coach_id, client_id, period_start);
+
+PRAGMA user_version = 2;
+"""
+
+# In order: MIGRATIONS[0] creates version 1, MIGRATIONS[1] takes it to version 2.
+MIGRATIONS: tuple[str, ...] = (_V1, _V2)

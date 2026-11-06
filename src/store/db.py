@@ -113,17 +113,23 @@ def _make_owner_only(target: Path, own_folder: bool) -> bool:
     return True
 
 
+def prepare_file(target: Path, *, own_folder: bool) -> None:
+    """Make the file's folder and, on POSIX, make both owner-only; StoreError if refused."""
+    # Fail closed with one fixed message: a folder that cannot be made, or a file that cannot be
+    # made owner-only, is never used. StoreError is raised outside the `except`, so the OS error
+    # (whose text and filename name the path) is not even its __context__ (T9.5 catches StoreError).
+    # The review workflow's checkpointer file beside the store is prepared the same way (T9.16).
+    if not _make_folder(target.parent):
+        raise StoreError(_CANNOT_PREPARE)
+    if os.name == "posix" and not _make_owner_only(target, own_folder=own_folder):
+        raise StoreError(_CANNOT_PREPARE)
+
+
 @contextmanager
 def connect(path: Path | None = None) -> Iterator[sqlite3.Connection]:
     """Open the store (config.STORE_PATH by default), migrate it, and close it after the block."""
     target = config.STORE_PATH if path is None else path
-    # Fail closed with one fixed message: a folder that cannot be made, or a file that cannot be
-    # made owner-only, is never used. StoreError is raised outside the `except`, so the OS error
-    # (whose text and filename name the path) is not even its __context__ (T9.5 catches StoreError).
-    if not _make_folder(target.parent):
-        raise StoreError(_CANNOT_PREPARE)
-    if os.name == "posix" and not _make_owner_only(target, own_folder=path is None):
-        raise StoreError(_CANNOT_PREPARE)
+    prepare_file(target, own_folder=path is None)
     conn = sqlite3.connect(target, timeout=config.STORE_BUSY_TIMEOUT_SECONDS, autocommit=True)
     try:
         conn.row_factory = sqlite3.Row

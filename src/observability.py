@@ -41,6 +41,9 @@ EVENTS = frozenset(
         "preference_proposed",
         "preference_refused",
         "preference_decided",
+        # A weekly review run or decision (T9.16): its outcome code, the drafts tried, the chunks
+        # retrieved and the codes of the failed checks; never a metric, a text or a name.
+        "weekly_review",
         LOG_FAILED_EVENT,
     }
 )
@@ -68,6 +71,9 @@ ALLOWED_FIELDS = frozenset(
         "cost_usd",
         "duration_ms",
         "searches",
+        # The weekly review (T9.16): how many drafts were asked for, and the failed checks' codes.
+        "attempts",
+        "checks",
         # The warnings and the error line.
         "diagnostic",
         "status_code",

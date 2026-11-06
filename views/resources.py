@@ -36,6 +36,12 @@ def translation_model():
 
 
 @st.cache_resource(show_spinner=False)
+def review_model():
+    """Build the weekly review model's client once per app process (T9.16)."""
+    return llm.build_chat_model(config.REVIEW_MODEL, config.REVIEW_MAX_TOKENS)
+
+
+@st.cache_resource(show_spinner=False)
 def manifest():
     """Read the approved sources once, for the journal and corrections on the source cards."""
     return chat.manifest_by_id()

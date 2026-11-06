@@ -8,6 +8,7 @@ import pytest
 
 from src.store import access, db, my_data, records, reviews
 from tests import store_world as world
+from tests.store_world import no_threads
 
 NOW = "2026-10-27T10:00:00+00:00"
 
@@ -25,7 +26,9 @@ def full_world(store_conn):
         "evidence_refs": [("12", "12-3")],
     }
     approved = reviews.save_review(store_conn, world.COACH_A, world.SHARED, **review_args)
-    reviews.save_review(store_conn, world.COACH_A, world.SHARED, **review_args)  # stays pending
+    # Another week: a second review of a week that has a pending or approved one is refused.
+    next_week = {**review_args, "period_start": date(2026, 10, 26)}
+    reviews.save_review(store_conn, world.COACH_A, world.SHARED, **next_week)  # stays pending
     reviews.save_review(store_conn, world.COACH_B, world.OTHERS, **review_args)
     reviews.decide_review(store_conn, world.COACH_A, approved, "approve")
     records.list_meal_items(store_conn, world.COACH_A, world.SHARED)  # an audited read
@@ -187,7 +190,7 @@ def test_exporting_or_deleting_a_missing_user_is_not_found(full_world):
     with pytest.raises(access.NotFound):
         my_data.export_user_data(full_world, world.MISSING)
     with pytest.raises(access.NotFound):
-        my_data.delete_user_data(full_world, world.MISSING)
+        my_data.delete_user_data(full_world, world.MISSING, no_threads)
 
 
 @pytest.mark.parametrize("user", [world.SHARED, world.COACH_A, world.OTHERS, world.ENDED])
@@ -195,7 +198,7 @@ def test_deleting_a_user_leaves_no_row_about_them_and_every_other_row(full_world
     """After the delete no column names the user, references hold, and others' rows remain."""
     assert _rows_naming(full_world, user)
     before = _rows_naming(full_world, world.UNSHARED)
-    my_data.delete_user_data(full_world, user)
+    my_data.delete_user_data(full_world, user, no_threads)
     assert _rows_naming(full_world, user) == {}
     assert full_world.execute("PRAGMA foreign_keys").fetchone()[0] == 1
     assert full_world.execute("PRAGMA foreign_key_check").fetchall() == []
@@ -205,19 +208,19 @@ def test_deleting_a_user_leaves_no_row_about_them_and_every_other_row(full_world
         before.pop("coach_clients.client_id")
     assert after == before
     with pytest.raises(access.NotFound):
-        my_data.delete_user_data(full_world, user)
+        my_data.delete_user_data(full_world, user, no_threads)
 
 
 def test_deleting_a_gymer_removes_the_reviews_about_them(full_world):
     """Every review about the gymer goes, pending ones and their evidence included."""
-    my_data.delete_user_data(full_world, world.SHARED)
+    my_data.delete_user_data(full_world, world.SHARED, no_threads)
     assert full_world.execute("SELECT count(*) FROM ai_reviews").fetchone()[0] == 1  # coach B's
     assert full_world.execute("SELECT count(*) FROM ai_evidence_refs").fetchone()[0] == 1
 
 
 def test_deleting_a_coach_removes_the_reviews_they_wrote_and_keeps_the_clients_records(full_world):
     """Coach A's reviews, relationships and invitation go; the clients' own records stay."""
-    my_data.delete_user_data(full_world, world.COACH_A)
+    my_data.delete_user_data(full_world, world.COACH_A, no_threads)
     coaches = [row["coach_id"] for row in full_world.execute("SELECT coach_id FROM ai_reviews")]
     assert coaches == [world.COACH_B]
     assert full_world.execute("SELECT count(*) FROM consents").fetchone()[0] == 3  # coach B's
@@ -246,8 +249,8 @@ def test_deleted_values_are_gone_from_the_files_bytes(tmp_path):
         )
         before = path.read_bytes()  # the checks below can fail
         assert b"CANARY-FOOD-DELETED" in before and b"CANARY-PREF-DELETED" in before
-        my_data.delete_user_data(conn, world.SHARED)
-        my_data.delete_user_data(conn, world.COACH_A)
+        my_data.delete_user_data(conn, world.SHARED, no_threads)
+        my_data.delete_user_data(conn, world.COACH_A, no_threads)
         # Other users' rows are still there, so the pages were reused, not dropped.
         assert records.list_preferences(conn, world.COACH_B, world.COACH_B)
     data = path.read_bytes()
@@ -261,7 +264,7 @@ def test_a_table_the_delete_forgets_makes_it_fail_and_change_nothing(full_world)
     full_world.execute("INSERT INTO notes (user_id) VALUES (?)", (world.SHARED,))
     before = _all_rows(full_world)
     with pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY"):
-        my_data.delete_user_data(full_world, world.SHARED)
+        my_data.delete_user_data(full_world, world.SHARED, no_threads)
     assert _all_rows(full_world) == before
 
 
@@ -275,7 +278,7 @@ def test_a_coachs_export_holds_their_preferences_and_delete_removes_them(store_c
         "most of my clients are vegetarian",
     ]
     assert {row["user_id"] for row in document["preferences"]} == {world.COACH_A}
-    my_data.delete_user_data(store_conn, world.COACH_A)
+    my_data.delete_user_data(store_conn, world.COACH_A, no_threads)
     count = "SELECT count(*) FROM preferences WHERE user_id = ?"
     assert store_conn.execute(count, (world.COACH_A,)).fetchone()[0] == 0
     assert records.list_preferences(store_conn, world.COACH_B, world.COACH_B)

@@ -2,17 +2,19 @@
 
 The export holds the user's own rows in every table, the relationships and scopes they are part
 of, the reviews they may read (a gymer's approved reviews about them without the model's draft, a
-coach's own reviews of clients who still share nutrition) and the audit rows by or about them.
+coach's own reviews of clients who still share nutrition and every other scope each review used,
+with the reviews' evidence and scopes) and the audit rows by or about them.
 The delete removes the user's rows in every table, their relationships and scopes, the
 reviews about them and those they wrote as a coach (with their evidence), the invitations and code
 attempts, and the audit rows by or about them: the app is local and keeps no audit duty (the owner
 may change this). It runs in one transaction with foreign keys on, and no reference cascades, so a
-table this list forgets makes the delete fail instead of leaving rows behind. T9.16 adds the review
-threads of its checkpointer.
+table this list forgets makes the delete fail instead of leaving rows behind. The review workflow's
+threads in its checkpointer file go too, through the caller's `delete_threads` (T9.16).
 """
 
 import json
 import sqlite3
+from collections.abc import Callable
 
 from src.store import values
 from src.store.access import NotFound, audit, role_of
@@ -42,7 +44,7 @@ WHERE relationship.coach_id = ? OR relationship.client_id = ? ORDER BY consent.i
 """
 # What each reads (reviews.list_reviews()): a gymer the approved reviews about them without the
 # model's draft, a coach the reviews they wrote about clients who still share nutrition with them
-# (owner's choices, 2026-10-27).
+# and every other scope each review used (owner's choices, 2026-10-27; T9.16).
 _APPROVED_ABOUT = """
 SELECT id, client_id, coach_id, period_start, metrics, data_quality, NULL AS draft, final, status,
     edited_by_coach, model_version, created_at, reviewed_by, reviewed_at
@@ -55,6 +57,14 @@ WHERE review.coach_id = ? AND EXISTS (
     WHERE share.coach_id = review.coach_id AND share.client_id = review.client_id
       AND share.scope = 'nutrition'
 )
+    AND NOT EXISTS (
+        SELECT 1 FROM ai_review_scopes AS used
+        WHERE used.review_id = review.id AND NOT EXISTS (
+            SELECT 1 FROM open_shares AS share
+            WHERE share.coach_id = review.coach_id AND share.client_id = review.client_id
+              AND share.scope = used.scope
+        )
+    )
 ORDER BY review.id
 """
 _EVIDENCE = """
@@ -65,8 +75,38 @@ WHERE (review.client_id = ? AND review.status = 'APPROVED')
     SELECT 1 FROM open_shares AS share
     WHERE share.coach_id = review.coach_id AND share.client_id = review.client_id
       AND share.scope = 'nutrition'
-))
+)
+    AND NOT EXISTS (
+        SELECT 1 FROM ai_review_scopes AS used
+        WHERE used.review_id = review.id AND NOT EXISTS (
+            SELECT 1 FROM open_shares AS share
+            WHERE share.coach_id = review.coach_id AND share.client_id = review.client_id
+              AND share.scope = used.scope
+        )
+    )
+)
 ORDER BY ref.id
+"""
+# The scopes of the reviews the export holds, by the same rule.
+_REVIEW_SCOPES = """
+SELECT kept.* FROM ai_review_scopes AS kept
+JOIN ai_reviews AS review ON review.id = kept.review_id
+WHERE (review.client_id = ? AND review.status = 'APPROVED')
+    OR (review.coach_id = ? AND EXISTS (
+    SELECT 1 FROM open_shares AS share
+    WHERE share.coach_id = review.coach_id AND share.client_id = review.client_id
+      AND share.scope = 'nutrition'
+)
+    AND NOT EXISTS (
+        SELECT 1 FROM ai_review_scopes AS used
+        WHERE used.review_id = review.id AND NOT EXISTS (
+            SELECT 1 FROM open_shares AS share
+            WHERE share.coach_id = review.coach_id AND share.client_id = review.client_id
+              AND share.scope = used.scope
+        )
+    )
+)
+ORDER BY kept.review_id, kept.scope
 """
 _AUDIT = "SELECT * FROM audit_log WHERE actor_id = ? OR subject_id = ? ORDER BY id"
 
@@ -75,7 +115,16 @@ _DELETE_EVIDENCE = """
 DELETE FROM ai_evidence_refs
 WHERE review_id IN (SELECT id FROM ai_reviews WHERE client_id = ? OR coach_id = ?)
 """
+_DELETE_REVIEW_SCOPES = """
+DELETE FROM ai_review_scopes
+WHERE review_id IN (SELECT id FROM ai_reviews WHERE client_id = ? OR coach_id = ?)
+"""
 _DELETE_REVIEWS = "DELETE FROM ai_reviews WHERE client_id = ? OR coach_id = ?"
+# The workflow threads of the reviews about the user or by them (T9.16), deleted with them.
+_THREADS = """
+SELECT thread_id FROM ai_reviews
+WHERE (client_id = ? OR coach_id = ?) AND thread_id IS NOT NULL ORDER BY id
+"""
 _DELETE_AUDIT = "DELETE FROM audit_log WHERE actor_id = ? OR subject_id = ?"
 _DELETE_CONSENTS = """
 DELETE FROM consents
@@ -137,20 +186,33 @@ def export_user_data(conn: sqlite3.Connection, user_id: str) -> str:
                 *(_review(r) for r in written),
             ],
             "ai_evidence_refs": [dict(r) for r in conn.execute(_EVIDENCE, both)],
+            "ai_review_scopes": [dict(r) for r in conn.execute(_REVIEW_SCOPES, both)],
             "audit_log": [dict(r) for r in conn.execute(_AUDIT, both)],
         }
     return json.dumps(document, ensure_ascii=False, indent=2)
 
 
-def delete_user_data(conn: sqlite3.Connection, user_id: str) -> None:
+def delete_user_data(
+    conn: sqlite3.Connection,
+    user_id: str,
+    delete_threads: Callable[[list[str]], None],
+) -> None:
     """Delete the user and every row about them, in one transaction; NotFound if there is none."""
+    # delete_threads (T9.16) gets the threads of the user's reviews and deletes them, and every
+    # other thread about or by the user, from the checkpointer file (src/agent/review_threads.py;
+    # the store imports no LangGraph). It runs last, inside the transaction, even with no thread
+    # listed (a crashed run leaves one with no review): if it fails, no row is deleted and the user
+    # can try again. It is required, so no caller can report a deletion that left the threads'
+    # copies of a client's week behind (compliance-reviewer, 2026-11-06).
     user_id = values.user_id(user_id)
     one = (user_id,)
     both = (user_id, user_id)
     with transaction(conn):
         if role_of(conn, user_id) is None:
             raise NotFound
+        threads = [row["thread_id"] for row in conn.execute(_THREADS, both)]
         conn.execute(_DELETE_EVIDENCE, both)
+        conn.execute(_DELETE_REVIEW_SCOPES, both)
         conn.execute(_DELETE_REVIEWS, both)
         conn.execute(_DELETE_AUDIT, both)
         conn.execute(_DELETE_CONSENTS, both)
@@ -165,3 +227,4 @@ def delete_user_data(conn: sqlite3.Connection, user_id: str) -> None:
         conn.execute(_DELETE_PROFILES, one)
         conn.execute(_DELETE_PREFERENCES, one)
         conn.execute(_DELETE_USER, one)
+        delete_threads(threads)

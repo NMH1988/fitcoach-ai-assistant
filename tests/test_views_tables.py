@@ -1,5 +1,7 @@
 """views/tables.py: table rows, cells and text lines, built without Streamlit or AppTest (T8.1)."""
 
+import html
+import re
 from datetime import date
 from decimal import Decimal
 
@@ -52,12 +54,59 @@ def test_bold_label_bolds_only_the_label():
         ("1. step", r"1\. step"),
         ("- item", r"\- item"),
         ("> quote", r"\> quote"),
-        ("![x](http://evil)", r"!\[x\](http\://evil)"),
+        ("![x](http://evil)", "!\\[x\\](http\u2060\\://evil)"),
     ],
 )
 def test_one_line_escapes_what_markdown_would_read_as_a_block_or_image(text, expected):
     """The text is on one line and a line start or image never becomes formatting."""
     assert tables.one_line(text) == expected
+
+
+# The patterns remark-gfm's autolink step runs over the parsed text (backslash escapes already
+# gone), as JavaScript reads them: \w is ASCII only, so a word joiner breaks them.
+GFM_URL = re.compile(r"(https?://|www(?=\.))[-.\w]+", re.I | re.ASCII)
+GFM_EMAIL = re.compile(r"[-.+\w]+@[-\w]+(?:\.[-\w]+)+", re.ASCII)
+UNESCAPE = re.compile(r"\\(.)")
+# A character reference Markdown decodes while it parses, unless its "&" is escaped. It
+# looks at one backslash only: an escaped backslash before a reference (two, then "&")
+# would be decoded by Markdown but not here; one_line() escapes every backslash and "&",
+# so its output never holds one (code review round 14).
+REFERENCE = re.compile(r"(?<!\\)&(?:#\d+|#[xX][0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]*);")
+
+
+def _parsed(markdown: str) -> str:
+    """Return the text Markdown leaves for remark-gfm: references decoded, escapes removed."""
+    decoded = REFERENCE.sub(lambda found: html.unescape(found.group()), markdown)
+    return UNESCAPE.sub(r"\1", decoded)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "see www.attacker.example/w?w=82",
+        "WWW.attacker.example",
+        "x@attacker.example",
+        "plain https://attacker.example/x?k=1050",
+        "http://attacker.example",
+        "mailto:x@attacker.example",
+        # Round 12: an underscore before the host or scheme (remark-gfm accepts it there).
+        "x_www.attacker.example/?k=1043",
+        "_https://attacker.example",
+        # Round 13: a character reference Markdown would decode into the colon, dot or "@".
+        "https&#58;//attacker.example?k=1043",
+        "www&period;attacker.example",
+        "x&#64;attacker.example",
+        "x&commat;attacker.example",
+    ],
+)
+def test_one_line_leaves_no_text_that_markdown_turns_into_a_link(text):
+    """No www. host, URL or e-mail address stays linkable (checked in a browser, 2026-11-06)."""
+    rendered = _parsed(tables.one_line(text))
+    assert GFM_URL.search(rendered) is None and GFM_EMAIL.search(rendered) is None
+    # Without one_line() the same text would be a link: the patterns above are the real ones.
+    unescaped = _parsed(text)
+    assert GFM_URL.search(unescaped) or GFM_EMAIL.search(unescaped)
+    assert rendered.replace(tables.WORD_JOINER, "") == text  # shown as written
 
 
 def test_columns_turns_rows_into_named_columns():
@@ -566,7 +615,7 @@ def test_a_review_s_texts_are_listed_escaped():
     }
     assert tables.review_markdown(final).split("\n") == [
         "- Logged 3 of 7 days.",
-        r"- !\[x\](https\://evil.example/a.png)",  # neither an image nor a link
+        "- !\\[x\\](https\u2060\\://evil.example/a.png)",  # neither an image nor a link
         r"- \# Big",
     ]
 
@@ -733,3 +782,76 @@ def test_my_data_shows_a_workout_s_sets_and_volume():
     """My data's workouts table has the day, the number of sets and the volume (AC-24)."""
     cells = tables.stored_cells("workout_sessions", WORKOUT_ROW, "metric", "en")
     assert cells == ["2026-10-26", "2", "512 kg"]
+
+
+def _review_text() -> dict:
+    """Return a T9.16 review text with a hostile observation and a training recommendation."""
+    return {
+        "observations": [{"text": "![x](https://evil.example/a.png) # Big", "evidence": ["S2"]}],
+        "hypotheses": [],
+        "recommendations": [
+            {
+                "kind": "training",
+                "text": "Consider more leg work [S2].",
+                "evidence": ["S2"],
+                "model_suggestion": False,
+                "direction": "increase",
+                "source_range": "10-20 sets per week",
+                "population": "trained adults",
+            },
+            {
+                "kind": "nutrition",
+                "text": "Log every day.",
+                "evidence": [],
+                "model_suggestion": True,
+                "direction": None,
+                "source_range": None,
+                "population": None,
+            },
+        ],
+        "language": "en",
+        "sources": {"S2": {"source_id": "1", "chunk_id": "1-3"}, "S9": {"source_id": "zz"}},
+    }
+
+
+def test_a_review_s_sections_are_escaped_lines_under_the_app_s_headings():
+    """T9.16: empty sections are left out; texts escaped; kind, suggestion and training fields."""
+    sections = tables.review_sections(_review_text(), "en")
+    assert [heading for heading, _ in sections] == ["Observations", "Recommendations"]
+    observations = sections[0][1]
+    # Neither an image nor a link; a "#" in the middle of a line is no heading.
+    assert observations == "- !\\[x\\](https\u2060\\://evil.example/a.png) # Big"
+    lines = sections[1][1].split("\n")
+    assert lines[0] == r"- **Training:** Consider more leg work \[S2\]."
+    assert r"    - Range in the source: 10\-20 sets per week" in lines  # shown as 10-20
+    suggestion = "*(The model's suggestion, no source cited)*"
+    assert lines[-1] == f"- **Nutrition:** Log every day. {suggestion}"
+    german = tables.review_sections(_review_text(), "de")
+    assert [heading for heading, _ in german] == ["Beobachtungen", "Empfehlungen"]
+
+
+def test_a_review_s_sources_follow_its_labels_and_skip_what_the_app_does_not_know():
+    """[S2] lists source 1's title and link; an unknown source or a review with none is left out."""
+    manifest = chat.manifest_by_id()
+    lines = tables.review_source_lines(_review_text(), manifest, "en")
+    assert len(lines) == 1
+    line = lines[0]
+    assert line.startswith(r"[\[S2\] ") and str(manifest["1"].year) in line
+    assert f"]({chat.markdown_url(manifest['1'].url)})" in line
+    assert tables.review_source_lines({"observations": []}, manifest, "en") == []
+
+
+def test_a_review_s_sources_credit_the_authors_and_the_licence():
+    """Each source line names the authors and links the licence, as the chat's card does."""
+    manifest = chat.manifest_by_id()
+    line = tables.review_source_lines(_review_text(), manifest, "en")[0]
+    source = manifest["1"]
+    assert tables.one_line(chat.format_authors(source.authors)) in line
+    assert f"[{tables.one_line(source.license)}]({chat.markdown_url(source.license_url)})" in line
+
+
+def test_only_a_text_with_the_three_sections_counts_as_t9_16_s_fields():
+    """An older review (T9.15's free form) falls back to the plain escaped list."""
+    assert tables.has_review_fields(_review_text())
+    assert not tables.has_review_fields({"observations": ["x"]})
+    assert not tables.has_review_fields({"observations": [], "hypotheses": []})
