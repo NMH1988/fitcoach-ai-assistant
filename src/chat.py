@@ -51,6 +51,8 @@ from src.rag.retriever import RetrievedChunk, embed_queries
 from src.rag.sources import ManifestError, Source, license_url_for, load_manifest
 from src.rag.store import IndexNotReadyError
 from src.tools import registry
+from src.tools.food import FoodLookupResult
+from src.tools.food_api import FOOD_API_FAILURES, FoodSearch
 from src.tools.registry import ToolRun
 from src.usage import CallUsage, ModelPrice, UsageRecorder
 
@@ -619,6 +621,14 @@ def _log_turn(
                 "tool_failed",
                 extra={"turn_id": result.turn_id, "tool": run.name, "status": run.status},
             )
+        api_code = run.result.api_code if isinstance(run.result, FoodLookupResult) else None
+        if api_code is not None:
+            # The FoodData Central API's outcome (T9.9): its code only, never the food's name.
+            logger.log(
+                logging.WARNING if api_code in FOOD_API_FAILURES else logging.INFO,
+                "food_api",
+                extra={"turn_id": result.turn_id, "code": api_code, "status": run.status},
+            )
     source_ids = dict.fromkeys(
         str(chunk.metadata["source_id"])
         for chunk in trace.chunks
@@ -660,6 +670,7 @@ def run_turn(
     prices: Callable[[], Mapping[str, ModelPrice] | None] | None = None,
     conversation: Conversation | None = None,
     coach: preferences.CoachMemory | None = None,
+    food_api: FoodSearch | None = None,
 ) -> TurnResult:
     """Run one chat turn: guard, agent, tools; never raise for an error a user can cause."""
     # on_step(step) is called as each step starts; on_text(text) as the answer streams in. `user`
@@ -676,6 +687,8 @@ def run_turn(
     # and, when answered, is kept in it. None: the turn stands alone (the evaluation run).
     # coach is a coach's chat (T9.7): their client names and saved preferences, read from the
     # store before the turn; it offers remember_preference and <memories>. None for a guest.
+    # food_api is the USDA FoodData Central search (T9.9), asked by the food tool for a food the
+    # table does not have; None (no key, the evaluation run) keeps the table alone.
     if language not in config.ANSWER_LANGUAGE_PROMPT_PATHS:
         raise ValueError(f"Unknown answer language: {language!r}")
     turn_id = str(uuid.uuid4())
@@ -706,7 +719,15 @@ def run_turn(
         # Each factory runs at most once a turn; the prepare node calls them in order (T9.2).
         context = graph.TurnContext(
             chat_model=cache(chat_model),
-            tools=cache(partial(registry.build_tools, user)),
+            tools=cache(
+                partial(
+                    registry.build_tools,
+                    user,
+                    food_api=food_api,
+                    # A coach's clients' names never reach the FoodData Central API (T9.9).
+                    client_names=coach.client_names if coach is not None else (),
+                )
+            ),
             on_step=step,
             on_text=on_text,
             recorder=recorder,

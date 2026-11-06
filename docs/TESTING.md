@@ -15,7 +15,7 @@ Browser end-to-end tests (e.g. Playwright) are not planned: AppTest covers the U
 
 ## Rules
 
-- No real network in tests: OpenRouter, embeddings and USDA are always faked. The suite passes with no API key; test keys are obvious fakes like `sk-test-not-a-real-key`.
+- No real network in tests: OpenRouter, embeddings and USDA are always faked. The USDA FoodData Central API client (T9.9) takes a fake opener in its tests, and an autouse fixture in `tests/conftest.py` removes its key's env var, replaces its default opener and fails any test that still sends a request. The suite passes with no API key; test keys are obvious fakes like `sk-test-not-a-real-key`.
 - Every ticket's acceptance criteria map to tests or to named manual checks listed in the PR.
 - Guard tests use attack strings and benign strings, so both missed attacks and false positives are caught.
 - Test fixtures use only approved sources or text we wrote ourselves.

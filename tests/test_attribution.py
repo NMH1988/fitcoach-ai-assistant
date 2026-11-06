@@ -15,6 +15,7 @@ from src.tools.energy import FORMULA_SOURCES
 from src.tools.food import read_usda_release
 
 USDA_LINE = "- **USDA FoodData Central.** "
+API_LINE = "- **USDA FoodData Central API.** "
 
 
 def made_up_foods_table(tmp_path, release="2025-12-18"):
@@ -138,6 +139,20 @@ def test_usda_entry_has_every_credit_element():
     assert f"Changes: {config.USDA_CHANGES}" in line
     assert line.endswith("No endorsement by USDA is implied.")
     assert text.index("## Sources") < text.index("## Food data")
+
+
+def test_the_food_data_credits_the_fooddata_central_api_as_usda_asks():
+    """T9.9: the API's data gets USDA's suggested citation, CC0, the changes and no endorsement."""
+    text = render_attribution([made_up_source()], usda_release="2026-04-30")
+    [line] = [line for line in text.splitlines() if line.startswith(API_LINE)]
+    assert config.FOOD_API_CITATION in line
+    assert "FoodData Central" in config.FOOD_API_CITATION  # USDA asks to list it as the source
+    assert f"Licence: {config.USDA_LICENSE}, {config.USDA_LICENSE_URL}." in line
+    assert f"Changes: {config.FOOD_API_CHANGES}" in line
+    assert line.endswith("No endorsement by USDA is implied.")
+    assert text.index(USDA_LINE) < text.index(API_LINE)
+    committed = config.ATTRIBUTION_PATH.read_text(encoding="utf-8")
+    assert line in committed.splitlines()
 
 
 def test_no_usda_entry_without_a_release():

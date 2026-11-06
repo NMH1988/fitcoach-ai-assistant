@@ -10,6 +10,7 @@ from streamlit.testing.v1 import AppTest
 
 from src import chat, config, llm
 from src.rag import store
+from src.tools import food_api
 from src.tools.registry import FOOD_TOOL, MACRO_TOOL, MEAL_PLAN_TOOL, TDEE_TOOL
 from tests.fakes import (
     HOSTILE_FOOD_NAME,
@@ -250,6 +251,40 @@ def test_a_failed_tool_shows_under_not_covered(monkeypatch, tmp_path):
     assert message.markdown[0].value == config.NO_SOURCES_MESSAGE
     assert config.TOOL_FAILED_MESSAGE in [c.value for c in _tool_results(at).caption]
     assert not [m for m in at.markdown if "380 kcal" in m.value]
+    assert not at.exception
+
+
+def test_a_food_from_the_api_shows_the_apis_source_line(monkeypatch):
+    """T9.9: a food missing from the table, found through the API, names the API under it."""
+    oil = {
+        "fdcId": 101,
+        "description": "Oil, olive, salad or cooking",
+        "dataType": "SR Legacy",
+        "foodNutrients": [
+            {"nutrientId": 1008, "unitName": "KCAL", "value": 880},
+            {"nutrientId": 1003, "unitName": "G", "value": 0},
+            {"nutrientId": 1004, "unitName": "G", "value": 100},
+            {"nutrientId": 1005, "unitName": "G", "value": 0},
+        ],
+    }
+    asked = []
+
+    class Found:
+        """A FoodData Central search that returns the olive oil, with no network."""
+
+        def search(self, name):
+            """Record the name and return the oil."""
+            asked.append(name)
+            return food_api.ApiSearch(None, food_api.parse_search({"foods": [oil]}), 1)
+
+    monkeypatch.setattr(food_api, "build_food_api", Found)
+    lookup = tool_reply((FOOD_TOOL, {"food": "olive oil", "grams": 10}))
+    _use_model(monkeypatch, lookup, AIMessage(ANSWER))
+    at = _ask("How much fat is in 10 g of olive oil?")
+    captions = [c.value for c in _tool_results(at).caption]
+    assert config.FOOD_API_SOURCE_LINE.format(data_type="SR Legacy") in captions
+    assert config.USDA_SOURCE_LINE not in captions
+    assert asked == ["olive oil"]
     assert not at.exception
 
 

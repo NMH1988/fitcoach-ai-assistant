@@ -14,7 +14,7 @@ from reportlab.pdfbase import pdfmetrics
 from src import chat, config, export_pdf, guardrails, i18n
 from src.guardrails import Concern
 from src.rag.sources import ARTICLE_CHANGES_NOTE, Source
-from src.tools import meal_plan, registry
+from src.tools import food_api, meal_plan, registry
 from src.tools.energy import FORMULA_SOURCES, MACRO_SOURCES, TDEE_METHOD
 from src.tools.food import lookup_food_nutrition
 from src.tools.registry import (
@@ -536,6 +536,99 @@ def test_the_fonts_cover_every_character_of_the_approved_sources():
         for source in MANIFEST.values()
     )
     assert {c for c in text if ord(c) not in known} == set()
+
+
+def _api_food_run() -> ToolRun:
+    """Return a food lookup found through a fake FoodData Central API (T9.9), with no network."""
+    answer = {
+        "foods": [
+            {
+                "fdcId": 101,
+                "description": "Oil, olive, salad or cooking",
+                "dataType": "SR Legacy",
+                "foodNutrients": [
+                    {"nutrientId": 1008, "unitName": "KCAL", "value": 880},
+                    {"nutrientId": 1003, "unitName": "G", "value": 0},
+                    {"nutrientId": 1004, "unitName": "G", "value": 100},
+                    {"nutrientId": 1005, "unitName": "G", "value": 0},
+                ],
+            }
+        ]
+    }
+
+    class Found:
+        """A search that returns the olive oil."""
+
+        def search(self, name):
+            """Return the parsed answer."""
+            return food_api.ApiSearch(None, food_api.parse_search(answer), 1)
+
+    tools = registry.build_tools(PROFILE, FOODS, food_api=Found())
+    call = {"name": FOOD_TOOL, "args": {"food": "olive oil", "grams": 10}, "id": "c", "type": "x"}
+    run = registry.run_tool_call(tools, call)[1]
+    assert run.result.origin == "api"
+    return run
+
+
+def test_a_food_from_the_api_names_the_api_and_is_credited():
+    """T9.9: the line under the values names the API and its data type; the credits list it."""
+    run = _api_food_run()
+    text = pdf_text(_pdf([("Olive oil?", _answer("Fat.", runs=(run,)))], user=None))
+    answer_part, credits = text.split("Olive oil?", 1)[1].split("Credits", 1)
+    assert " ".join(config.FOOD_API_SOURCE_LINE.format(data_type="SR Legacy").split()) in (
+        answer_part
+    )
+    assert config.USDA_SOURCE_LINE not in answer_part
+    assert "USDA FoodData Central API. U.S. Department of Agriculture" in credits
+    assert "Food data" in credits
+
+
+def test_api_suggestions_alone_are_credited_too():
+    """A "not found" whose suggestions came from the API credits the API (compliance run 1)."""
+    answer = {
+        "foods": [
+            {
+                "fdcId": 301,
+                "description": "Olives, ripe, canned",
+                "dataType": "SR Legacy",
+                "foodNutrients": [
+                    {"nutrientId": 1008, "unitName": "KCAL", "value": 115},
+                    {"nutrientId": 1003, "unitName": "G", "value": 1},
+                    {"nutrientId": 1004, "unitName": "G", "value": 11},
+                    {"nutrientId": 1005, "unitName": "G", "value": 6},
+                ],
+            }
+        ]
+    }
+
+    class Suggests:
+        """A search that returns only a food that is not a close match."""
+
+        def search(self, name):
+            """Return the olives."""
+            return food_api.ApiSearch(None, food_api.parse_search(answer), 1)
+
+    tools = registry.build_tools(PROFILE, FOODS, food_api=Suggests())
+    call = {"name": FOOD_TOOL, "args": {"food": "olive oil", "grams": 10}, "id": "c", "type": "x"}
+    run = registry.run_tool_call(tools, call)[1]
+    assert (run.result.api_code, run.result.alternatives) == ("no_match", ["Olives, ripe, canned"])
+    text = pdf_text(_pdf([("Olive oil?", _answer("Not found.", runs=(run,)))], user=None))
+    assert (
+        "USDA FoodData Central API. U.S. Department of Agriculture" in text.split("Credits", 1)[1]
+    )
+
+
+def test_a_food_from_the_table_adds_no_api_credit():
+    """Only a food found through the API brings the API's credit."""
+    run = _run(FOOD_TOOL, {"food": "rolled oats", "grams": 80})
+    text = pdf_text(_pdf([("Oats?", _answer("Fiber.", runs=(run,)))], user=None))
+    assert "Food data" in text and "USDA FoodData Central API" not in text
+
+
+def test_a_german_pdf_names_the_api_in_german():
+    """The API's source line is German in a German PDF; the data type stays USDA's name."""
+    text = _german_pdf([("Olivenöl?", _answer("Fett.", runs=(_api_food_run(),)))], user=None)
+    assert _de("usda.api_source_line", data_type="SR Legacy") in text
 
 
 def test_a_tool_notice_has_no_values_to_show():

@@ -46,6 +46,10 @@ The food lookup tool reads a trimmed copy of this dataset (`data/usda_foods.csv`
 
 - **USDA FoodData Central.** U.S. Department of Agriculture, Agricultural Research Service, Beltsville Human Nutrition Research Center. FoodData Central: Foundation Foods, release 2026-04-30. https://fdc.nal.usda.gov/. Licence: CC0 1.0 Universal (public domain), https://creativecommons.org/publicdomain/zero/1.0/. Changes: Foundation foods only; values per 100 g: energy (kcal; Atwater specific factors where reported, else general factors), protein, carbohydrate (by difference), total fat and total dietary fiber. Foods without energy or a macronutrient are left out; a repeated name is kept once (latest publication); negative values are set to 0; an empty fiber value means not reported. No endorsement by USDA is implied.
 
+When a food is not in that table and the app has a FoodData Central API key, the food lookup tool searches the FoodData Central API at the time of the lookup (T9.9); nothing it returns is stored or committed.
+
+- **USDA FoodData Central API.** U.S. Department of Agriculture, Agricultural Research Service. FoodData Central, 2019. fdc.nal.usda.gov. Licence: CC0 1.0 Universal (public domain), https://creativecommons.org/publicdomain/zero/1.0/. Changes: Foundation, SR Legacy and Survey (FNDDS) foods, searched by name at the time of a lookup and not stored; values per 100 g: energy (kcal; Atwater specific factors where reported, else general factors, else the reported energy), protein, carbohydrate (by difference), total fat and total dietary fiber, scaled to the amount asked for; negative values are set to 0. No endorsement by USDA is implied.
+
 ## Formula sources
 
 The energy tools (`src/tools/energy.py`) use an equation or factors from these articles. They are not part of the knowledge base.
