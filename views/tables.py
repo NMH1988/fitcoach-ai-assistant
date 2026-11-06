@@ -17,8 +17,13 @@ from src.tools.food import FoodLookupResult
 # The start of a line Markdown would read as a block: "#", "-", "+", "=" or "1." / "1)". A ">"
 # (quote) is not here: chat.escape_markdown() escapes it first, so keep both in step.
 LINE_START = re.compile(r"^(\d*)([#+=.)-])")
-# A bare "www." host, any case, which GFM would link with no scheme.
-_BARE_WWW = re.compile(r"\b(www)\.", re.I)
+# Where Streamlit's Markdown (remark-gfm) starts a link of its own in plain text: "www." (any
+# case), a scheme's colon ("https:", "http:") and an e-mail address's "@". It finds them in the
+# text after the Markdown is parsed, so a backslash escape does not stop it; a word joiner (U+2060,
+# invisible) does, as its patterns need "www" right before the dot, the colon right after the
+# scheme and a letter right before the "@" (checked in a browser, 2026-11-06).
+_AUTOLINK_STARTS = re.compile(r"\b(?:www(?=\.)|https?(?=:)|mailto(?=:))|(?=@)", re.I)
+WORD_JOINER = "⁠"
 # The columns of the Details tab's table of a turn's calls (T5.1), as keys in src/i18n.py.
 USAGE_COLUMNS = ("step", "model", "input", "cached", "output", "reasoning", "cost")
 # A call of the answer step is named with its round ("Answer, round 2"), read back for the UI.
@@ -40,11 +45,10 @@ def bold_label(line: str) -> str:
 
 def one_line(text: str) -> str:
     """Return text on one line, escaped, so it adds no formatting, image or link to a list."""
-    line = chat.escape_markdown(" ".join(text.split()))
-    # GFM links a bare "www." host or an e-mail address with no scheme to escape; escaping the dot
-    # and the "@" keeps them plain text, so a model's text cannot offer a link that carries a
-    # client's figure to another host (security-reviewer, 2026-11-06).
-    line = _BARE_WWW.sub(r"\1\\.", line).replace("@", r"\@")
+    # No link either: a model's text could otherwise offer one that carries a client's figure to
+    # another host (security-reviewer and code review round 11, 2026-11-06).
+    unlinked = _AUTOLINK_STARTS.sub(lambda found: found.group() + WORD_JOINER, text)
+    line = chat.escape_markdown(" ".join(unlinked.split()))
     # A line start Markdown reads as a heading, quote, list or rule ("# Big", "> x", "1. x").
     return LINE_START.sub(r"\1\\\2", line)
 

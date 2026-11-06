@@ -53,7 +53,7 @@ def test_bold_label_bolds_only_the_label():
         ("1. step", r"1\. step"),
         ("- item", r"\- item"),
         ("> quote", r"\> quote"),
-        ("![x](http://evil)", r"!\[x\](http\://evil)"),
+        ("![x](http://evil)", "!\\[x\\](http⁠\\://evil)"),
     ],
 )
 def test_one_line_escapes_what_markdown_would_read_as_a_block_or_image(text, expected):
@@ -61,15 +61,31 @@ def test_one_line_escapes_what_markdown_would_read_as_a_block_or_image(text, exp
     assert tables.one_line(text) == expected
 
 
+# The patterns remark-gfm's autolink step runs over the parsed text (backslash escapes already
+# gone), as JavaScript reads them: \w is ASCII only, so a word joiner breaks them.
+GFM_URL = re.compile(r"(https?://|www(?=\.))[-.\w]+", re.I | re.ASCII)
+GFM_EMAIL = re.compile(r"[-.+\w]+@[-\w]+(?:\.[-\w]+)+", re.ASCII)
+UNESCAPE = re.compile(r"\\(.)")
+
+
 @pytest.mark.parametrize(
     "text",
-    ["see www.attacker.example/w?w=82", "WWW.attacker.example", "x@attacker.example"],
+    [
+        "see www.attacker.example/w?w=82",
+        "WWW.attacker.example",
+        "x@attacker.example",
+        "plain https://attacker.example/x?k=1050",
+        "http://attacker.example",
+        "mailto:x@attacker.example",
+    ],
 )
-def test_one_line_breaks_bare_autolinks(text):
-    """A bare www. host or e-mail address stays plain text: GFM links neither once escaped."""
-    line = tables.one_line(text)
-    assert re.search(r"(?i)www\.", line) is None
-    assert re.search(r"(?<!\\)@", line) is None
+def test_one_line_leaves_no_text_that_markdown_turns_into_a_link(text):
+    """No www. host, URL or e-mail address stays linkable (checked in a browser, 2026-11-06)."""
+    rendered = UNESCAPE.sub(r"\1", tables.one_line(text))
+    assert GFM_URL.search(rendered) is None and GFM_EMAIL.search(rendered) is None
+    # Without the word joiner the same text would be a link: the patterns above are the real ones.
+    assert GFM_URL.search(text) or GFM_EMAIL.search(text)
+    assert rendered.replace(tables.WORD_JOINER, "") == text  # shown as written
 
 
 def test_columns_turns_rows_into_named_columns():
@@ -578,7 +594,7 @@ def test_a_review_s_texts_are_listed_escaped():
     }
     assert tables.review_markdown(final).split("\n") == [
         "- Logged 3 of 7 days.",
-        r"- !\[x\](https\://evil.example/a.png)",  # neither an image nor a link
+        "- !\\[x\\](https⁠\\://evil.example/a.png)",  # neither an image nor a link
         r"- \# Big",
     ]
 
@@ -783,7 +799,7 @@ def test_a_review_s_sections_are_escaped_lines_under_the_app_s_headings():
     assert [heading for heading, _ in sections] == ["Observations", "Recommendations"]
     observations = sections[0][1]
     # Neither an image nor a link; a "#" in the middle of a line is no heading.
-    assert observations == r"- !\[x\](https\://evil.example/a.png) # Big"
+    assert observations == "- !\\[x\\](https⁠\\://evil.example/a.png) # Big"
     lines = sections[1][1].split("\n")
     assert lines[0] == r"- **Training:** Consider more leg work \[S2\]."
     assert r"    - Range in the source: 10\-20 sets per week" in lines  # shown as 10-20

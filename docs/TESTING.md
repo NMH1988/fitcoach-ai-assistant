@@ -345,6 +345,21 @@ The owner's live check (O13, 2026-11-04) in the app, in demo mode as Demo coach 
 - **Not checked live:** the card itself and the locked input (not in the screenshots; Save and Discard show the cards were there), Edit, deleting a preference in My data, "New chat" with a card waiting, the German UI and the code's client-name refusal; the AppTests and unit tests in the plan's T9.7 section cover them. Whether the protein answer is shorter because of the preference is not measured (the same question was not asked without it).
 - **Seen, for the owner (O8):** the units and the client requests ended with the generic "Our sources do not cover this question" message, which does not tell the coach why nothing was proposed (a turn with no proposal, no refusal and no basis ends "not covered", AC-2); the protein answer offered to calculate from the coach's own weight or profile (none was entered; a coach's chat may hold a session profile, but a coach usually asks about clients); T9.4's check saw a similar offer.
 
+### Weekly review (T9.16)
+
+The owner's live check (O13, 2026-11-06) in the app on a228fa9 (the review section's intro ends with "check every figure, especially calories", which only that commit has), in demo mode (synthetic users, a temporary store), English UI, with the review model `openai/gpt-5-mini` through OpenRouter. As Demo gymer Sam the owner logged food on the days of the week of 2026-10-26 so that the week averaged below the calorie floor (the case code review round 11 asked to try); as Demo coach Alex, on Sam's Client week, the owner drafted the review of that week, approved it, and read it as Sam on My week. Screenshot of the draft seen by Claude.
+
+| Step | What happened |
+|---|---|
+| Draft | "The draft is ready below for your decision." on the first click: the draft passed the app's checks (no "invalid" ending), so the model did not hit the strict floor rule twice |
+| Observations | All 7 days logged; average 1,042.9 kcal and 74.3 g protein; fibre 10.0 g, marked incomplete; one day at 2,387 kcal, the others lower; one weight entry, 77.9 kg. The intake below the floor is stated here only, as the prompt asks |
+| Possible reasons | Three, worded with "might" and "could" (under-reporting, a planned higher day, incomplete fibre data); no diagnosis |
+| Recommendations | Three nutrition recommendations to the coach, each labelled "The model's suggestion, no source cited"; none names a kcal figure (the first describes only the direction: raise intake toward the target once it is set). No source was cited, so no Sources list was shown |
+| Approve | Approved; Sam's My week shows the review labelled "AI draft, approved by the coach" |
+
+- **Not checked live:** the cost (the review shows no token count in the app, and the owner did not find the call in OpenRouter's Activity view), Edit and Reject, a week with training shared (Sam shares body and nutrition only), the source lines with authors and licence (nothing was cited), the German UI, and the threads file after a restart; the unit tests and AppTests in the plan's T9.16 section cover these paths with a scripted model.
+- **Seen, for the owner (O15):** with an average near 1,040 kcal the draft did not suggest that the coach discuss the intake with the client or a healthcare professional, though the prompt asks for that when "the data is concerning"; and it cited no source, even for the protein and fibre recommendations, which the evidence may support. Both are the prompt's to tune, not checks in code.
+
 ## Live checks
 
 Record only what was actually run and observed: date, model, what was checked, result.
