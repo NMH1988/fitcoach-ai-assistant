@@ -264,6 +264,17 @@ def test_a_label_not_retrieved_in_this_run_is_refused():
         "Die Zufuhr sollte ebenfalls um 1.000 kcal liegen.",
         "Gegebenenfalls die Zufuhr um 1.000 kcal halten.",
         "Auf jeden Fall um 1.000 kcal bleiben.",
+        # Round 9: a German participle or gerundive is also an adjective, not a change.
+        "Die angepasste Zufuhr sollte um 1.000 kcal liegen.",
+        "Die Zufuhr sollte, an den Bedarf angepasst, um 1.000 kcal liegen.",
+        "Mit angepasstem Training um 1.000 kcal bleiben.",
+        "Eine angepasste Zufuhr um 1.000 kcal.",
+        "Die herabgesetzte Zufuhr sollte um 1.000 kcal liegen.",
+        "Die zurückgefahrene Zufuhr sollte um 1.000 kcal liegen.",
+        "Die anzupassende Zufuhr liegt um 1.000 kcal.",
+        # Round 9: an approximate word starts a word.
+        "Eat a wholesome 1,000 kcal a day.",
+        "Aus gesundheitlichem Grund 1.000 kcal.",
     ],
 )
 def test_a_recommended_intake_below_the_floor_is_refused(text):
@@ -314,13 +325,13 @@ def test_a_recommended_intake_below_the_floor_is_refused(text):
         "Trim intake by 300 kcal.",
         "Die Zufuhr um 300 kcal anpassen.",
         "Wir empfehlen, die Zufuhr um 300 kcal anzupassen.",
-        "Die Zufuhr wird um 300 kcal angepasst.",
         "Die Zufuhr um 300 kcal zurückfahren.",
         "Wir empfehlen, die Zufuhr um 300 kcal zurückzufahren.",
-        "Die Zufuhr wird um 300 kcal zurückgefahren.",
         "Die Zufuhr um 300 kcal herabsetzen.",
         "Wir empfehlen, die Zufuhr um 300 kcal herabzusetzen.",
-        "Die Zufuhr wird um 300 kcal herabgesetzt.",
+        # Round 9: a sign before an approximate word still touches the figure.
+        "Intake: −ca. 300 kcal.",
+        "Intake: -about 300 kcal on rest days.",
         "Intake falls by 300 kcal on rest days.",
         "Keep intake between about 1,500 and 1,800 kcal.",
     ],
@@ -640,10 +651,14 @@ def test_the_owner_s_review_prompt_names_its_blocks():
     [
         "Senken Sie die Zufuhr, z. B. Kohlenhydrate, um 300 kcal.",
         "Passen Sie die Zufuhr um 300 kcal an.",
+        # Round 9: a German participle is not read, as it is also an adjective.
+        "Die Zufuhr wird um 300 kcal angepasst.",
+        "Die Zufuhr wird um 300 kcal zurückgefahren.",
+        "Die Zufuhr wird um 300 kcal herabgesetzt.",
     ],
 )
 def test_a_change_the_floor_check_cannot_read_is_refused(text):
-    """A change whose verb the check cannot see (cut off by "z. B.", or split) fails safe."""
+    """A change whose verb the check cannot see (cut off, split or a participle) fails safe."""
     draft = _with(("recommendations", 0, "text"), text)
     assert "calorie_floor" in wr.check_edit(draft, CHUNKS)
 

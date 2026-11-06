@@ -821,10 +821,11 @@ REVIEW_KCAL_CHANGE_BEFORE: tuple[str, ...] = ("by", "um")
 # "by" and "um" make a change only with one of these verb stems in the same sentence, before or
 # after the figure: "um 1.000 kcal" alone means "around 1,000 kcal" (code review rounds 6 and 7).
 # A stem is found inside any word, so none may occur in a common word that is no change verb:
-# "fall" is in "ebenfalls" and "gegebenenfalls", hence "fall by" (code review round 8). German
-# verbs with a separable prefix need their zu-infinitive and participle too ("anzupassen",
-# "angepasst"); the split imperative ("Passen Sie die Zufuhr um 300 kcal an") is not read, so its
-# figure counts as an intake, which fails safe.
+# "fall" is in "ebenfalls" and "gegebenenfalls", hence "fall by" (code review round 8). The
+# participles of the separable German verbs ("angepasst", "herabgesetzt") are not stems: they are
+# also adjectives ("Die angepasste Zufuhr sollte um 1.000 kcal liegen") (code review round 9). So
+# the passive ("Die Zufuhr wird um 300 kcal angepasst") and the split imperative ("Passen Sie die
+# Zufuhr um 300 kcal an") are not read, and their figure counts as an intake, which fails safe.
 REVIEW_KCAL_CHANGE_VERBS: tuple[str, ...] = (
     "raise",
     "increase",
@@ -843,14 +844,8 @@ REVIEW_KCAL_CHANGE_VERBS: tuple[str, ...] = (
     "boost",
     "trim",
     "anpass",
-    "anzupass",
-    "angepass",
     "zurückfahr",
-    "zurückzufahr",
-    "zurückgefahr",
     "herabsetz",
-    "herabzusetz",
-    "herabgesetz",
     "erhöh",
     "senk",
     "reduzier",
@@ -860,6 +855,9 @@ REVIEW_KCAL_CHANGE_VERBS: tuple[str, ...] = (
     "kürz",
     "sinken",
 )
+# The zu-infinitives of the separable German verbs, as whole words only: "anzupassende" is an
+# adjective (code review round 9).
+REVIEW_KCAL_CHANGE_WORDS: tuple[str, ...] = ("anzupassen", "zurückzufahren", "herabzusetzen")
 REVIEW_KCAL_SIGNS: tuple[str, ...] = ("+", "-", "−", "±")
 REVIEW_KCAL_APPROXIMATE: tuple[str, ...] = (
     "about",

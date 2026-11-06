@@ -45,9 +45,12 @@ _SPACES = re.compile(r"\s+")
 _FIGURE = r"\d+(?:[.,]\d+)*(?:k(?![a-z]))?"
 # One optional approximate word before a figure of a range ("between about 1,000 and 1,300 kcal",
 # "zwischen ca. 1.000 und etwa 1.300 kcal"), so the lower end is not lost (code review round 8).
+# It starts a word, so "some" in "wholesome" is no approximate word (code review round 9).
 _APPROXIMATE = (
-    r"(?:(?:" + "|".join(re.escape(word) for word in config.REVIEW_KCAL_APPROXIMATE) + r")\s+)?"
+    r"(?:\b(?:" + "|".join(re.escape(word) for word in config.REVIEW_KCAL_APPROXIMATE) + r")\s+)?"
 )
+# A word of letters only, for the whole-word change words.
+_LETTER_WORD = re.compile(r"[^\W\d_]+")
 # A kcal figure, or a range of two, checked from its lower end: "between X and Y" ("zwischen X und
 # Y"), or X and Y joined by a dash, "to", "bis", "up to" or "bis zu" ("pair" or "low" is the lower
 # end, "high" the figure or the upper end). A unit may follow a hyphen ("a 1,000-calorie day") and
@@ -436,8 +439,11 @@ def _is_change(raw_before: str, after: str, sentence: str) -> bool:
     if words and words[-1] in config.REVIEW_KCAL_CHANGE_BEFORE:
         # "by"/"um" with a change verb in the same sentence, before the figure or after it as
         # German often puts it ("Die Zufuhr um 300 kcal senken"); "Die Zufuhr sollte um 1.000
-        # kcal liegen" is an intake (code review rounds 6 and 7).
+        # kcal liegen" is an intake (code review rounds 6 and 7). A zu-infinitive counts only as a
+        # whole word (round 9).
         if any(verb in sentence for verb in config.REVIEW_KCAL_CHANGE_VERBS):
+            return True
+        if set(_LETTER_WORD.findall(sentence)) & set(config.REVIEW_KCAL_CHANGE_WORDS):
             return True
     following = [word.strip(".,;:").rstrip(")") for word in after.split()]
     # Only closing marks are stripped: "1,000 kcal (less than usual)" is an intake with a remark,
