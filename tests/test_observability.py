@@ -1,6 +1,7 @@
 """The JSON logger (T8.2): its format, its one handler, its allowlist and the canary tests."""
 
 import ast
+import contextlib
 import io
 import json
 import logging
@@ -20,7 +21,7 @@ from src.chat import TurnResult
 from src.preferences import PREFERENCE_TOOL, CoachMemory
 from src.profile import UserProfile
 from src.rag.store import IndexNotReadyError
-from src.tools import food_api, registry
+from src.tools import coach_clients, food_api, registry
 from src.tools.energy import calculate_tdee
 from src.tools.food_api import FoodApi
 from tests.fakes import (
@@ -682,7 +683,16 @@ def test_a_failing_log_call_does_not_lose_the_turn(index, caplog):
 
 # --- No stored value in any record: the canary tests extended to the store (T9.6, AC-33) ---------
 
-STORE_CANARY_TEXTS = (*CANARY_TEXTS, "CANARY-COACH", "CANARY-GYM", "2345.6", "571.9")
+STORE_CANARY_TEXTS = (
+    *CANARY_TEXTS,
+    "CANARY-COACH",
+    "CANARY-GYM",
+    "CANARY-NAME",
+    "CANARY-DAY",
+    "2345.6",
+    "571.9",
+    "871.9",
+)
 
 
 def _store_scenario(conn, codes: list[str]) -> list[Exception]:
@@ -782,6 +792,25 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
         model_version="m", evidence_refs=[("12", "12-3")],
     )  # fmt: skip
     reviews.decide_review(conn, "CANARY-COACH", review, "edit", {"text": "CANARY-EDIT 87.3"})
+    # T9.17: a coach's target for the client, and the coach's client tools, which read the week.
+    records.add_client_target(
+        conn, "CANARY-COACH", "CANARY-GYM", kcal=2345.6, protein_g=160, carbs_g=250, fat_g=70,
+        effective_from=date(2026, 10, 27),
+    )  # fmt: skip
+    clients = coach_clients.CoachClients(
+        coach_id="CANARY-COACH",
+        open_store=lambda: contextlib.nullcontext(conn),
+        refs=coach_clients.ClientRefs(),
+        today=lambda: date(2026, 10, 28),
+    )
+    tools = registry.build_tools(None, clients=clients)
+    for name, args in (
+        (coach_clients.LIST_TOOL, {}),
+        (coach_clients.WEEK_TOOL, {"client": "client-1"}),
+        (coach_clients.WEEK_TOOL, {"client": "CANARY-GYM"}),
+        (coach_clients.WEEK_TOOL, {"client": "client-1", "week_of": "CANARY-DAY"}),
+    ):
+        registry.run_tool_call(tools, {"name": name, "args": args, "id": "c", "type": "tool_call"})
     for bad in (
         lambda: records.add_body_measurement(
             conn, "CANARY-GYM", weight_kg=-87.3, measured_on=date(2026, 10, 26)
@@ -837,6 +866,27 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
             fiber_g=None,
         ),  # fmt: skip
         lambda: diary.log_weight(conn, "CANARY-GYM", value=-87.3, system="metric", day=today),
+        # T9.17: a coach's target for someone not their client, and one under the floor.
+        lambda: records.add_client_target(
+            conn,
+            "CANARY-COACH",
+            "other-gym",
+            kcal=2345.6,
+            protein_g=160,
+            carbs_g=250,
+            fat_g=70,
+            effective_from=date(2026, 10, 27),
+        ),  # fmt: skip
+        lambda: records.add_client_target(
+            conn,
+            "CANARY-COACH",
+            "CANARY-GYM",
+            kcal=871.9,
+            protein_g=160,
+            carbs_g=250,
+            fat_g=70,
+            effective_from=date(2026, 10, 27),
+        ),  # fmt: skip
     ):
         try:
             bad()
@@ -857,7 +907,7 @@ def test_no_record_or_error_holds_a_stored_value(store_conn, caplog):
     codes: list[str] = []
     errors = _store_scenario(store_conn, codes)
     # Each kind of refusal happened, so their messages were checked.
-    assert len(errors) == 3 + 6 + 9 + 1  # T9.7: a gymer's preference is refused
+    assert len(errors) == 3 + 6 + 9 + 1 + 2  # T9.7: a gymer's preference; T9.17: two targets
     texts = [stream.getvalue(), caplog.text, *(str(e) for e in errors), *(repr(e) for e in errors)]
     # The two refused codes were logged, by reason only (T9.12).
     assert stream.getvalue().count('"event": "invite_refused"') == 2

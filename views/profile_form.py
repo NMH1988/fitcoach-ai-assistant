@@ -61,13 +61,18 @@ def _store(saved: profile.UserProfile) -> bool:
         return False
     try:
         with accounts.open_store(account.store_path()) as conn:
-            accounts.save_profile(conn, account.current_user()["id"], saved, with_weight=True)
+            written = accounts.save_profile(
+                conn, account.current_user()["id"], saved, with_weight=True
+            )
     except accounts.StoreUnavailable:
         st.error(t("account.store_unavailable"), icon=":material/error:")
         return False
     except accounts.AccountError as error:
         st.error(t(error.code), icon=":material/error:")
         return False
+    if not written:
+        # The coach's target stays the active one (T9.17): said once in the sidebar after the rerun.
+        st.session_state[account.PROFILE_NOTICE_KEY] = "profile.coach_target_kept"
     return True
 
 

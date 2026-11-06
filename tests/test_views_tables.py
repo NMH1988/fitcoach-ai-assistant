@@ -2,13 +2,13 @@
 
 import html
 import re
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
 
 from src import chat, config, dashboard, i18n, metrics, usage
-from src.tools import energy, registry
+from src.tools import coach_clients, energy, registry
 from src.tools.food import FoodLookupResult, Nutrients
 from tests.fakes import PROFILE
 from views import tables
@@ -515,12 +515,13 @@ CLIENT = {"other_id": "gym-alex", "other_name": "Alex", "accepted_at": "2026-11-
 
 
 def test_an_active_client_s_row_holds_the_week_s_values():
-    """One row: name, since, days logged, kcal against target, sessions, latest weight, review."""
+    """One row: name, since, follow-up, days logged, kcal vs target, sessions, weight, review."""
     review = {"id": 7, "status": "APPROVED", "period_start": "2026-10-19"}
     cells = tables.client_cells(CLIENT, _week(reviews=[review]), "metric", "en")
     assert cells == {
         "name": "Alex",
         "since": "2026-11-01",
+        "follow_up": "Yes: few days logged",
         "logged": "3 of 7 days logged",
         "kcal": "2,167 / 2,400 kcal",
         "sessions": "1",
@@ -531,13 +532,14 @@ def test_an_active_client_s_row_holds_the_week_s_values():
     assert list(table) == [
         "Client",
         "Since",
+        "Follow up",
         "Days logged",
         "Avg kcal / target",
         "Sessions",
         "Latest weight",
         "Weekly review",
     ]
-    assert [column[0] for column in table.values()] == list(cells.values())
+    assert [column[0] for column in table.values()] == [cells[key] for key in tables.CLIENT_COLUMNS]
 
 
 def test_a_scope_not_shared_says_so_in_its_cells():
@@ -565,6 +567,7 @@ def test_a_card_holds_the_same_values_as_the_table_row_escaped():
     assert lines[0] == r"**1\. Max\_\***"
     assert lines[1:] == [
         r"**Since:** 2026\-11-01",  # a value that starts like a list item is escaped
+        r"**Follow up:** Yes\: few days logged",
         "**Days logged:** 3 of 7 days logged",
         "**Avg kcal / target:** 2,167 / 2,400 kcal",
         "**Sessions:** 1",
@@ -855,3 +858,46 @@ def test_only_a_text_with_the_three_sections_counts_as_t9_16_s_fields():
     assert tables.has_review_fields(_review_text())
     assert not tables.has_review_fields({"observations": ["x"]})
     assert not tables.has_review_fields({"observations": [], "hypotheses": []})
+
+
+@pytest.mark.parametrize(
+    ("reasons", "lang", "text"),
+    [
+        ((), "en", "No"),
+        (("few_logged_days",), "en", "Yes: few days logged"),
+        (("few_logged_days", "no_session"), "en", "Yes: few days logged; no workout"),
+        (("no_session",), "de", "Ja: kein Training"),
+    ],
+)
+def test_the_follow_up_cell_names_each_reason(reasons, lang, text):
+    """The follow-up cell is "No", or "Yes" with each reason, in the chosen language (T9.17)."""
+    assert tables.follow_up_text(reasons, lang) == text
+
+
+def _client_week_result(weight_kg: float | None):
+    """Return a made-up get_client_week result with body shared and this latest weight."""
+    return coach_clients.ClientWeekResult(
+        status="ok",
+        message="m",
+        client="client-1",
+        week_start=MONDAY,
+        week_end=MONDAY + timedelta(days=6),
+        shared_scopes=["body"],
+        nutrition=None,
+        body=coach_clients.BodyOut(
+            latest_weight_kg=weight_kg, latest_weight_on=MONDAY, weight_change_kg=None
+        ),
+        training=None,
+        follow_up_reasons=[],
+    )
+
+
+@pytest.mark.parametrize(("system", "shown"), [("metric", "80 kg"), ("imperial", "176.4 lb")])
+def test_a_client_s_week_shows_the_weight_in_the_coach_s_units(system, shown):
+    """The tool result's weight follows the unit setting, the name shown for the reference."""
+    rows = tables.client_week_tool_rows(
+        _client_week_result(80.0), {"client-1": "Eve"}, system, "en"
+    )
+    assert rows["Client"] == "Eve"
+    assert rows["Latest weight"] == shown
+    assert rows["Days logged"] == rows["Sessions"] == "Not shared"

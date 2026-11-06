@@ -182,6 +182,19 @@ _EN: dict[str, str] = {
     "macro.fat": "Fat",
     "targets.protein_lowered": "Protein was lowered to fit the target: see My targets.",
     "targets.more": "More under My targets.",
+    # A gymer's active target when their coach set it (T9.17): read-only for the gymer.
+    "targets.coach_set": (
+        "Your coach set your daily target from {day}: {kcal} kcal, {protein} g protein, "
+        "{carbohydrate} g carbohydrate and {fat} g fat. While you share nutrition with your coach, "
+        "only they can change it, and saving your details does not replace it. The targets below "
+        "are worked out from your details, for comparison."
+    ),
+    "targets.computed_not_active": (
+        "Worked out from your details. Your active target is the one your coach set (My profile)."
+    ),
+    "profile.coach_target_kept": (
+        "Your details are saved. Your daily target stays the one your coach set."
+    ),
     "targets.at_maintenance": "{goal}: at maintenance",
     "targets.above_maintenance": "{goal}: {kcal} kcal above maintenance",
     "targets.below_maintenance": "{goal}: {kcal} kcal below maintenance",
@@ -203,6 +216,12 @@ _EN: dict[str, str] = {
     "tool.title.lookup_food_nutrition": "Food lookup",
     "tool.title.evaluate_meal_plan": "Meal plan check",
     "tool.title.none": "Tool call not run",
+    # The coach's client tools (T9.17); a client's reference shows as their name on the page.
+    "tool.title.list_my_clients": "Your clients this week",
+    "tool.title.get_client_week": "A client's week",
+    "tool.client_week.week": "Week",
+    "tool.client_week.range": "{start} to {end}",
+    "tool.client_week.kcal": "{average} / {target} kcal",
     "table.item": "Item",
     "table.value": "Value",
     "tdee.bmr": "Resting energy (BMR)",
@@ -393,6 +412,10 @@ _EN: dict[str, str] = {
         "This cannot be saved as a preference: it names one of your clients. A preference holds "
         "how you work, never a client's personal data."
     ),
+    "memory.refused.client_reference": (
+        "This cannot be saved as a preference: it names one of your clients by their reference "
+        "(such as client-2). A preference holds how you work, never a client's personal data."
+    ),
     "memory.refused.one_per_turn": "Only one preference can be proposed at a time.",
     # What the answers are based on, and the credits (the sidebar button's dialog).
     "about.title": "About the answers",
@@ -449,6 +472,7 @@ _EN: dict[str, str] = {
     "pdf.answer": "Answer",
     "pdf.sources": "Sources",
     "pdf.tool_results": "Tool results",
+    "pdf.client_tool": "The client figures this answer used are shown in the app's Tool results.",
     "pdf.credits": "Credits",
     "pdf.credits_intro": (
         "The answers and targets draw on the open access articles below; each is used under its "
@@ -773,6 +797,10 @@ _EN: dict[str, str] = {
     "my_data.grams": "{value} g",
     "my_data.set_by.system": "The app",
     "my_data.set_by.user": "You",
+    "my_data.set_by.coach": "Your coach",
+    "my_data.coach_target_note": (
+        "A target your coach set cannot be deleted on its own; Delete everything below removes it."
+    ),
     "my_data.meal.breakfast": "Breakfast",
     "my_data.meal.lunch": "Lunch",
     "my_data.meal.dinner": "Dinner",
@@ -856,6 +884,13 @@ _EN: dict[str, str] = {
     "clients.col.sessions": "Sessions",
     "clients.col.weight": "Latest weight",
     "clients.col.review": "Weekly review",
+    # The follow-up flag (T9.17): fewer logged days than config.FOLLOW_UP_MIN_LOGGED_DAYS, or no
+    # workout, judged only on the scopes the client shares.
+    "clients.col.follow_up": "Follow up",
+    "clients.follow_up.none": "No",
+    "clients.follow_up.flagged": "Yes: {reasons}",
+    "clients.follow_up.few_logged_days": "few days logged",
+    "clients.follow_up.no_session": "no workout",
     "clients.open_pick": "Open a client's week",
     "clients.open_placeholder": "Choose a client",
     "clients.open_week": "Open the week",
@@ -870,6 +905,23 @@ _EN: dict[str, str] = {
     ),
     "client_week.pick": "Client",
     "client_week.gone": "This client is no longer your active client.",
+    # The coach's target form on Client week (T9.17).
+    "client_targets.heading": "Daily targets",
+    "client_targets.intro": (
+        "Set this client's daily targets from today. The client sees them as set by you and cannot "
+        "change or delete them; the energy target is never below {floor} kcal a day."
+    ),
+    "client_targets.not_shared": "Targets can be set only while the client shares nutrition.",
+    "client_targets.kcal": "Energy (kcal a day)",
+    "client_targets.protein": "Protein (g a day)",
+    "client_targets.carbohydrate": "Carbohydrate (g a day)",
+    "client_targets.fat": "Fat (g a day)",
+    "client_targets.save": "Set targets",
+    "client_targets.saved": "The new targets apply from {day}.",
+    "client_targets.refused": (
+        "The targets were not set: you cannot set targets for this client now."
+    ),
+    "client_targets.invalid": "The targets were not set: fill in every field within its range.",
     "client_week.no_clients": (
         "You have no active clients. Invite one on the Clients page, then open their week here."
     ),
@@ -1254,6 +1306,19 @@ _DE: dict[str, str] = {
         "Protein wurde gesenkt, damit es zum Ziel passt: siehe „Meine Ziele“."
     ),
     "targets.more": "Mehr unter „Meine Ziele“.",
+    "targets.coach_set": (
+        "Ihr Coach hat Ihr Tagesziel ab {day} gesetzt: {kcal} kcal, {protein} g Protein, "
+        "{carbohydrate} g Kohlenhydrate und {fat} g Fett. Solange Sie die Ernährung mit Ihrem "
+        "Coach teilen, kann nur er es ändern, und das Speichern Ihrer Angaben ersetzt es nicht. "
+        "Die Ziele unten sind aus Ihren Angaben berechnet, zum Vergleich."
+    ),
+    "targets.computed_not_active": (
+        "Aus Ihren Angaben berechnet. Ihr aktives Ziel ist das von Ihrem Coach gesetzte "
+        "(Mein Profil)."
+    ),
+    "profile.coach_target_kept": (
+        "Ihre Angaben sind gespeichert. Ihr Tagesziel bleibt das von Ihrem Coach gesetzte."
+    ),
     "targets.at_maintenance": "{goal}: auf Erhaltungsbedarf",
     "targets.above_maintenance": "{goal}: {kcal} kcal über dem Erhaltungsbedarf",
     "targets.below_maintenance": "{goal}: {kcal} kcal unter dem Erhaltungsbedarf",
@@ -1281,6 +1346,11 @@ _DE: dict[str, str] = {
     "tool.title.lookup_food_nutrition": "Lebensmittelsuche",
     "tool.title.evaluate_meal_plan": "Essensplan-Check",
     "tool.title.none": "Werkzeugaufruf nicht ausgeführt",
+    "tool.title.list_my_clients": "Ihre Klienten diese Woche",
+    "tool.title.get_client_week": "Die Woche eines Klienten",
+    "tool.client_week.week": "Woche",
+    "tool.client_week.range": "{start} bis {end}",
+    "tool.client_week.kcal": "{average} / {target} kcal",
     "table.item": "Angabe",
     "table.value": "Wert",
     "tdee.bmr": "Ruheenergiebedarf (BMR)",
@@ -1485,6 +1555,11 @@ _DE: dict[str, str] = {
         "Ihrer Kunden. Eine Vorliebe beschreibt, wie Sie arbeiten, nie persönliche Daten von "
         "Kundinnen und Kunden."
     ),
+    "memory.refused.client_reference": (
+        "Das kann nicht als Vorliebe gespeichert werden: Es nennt eine Ihrer Kundinnen oder einen "
+        "Ihrer Kunden über die Referenz (etwa client-2). Eine Vorliebe beschreibt, wie Sie "
+        "arbeiten, nie persönliche Daten von Kundinnen und Kunden."
+    ),
     "memory.refused.one_per_turn": "Es kann jeweils nur eine Vorliebe vorgeschlagen werden.",
     "about.title": "Über die Antworten",
     "about.articles": (
@@ -1543,6 +1618,9 @@ _DE: dict[str, str] = {
     "pdf.answer": "Antwort",
     "pdf.sources": "Quellen",
     "pdf.tool_results": "Werkzeugergebnisse",
+    "pdf.client_tool": (
+        "Die Klientenzahlen, die diese Antwort nutzte, stehen in den Werkzeugergebnissen der App."
+    ),
     "pdf.credits": "Nachweise",
     "pdf.credits_intro": (
         "Die Antworten und Ziele stützen sich auf die unten genannten Open-Access-Artikel; jeder "
@@ -1946,6 +2024,11 @@ _DE: dict[str, str] = {
     "my_data.grams": "{value} g",
     "my_data.set_by.system": "Die App",
     "my_data.set_by.user": "Sie",
+    "my_data.set_by.coach": "Ihr Coach",
+    "my_data.coach_target_note": (
+        "Ein Ziel, das Ihr Coach gesetzt hat, kann nicht einzeln gelöscht werden; „Alles löschen“ "
+        "unten entfernt es."
+    ),
     "my_data.meal.breakfast": "Frühstück",
     "my_data.meal.lunch": "Mittagessen",
     "my_data.meal.dinner": "Abendessen",
@@ -2035,6 +2118,11 @@ _DE: dict[str, str] = {
     "clients.col.sessions": "Einheiten",
     "clients.col.weight": "Letztes Gewicht",
     "clients.col.review": "Wochenbericht",
+    "clients.col.follow_up": "Nachfassen",
+    "clients.follow_up.none": "Nein",
+    "clients.follow_up.flagged": "Ja: {reasons}",
+    "clients.follow_up.few_logged_days": "wenige Tage erfasst",
+    "clients.follow_up.no_session": "kein Training",
     "clients.open_pick": "Woche eines Klienten öffnen",
     "clients.open_placeholder": "Klient wählen",
     "clients.open_week": "Woche öffnen",
@@ -2049,6 +2137,27 @@ _DE: dict[str, str] = {
     ),
     "client_week.pick": "Klient",
     "client_week.gone": "Diese Person ist nicht mehr Ihr aktiver Klient.",
+    "client_targets.heading": "Tagesziele",
+    "client_targets.intro": (
+        "Legen Sie die Tagesziele dieses Klienten ab heute fest. Der Klient sieht sie als von "
+        "Ihnen gesetzt und kann sie weder ändern noch löschen; das Energieziel liegt nie unter "
+        "{floor} kcal pro Tag."
+    ),
+    "client_targets.not_shared": (
+        "Ziele können nur gesetzt werden, solange der Klient die Ernährung teilt."
+    ),
+    "client_targets.kcal": "Energie (kcal pro Tag)",
+    "client_targets.protein": "Protein (g pro Tag)",
+    "client_targets.carbohydrate": "Kohlenhydrate (g pro Tag)",
+    "client_targets.fat": "Fett (g pro Tag)",
+    "client_targets.save": "Ziele setzen",
+    "client_targets.saved": "Die neuen Ziele gelten ab {day}.",
+    "client_targets.refused": (
+        "Die Ziele wurden nicht gesetzt: Sie können für diesen Klienten jetzt keine Ziele setzen."
+    ),
+    "client_targets.invalid": (
+        "Die Ziele wurden nicht gesetzt: Füllen Sie jedes Feld innerhalb seines Bereichs aus."
+    ),
     "client_week.no_clients": (
         "Sie haben keine aktiven Klienten. Laden Sie auf der Seite Klienten jemanden ein und "
         "öffnen Sie dann hier seine Woche."

@@ -295,5 +295,38 @@ CREATE INDEX ai_reviews_week ON ai_reviews (coach_id, client_id, period_start);
 PRAGMA user_version = 2;
 """
 
-# In order: MIGRATIONS[0] creates version 1, MIGRATIONS[1] takes it to version 2.
-MIGRATIONS: tuple[str, ...] = (_V1, _V2)
+# T9.17: a coach sets a client's targets, and each one leaves an audit row with the new action
+# `target_set`. SQLite cannot change a CHECK in place, so audit_log is built again: the same
+# table as in _V1 apart from the action list, every row copied with its ID, then its indexes and
+# its trigger made again. The next migration that needs a new action (T9.25's `review_answered`)
+# builds it again the same way, from this version's table.
+_V3 = """
+CREATE TABLE audit_log_new (
+    id INTEGER PRIMARY KEY,
+    actor_id TEXT NOT NULL REFERENCES users (id),
+    subject_id TEXT REFERENCES users (id),
+    action TEXT NOT NULL
+        CHECK (action IN (
+            'read', 'review_approved', 'review_edited', 'review_rejected', 'target_set'
+        )),
+    resource_type TEXT NOT NULL CHECK (length(resource_type) > 0),
+    resource_id INTEGER,
+    created_at TEXT NOT NULL
+        CHECK (created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
+            AND date(created_at) IS substr(created_at, 1, 10))
+) STRICT;
+
+INSERT INTO audit_log_new (id, actor_id, subject_id, action, resource_type, resource_id, created_at)
+SELECT id, actor_id, subject_id, action, resource_type, resource_id, created_at FROM audit_log;
+DROP TABLE audit_log;
+ALTER TABLE audit_log_new RENAME TO audit_log;
+CREATE INDEX audit_log_actor ON audit_log (actor_id);
+CREATE INDEX audit_log_subject ON audit_log (subject_id);
+CREATE TRIGGER audit_log_never_changed BEFORE UPDATE ON audit_log
+BEGIN SELECT RAISE(ABORT, 'stored records are never changed in place'); END;
+
+PRAGMA user_version = 3;
+"""
+
+# In order: MIGRATIONS[n] takes a database from version n to version n + 1.
+MIGRATIONS: tuple[str, ...] = (_V1, _V2, _V3)

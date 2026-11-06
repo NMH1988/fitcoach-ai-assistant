@@ -14,7 +14,7 @@ from reportlab.pdfbase import pdfmetrics
 from src import chat, config, export_pdf, guardrails, i18n
 from src.guardrails import Concern
 from src.rag.sources import ARTICLE_CHANGES_NOTE, Source
-from src.tools import food_api, meal_plan, registry
+from src.tools import coach_clients, food_api, meal_plan, registry
 from src.tools.energy import FORMULA_SOURCES, MACRO_SOURCES, TDEE_METHOD
 from src.tools.food import lookup_food_nutrition
 from src.tools.registry import (
@@ -524,7 +524,15 @@ def test_every_turn_kind_has_a_label():
 
 def test_tool_titles_match_the_tools():
     """Every tool, and a refused call (None), has a heading in the app and the PDF."""
-    assert set(registry.TOOL_TITLES) == {TDEE_TOOL, MACRO_TOOL, FOOD_TOOL, MEAL_PLAN_TOOL, None}
+    coach = {coach_clients.LIST_TOOL, coach_clients.WEEK_TOOL}  # a coach's chat only (T9.17)
+    assert set(registry.TOOL_TITLES) == {
+        TDEE_TOOL,
+        MACRO_TOOL,
+        FOOD_TOOL,
+        MEAL_PLAN_TOOL,
+        *coach,
+        None,
+    }
 
 
 def test_the_fonts_cover_every_character_of_the_approved_sources():
@@ -960,3 +968,21 @@ def test_the_pdf_text_keys_match_i18n_and_each_has_its_own_german_text():
 def test_the_date_is_written_as_the_language_writes_it(lang, expected):
     """English keeps the ISO date; German writes day, month and year with dots."""
     assert export_pdf.format_date(TODAY, lang) == expected
+
+
+@pytest.mark.parametrize("lang", ["en", "de"])
+def test_a_client_tool_result_gets_a_line_for_people(lang):
+    """A coach's client tool shows a fixed line, never the message written for the model (T9.17)."""
+    result = coach_clients.ClientListResult(
+        status="ok",
+        message=coach_clients.LIST_MESSAGE,
+        week_start=date(2026, 10, 26),
+        week_end=date(2026, 11, 1),
+        follow_up_min_logged_days=4,
+        clients=[],
+    )
+    run = registry.ToolRun(coach_clients.LIST_TOOL, "ok", result)
+    flowables = export_pdf._tool_run_flowables(run, "metric", lang)
+    texts = [item.getPlainText() for item in flowables]
+    assert texts[1] == i18n.t("pdf.client_tool", lang)
+    assert coach_clients.LIST_MESSAGE not in " ".join(texts)

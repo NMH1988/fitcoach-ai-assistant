@@ -140,8 +140,10 @@ def load_profile(conn: sqlite3.Connection, user_id: str) -> UserProfile | None:
 
 def save_profile(
     conn: sqlite3.Connection, user_id: str, profile: UserProfile, *, with_weight: bool
-) -> None:
-    """Save a gymer's profile as a new dated entry, their weight (if asked) and a new target."""
+) -> bool:
+    """Save a gymer's profile, weight (if asked) and new target; False: the coach's target kept."""
+    # While the gymer shares nutrition with a coach and the latest target is a coach's, the store
+    # writes no new target (T9.17, owner's choices, 2026-11-06), so the page can say it stays.
     # The target is worked out before anything is written, so a profile that gives no target
     # writes nothing; the three rows are one store transaction (T9.13), so a profile entry never
     # stays without its target.
@@ -150,7 +152,7 @@ def save_profile(
         raise AccountError("account.no_target")
     targets = result.targets
     try:
-        records.add_profile_with_target(
+        return records.add_profile_with_target(
             conn,
             user_id,
             height_cm=profile.height_cm,

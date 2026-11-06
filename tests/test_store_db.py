@@ -1,6 +1,7 @@
 """The store's file, schema and migrations (T9.6): tables, foreign keys, checks, UTC, no updates."""
 
 import os
+import re
 import sqlite3
 import stat
 from datetime import UTC, date, datetime, timedelta, timezone
@@ -10,7 +11,7 @@ from typing import get_args
 import pytest
 
 from src import config, profile
-from src.store import db, schema, values
+from src.store import access, db, schema, values
 
 ROOT = config.PROJECT_ROOT
 TABLES = {
@@ -193,7 +194,7 @@ def test_connect_creates_the_file_in_the_configured_folder_with_every_table(stor
         for row in store_conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
     }
     assert names == TABLES
-    assert db.schema_version(store_conn) == len(schema.MIGRATIONS) == 2
+    assert db.schema_version(store_conn) == len(schema.MIGRATIONS) == 3
 
 
 def test_the_store_folder_is_gitignored_and_inside_the_project():
@@ -209,7 +210,7 @@ def test_a_given_path_is_used_instead_of_the_config(tmp_path):
     """connect(path) opens that file and makes its folder."""
     path = tmp_path / "nested" / "other.sqlite3"
     with db.connect(path) as conn:
-        assert db.schema_version(conn) == 2
+        assert db.schema_version(conn) == len(schema.MIGRATIONS)
     assert path.is_file()
     assert not config.STORE_PATH.exists()
 
@@ -353,7 +354,7 @@ def test_a_read_only_database_is_made_0600_and_opens():
         pass
     os.chmod(config.STORE_PATH, 0o400)
     with db.connect() as conn:
-        assert db.schema_version(conn) == 2
+        assert db.schema_version(conn) == len(schema.MIGRATIONS)
     assert stat.S_IMODE(config.STORE_PATH.stat().st_mode) == 0o600
 
 
@@ -508,7 +509,7 @@ def test_connecting_again_keeps_the_data_and_the_version(tmp_path):
     with db.connect(path) as conn:
         _seed(conn)
     with db.connect(path) as conn:
-        assert db.schema_version(conn) == 2
+        assert db.schema_version(conn) == len(schema.MIGRATIONS)
         assert conn.execute("SELECT count(*) FROM users").fetchone()[0] == 2
 
 
@@ -699,7 +700,7 @@ def test_a_version_1_file_gets_its_reviews_filed_under_nutrition(tmp_path):
     _seed(conn)
     conn.close()
     with db.connect(path) as conn:
-        assert db.schema_version(conn) == 2
+        assert db.schema_version(conn) == len(schema.MIGRATIONS)
         rows = conn.execute("SELECT review_id, scope FROM ai_review_scopes")
         scopes = [tuple(row) for row in rows]
         assert scopes == [(1, "nutrition")]
@@ -719,3 +720,97 @@ def test_an_empty_thread_id_is_refused(store_conn):
     _seed(store_conn)
     with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
         _insert(store_conn, "ai_reviews", {**VALID_ROWS["ai_reviews"], "thread_id": ""})
+
+
+# --- T9.17: audit_log built again with the action `target_set` (migration 3) -----------------
+
+_ACTION_LIST = re.compile(r"action\s+IN\s*\((.*?)\)", re.IGNORECASE | re.DOTALL)
+_V1_AUDIT_LOG = re.compile(r"CREATE TABLE audit_log \(.*?\) STRICT", re.DOTALL)
+AUDIT_INDEXES = {"audit_log_actor", "audit_log_subject"}
+
+
+def _actions(sql: str) -> list[str]:
+    """Return the actions a table's CHECK lists, in order."""
+    found = _ACTION_LIST.search(sql)
+    assert found is not None, sql
+    return [item.strip().strip("'") for item in found.group(1).split(",")]
+
+
+def _without_actions(sql: str) -> str:
+    """Return a table's SQL with its action list, the name's quotes and all whitespace taken out."""
+    # ALTER TABLE ... RENAME writes the new name quoted ("audit_log").
+    sql = _ACTION_LIST.sub("action IN (<actions>)", sql).replace('"audit_log"', "audit_log")
+    return re.sub(r"\s+", "", sql)
+
+
+def _stored_table_sql(conn, name: str) -> str:
+    """Return the CREATE TABLE statement SQLite keeps for a table."""
+    query = "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?"
+    return conn.execute(query, (name,)).fetchone()["sql"]
+
+
+def _v1_audit_log_sql() -> str:
+    """Return audit_log's CREATE TABLE statement as migration 1 wrote it."""
+    found = _V1_AUDIT_LOG.search(schema._V1)
+    assert found is not None
+    return found.group(0)
+
+
+def test_the_rebuilt_audit_log_differs_from_version_1_only_in_its_actions(store_conn):
+    """Migration 3 keeps STRICT, both foreign keys and the created_at check; adds target_set."""
+    stored = _stored_table_sql(store_conn, "audit_log")
+    first = _v1_audit_log_sql()
+    assert _without_actions(stored) == _without_actions(first)
+    assert _actions(stored) == [*_actions(first), "target_set"]
+
+
+def test_the_audit_actions_in_the_code_are_the_check_s_actions(store_conn):
+    """access.Action and the audit_log CHECK list the same actions."""
+    stored = _stored_table_sql(store_conn, "audit_log")
+    assert list(get_args(access.Action)) == _actions(stored)
+
+
+def _old_file(path: Path, version: int) -> None:
+    """Write a store file at an older version, with two audit rows and a relationship."""
+    conn = sqlite3.connect(path, autocommit=True)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    for script in schema.MIGRATIONS[:version]:
+        conn.executescript(script)
+    _seed(conn)
+    _insert(conn, "audit_log", VALID_ROWS["audit_log"])
+    _insert(conn, "audit_log", {**VALID_ROWS["audit_log"], "action": "review_rejected"})
+    conn.close()
+
+
+def _audit_rows(conn) -> list[tuple]:
+    """Return every audit row as a tuple, by ID."""
+    return [tuple(row) for row in conn.execute("SELECT * FROM audit_log ORDER BY id")]
+
+
+@pytest.mark.parametrize("version", [1, 2])
+def test_an_older_file_keeps_its_audit_rows_indexes_and_trigger(tmp_path, version):
+    """Upgrading keeps every audit row with its ID, both indexes and the no-update trigger."""
+    path = tmp_path / "old.sqlite3"
+    _old_file(path, version)
+    with sqlite3.connect(path) as before:
+        kept = _audit_rows(before)
+    before.close()
+    with db.connect(path) as conn:
+        assert db.schema_version(conn) == 3
+        assert _audit_rows(conn) == kept
+        names = {
+            row["name"]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE tbl_name = 'audit_log' AND type = 'index'"
+            )
+        }
+        assert names == AUDIT_INDEXES
+        trigger = "SELECT 1 FROM sqlite_master WHERE type = 'trigger' AND name = ?"
+        assert conn.execute(trigger, ("audit_log_never_changed",)).fetchone() is not None
+        with pytest.raises(sqlite3.IntegrityError, match="never changed"):
+            conn.execute("UPDATE audit_log SET resource_id = 5 WHERE id = 1")
+        _insert(conn, "audit_log", {**VALID_ROWS["audit_log"], "action": "target_set"})
+        with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
+            _insert(conn, "audit_log", {**VALID_ROWS["audit_log"], "action": "review_answered"})
+        assert conn.execute("PRAGMA foreign_key_check").fetchall() == []

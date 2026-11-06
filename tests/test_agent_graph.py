@@ -23,7 +23,7 @@ from src.agent.graph import TurnContext
 from src.agent.search import SearchLog
 from src.chat import Step, TurnResult
 from src.rag import store
-from src.tools import registry
+from src.tools import coach_clients, registry
 from src.tools.registry import FOOD_TOOL, MEAL_PLAN_TOOL, TDEE_TOOL
 from tests.fakes import (
     PROFILE,
@@ -118,6 +118,9 @@ def test_the_tools_node_is_langgraphs_tool_node():
         *registry.build_tools(None),
         search.SEARCH_TOOL,
         preferences.PREFERENCE_TOOL,
+        # A coach's client tools (T9.17), named for the ToolNode; run through the registry.
+        coach_clients.LIST_TOOL,
+        coach_clients.WEEK_TOOL,
     }
 
 

@@ -51,6 +51,7 @@ from src.rag.retriever import RetrievedChunk, embed_queries
 from src.rag.sources import ManifestError, Source, license_url_for, load_manifest
 from src.rag.store import IndexNotReadyError
 from src.tools import registry
+from src.tools.coach_clients import CoachClients
 from src.tools.food import FoodLookupResult
 from src.tools.food_api import FOOD_API_FAILURES, FoodSearch
 from src.tools.registry import ToolRun
@@ -671,6 +672,7 @@ def run_turn(
     conversation: Conversation | None = None,
     coach: preferences.CoachMemory | None = None,
     food_api: FoodSearch | None = None,
+    clients: CoachClients | None = None,
 ) -> TurnResult:
     """Run one chat turn: guard, agent, tools; never raise for an error a user can cause."""
     # on_step(step) is called as each step starts; on_text(text) as the answer streams in. `user`
@@ -689,6 +691,8 @@ def run_turn(
     # store before the turn; it offers remember_preference and <memories>. None for a guest.
     # food_api is the USDA FoodData Central search (T9.9), asked by the food tool for a food the
     # table does not have; None (no key, the evaluation run) keeps the table alone.
+    # clients is a coach's client tools (T9.17): the coach, the store and the chat's references,
+    # which give list_my_clients and get_client_week. None for a guest.
     if language not in config.ANSWER_LANGUAGE_PROMPT_PATHS:
         raise ValueError(f"Unknown answer language: {language!r}")
     turn_id = str(uuid.uuid4())
@@ -726,6 +730,8 @@ def run_turn(
                     food_api=food_api,
                     # A coach's clients' names never reach the FoodData Central API (T9.9).
                     client_names=coach.client_names if coach is not None else (),
+                    # A coach's client tools and this chat's references (T9.17).
+                    clients=clients,
                 )
             ),
             on_step=step,
