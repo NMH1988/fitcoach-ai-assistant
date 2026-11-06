@@ -213,6 +213,11 @@ def test_a_label_not_retrieved_in_this_run_is_refused():
         "Derzeit 1050 kcal; die Zufuhr schrittweise erhöhen.",
         "Aim for an average of 1,000 kcal per day.",
         "Keep averaging 1,000 kcal.",
+        # A gap word with no reference after it is no gap (code review round 4).
+        "Eat 1,000 kcal under supervision.",
+        "Halten Sie 1.000 kcal unter der Woche ein.",
+        "Try 1,000 kcal short term.",
+        "Keep it at 1,000 kcal below.",
         "Start from 1,000 kcal a day.",
         "Eat from 1,000 to 1,300 kcal.",
     ],
@@ -242,6 +247,8 @@ def test_a_recommended_intake_below_the_floor_is_refused(text):
         "Intake was 800 kcal below the target; raise it gradually.",
         "Close the 800 kcal gap step by step.",
         "Intake ran 800 kcal short of the target.",
+        "Intake was 800 kcal under the client's maintenance needs.",
+        "Die Zufuhr lag 800 kcal unter dem Bedarf.",
         "Die Zufuhr lag 800 kcal unter dem Ziel.",
     ],
 )

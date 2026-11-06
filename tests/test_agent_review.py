@@ -712,10 +712,20 @@ def test_a_stuck_decision_replaced_by_an_edit_runs_the_edit_s_checks(
     with pytest.raises(account.StoreUnavailable):
         review.decide_review(_context(), world.COACH_A, started.review_id, thread, "approve")
     bad = {**json.loads(_draft()), "hypotheses": [{"text": "Diabetes.", "evidence": []}]}
+    stream = io.StringIO()
+    observability.configure_logging(stream=stream)
     refused = review.decide_review(
         _context(), world.COACH_A, started.review_id, thread, "edit", bad
     )
     assert (refused.outcome, refused.errors) == ("edit_invalid", ("diagnosis",))
+    # The refusal is logged by its codes only, as at the decide node (code review round 4).
+    [line] = [json.loads(text) for text in stream.getvalue().splitlines()]
+    assert (line["event"], line["code"], line["checks"]) == (
+        "weekly_review",
+        "edit_invalid",
+        ["diagnosis"],
+    )
+    assert "Diabetes" not in stream.getvalue()
     good = json.loads(_draft())
     good["observations"][0]["text"] = "One day logged."
     edited = review.decide_review(

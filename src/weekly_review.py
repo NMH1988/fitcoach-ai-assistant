@@ -403,8 +403,30 @@ def _is_change(before: str, after: str) -> bool:
     words = _words_before(before)
     if words and words[-1] in config.REVIEW_KCAL_CHANGE_BEFORE:
         return True
-    following = after.split()
-    return bool(following) and following[0].strip(".,;:") in config.REVIEW_KCAL_CHANGE_AFTER
+    following = [word.strip(".,;:()") for word in after.split()]
+    if not following:
+        return False
+    if following[0] in config.REVIEW_KCAL_CHANGE_AFTER:
+        return True
+    return _is_gap(following)
+
+
+def _is_gap(following: list[str]) -> bool:
+    """Return True if the words after a kcal figure make it a gap to a named reference."""
+    # "800 kcal below the target" is a gap; "1,000 kcal under supervision" is an intake.
+    word, rest = following[0], following[1:]
+    if word not in config.REVIEW_KCAL_GAP_WORDS:
+        return False
+    if word == "short":
+        if not rest or rest[0] != "of":
+            return False
+        rest = rest[1:]
+    window = rest[: config.REVIEW_KCAL_REFERENCE_WORDS]
+    return any(
+        candidate.startswith(reference)
+        for candidate in window
+        for reference in config.REVIEW_KCAL_REFERENCES
+    )
 
 
 def _kcal(text: str) -> float:
