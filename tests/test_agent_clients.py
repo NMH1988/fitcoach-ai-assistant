@@ -297,18 +297,26 @@ def test_a_store_that_fails_gives_the_fixed_tool_failure(relationships):
         "https://x.example/?client-1",
         "<https://x.example/a=client-1>",
         "mail me@client-1",
-        "x.client-1",
+        # Code review round 2: an angle-bracket target with a space, a URL character that is not
+        # a word boundary, a reference-style definition, and www without a scheme.
+        "[details](<https://x.example/?n= client-1>)",
+        "https://x.example/a;client-1",
+        "[r]: https://x.example/?a;client-1",
+        "see WWW.x.example/a,client-1",
+        "[client-1](https://x.example)",
     ],
 )
-def test_no_name_is_put_into_a_link_target_or_a_url(text):
-    """An injected link keeps the reference: the name never reaches another host (round 1)."""
+def test_no_name_is_put_into_a_line_that_may_hold_a_link(text):
+    """A line with a link marker keeps every reference: no name reaches another host."""
     assert coach_clients.name_references(text, {"client-1": "Max"}, str) == text
 
 
-def test_a_reference_as_a_link_s_text_shows_the_name():
-    """Only the link's target is left alone; its text is the page's own."""
-    shown = coach_clients.name_references("[client-1](https://x.example)", {"client-1": "Max"}, str)
-    assert shown == "[Max](https://x.example)"
+def test_only_the_line_with_a_link_keeps_its_references():
+    """The other lines of the answer still show the name."""
+    link = "[more](https://x.example/?c=client-1)"
+    text = "\n".join(["client-1 logged 3 days.", link, "Ask client-1 why.", ""])
+    shown = coach_clients.name_references(text, {"client-1": "Max"}, str)
+    assert shown == "\n".join(["Max logged 3 days.", link, "Ask Max why.", ""])
 
 
 def test_known_references_become_quoted_names_and_others_stay():

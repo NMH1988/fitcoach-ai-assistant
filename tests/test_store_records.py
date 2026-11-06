@@ -789,6 +789,23 @@ def test_a_failure_after_the_insert_leaves_no_target_and_no_audit_row(
     assert _count(store_conn, "nutrition_targets") == before
 
 
+def test_a_coach_s_target_cannot_start_after_today(store_conn, coached, monkeypatch):
+    """A day after today is refused before any write: no row, no audit row; today is accepted."""
+    monkeypatch.setattr(records.metrics, "berlin_day", lambda moment=None: DAY)
+    before = _count(store_conn, "nutrition_targets")
+    with pytest.raises(values.StoreValueError, match="effective_from"):
+        records.add_client_target(
+            store_conn,
+            world.COACH_A,
+            world.SHARED,
+            **COACH_TARGET,
+            effective_from=DAY + timedelta(days=1),
+        )
+    assert _count(store_conn, "nutrition_targets") == before
+    assert _audit(store_conn) == []
+    _set_target(store_conn)  # DAY itself, today here
+
+
 def test_the_gymer_cannot_delete_a_target_their_coach_set(store_conn, coached):
     """delete_record() refuses a coach's target with NotFound and deletes nothing."""
     target_id = _set_target(store_conn)

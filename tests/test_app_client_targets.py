@@ -13,7 +13,7 @@ from streamlit.testing.v1 import AppTest
 
 from src.store import db, records, users
 from src.store.access import NotFound
-from tests.test_app_account import PROFILE, USER_ID, signed_in, start, store_account
+from tests.test_app_account import PROFILE, USER_ID, button, signed_in, start, store_account
 from tests.test_app_dashboards import (  # noqa: F401 (fixtures used by name)
     ALEX,
     BO,
@@ -93,14 +93,17 @@ def test_the_form_starts_from_the_week_s_active_target(monkeypatch):
 
 
 @pytest.mark.usefixtures("coach_world")
-def test_another_week_starts_the_form_from_that_week_s_target(monkeypatch):
-    """The fields follow the picked week: a week before any target leaves them empty (round 1)."""
+def test_the_form_starts_from_today_s_target_whatever_the_week(monkeypatch):
+    """A past week with another target still fills the form with today's (round 2, owner)."""
+    with db.connect() as conn:
+        records.add_target(
+            conn, ALEX, **COACH_TARGET, set_by="user", effective_from=date(2026, 10, 20)
+        )
+    today_kcal = _targets_of(ALEX)[-1]["kcal"]  # the profile Save's target, from today
     at = _client_week(monkeypatch, chosen=ALEX)
-    at.number_input(key="client_targets_kcal").set_value(3000.0).run(timeout=30)
     at.date_input(key=client_week.WEEK_KEY).set_value(date(2026, 10, 21)).run(timeout=30)
-    assert at.number_input(key="client_targets_kcal").value is None
-    at.date_input(key=client_week.WEEK_KEY).set_value(TODAY).run(timeout=30)
-    assert at.number_input(key="client_targets_kcal").value == _targets_of(ALEX)[-1]["kcal"]
+    assert "2026-10-19 to 2026-10-25" in _page_text(at)
+    assert at.number_input(key="client_targets_kcal").value == today_kcal != COACH_TARGET["kcal"]
 
 
 @pytest.mark.usefixtures("coach_world")
@@ -270,3 +273,15 @@ def test_the_sidebar_s_computed_target_says_it_is_not_the_active_one(monkeypatch
     at = open_page(start(monkeypatch, user=signed_in()), navigation.PROFILE)
     captions = "\n".join(str(item.value) for item in at.sidebar.caption)
     assert "Your active target is the one your coach set (My profile)." in captions
+
+
+@pytest.mark.usefixtures("coached_gymer_with_profile")
+def test_a_dialog_save_keeps_the_coach_s_target_and_says_so(monkeypatch):
+    """The My profile dialog's Save writes the weight, no target, and the note (round 2)."""
+    at = open_page(start(monkeypatch, user=signed_in()), navigation.PROFILE)
+    button(at, "Edit details").click().run(timeout=30)
+    at.number_input(key="profile_form_weight").set_value(75.5)
+    button(at, "Save").click().run(timeout=30)
+    assert _targets_of(USER_ID)[-1]["set_by"] == "coach"
+    notes = [item.value for item in at.sidebar.info]
+    assert "Your details are saved. Your daily target stays the one your coach set." in notes

@@ -469,6 +469,7 @@ _EN: dict[str, str] = {
     "pdf.answer": "Answer",
     "pdf.sources": "Sources",
     "pdf.tool_results": "Tool results",
+    "pdf.client_tool": "The client figures this answer used are shown in the app's Tool results.",
     "pdf.credits": "Credits",
     "pdf.credits_intro": (
         "The answers and targets draw on the open access articles below; each is used under its "
@@ -1599,6 +1600,9 @@ _DE: dict[str, str] = {
     "pdf.answer": "Antwort",
     "pdf.sources": "Quellen",
     "pdf.tool_results": "Werkzeugergebnisse",
+    "pdf.client_tool": (
+        "Die Klientenzahlen, die diese Antwort nutzte, stehen in den Werkzeugergebnissen der App."
+    ),
     "pdf.credits": "Nachweise",
     "pdf.credits_intro": (
         "Die Antworten und Ziele stützen sich auf die unten genannten Open-Access-Artikel; jeder "

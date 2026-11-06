@@ -446,12 +446,11 @@ def build_tools(
     }
 
 
-# A reference the page may show as a name: not right after a URL character (so never inside a URL,
-# a query or an e-mail address), and never inside a Markdown link's target (_IN_LINK_TARGET): an
-# injected link such as "https://x.example/?c=client-1" must not carry the name to that host
-# (code review round 1).
-_SHOWN_REFERENCE = re.compile(r"(?<![\w\-/=?&#%.:@+~])client-([1-9][0-9]*)(?![\w-])", re.IGNORECASE)
-_IN_LINK_TARGET = re.compile(r"\]\([^)\s]*$")
+# A line that holds any of these may hold a link, a URL, an autolink or an e-mail address: every
+# reference on it stays as written, so no name can end up in a link's target, whatever its
+# Markdown form (inline, angle brackets, reference definitions, bare URLs). One simple rule instead
+# of a pattern for each form (code review rounds 1 and 2; owner's rule for text heuristics).
+LINK_MARKERS: tuple[str, ...] = ("](", "]:", "<", "://", "www.", "@")
 
 
 def name_references(text: str, names: Mapping[str, str], quote: Callable[[str], str]) -> str:
@@ -459,10 +458,14 @@ def name_references(text: str, names: Mapping[str, str], quote: Callable[[str], 
     # Only the coach's page does this; the model and the conversation's memory keep the reference.
 
     def replace(match: re.Match[str]) -> str:
-        """Return the client's quoted name, or the reference as written when it is not shown."""
+        """Return the client's quoted name, or the reference as written when it is unknown."""
         name = names.get(match.group(0).casefold())
-        if name is None or _IN_LINK_TARGET.search(text, 0, match.start()):
-            return match.group(0)
-        return quote(name)
+        return match.group(0) if name is None else quote(name)
 
-    return _SHOWN_REFERENCE.sub(replace, text)
+    lines = text.splitlines(keepends=True)
+    return "".join(
+        line
+        if any(marker in line.casefold() for marker in LINK_MARKERS)
+        else REFERENCE.sub(replace, line)
+        for line in lines
+    )

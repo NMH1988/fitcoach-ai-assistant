@@ -5,13 +5,15 @@ Shown only while the client shares nutrition (the week was read with it). The wr
 the share again in the write's transaction, keeps the calorie floor and writes the audit row, so a
 client who stopped sharing (or ended the relationship) since the page was drawn is refused there,
 with one fixed message whatever the reason. The form never edits a target: each Save is a new row,
-which the client reads as set by their coach and cannot change or delete alone.
+which the client reads as set by their coach and cannot change or delete alone. The fields start
+from the client's target active today, whichever week the page shows, as a new target starts today
+(owner's choice, 2026-11-06, code review round 2): a past week's target never comes back unseen.
 """
 
 import streamlit as st
 
 from src import account as accounts
-from src import config, dashboard
+from src import config, dashboard, metrics
 from src.store import records
 from src.store.access import NotFound
 from src.store.values import StoreValueError
@@ -21,9 +23,9 @@ from views.text import n, t
 FORM_KEY = "client_targets_form"
 # The outcome of the last Save, shown once on the next run: ("saved", day) or ("refused", code).
 FLASH_KEY = "client_targets_flash"
-# The (client, Monday) the form's fields were last filled for: a keyed number input keeps its value
-# across runs, so another client or week clears the fields and they start from that week's target
-# (code review round 1). The key holds no ID: Streamlit writes widget keys into the page.
+# The client the form's fields were last filled for: a keyed number input keeps its value across
+# runs, so another client clears the fields and they start from that client's target (code review
+# round 1). The key holds no ID: Streamlit writes widget keys into the page.
 SHOWN_FOR_KEY = "client_targets_shown_for"
 FIELDS = ("kcal", "protein_g", "carbs_g", "fat_g")
 _LABELS = {
@@ -34,9 +36,15 @@ _LABELS = {
 }
 
 
-def _current(week: dashboard.DashboardWeek) -> dict[str, float | None]:
-    """Return the week's active target by field, to start the form from; None without one."""
-    target = week.nutrition.target
+def _current(user: dict, client_id: str) -> dict[str, float | None]:
+    """Return the client's target active today by field, to start the form from; None without."""
+    # Read through the store, as a coach's read of the client's targets (nutrition, audited).
+    try:
+        with accounts.open_store(account.store_path()) as conn:
+            stored = records.list_targets(conn, user["id"], client_id)
+    except accounts.StoreUnavailable, NotFound:
+        stored = []  # the Save then meets the same refusal, with its fixed message
+    target = metrics.active_target(stored, accounts.today())
     if target is None:
         return dict.fromkeys(FIELDS)
     return {
@@ -81,13 +89,12 @@ def _show_flash() -> None:
         st.error(t(value), icon=":material/error:")
 
 
-def _start_over_for(client_id: str, week: dashboard.DashboardWeek) -> None:
-    """Clear the fields when the client or the week differs from the one they were filled for."""
-    shown_for = (client_id, week.nutrition.week_start)
-    if st.session_state.get(SHOWN_FOR_KEY) != shown_for:
+def _start_over_for(client_id: str) -> None:
+    """Clear the fields when the client differs from the one they were filled for."""
+    if st.session_state.get(SHOWN_FOR_KEY) != client_id:
         for field in FIELDS:
             st.session_state.pop(f"client_targets_{field}", None)
-        st.session_state[SHOWN_FOR_KEY] = shown_for
+        st.session_state[SHOWN_FOR_KEY] = client_id
 
 
 def coach_section(user: dict, client_id: str, week: dashboard.DashboardWeek) -> None:
@@ -98,8 +105,8 @@ def coach_section(user: dict, client_id: str, week: dashboard.DashboardWeek) -> 
         st.caption(t("client_targets.not_shared"))
         return
     st.caption(t("client_targets.intro", floor=n(config.CALORIE_FLOOR_KCAL)))
-    _start_over_for(client_id, week)
-    current = _current(week)
+    _start_over_for(client_id)
+    current = _current(user, client_id)
     with st.form(FORM_KEY, enter_to_submit=False):
         chosen = {}
         for field in FIELDS:

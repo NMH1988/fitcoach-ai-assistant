@@ -875,3 +875,21 @@ def test_the_pdf_text_keys_match_i18n_and_each_has_its_own_german_text():
 def test_the_date_is_written_as_the_language_writes_it(lang, expected):
     """English keeps the ISO date; German writes day, month and year with dots."""
     assert export_pdf.format_date(TODAY, lang) == expected
+
+
+@pytest.mark.parametrize("lang", ["en", "de"])
+def test_a_client_tool_result_gets_a_line_for_people(lang):
+    """A coach's client tool shows a fixed line, never the message written for the model (T9.17)."""
+    result = coach_clients.ClientListResult(
+        status="ok",
+        message=coach_clients.LIST_MESSAGE,
+        week_start=date(2026, 10, 26),
+        week_end=date(2026, 11, 1),
+        follow_up_min_logged_days=4,
+        clients=[],
+    )
+    run = registry.ToolRun(coach_clients.LIST_TOOL, "ok", result)
+    flowables = export_pdf._tool_run_flowables(run, "metric", lang)
+    texts = [item.getPlainText() for item in flowables]
+    assert texts[1] == i18n.t("pdf.client_tool", lang)
+    assert coach_clients.LIST_MESSAGE not in " ".join(texts)

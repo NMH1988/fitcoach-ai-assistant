@@ -740,7 +740,7 @@ def client_week_tool_rows(
             average=i18n.number(round(nutrition.average_over_logged_days.kcal), lang),
             target="–" if target is None else i18n.number(round(target.nutrients.kcal), lang),
         )
-    latest = None if body is None or body.latest_weight_kg is None else body.latest_weight_kg
+    latest = None if body is None else body.latest_weight_kg
     rows[i18n.t("clients.col.weight", lang)] = (
         not_shared
         if body is None
