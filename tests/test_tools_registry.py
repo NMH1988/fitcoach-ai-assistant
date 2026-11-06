@@ -10,6 +10,7 @@ from src import config
 from src.tools import registry
 from src.tools.energy import calculate_macro_targets, calculate_tdee
 from src.tools.food import FoodLookupArgs
+from src.tools.food_api import ApiSearch
 from src.tools.meal_plan import MealItemArgs, MealPlanArgs, evaluate_meal_plan
 from src.tools.registry import FOOD_TOOL, MACRO_TOOL, MEAL_PLAN_TOOL, TDEE_TOOL, NoArgs
 from tests.fakes import FOODS, HOSTILE_FOOD_NAME, PROFILE
@@ -37,7 +38,7 @@ def no_tool_runs(monkeypatch):
         raise AssertionError("the tool ran")
 
     for name in (
-        "lookup_food_nutrition",
+        "lookup_with_api",
         "calculate_tdee",
         "calculate_macro_targets",
         "evaluate_meal_plan",
@@ -230,6 +231,58 @@ def test_a_food_lookup_returns_the_scaled_values():
     assert run.result.nutrients.kcal == 190
     assert tool_message.name == FOOD_TOOL
     assert tool_message.tool_call_id == "call-1"
+
+
+class _RecordingSearch:
+    """A FoodData Central search that finds nothing and keeps the names it was asked for."""
+
+    def __init__(self) -> None:
+        """Start with no names asked."""
+        self.names: list[str] = []
+
+    def search(self, name: str) -> ApiSearch:
+        """Record the name; report a search that found no food."""
+        self.names.append(name)
+        return ApiSearch(None, (), 1)
+
+
+def test_the_food_tool_asks_the_api_only_for_a_food_missing_from_the_table():
+    """T9.9: a food in the table never reaches the API; a missing one is searched once."""
+    api = _RecordingSearch()
+    tools = registry.build_tools(PROFILE, FOODS, food_api=api)
+    _, found = registry.run_tool_call(tools, _call(FOOD_TOOL, {"food": "rolled oats", "grams": 50}))
+    _, missing = registry.run_tool_call(tools, _call(FOOD_TOOL, {"food": "olive oil", "grams": 10}))
+    assert api.names == ["olive oil"]
+    assert (found.status, found.result.api_code) == ("found", None)
+    assert (missing.status, missing.result.api_code) == ("not_found", "no_match")
+
+
+def test_one_build_of_the_tools_bounds_a_turns_api_searches():
+    """The tools are built once a turn, so their searches stop at FOOD_API_MAX_CALLS_PER_TURN."""
+    api = _RecordingSearch()
+    tools = registry.build_tools(PROFILE, FOODS, food_api=api)
+    for _ in range(config.FOOD_API_MAX_CALLS_PER_TURN + 2):
+        registry.run_tool_call(tools, _call(FOOD_TOOL, {"food": "olive oil", "grams": 10}))
+    assert len(api.names) == config.FOOD_API_MAX_CALLS_PER_TURN
+    # A new turn builds new tools, with a new budget.
+    fresh = registry.build_tools(PROFILE, FOODS, food_api=api)
+    registry.run_tool_call(fresh, _call(FOOD_TOOL, {"food": "olive oil", "grams": 10}))
+    assert len(api.names) == config.FOOD_API_MAX_CALLS_PER_TURN + 1
+
+
+def test_the_meal_plan_never_asks_the_api():
+    """The meal plan check keeps to the table (owner's choice, 2026-11-06)."""
+    api = _RecordingSearch()
+    tools = registry.build_tools(PROFILE, FOODS, food_api=api)
+    day = {"items": [{"food": "olive oil", "grams": 10}, {"food": "rolled oats", "grams": 80}]}
+    _, run = registry.run_tool_call(tools, _call(MEAL_PLAN_TOOL, day))
+    assert run.status == "ok" and api.names == []
+
+
+def test_the_food_tool_tells_the_model_the_api_names_its_source():
+    """The description says a food not in the table may come from the API, named in source."""
+    description = registry.build_tools(PROFILE)[FOOD_TOOL].description
+    assert "USDA FoodData Central API" in description and "source" in description
 
 
 @pytest.mark.parametrize(
