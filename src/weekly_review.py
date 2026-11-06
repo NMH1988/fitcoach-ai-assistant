@@ -40,19 +40,23 @@ _DASHES = re.compile(r"[‐-―−-]")
 _TO_BETWEEN_NUMBERS = re.compile(r"(?<=\d)\s*(?:to|bis)\s*(?=\d)")
 _SPACE_AROUND_DASH = re.compile(r"\s*-\s*")
 _SPACES = re.compile(r"\s+")
-# A kcal figure, or a range of two ("1,000-1,100 kcal", "1000 to 1100 kcal"): group 1 is the lower
-# end (None for one figure), group 2 the figure or the upper end.
+# A figure: digits with thousands or decimal marks, and "k" for a thousand when no letter follows
+# it ("1k kcal"; "1000kcal" is 1000, never 1000k: code review round 7).
+_FIGURE = r"\d+(?:[.,]\d+)*(?:k(?![a-z]))?"
+# A kcal figure, or a range of two, checked from its lower end: "between X and Y" ("zwischen X und
+# Y"), or X and Y joined by a dash, "to", "bis", "up to" or "bis zu" ("pair" or "low" is the lower
+# end, "high" the figure or the upper end). A unit may follow a hyphen ("a 1,000-calorie day") and
+# be written in any of its usual forms ("kcals", "Kilokalorien") (code review rounds 6 and 7).
 _KCAL = re.compile(
-    r"(?:(\d+(?:[.,]\d+)*k?)\s*"
-    r"(?:[\u2010-\u2015\u2212-]|to|bis|and|und|up\s+to|bis\s+zu)\s*)?"
-    r"(\d+(?:[.,]\d+)*k?)\s*-?\s*"
+    r"(?:(?:between|zwischen)\s+(?P<pair>" + _FIGURE + r")\s*(?:and|und)\s*"
+    r"|(?P<low>" + _FIGURE + r")\s*(?:[\u2010-\u2015\u2212-]|to|bis|up\s+to|bis\s+zu)\s*)?"
+    r"(?P<high>" + _FIGURE + r")\s*-?\s*"
     r"(?:k?cals?|kilo\s?calories?|calories?|kilokalorien|kalorien)\b",
     re.I,
 )
-# A range is two figures joined by a dash, "to", "and" ("between 1,000 and 1,300 kcal"), "up to"
-# or their German words; a unit may follow a hyphen ("a 1,000-calorie day") and be written in any
-# of its usual forms ("kcals", "Kilokalorien"); "1k" is 1000 (code review round 6).
-_SENTENCE_END = re.compile(r"[.!?;]")
+# A mark that ends a sentence: a full stop, "!", "?" or ";" before a capital letter or the end, so
+# "2.500", "ca." and "e.g." do not cut a sentence short (code review round 7).
+_SENTENCE_END = re.compile(r"[.!?;](?=\s+[A-ZÄÖÜ]|\s*$)")
 
 # The fixed text the model gets back for each failed check, on the one retry (English, as the
 # prompt is; the coach sees these codes as their own texts in src/i18n.py).
@@ -401,7 +405,17 @@ def _words_before(before: str) -> list[str]:
     return words
 
 
-def _is_change(raw_before: str, after: str) -> bool:
+def _sentence(text: str, start: int, end: int) -> str:
+    """Return the sentence around text[start:end], in lower case."""
+    begin = 0
+    for found in _SENTENCE_END.finditer(text):
+        if found.end() <= start:
+            begin = found.end()
+    stop = _SENTENCE_END.search(text, end)
+    return text[begin : stop.start() if stop else len(text)].lower()
+
+
+def _is_change(raw_before: str, after: str, sentence: str) -> bool:
     """Return True if the words around a kcal figure make it a change, not an intake."""
     before = raw_before.rstrip()
     # A sign touching the figure ("-300 kcal"); "Target - 1,000 kcal" has a dash, not a sign, and
@@ -413,9 +427,9 @@ def _is_change(raw_before: str, after: str) -> bool:
         return True
     words = _words_before(before)
     if words and words[-1] in config.REVIEW_KCAL_CHANGE_BEFORE:
-        # "by"/"um" with a change verb earlier in the sentence: "reduce intake by 300 kcal";
-        # "Die Zufuhr sollte um 1.000 kcal liegen" is an intake.
-        sentence = _SENTENCE_END.split(before)[-1]
+        # "by"/"um" with a change verb in the same sentence, before the figure or after it as
+        # German often puts it ("Die Zufuhr um 300 kcal senken"); "Die Zufuhr sollte um 1.000
+        # kcal liegen" is an intake (code review rounds 6 and 7).
         if any(verb in sentence for verb in config.REVIEW_KCAL_CHANGE_VERBS):
             return True
     following = [word.strip(".,;:").rstrip(")") for word in after.split()]
@@ -429,9 +443,9 @@ def _is_change(raw_before: str, after: str) -> bool:
 def _kcal(text: str) -> float:
     """Return a written kcal figure as an intake: "1,200" and "1.200" are 1200, never 1.2."""
     # Either mark may be the decimal one; an intake is the larger reading, so "1.100 kcal" is
-    # still 1100 and below the floor. "1k" is 1000.
+    # still 1100 and below the floor. "1k" is 1000, and "1.1k" is 1100 (its smaller reading).
     if text.lower().endswith("k"):
-        return 1000 * max(_number_values(text[:-1]), default=0.0)
+        return 1000 * min(_number_values(text[:-1]), default=0.0)
     return max(_number_values(text), default=0.0)
 
 
@@ -444,8 +458,8 @@ def _kcal_below_floor(text: str) -> bool:
     for match in _KCAL.finditer(text):
         before = text[: match.start()].lower()
         after = text[match.end() :].lstrip().lower()
-        lower, upper = match.group(1), match.group(2)
-        if _is_change(before, after):
+        lower, upper = match.group("pair") or match.group("low"), match.group("high")
+        if _is_change(before, after, _sentence(text, match.start(), match.end())):
             continue
         # A range is an intake from its lower end: "1,000-1,600 kcal" is below the floor.
         lowest = _kcal(upper) if lower is None else min(_kcal(lower), _kcal(upper))

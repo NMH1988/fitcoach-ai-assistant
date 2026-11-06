@@ -244,6 +244,11 @@ def test_a_label_not_retrieved_in_this_run_is_refused():
         "Daily target - 1,000 kcal.",
         "Kalorienziel - 1.000 kcal.",
         "1,500 kcal on training days - 1,000 kcal on rest days.",
+        # Round 7: no space before the unit, and "k" with a decimal.
+        "Aim for 1000kcal a day.",
+        "Aim for 1,000kcal a day.",
+        "Eine Zufuhr von 1.000kcal.",
+        "Aim for 1.1k kcal a day.",
         "Halten Sie 1.000 kcal unter der Woche ein.",
         "Try 1,000 kcal short term.",
         "Keep it at 1,000 kcal below.",
@@ -279,6 +284,21 @@ def test_a_recommended_intake_below_the_floor_is_refused(text):
         "Intake should drop by 300 kcal.",
         "Keep intake between 1,500 and 1,800 kcal.",
         "A 1,500-calorie day is the minimum here.",
+        # Round 7: German puts the verb last; a dot inside a sentence does not end it.
+        "Die Zufuhr um 300 kcal senken.",
+        "Wir empfehlen, die Zufuhr um 300 kcal zu senken.",
+        "Die Zufuhr sollte um 300 kcal sinken.",
+        "Die Zufuhr schrittweise um 200 kcal erhöhen.",
+        "Die Zufuhr wird um 300 kcal gesenkt.",
+        "Die Zufuhr um 300 kcal reduzieren.",
+        "Senken Sie die Zufuhr um ca. 300 kcal.",
+        "Senken Sie die Zufuhr von 2.500 kcal um 300 kcal.",
+        "Reduce intake, e.g. by 300 kcal.",
+        "Bring intake down by 300 kcal.",
+        "Adjust intake by 300 kcal.",
+        "Intake should fall by 300 kcal.",
+        "Keep protein at 160 and 2,200 kcal.",
+        "Aim for 1.5k kcal a day.",
     ],
 )
 def test_a_change_in_kcal_or_an_intake_above_the_floor_passes_the_floor(text):
