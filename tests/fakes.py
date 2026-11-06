@@ -260,6 +260,54 @@ class ScriptedTranslator(BaseChatModel):
         return RunnableLambda(reply)
 
 
+class FakeJudgeChat(BaseChatModel):
+    """A judge client for DeepEval's metrics (T9.10): fills any schema asked for, and records."""
+
+    # The verdicts it gives each claim or statement, in order; DeepEval scores the share passing.
+    verdicts: list[str] = Field(default_factory=lambda: ["yes", "yes"])
+    # Raised by every structured call instead of a reply, when set (KeyboardInterrupt too).
+    error: BaseException | None = None
+    reason: str = "JUDGE-REASON"
+    # What each structured call asked for: the schema's name, the prompt and the arguments given
+    # to with_structured_output().
+    structured: list[tuple[str, str, dict[str, Any]]] = Field(default_factory=list)
+    model_name: str = config.EVAL_JUDGE_MODEL
+    usage: UsageMetadata | None = Field(
+        default_factory=lambda: {"input_tokens": 100, "output_tokens": 10, "total_tokens": 110}
+    )
+
+    @property
+    def _llm_type(self) -> str:
+        """Name the fake for langchain."""
+        return "fake-judge"
+
+    def _generate(self, messages: list[BaseMessage], stop: Any = None, **kwargs: Any) -> ChatResult:
+        """Reply with plain text to a call without a schema."""
+        message = AIMessage("JUDGE-TEXT", usage_metadata=self.usage)
+        return ChatResult(generations=[ChatGeneration(message=message)])
+
+    def with_structured_output(self, schema: Any, **kwargs: Any) -> RunnableLambda:
+        """Return a runnable that fills the schema from fixed claims, verdicts and reasons."""
+
+        def reply(prompt: Any) -> Any:
+            """Record the request, then fill every field the schema has."""
+            self.structured.append((schema.__name__, str(prompt), kwargs))
+            if self.error is not None:
+                raise self.error
+            values = {
+                "claims": ["claim one", "claim two"],
+                "truths": ["truth one"],
+                "statements": ["statement one", "statement two"],
+                "verdicts": [{"verdict": verdict} for verdict in self.verdicts],
+                "reason": self.reason,
+            }
+            parsed = schema.model_validate({name: values[name] for name in schema.model_fields})
+            raw = AIMessage("{}", usage_metadata=self.usage)
+            return {"raw": raw, "parsed": parsed, "parsing_error": None}
+
+        return RunnableLambda(reply)
+
+
 def chunk(source_id: str, index: int, text: str, **extra: Any) -> Document:
     """Return a made-up chunk with the metadata keys the ingest step sets."""
     return Document(

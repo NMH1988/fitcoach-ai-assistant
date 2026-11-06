@@ -3,9 +3,10 @@
 `.claude/rules/copyright.md` rule 9 prefers permissive licences and asks for a check before a
 package is added. This test runs that check in CI's pytest run on every push to `main` and every
 PR, Dependabot's included: it takes the app's requirements from `[project].dependencies` in
-`pyproject.toml`, follows them through the installed packages' metadata (markers evaluated for the
-running Python and platform, extras a package asks for followed, the project's own extras (only
-`dev` today) never), and fails on a licence outside `ALLOWED`: GPL, LGPL, AGPL, SSPL, proprietary,
+`pyproject.toml`, and since T9.10 the `eval` extra's (DeepEval, which reads the app's answers on
+the owner's machine), follows them through the installed packages' metadata (markers evaluated for
+the running Python and platform, extras a package asks for followed, the `dev` extra never), and
+fails on a licence outside `ALLOWED`: GPL, LGPL, AGPL, SSPL, proprietary,
 unrecognised or missing. A runtime requirement that is missing or installed at another version
 than its pin fails too, so a stale venv cannot pass.
 
@@ -206,6 +207,12 @@ def project_requirements(pyproject: Path = PYPROJECT) -> list[str]:
         return tomllib.load(file)["project"]["dependencies"]
 
 
+def eval_requirements(pyproject: Path = PYPROJECT) -> list[str]:
+    """Return the `eval` extra's requirement lines (DeepEval, T9.10)."""
+    with pyproject.open("rb") as file:
+        return tomllib.load(file)["project"]["optional-dependencies"]["eval"]
+
+
 def installed(name: str):
     """Return the installed distribution of a package, or None."""
     try:
@@ -228,8 +235,8 @@ def check(
     """Walk the requirements from `roots` through `find` and check each package's licence."""
     exceptions = LICENCE_EXCEPTIONS if exceptions is None else exceptions
     report = Report()
-    # The project's own extras (only `dev` today) are not runtime: "" is the only extra the roots
-    # see.
+    # The roots are plain requirement lines (the runtime ones and the eval extra's, T9.10): "" is
+    # the only extra they see, so a line marked for another extra is skipped.
     todo = [(Requirement(line), "pyproject.toml") for line in roots]
     todo = [(req, parent) for req, parent in todo if _applies(req, {""})]
     expanded: dict[str, set[str]] = {}
@@ -241,7 +248,7 @@ def check(
         if dist is None:
             report.problems.append(
                 f"{requirement} (required by {parent}) is not installed: run "
-                'pip install -e ".[dev]" with the venv\'s Python'
+                'pip install -e ".[dev,eval]" with the venv\'s Python'
             )
             continue
         if parent == "pyproject.toml" and not requirement.specifier.contains(
@@ -249,7 +256,7 @@ def check(
         ):
             report.problems.append(
                 f"{name} {dist.version} is installed but pyproject.toml asks for {requirement}: "
-                'run pip install -e ".[dev]" with the venv\'s Python'
+                'run pip install -e ".[dev,eval]" with the venv\'s Python'
             )
         dists[name] = dist
         new = ({""} | set(requirement.extras)) - expanded.setdefault(name, set())
@@ -312,7 +319,9 @@ def finder(dists: dict[str, FakeDist]) -> Callable:
 
 def test_runtime_dependencies_have_allowed_licences():
     """Every installed runtime dependency has an allowed licence and its pinned version (T1.11)."""
-    roots = project_requirements()
+    # The eval extra (T9.10) is walked too: DeepEval and what it pulls in run only on the owner's
+    # machine, but they read the app's answers, so their licences are held to the same list.
+    roots = project_requirements() + eval_requirements()
     report = check(roots)
     assert not report.problems, "\n".join(report.problems)
     # The walk went past the pins: each pin is checked, and so are the packages they pull in.
@@ -324,6 +333,14 @@ def test_dev_tools_are_not_runtime_dependencies():
     """The roots are `[project].dependencies` only, so dev-only tools are not walked."""
     names = {canonicalize_name(Requirement(line).name) for line in project_requirements()}
     assert not names & {"pytest", "pytest-cov", "ruff", "pip-audit", "pypdf"}
+
+
+def test_the_eval_extra_is_deepeval_alone_and_not_a_runtime_dependency():
+    """DeepEval is pinned in its own extra, so the app installs without it (T9.10)."""
+    [pin] = eval_requirements()
+    assert pin.startswith("deepeval==")
+    names = {canonicalize_name(Requirement(line).name) for line in project_requirements()}
+    assert "deepeval" not in names
 
 
 # Reading the licence.

@@ -159,7 +159,15 @@ def test_the_app_source_keeps_the_client_rules():
 def test_the_scan_reads_the_files_that_use_the_clients():
     """The scan covers the modules that bind tools and ask for structured output."""
     names = {path.relative_to(ROOT).as_posix() for path in _scanned_files()}
-    assert {"src/chat.py", "src/llm.py", "src/rag/query_translation.py", "app.py"} <= names
+    # src/eval_scoring.py and scripts/run_evaluation.py: the evaluation's judge (T9.10).
+    assert {
+        "src/chat.py",
+        "src/llm.py",
+        "src/rag/query_translation.py",
+        "src/eval_scoring.py",
+        "scripts/run_evaluation.py",
+        "app.py",
+    } <= names
     assert any(name.startswith("views/") for name in names)
     assert any(name.startswith("scripts/") for name in names)
 
