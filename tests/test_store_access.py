@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from src.store import access, invitations, records, reviews, users
+from src.store import access, invitations, questions, records, reviews, users
 from src.store.values import StoreValueError
 from tests import store_world as world
 
@@ -29,6 +29,8 @@ READS = {
     "list_workout_sessions": (records.list_workout_sessions, "training"),
     "list_preferences": (records.list_preferences, None),
     "list_reviews": (reviews.list_reviews, "nutrition"),
+    # T9.25: the threads under the reviews, by their rule (tests/test_store_questions.py).
+    "list_questions": (questions.list_questions, "nutrition"),
 }
 # (actor, subject) pairs that must give NotFound for every read function.
 REFUSED = {
@@ -69,6 +71,8 @@ OWN_ONLY = {
     "my_data.delete_user_data",
     # T9.16: the status of the coach's own review, asked after the store refused a decision.
     "reviews.is_pending",
+    # T9.25: the IDs of the gymer's own approved reviews they may ask under now (no text or values).
+    "questions.askable_reviews",
 }
 WRITES = {
     # Each takes the user it writes for; the ones that change shared data check that it is the
@@ -101,6 +105,10 @@ WRITES = {
     "reviews.prepare_review",
     # T9.16: removes the coach's own pending review of a run that failed after saving it.
     "reviews.discard_pending",
+    # T9.25: the gymer's question and the coach's answer, each under a review the coach may read
+    # (NotFound otherwise, nothing written; tests/test_store_questions.py); an answer is audited.
+    "questions.ask_question",
+    "questions.answer_question",
 }
 INTERNALS = {
     # No user data in or out: opening the file, checks, and the access layer itself.
