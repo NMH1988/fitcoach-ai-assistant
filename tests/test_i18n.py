@@ -58,9 +58,12 @@ def test_each_text_is_filled_and_has_the_same_placeholders_in_both_languages(key
 
 
 # What the disclaimer, the About text and the not-covered message must say, by language (PRD
-# guardrails, AC-41; T9.20).
+# guardrails, AC-41; T9.20), and the intro, the chat invitation and the placeholder (T9.11a).
 SCOPE_NOTES = {
     "en": {
+        "app.intro": ["nutrition and resistance training principles"],
+        "ask.invitation": ["nutrition or resistance training principles"],
+        "ask.placeholder": ["nutrition or training principles"],
         "app.disclaimer": [
             "coach",
             "physiotherapist",
@@ -80,6 +83,9 @@ SCOPE_NOTES = {
         "answer.no_sources": ["resistance training principles"],
     },
     "de": {
+        "app.intro": ["Ernährung und Trainingsprinzipien"],
+        "ask.invitation": ["Ernährung oder zu Trainingsprinzipien"],
+        "ask.placeholder": ["Ernährung oder Trainingsprinzipien"],
         "app.disclaimer": [
             "Coaching",
             "Physiotherapie",
@@ -102,8 +108,8 @@ SCOPE_NOTES = {
 
 
 @pytest.mark.parametrize("lang", ["en", "de"])
-def test_the_disclaimer_and_about_text_say_what_the_app_does_not_do(lang):
-    """Each text names training principles and the app's limits (no programs, AI answers)."""
+def test_the_scope_texts_name_training_principles_and_limits(lang):
+    """The scope texts name training principles; the disclaimer and About text name the limits."""
     missing = [
         (key, phrase)
         for key, phrases in SCOPE_NOTES[lang].items()
