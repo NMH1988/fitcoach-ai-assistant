@@ -870,7 +870,9 @@ _EN: dict[str, str] = {
     "questions.note": (
         "Your coach answers here, not an AI model, and your question is not sent to one. The "
         "answer is not medical advice, and the app does not check coaches' qualifications. For "
-        "pain or an injury, see a doctor; in an emergency, call 112."
+        "pain or an injury, see a doctor; in an emergency, call 112. Your question is stored in "
+        "this app's data file on this computer until you delete everything on My data. Use "
+        "made-up data only: do not enter real health data."
     ),
     "questions.ask_label": "Your question to the coach",
     "questions.ask": "Send question",
@@ -2072,7 +2074,9 @@ _DE: dict[str, str] = {
         "Ihr Coach antwortet hier, kein KI-Modell, und Ihre Frage wird an keines gesendet. Die "
         "Antwort ist keine medizinische Beratung, und die App prüft die Qualifikationen von "
         "Coaches nicht. Bei Schmerzen oder einer Verletzung wenden Sie sich an eine Ärztin oder "
-        "einen Arzt; im Notfall rufen Sie 112 an."
+        "einen Arzt; im Notfall rufen Sie 112 an. Ihre Frage wird in der Datendatei dieser App "
+        "auf diesem Computer gespeichert, bis Sie unter Meine Daten alles löschen. Verwenden Sie "
+        "nur erfundene Daten: Geben Sie keine echten Gesundheitsdaten ein."
     ),
     "questions.ask_label": "Ihre Frage an den Coach",
     "questions.ask": "Frage senden",

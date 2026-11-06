@@ -129,32 +129,36 @@ def test_the_gymer_asks_and_the_question_shows_as_plain_text(monkeypatch, gymer_
 
 
 @pytest.mark.parametrize(
-    ("language", "note", "label", "ai_label"),
+    ("language", "note", "stored", "label", "ai_label"),
     [
         (
             "en",
             "the app does not check coaches' qualifications",
+            "until you delete everything on My data. Use made-up data only",
             "Written by the coach, not by AI",
             "AI draft, approved by the coach",
         ),
         (
             "de",
             "die App prüft die Qualifikationen von Coaches nicht",
+            "bis Sie unter Meine Daten alles löschen. Verwenden Sie nur erfundene Daten",
             "Vom Coach geschrieben, nicht von der KI",
             "KI-Entwurf",
         ),
     ],
 )
 def test_the_note_and_the_coach_s_label_in_both_languages(
-    monkeypatch, gymer_world, language, note, label, ai_label
+    monkeypatch, gymer_world, language, note, stored, label, ai_label
 ):
-    """Beside the box: no medical advice, coach not checked, 112; the answer apart from the AI."""
+    """Beside the box: no medical advice, coach not checked, 112, stored, made-up data only."""
     with db.connect() as conn:
         questions.ask_question(conn, USER_ID, gymer_world["plain"], QUESTION)
         questions.answer_question(conn, COACH, gymer_world["plain"], ANSWER)
     at = _my_week(monkeypatch, language)
     page = page_text(at)
     assert note in page and "112" in page
+    # Where the question is kept, until when, and made-up data only (compliance run 1, Low).
+    assert stored in page
     assert label in page
     assert ai_label in page
     assert [QUESTION, ANSWER] == [text for text in _plain_texts(at) if text in (QUESTION, ANSWER)]
