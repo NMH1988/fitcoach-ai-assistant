@@ -73,6 +73,10 @@ OWN_ONLY = {
     "reviews.is_pending",
     # T9.25: the IDs of the gymer's own approved reviews they may ask under now (no text or values).
     "questions.askable_reviews",
+    # T9.29: the user's own notifications, from their own relationships, the scope history both
+    # sides see and the approved reviews about a gymer; not audited (owner's choice, 2026-11-06).
+    # Their isolation is tested in tests/test_store_notifications.py.
+    "notifications.list_notifications",
 }
 WRITES = {
     # Each takes the user it writes for; the ones that change shared data check that it is the
@@ -109,6 +113,8 @@ WRITES = {
     # (NotFound otherwise, nothing written; tests/test_store_questions.py); an answer is audited.
     "questions.ask_question",
     "questions.answer_question",
+    # T9.29: the acting user's own read mark only.
+    "notifications.mark_all_read",
 }
 INTERNALS = {
     # No user data in or out: opening the file, checks, and the access layer itself.

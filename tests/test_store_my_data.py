@@ -102,6 +102,7 @@ def test_the_store_has_the_columns_this_test_expects(full_world):
         ("audit_log", "subject_id"),
         ("invite_attempts", "user_id"),
         ("review_questions", "author_id"),
+        ("notification_reads", "user_id"),
     }
 
 

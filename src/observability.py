@@ -44,6 +44,9 @@ EVENTS = frozenset(
         # A weekly review run or decision (T9.16): its outcome code, the drafts tried, the chunks
         # retrieved and the codes of the failed checks; never a metric, a text or a name.
         "weekly_review",
+        # The chat's food tool asked the USDA FoodData Central API (T9.9): the outcome's code and
+        # the tool status only; never the food's name or the key.
+        "food_api",
         LOG_FAILED_EVENT,
     }
 )

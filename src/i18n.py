@@ -246,6 +246,9 @@ _EN: dict[str, str] = {
     "nutrient.fat": "Fat",
     "nutrient.fiber": "Fiber",
     "usda.source_line": config.USDA_SOURCE_LINE,
+    # A food found through the FoodData Central API (T9.9); {data_type} is USDA's own name of the
+    # data type ("SR Legacy"), kept in English like the food names.
+    "usda.api_source_line": config.FOOD_API_SOURCE_LINE,
     "meal.source_line": config.MEAL_PLAN_SOURCE_LINE,
     "meal.food_asked": "Food asked",
     "meal.other_names": "Other close USDA names",
@@ -548,6 +551,7 @@ _EN: dict[str, str] = {
     # Pages, the account block, the welcome page and My data (T9.5).
     "page.chat": "Chat",
     "page.my_data": "My data",
+    "page.notifications": "Notifications",
     "page.profile": "My profile",
     "page.today": "Today",
     "page.workouts": "Workouts",
@@ -558,23 +562,31 @@ _EN: dict[str, str] = {
         "Sign in with Google to keep your profile, daily targets, food log and workouts (as a "
         "gymer) or to use the app's AI assistant (as a coach). A coach's questions (and the "
         "coach's own details, when a question needs them) go to the AI model through OpenRouter."
+        " Food names from a question may also go to USDA's FoodData Central API (US), when this "
+        "copy of the app has its key."
     ),
     "start.demo_title": "Try a made-up user",
     "start.demo": (
         "Demo mode: pick a made-up user below to try a coach's or a gymer's pages (what they save "
         "is deleted when the app stops). A coach's questions (and the coach's own details, when a "
         "question needs them) go to the AI model through OpenRouter."
+        " Food names from a question may also go to USDA's FoodData Central API (US), when this "
+        "copy of the app has its key."
     ),
     "start.demo_placeholder": "Choose a demo user",
     "account.guest_note": (
         "You are using the app as a guest: this app stores nothing; your questions (and your "
         "details, when a question needs them) go to the AI model through OpenRouter."
+        " Food names from a question may also go to USDA's FoodData Central API (US), when this "
+        "copy of the app has its key."
     ),
     "account.secrets_broken": (
         "Sign-in is off: `.streamlit/secrets.toml` could not be read (a TOML syntax error?). Fix "
         "the file and restart the app. Until then this app stores nothing, and the chat answers "
         "only if the API key is set as an environment variable (your questions then go to the AI "
         "model through OpenRouter)."
+        " Food names from a question may also go to USDA's FoodData Central API (US), when this "
+        "copy of the app has its key."
     ),
     "role.coach": "Coach",
     "role.gymer": "Gymer",
@@ -587,6 +599,8 @@ _EN: dict[str, str] = {
         "Sign-in is off: this copy of the app has no Google sign-in set up. "
         "You can use the chat as a guest: this app stores nothing, and your questions (and your "
         "details, when a question needs them) go to the AI model through OpenRouter."
+        " Food names from a question may also go to USDA's FoodData Central API (US), when this "
+        "copy of the app has its key."
     ),
     "account.not_set_up": (
         "Sign-in is not fully set up: a secret in `.streamlit/secrets.toml` is missing, shorter "
@@ -640,7 +654,9 @@ _EN: dict[str, str] = {
         "display name) and the working preferences you save in the chat are stored in this app's "
         "data file on this computer; your newest preferences go to the AI model, through "
         "OpenRouter, with each question. Chats are never stored, but this chat's earlier "
-        "questions and answers go to the AI model with each new question. Use made-up data only: "
+        "questions and answers go to the AI model with each new question. Food names from a "
+        "question may also go to USDA's FoodData Central API (US), when this copy of the app has "
+        "its key. Use made-up data only: "
         "do not enter real health data."
     ),
     "profile.my_data_link": "See, export or delete it in My data",
@@ -657,13 +673,15 @@ _EN: dict[str, str] = {
     ),
     "my_data.intro_gymer": (
         "Everything the app stores about you: your account and your records below; your coach "
-        "relationships, sharing choices, your questions to the coach with the answers, and your "
-        "coach's reads of your data are in the export."
+        "relationships, sharing choices, your questions to the coach with the answers, your "
+        "coach's reads of your data and your notification read mark (when you last marked your "
+        "notifications as read) are in the export."
     ),
     "my_data.intro_coach": (
         "Everything the app stores about you: your account, the working preferences you saved in "
-        "the chat, and your clients, their reviews and the questions and answers under them once "
-        "you have some (they are in the export). Nothing else of your chats is stored."
+        "the chat, your clients, their reviews and the questions and answers under them once you "
+        "have some, and your notification read mark (when you last marked your notifications as "
+        "read); they are in the export. Nothing else of your chats is stored."
     ),
     "my_data.account": "**Account:** {name} · {role} · created {created}",
     "my_data.count": "{count} stored",
@@ -829,6 +847,33 @@ _EN: dict[str, str] = {
     "clients.cancel_placeholder": "Choose a code",
     "clients.cancel": "Cancel this invitation",
     "sharing.unverified": "The app does not check a coach's qualifications.",
+    # In-app notifications (T9.29): the kind, the other side's name, the scope and the week only.
+    "notifications.bell": "Notifications · {count} unread",
+    "notifications.intro_coach": (
+        "What changed with your clients: who connected, started or stopped sharing, and which "
+        "relationships ended. A notification shows a name, what is shared and a time, never a "
+        "client's values. New ones appear the next time a page loads."
+    ),
+    "notifications.intro_gymer": (
+        "What changed with your coach: when you connected, when a coach approved a weekly review "
+        "about you, and when a relationship ended. New ones appear the next time a page loads."
+    ),
+    "notifications.read_note": (
+        "Mark all as read stores one mark with the time this list was loaded. Only you see it; "
+        "it is in your export and deleted with your data."
+    ),
+    "notifications.none": "No notifications yet.",
+    "notifications.new": "New",
+    "notifications.mark_all": "Mark all as read",
+    "notifications.unavailable": "Notifications could not be loaded just now.",
+    "notifications.more": "Unread notifications not shown here: {count}. See Notifications.",
+    "notifications.connected_coach": "{name} connected and shares: {scopes}.",
+    "notifications.connected_coach_none": "{name} connected and shares nothing yet.",
+    "notifications.connected_gymer": "You are connected with {name}.",
+    "notifications.scope_started": "{name} started sharing {scopes}.",
+    "notifications.scope_stopped": "{name} stopped sharing {scopes}.",
+    "notifications.ended": "Your relationship with {name} ended.",
+    "notifications.review_approved": "{name} approved your weekly review for the week of {week}.",
     # The dashboards (T9.15): the coach's client list and client week, the gymer's My week.
     "page.client_week": "Client week",
     "page.my_week": "My week",
@@ -1054,7 +1099,9 @@ _EN: dict[str, str] = {
     ),
     "sharing.choose": (
         "Your coach sees what you share here, the days you logged before you shared it included, "
-        "and always sees your display name. You can change what you share at any time."
+        "and always sees your display name. You can change what you share at any time. Your "
+        "coach is told when you start or stop sharing something, and sees these changes and their "
+        "times until one of you deletes their data."
     ),
     "sharing.accept": "Accept the invitation",
     "sharing.accepted": "You are now connected with your coach.",
@@ -1070,8 +1117,9 @@ _EN: dict[str, str] = {
     "sharing.end": "End the relationship",
     "sharing.end_note": (
         "Your coach can then read none of your records (nutrition, training, body), but still sees "
-        "your display name and the dates of the relationship until one of you deletes their "
-        "account. Your records stay yours, and you can accept a new code later."
+        "your display name, the dates of the relationship and when you started or stopped sharing "
+        "something until one of you deletes their account. Your records stay yours, and you can "
+        "accept a new code later."
     ),
     "sharing.confirm_end": "Yes, end the relationship with my coach",
     "sharing.end_button": "End the relationship",
@@ -1349,6 +1397,9 @@ _DE: dict[str, str] = {
     "nutrient.fiber": "Ballaststoffe",
     "usda.source_line": (
         "Quelle: USDA FoodData Central, Foundation Foods (CC0). Werte pro 100 g, umgerechnet."
+    ),
+    "usda.api_source_line": (
+        "Quelle: USDA FoodData Central API, {data_type} (CC0). Werte pro 100 g, umgerechnet."
     ),
     "meal.source_line": (
         "Quelle: USDA FoodData Central, Foundation Foods (CC0). Werte pro 100 g, umgerechnet. "
@@ -1717,6 +1768,7 @@ _DE: dict[str, str] = {
     # Seiten, Kontobereich, Willkommensseite und Meine Daten (T9.5).
     "page.chat": "Chat",
     "page.my_data": "Meine Daten",
+    "page.notifications": "Benachrichtigungen",
     "page.profile": "Mein Profil",
     "page.today": "Heute",
     "page.workouts": "Training",
@@ -1728,6 +1780,8 @@ _DE: dict[str, str] = {
         "und Ihre Trainingseinheiten zu behalten (als Gymer) oder den KI-Assistenten der App zu "
         "nutzen (als Coach). Die Fragen eines Coachs (und seine eigenen Angaben, wenn eine Frage "
         "sie braucht) gehen über OpenRouter an das KI-Modell."
+        " Lebensmittelnamen aus einer Frage können außerdem an die FoodData Central API des USDA "
+        "(USA) gehen, wenn diese Kopie der App ihren Schlüssel hat."
     ),
     "start.demo_title": "Einen erfundenen Nutzer ausprobieren",
     "start.demo": (
@@ -1735,17 +1789,23 @@ _DE: dict[str, str] = {
         "Gymers auszuprobieren (was sie speichern, wird beim Beenden der App gelöscht). Die Fragen "
         "eines Coachs (und seine eigenen Angaben, wenn eine Frage sie braucht) gehen über "
         "OpenRouter an das KI-Modell."
+        " Lebensmittelnamen aus einer Frage können außerdem an die FoodData Central API des USDA "
+        "(USA) gehen, wenn diese Kopie der App ihren Schlüssel hat."
     ),
     "start.demo_placeholder": "Demo-Nutzer wählen",
     "account.guest_note": (
         "Sie nutzen die App als Gast: Diese App speichert nichts; Ihre Fragen (und Ihre Angaben, "
         "wenn eine Frage sie braucht) gehen über OpenRouter an das KI-Modell."
+        " Lebensmittelnamen aus einer Frage können außerdem an die FoodData Central API des USDA "
+        "(USA) gehen, wenn diese Kopie der App ihren Schlüssel hat."
     ),
     "account.secrets_broken": (
         "Die Anmeldung ist aus: `.streamlit/secrets.toml` konnte nicht gelesen werden "
         "(ein TOML-Syntaxfehler?). Korrigieren Sie die Datei und starten Sie die App neu. Bis "
         "dahin speichert diese App nichts, und der Chat antwortet nur, wenn der API-Schlüssel als "
         "Umgebungsvariable gesetzt ist (Ihre Fragen gehen dann über OpenRouter an das KI-Modell)."
+        " Lebensmittelnamen aus einer Frage können außerdem an die FoodData Central API des USDA "
+        "(USA) gehen, wenn diese Kopie der App ihren Schlüssel hat."
     ),
     "role.coach": "Coach",
     "role.gymer": "Gymer",
@@ -1758,6 +1818,8 @@ _DE: dict[str, str] = {
         "Die Anmeldung ist aus: In dieser Kopie der App ist keine Google-Anmeldung eingerichtet. "
         "Sie können den Chat als Gast nutzen: Diese App speichert nichts, und Ihre Fragen (und "
         "Ihre Angaben, wenn eine Frage sie braucht) gehen über OpenRouter an das KI-Modell."
+        " Lebensmittelnamen aus einer Frage können außerdem an die FoodData Central API des USDA "
+        "(USA) gehen, wenn diese Kopie der App ihren Schlüssel hat."
     ),
     "account.not_set_up": (
         "Die Anmeldung ist nicht vollständig eingerichtet: Ein Geheimnis in "
@@ -1819,6 +1881,8 @@ _DE: dict[str, str] = {
         "Datendatei dieser App auf diesem Computer gespeichert; Ihre neuesten Vorlieben gehen mit "
         "jeder Frage über OpenRouter an das KI-Modell. Chats werden nie gespeichert, aber die "
         "früheren Fragen und Antworten dieses Chats gehen mit jeder neuen Frage an das KI-Modell. "
+        "Lebensmittelnamen aus einer Frage können außerdem an die FoodData Central API des USDA "
+        "(USA) gehen, wenn diese Kopie der App ihren Schlüssel hat. "
         "Verwenden Sie nur erfundene Daten: Geben Sie keine echten Gesundheitsdaten ein."
     ),
     "profile.my_data_link": "Unter Meine Daten ansehen, exportieren oder löschen",
@@ -1839,14 +1903,16 @@ _DE: dict[str, str] = {
     ),
     "my_data.intro_gymer": (
         "Alles, was die App über Sie speichert: Ihr Konto und unten Ihre Einträge; Ihre "
-        "Coach-Beziehungen, Ihre Freigaben, Ihre Fragen an den Coach mit den Antworten und die "
-        "Zugriffe Ihres Coachs auf Ihre Daten stehen im Export."
+        "Coach-Beziehungen, Ihre Freigaben, Ihre Fragen an den Coach mit den Antworten, die "
+        "Zugriffe Ihres Coachs auf Ihre Daten und Ihre Lesemarkierung der Benachrichtigungen (wann "
+        "Sie sie zuletzt als gelesen markiert haben) stehen im Export."
     ),
     "my_data.intro_coach": (
         "Alles, was die App über Sie speichert: Ihr Konto, die Arbeitsvorlieben, die Sie im Chat "
-        "gespeichert haben, und, sobald Sie welche haben, Ihre Kunden, deren Auswertungen und die "
-        "Fragen und Antworten darunter (sie stehen im Export). Sonst wird von Ihren Chats nichts "
-        "gespeichert."
+        "gespeichert haben, Ihre Kunden, deren Auswertungen und die Fragen und Antworten darunter, "
+        "sobald Sie welche haben, und Ihre Lesemarkierung der Benachrichtigungen (wann Sie sie "
+        "zuletzt als gelesen markiert haben); sie stehen im Export. Sonst wird von Ihren Chats "
+        "nichts gespeichert."
     ),
     "my_data.account": "**Konto:** {name} · {role} · angelegt am {created}",
     "my_data.count": "{count} gespeichert",
@@ -2031,6 +2097,39 @@ _DE: dict[str, str] = {
     "clients.cancel_placeholder": "Code wählen",
     "clients.cancel": "Diese Einladung zurückziehen",
     "sharing.unverified": "Die App prüft die Qualifikationen eines Coaches nicht.",
+    "notifications.bell": "Benachrichtigungen · {count} ungelesen",
+    "notifications.intro_coach": (
+        "Was sich bei Ihren Kunden geändert hat: wer sich verbunden hat, etwas zu teilen begonnen "
+        "oder aufgehört hat und welche Verbindungen beendet sind. Eine Benachrichtigung zeigt "
+        "einen Namen, was geteilt wird, und eine Zeit, nie die Werte eines Kunden. Neue "
+        "erscheinen, wenn eine Seite das nächste Mal lädt."
+    ),
+    "notifications.intro_gymer": (
+        "Was sich bei Ihrem Coach geändert hat: wann Sie sich verbunden haben, wann ein Coach "
+        "einen Wochenbericht über Sie freigegeben hat und wann eine Verbindung beendet wurde. Neue "
+        "erscheinen, wenn eine Seite das nächste Mal lädt."
+    ),
+    "notifications.read_note": (
+        "„Alle als gelesen markieren“ speichert eine Markierung mit der Zeit, zu der diese Liste "
+        "geladen wurde. Nur Sie sehen sie; sie steht in Ihrem Export und wird mit Ihren Daten "
+        "gelöscht."
+    ),
+    "notifications.none": "Noch keine Benachrichtigungen.",
+    "notifications.new": "Neu",
+    "notifications.mark_all": "Alle als gelesen markieren",
+    "notifications.unavailable": "Die Benachrichtigungen konnten gerade nicht geladen werden.",
+    "notifications.more": (
+        "Hier nicht gezeigte ungelesene Benachrichtigungen: {count}. Siehe Benachrichtigungen."
+    ),
+    "notifications.connected_coach": "{name} hat sich verbunden und teilt: {scopes}.",
+    "notifications.connected_coach_none": "{name} hat sich verbunden und teilt noch nichts.",
+    "notifications.connected_gymer": "Sie sind mit {name} verbunden.",
+    "notifications.scope_started": "{name} teilt jetzt {scopes}.",
+    "notifications.scope_stopped": "{name} teilt {scopes} nicht mehr.",
+    "notifications.ended": "Ihre Verbindung mit {name} ist beendet.",
+    "notifications.review_approved": (
+        "{name} hat Ihren Wochenbericht für die Woche vom {week} freigegeben."
+    ),
     # Die Übersichten (T9.15).
     "page.client_week": "Klientenwoche",
     "page.my_week": "Meine Woche",
@@ -2278,7 +2377,9 @@ _DE: dict[str, str] = {
     ),
     "sharing.choose": (
         "Ihr Coach sieht, was Sie hier teilen, auch die Tage, die Sie vor dem Teilen erfasst "
-        "haben, und sieht immer Ihren Anzeigenamen. Sie können jederzeit ändern, was Sie teilen."
+        "haben, und sieht immer Ihren Anzeigenamen. Sie können jederzeit ändern, was Sie teilen. "
+        "Ihr Coach wird benachrichtigt, wenn Sie etwas zu teilen beginnen oder aufhören, und sieht "
+        "diese Änderungen mit ihren Zeiten, bis einer von Ihnen seine Daten löscht."
     ),
     "sharing.accept": "Einladung annehmen",
     "sharing.accepted": "Sie sind jetzt mit Ihrem Coach verbunden.",
@@ -2299,9 +2400,9 @@ _DE: dict[str, str] = {
     "sharing.end": "Verbindung beenden",
     "sharing.end_note": (
         "Ihr Coach kann dann keine Ihrer Einträge (Ernährung, Training, Körper) mehr lesen, sieht "
-        "aber weiterhin Ihren Anzeigenamen sowie Beginn und Ende der Verbindung, bis einer von "
-        "Ihnen sein Konto löscht. Ihre Einträge bleiben Ihre, und Sie können später einen neuen "
-        "Code annehmen."
+        "aber weiterhin Ihren Anzeigenamen, Beginn und Ende der Verbindung sowie, wann Sie etwas "
+        "zu teilen begonnen oder aufgehört haben, bis einer von Ihnen sein Konto löscht. Ihre "
+        "Einträge bleiben Ihre, und Sie können später einen neuen Code annehmen."
     ),
     "sharing.confirm_end": "Ja, die Verbindung mit meinem Coach beenden",
     "sharing.end_button": "Verbindung beenden",

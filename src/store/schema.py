@@ -295,14 +295,36 @@ CREATE INDEX ai_reviews_week ON ai_reviews (coach_id, client_id, period_start);
 PRAGMA user_version = 2;
 """
 
-# T9.25: the questions to the coach under an approved review, and the audit action of an answer.
+# T9.29: the in-app notifications are worked out from the rows above (relationships, consents and
+# approved reviews), so no event is copied (D23). The only new data is a reader's "read up to" mark:
+# the reader's own ID and a time, never another user's ID or the ID of another user's row. Only the
+# newest mark is kept: notifications.mark_all_read() adds a row and deletes the reader's earlier
+# ones in the same transaction (owner's choice, 2026-11-06: an exception to keeping every row, so
+# the table is no log of when a user read their notifications); no row is changed in place.
+_V3 = """
+CREATE TABLE notification_reads (
+    id INTEGER PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users (id),
+    read_up_to TEXT NOT NULL
+        CHECK (read_up_to GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
+            AND date(read_up_to) IS substr(read_up_to, 1, 10))
+) STRICT;
+CREATE INDEX notification_reads_user ON notification_reads (user_id);
+CREATE TRIGGER notification_reads_never_changed BEFORE UPDATE ON notification_reads
+BEGIN SELECT RAISE(ABORT, 'stored records are never changed in place'); END;
+
+PRAGMA user_version = 3;
+"""
+
+# T9.25 (migration 4, after T9.29's 3): the questions to the coach under an approved review, and
+# the audit action of an answer.
 # A thread belongs to its review: the gymer asks and the coach answers by the review's own rule
 # (src/store/questions.py). SQLite cannot change a CHECK in place, so audit_log is rebuilt with the
 # wider action list: a new table, every row copied with its ID, the old one dropped and the new one
 # renamed, then its indexes and trigger made again (they went with the old table). The new table is
 # _V1's apart from the action list (tests/test_store_db.py); the next migration that needs a new
 # action (T9.17's target_set) rebuilds it the same way.
-_V3 = """
+_V4 = """
 CREATE TABLE review_questions (
     id INTEGER PRIMARY KEY,
     review_id INTEGER NOT NULL REFERENCES ai_reviews (id),
@@ -318,7 +340,7 @@ CREATE INDEX review_questions_author ON review_questions (author_id);
 CREATE TRIGGER review_questions_never_changed BEFORE UPDATE ON review_questions
 BEGIN SELECT RAISE(ABORT, 'stored records are never changed in place'); END;
 
-CREATE TABLE audit_log_v3 (
+CREATE TABLE audit_log_v4 (
     id INTEGER PRIMARY KEY,
     actor_id TEXT NOT NULL REFERENCES users (id),
     subject_id TEXT REFERENCES users (id),
@@ -331,17 +353,17 @@ CREATE TABLE audit_log_v3 (
         CHECK (created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
             AND date(created_at) IS substr(created_at, 1, 10))
 ) STRICT;
-INSERT INTO audit_log_v3 (id, actor_id, subject_id, action, resource_type, resource_id, created_at)
+INSERT INTO audit_log_v4 (id, actor_id, subject_id, action, resource_type, resource_id, created_at)
 SELECT id, actor_id, subject_id, action, resource_type, resource_id, created_at FROM audit_log;
 DROP TABLE audit_log;
-ALTER TABLE audit_log_v3 RENAME TO audit_log;
+ALTER TABLE audit_log_v4 RENAME TO audit_log;
 CREATE INDEX audit_log_actor ON audit_log (actor_id);
 CREATE INDEX audit_log_subject ON audit_log (subject_id);
 CREATE TRIGGER audit_log_never_changed BEFORE UPDATE ON audit_log
 BEGIN SELECT RAISE(ABORT, 'stored records are never changed in place'); END;
 
-PRAGMA user_version = 3;
+PRAGMA user_version = 4;
 """
 
 # In order: MIGRATIONS[0] creates version 1, MIGRATIONS[1] takes it to version 2, and so on.
-MIGRATIONS: tuple[str, ...] = (_V1, _V2, _V3)
+MIGRATIONS: tuple[str, ...] = (_V1, _V2, _V3, _V4)

@@ -17,6 +17,7 @@ from src import account as accounts
 from src import chat as turns
 from src import config, guard, preferences, usage
 from src.store.access import NotFound
+from src.tools import food_api as fdc
 from views import account, resources, sources, tool_results, usage_view
 from views.text import lang, t
 
@@ -302,6 +303,9 @@ def run_turn(question: str, turn: int) -> None:
         conversation=st.session_state["conversation"],
         # A coach's client names and saved preferences (T9.7); None for a guest.
         coach=coach_memory(),
+        # The USDA FoodData Central API for foods the table lacks (T9.9); None without the key.
+        # Read each turn, so a key added to the secrets works without a restart.
+        food_api=fdc.build_food_api(),
     )
     if result.index_not_ready:
         # Open the index again on the next turn, e.g. once the owner has rebuilt it.

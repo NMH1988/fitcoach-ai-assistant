@@ -4,6 +4,7 @@ import ast
 import io
 import json
 import logging
+import urllib.error
 from datetime import date
 from pathlib import Path
 
@@ -19,8 +20,9 @@ from src.chat import TurnResult
 from src.preferences import PREFERENCE_TOOL, CoachMemory
 from src.profile import UserProfile
 from src.rag.store import IndexNotReadyError
-from src.tools import registry
+from src.tools import food_api, registry
 from src.tools.energy import calculate_tdee
+from src.tools.food_api import FoodApi
 from tests.fakes import (
     CHUNKS,
     ScriptedChatModel,
@@ -276,7 +278,14 @@ def index(index_path):
 
 
 def _canary_turn(
-    text, index, model, translator=None, user=CANARY_PROFILE, coach=None, conversation=None
+    text,
+    index,
+    model,
+    translator=None,
+    user=CANARY_PROFILE,
+    coach=None,
+    conversation=None,
+    food_api=None,
 ):
     """Run one turn with the canary profile (a coach's turn with `coach`) and return its result."""
     return chat.run_turn(
@@ -289,7 +298,50 @@ def _canary_turn(
         prices=lambda: {},
         coach=coach,
         conversation=conversation,
+        food_api=food_api,
     )
+
+
+# T9.9: a FoodData Central client with a canary key on a fake opener (no network); the food the
+# model asks for and the food the API returns carry canaries too.
+CANARY_FOOD_API_KEY = "fdc-CANARY-KEY"
+CANARY_API_FOOD = {
+    "fdcId": 987,
+    "description": "Oil, CANARYOIL",
+    "dataType": "SR Legacy",
+    "foodNutrients": [
+        {"nutrientId": 1008, "unitName": "KCAL", "value": 884},
+        {"nutrientId": 1003, "unitName": "G", "value": 0},
+        {"nutrientId": 1004, "unitName": "G", "value": 100},
+        {"nutrientId": 1005, "unitName": "G", "value": 0},
+    ],
+}
+
+
+class _CanaryOpener:
+    """Answers the API's request with a fixed body, or raises a fixed error."""
+
+    def __init__(self, reply: object) -> None:
+        """Keep the reply."""
+        self.reply = reply
+
+    def open(self, request, timeout):
+        """Return the body, or raise the error."""
+        if isinstance(self.reply, BaseException):
+            raise self.reply
+        return io.BytesIO(self.reply)
+
+
+def _food_api_turn(index, reply: object):
+    """Run a turn whose model looks up a canary food missing from the table, through the API."""
+    model = ScriptedChatModel(
+        replies=[
+            tool_reply((registry.FOOD_TOOL, {"food": "CANARYOIL oil", "grams": 87.3})),
+            AIMessage(CANARY_ANSWER),
+        ]
+    )
+    api = FoodApi(CANARY_FOOD_API_KEY, opener=_CanaryOpener(reply), sleep=lambda _: None)
+    return _canary_turn(CANARY_QUESTION, index, model, _rewrites_translator(), food_api=api)
 
 
 # A coach's memory with a canary client name and a canary saved preference (T9.7).
@@ -464,6 +516,14 @@ CANARY_ENDINGS = {
         coach=CANARY_COACH,
         conversation=_paused_conversation(),
     ),
+    # T9.9: the food tool found the food through the API, or the API refused the key.
+    "food API found": lambda index: _food_api_turn(
+        index, json.dumps({"foods": [CANARY_API_FOOD]}).encode()
+    ),
+    "food API failed": lambda index: _food_api_turn(
+        index,
+        urllib.error.HTTPError(config.FOOD_API_URL, 403, CANARY_FOOD_API_KEY, None, None),  # type: ignore[arg-type]
+    ),
     "unexpected error": lambda index: _canary_turn(
         CANARY_QUESTION,
         index,
@@ -500,6 +560,55 @@ def test_no_record_holds_the_question_the_answer_the_profile_or_the_key(index, e
         assert canary not in searched, (ending, canary)
     for line in _lines(stream):
         assert set(line) <= {"ts", "level", "logger", "event"} | observability.ALLOWED_FIELDS
+
+
+def test_a_coachs_client_name_never_reaches_the_food_api(index):
+    """T9.9, compliance run 1: in a coach's chat a food name with a client's name is not sent."""
+    opener = _CanaryOpener(json.dumps({"foods": [CANARY_API_FOOD]}).encode())
+    sent = []
+    original_open = opener.open
+
+    def recording_open(request, timeout):
+        """Record the request, then answer it."""
+        sent.append(request)
+        return original_open(request, timeout)
+
+    opener.open = recording_open
+    model = ScriptedChatModel(
+        replies=[
+            tool_reply((registry.FOOD_TOOL, {"food": "CANARYCLIENT Max oil", "grams": 10})),
+            AIMessage(CANARY_ANSWER),
+        ]
+    )
+    api = FoodApi(CANARY_FOOD_API_KEY, opener=opener, sleep=lambda _: None)
+    result = _canary_turn(
+        CANARY_QUESTION,
+        index,
+        model,
+        _rewrites_translator(),
+        coach=CANARY_COACH,
+        conversation=Conversation(),
+        food_api=api,
+    )
+    assert sent == []
+    [run] = result.tool_runs
+    assert run.result.api_code == "name_refused"
+    # The name passes the general check, so the client check is what refused it.
+    assert food_api.api_query("CANARYCLIENT Max oil") is not None
+
+
+@pytest.mark.parametrize(
+    ("ending", "level", "code"),
+    [("food API found", "INFO", "found"), ("food API failed", "WARNING", "key_rejected")],
+)
+def test_a_food_api_search_logs_its_code_not_the_food(index, ending, level, code):
+    """T9.9: one food_api line with the turn's ID and the outcome's code, no name or key."""
+    stream = io.StringIO()
+    observability.configure_logging(stream=stream)
+    result = CANARY_ENDINGS[ending](index)
+    [line] = [line for line in _lines(stream) if line["event"] == "food_api"]
+    assert (line["level"], line["code"], line["turn_id"]) == (level, code, result.turn_id)
+    assert "CANARYOIL" not in stream.getvalue() and CANARY_FOOD_API_KEY not in stream.getvalue()
 
 
 def test_the_injury_guardrail_logs_its_category_not_the_question(index):
@@ -579,7 +688,17 @@ STORE_CANARY_TEXTS = (*CANARY_TEXTS, "CANARY-COACH", "CANARY-GYM", "2345.6", "57
 def _store_scenario(conn, codes: list[str]) -> list[Exception]:
     """Write, read, refuse, export and delete canary data through every store function."""
     from src import diary, metrics, sharing
-    from src.store import access, invitations, my_data, questions, records, reviews, users, values
+    from src.store import (
+        access,
+        invitations,
+        my_data,
+        notifications,
+        questions,
+        records,
+        reviews,
+        users,
+        values,
+    )
 
     errors: list[Exception] = []
     users.create_user(conn, "CANARY-COACH", "coach", "CANARY-NAME coach")
@@ -645,7 +764,9 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
             sharing.accept_code(conn, gymer, typed, ["body"])
         except invitations.InvitationRefused as error:
             errors.append(error)
-    sharing.accept_code(conn, "CANARY-NEW", invitation.code, ["body", "nutrition"])
+    relationship_new = sharing.accept_code(
+        conn, "CANARY-NEW", invitation.code, ["body", "nutrition"]
+    )
     users.display_name_of(conn, "CANARY-COACH", "CANARY-NEW")
     users.list_relationships(conn, "CANARY-COACH")
     users.list_relationships(conn, "CANARY-NEW")
@@ -748,6 +869,13 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
             questions.NotYourTurn,
         ) as error:
             errors.append(error)
+    # T9.29: the notifications name the canary users and scopes; listing, marking and the
+    # gymer's approved (edited) review leave nothing in a log line.
+    users.end_relationship(conn, "CANARY-NEW", relationship_new)
+    for user_id in ("CANARY-COACH", "CANARY-GYM", "CANARY-NEW"):
+        notifications.list_notifications(conn, user_id)
+        notifications.mark_all_read(conn, user_id)
+        notifications.list_notifications(conn, user_id)
     my_data.export_user_data(conn, "CANARY-GYM")
     my_data.export_user_data(conn, "CANARY-COACH")
     my_data.delete_user_data(conn, "CANARY-COACH", no_threads)
