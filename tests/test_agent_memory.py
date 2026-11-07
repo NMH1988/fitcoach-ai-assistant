@@ -109,11 +109,33 @@ def _history(call: list) -> list:
     return call[1:question]
 
 
+# What LangGraph writes at random into every checkpoint: a channel version (32 digits, then a
+# random float), a UUID and a timestamp to the microsecond. A short canary such as the TDEE
+# ("2834") can turn up in them by chance, which failed CI once (PR #81, 2026-11-06), so they are
+# masked before a canary is looked for; a stored value would be in a message, never in these.
+_RANDOM_PARTS = re.compile(
+    r"\d{32}\.\d+\.\d+"
+    r"|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    r"|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2})?"
+)
+
+
 def _remembered(conversation: Conversation) -> str:
-    """Return everything the conversation's checkpointer holds, as text to search."""
+    """Return everything the checkpointer holds as text to search, its random IDs masked."""
     snapshots = list(conversation.graph.get_state_history(conversation.config()))
     saver = conversation.checkpointer
-    return repr(snapshots) + repr(saver.storage) + repr(saver.writes) + repr(saver.blobs)
+    text = repr(snapshots) + repr(saver.storage) + repr(saver.writes) + repr(saver.blobs)
+    return _RANDOM_PARTS.sub("<random>", text)
+
+
+def test_the_mask_hides_only_langgraph_s_random_parts():
+    """A version, UUID and timestamp holding the canary are masked; the canary alone is not."""
+    noise = (
+        "00000000000000000000000000000002.0.0528340 "
+        "3a442834-1fa9-441c-825e-b893e6399777 2026-11-06T22:39:21.283451+00:00"
+    )
+    assert CANARY_TDEE not in _RANDOM_PARTS.sub("<random>", noise.replace("2834", CANARY_TDEE))
+    assert CANARY_TDEE in _RANDOM_PARTS.sub("<random>", f"Your TDEE is {CANARY_TDEE} kcal.")
 
 
 # --- The thread: a second turn sees the first, a new thread does not (criterion 1) ---------------

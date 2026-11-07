@@ -551,6 +551,7 @@ _EN: dict[str, str] = {
     # Pages, the account block, the welcome page and My data (T9.5).
     "page.chat": "Chat",
     "page.my_data": "My data",
+    "page.notifications": "Notifications",
     "page.profile": "My profile",
     "page.today": "Today",
     "page.workouts": "Workouts",
@@ -672,12 +673,14 @@ _EN: dict[str, str] = {
     ),
     "my_data.intro_gymer": (
         "Everything the app stores about you: your account and your records below; your coach "
-        "relationships, sharing choices and your coach's reads of your data are in the export."
+        "relationships, sharing choices, your coach's reads of your data and your notification "
+        "read mark (when you last marked your notifications as read) are in the export."
     ),
     "my_data.intro_coach": (
         "Everything the app stores about you: your account, the working preferences you saved in "
-        "the chat, and your clients and their reviews once you have some (they are in the export). "
-        "Nothing else of your chats is stored."
+        "the chat, your clients and their reviews once you have some, and your notification read "
+        "mark (when you last marked your notifications as read); they are in the export. Nothing "
+        "else of your chats is stored."
     ),
     "my_data.account": "**Account:** {name} · {role} · created {created}",
     "my_data.count": "{count} stored",
@@ -843,6 +846,33 @@ _EN: dict[str, str] = {
     "clients.cancel_placeholder": "Choose a code",
     "clients.cancel": "Cancel this invitation",
     "sharing.unverified": "The app does not check a coach's qualifications.",
+    # In-app notifications (T9.29): the kind, the other side's name, the scope and the week only.
+    "notifications.bell": "Notifications · {count} unread",
+    "notifications.intro_coach": (
+        "What changed with your clients: who connected, started or stopped sharing, and which "
+        "relationships ended. A notification shows a name, what is shared and a time, never a "
+        "client's values. New ones appear the next time a page loads."
+    ),
+    "notifications.intro_gymer": (
+        "What changed with your coach: when you connected, when a coach approved a weekly review "
+        "about you, and when a relationship ended. New ones appear the next time a page loads."
+    ),
+    "notifications.read_note": (
+        "Mark all as read stores one mark with the time this list was loaded. Only you see it; "
+        "it is in your export and deleted with your data."
+    ),
+    "notifications.none": "No notifications yet.",
+    "notifications.new": "New",
+    "notifications.mark_all": "Mark all as read",
+    "notifications.unavailable": "Notifications could not be loaded just now.",
+    "notifications.more": "Unread notifications not shown here: {count}. See Notifications.",
+    "notifications.connected_coach": "{name} connected and shares: {scopes}.",
+    "notifications.connected_coach_none": "{name} connected and shares nothing yet.",
+    "notifications.connected_gymer": "You are connected with {name}.",
+    "notifications.scope_started": "{name} started sharing {scopes}.",
+    "notifications.scope_stopped": "{name} stopped sharing {scopes}.",
+    "notifications.ended": "Your relationship with {name} ended.",
+    "notifications.review_approved": "{name} approved your weekly review for the week of {week}.",
     # The dashboards (T9.15): the coach's client list and client week, the gymer's My week.
     "page.client_week": "Client week",
     "page.my_week": "My week",
@@ -1031,7 +1061,9 @@ _EN: dict[str, str] = {
     ),
     "sharing.choose": (
         "Your coach sees what you share here, the days you logged before you shared it included, "
-        "and always sees your display name. You can change what you share at any time."
+        "and always sees your display name. You can change what you share at any time. Your "
+        "coach is told when you start or stop sharing something, and sees these changes and their "
+        "times until one of you deletes their data."
     ),
     "sharing.accept": "Accept the invitation",
     "sharing.accepted": "You are now connected with your coach.",
@@ -1047,8 +1079,9 @@ _EN: dict[str, str] = {
     "sharing.end": "End the relationship",
     "sharing.end_note": (
         "Your coach can then read none of your records (nutrition, training, body), but still sees "
-        "your display name and the dates of the relationship until one of you deletes their "
-        "account. Your records stay yours, and you can accept a new code later."
+        "your display name, the dates of the relationship and when you started or stopped sharing "
+        "something until one of you deletes their account. Your records stay yours, and you can "
+        "accept a new code later."
     ),
     "sharing.confirm_end": "Yes, end the relationship with my coach",
     "sharing.end_button": "End the relationship",
@@ -1697,6 +1730,7 @@ _DE: dict[str, str] = {
     # Seiten, Kontobereich, Willkommensseite und Meine Daten (T9.5).
     "page.chat": "Chat",
     "page.my_data": "Meine Daten",
+    "page.notifications": "Benachrichtigungen",
     "page.profile": "Mein Profil",
     "page.today": "Heute",
     "page.workouts": "Training",
@@ -1831,13 +1865,15 @@ _DE: dict[str, str] = {
     ),
     "my_data.intro_gymer": (
         "Alles, was die App über Sie speichert: Ihr Konto und unten Ihre Einträge; Ihre "
-        "Coach-Beziehungen, Ihre Freigaben und die Zugriffe Ihres Coachs auf Ihre Daten stehen im "
-        "Export."
+        "Coach-Beziehungen, Ihre Freigaben, die Zugriffe Ihres Coachs auf Ihre Daten und Ihre "
+        "Lesemarkierung der Benachrichtigungen (wann Sie sie zuletzt als gelesen markiert haben) "
+        "stehen im Export."
     ),
     "my_data.intro_coach": (
         "Alles, was die App über Sie speichert: Ihr Konto, die Arbeitsvorlieben, die Sie im Chat "
-        "gespeichert haben, und, sobald Sie welche haben, Ihre Kunden und deren Auswertungen (sie "
-        "stehen im Export). Sonst wird von Ihren Chats nichts gespeichert."
+        "gespeichert haben, Ihre Kunden und deren Auswertungen, sobald Sie welche haben, und Ihre "
+        "Lesemarkierung der Benachrichtigungen (wann Sie sie zuletzt als gelesen markiert haben); "
+        "sie stehen im Export. Sonst wird von Ihren Chats nichts gespeichert."
     ),
     "my_data.account": "**Konto:** {name} · {role} · angelegt am {created}",
     "my_data.count": "{count} gespeichert",
@@ -2022,6 +2058,39 @@ _DE: dict[str, str] = {
     "clients.cancel_placeholder": "Code wählen",
     "clients.cancel": "Diese Einladung zurückziehen",
     "sharing.unverified": "Die App prüft die Qualifikationen eines Coaches nicht.",
+    "notifications.bell": "Benachrichtigungen · {count} ungelesen",
+    "notifications.intro_coach": (
+        "Was sich bei Ihren Kunden geändert hat: wer sich verbunden hat, etwas zu teilen begonnen "
+        "oder aufgehört hat und welche Verbindungen beendet sind. Eine Benachrichtigung zeigt "
+        "einen Namen, was geteilt wird, und eine Zeit, nie die Werte eines Kunden. Neue "
+        "erscheinen, wenn eine Seite das nächste Mal lädt."
+    ),
+    "notifications.intro_gymer": (
+        "Was sich bei Ihrem Coach geändert hat: wann Sie sich verbunden haben, wann ein Coach "
+        "einen Wochenbericht über Sie freigegeben hat und wann eine Verbindung beendet wurde. Neue "
+        "erscheinen, wenn eine Seite das nächste Mal lädt."
+    ),
+    "notifications.read_note": (
+        "„Alle als gelesen markieren“ speichert eine Markierung mit der Zeit, zu der diese Liste "
+        "geladen wurde. Nur Sie sehen sie; sie steht in Ihrem Export und wird mit Ihren Daten "
+        "gelöscht."
+    ),
+    "notifications.none": "Noch keine Benachrichtigungen.",
+    "notifications.new": "Neu",
+    "notifications.mark_all": "Alle als gelesen markieren",
+    "notifications.unavailable": "Die Benachrichtigungen konnten gerade nicht geladen werden.",
+    "notifications.more": (
+        "Hier nicht gezeigte ungelesene Benachrichtigungen: {count}. Siehe Benachrichtigungen."
+    ),
+    "notifications.connected_coach": "{name} hat sich verbunden und teilt: {scopes}.",
+    "notifications.connected_coach_none": "{name} hat sich verbunden und teilt noch nichts.",
+    "notifications.connected_gymer": "Sie sind mit {name} verbunden.",
+    "notifications.scope_started": "{name} teilt jetzt {scopes}.",
+    "notifications.scope_stopped": "{name} teilt {scopes} nicht mehr.",
+    "notifications.ended": "Ihre Verbindung mit {name} ist beendet.",
+    "notifications.review_approved": (
+        "{name} hat Ihren Wochenbericht für die Woche vom {week} freigegeben."
+    ),
     # Die Übersichten (T9.15).
     "page.client_week": "Klientenwoche",
     "page.my_week": "Meine Woche",
@@ -2229,7 +2298,9 @@ _DE: dict[str, str] = {
     ),
     "sharing.choose": (
         "Ihr Coach sieht, was Sie hier teilen, auch die Tage, die Sie vor dem Teilen erfasst "
-        "haben, und sieht immer Ihren Anzeigenamen. Sie können jederzeit ändern, was Sie teilen."
+        "haben, und sieht immer Ihren Anzeigenamen. Sie können jederzeit ändern, was Sie teilen. "
+        "Ihr Coach wird benachrichtigt, wenn Sie etwas zu teilen beginnen oder aufhören, und sieht "
+        "diese Änderungen mit ihren Zeiten, bis einer von Ihnen seine Daten löscht."
     ),
     "sharing.accept": "Einladung annehmen",
     "sharing.accepted": "Sie sind jetzt mit Ihrem Coach verbunden.",
@@ -2250,9 +2321,9 @@ _DE: dict[str, str] = {
     "sharing.end": "Verbindung beenden",
     "sharing.end_note": (
         "Ihr Coach kann dann keine Ihrer Einträge (Ernährung, Training, Körper) mehr lesen, sieht "
-        "aber weiterhin Ihren Anzeigenamen sowie Beginn und Ende der Verbindung, bis einer von "
-        "Ihnen sein Konto löscht. Ihre Einträge bleiben Ihre, und Sie können später einen neuen "
-        "Code annehmen."
+        "aber weiterhin Ihren Anzeigenamen, Beginn und Ende der Verbindung sowie, wann Sie etwas "
+        "zu teilen begonnen oder aufgehört haben, bis einer von Ihnen sein Konto löscht. Ihre "
+        "Einträge bleiben Ihre, und Sie können später einen neuen Code annehmen."
     ),
     "sharing.confirm_end": "Ja, die Verbindung mit meinem Coach beenden",
     "sharing.end_button": "Verbindung beenden",

@@ -379,6 +379,10 @@ The owner's check (O10, O13, 2026-11-07, about 22:02-22:04 Berlin time) on 12ac4
 
 Also seen, not from the mask: `finish_reason` and `model_name` read twice (`tool_callstool_calls`), as LangChain joins the streamed chunks' strings; the first turn's `cost_usd` was null in the log, as the prices were not yet read.
 
+### Notifications (T9.29)
+
+No model is involved, so there is no live check with a key. `tests/test_store_notifications.py` runs the store's part on seeded times (the relationship and consent rows inserted with fixed UTC times, the read mark's clock fixed through `notifications._now`): what each side sees, the accept with two scopes one second apart, the end with two shared scopes, newest first, a second coach and gymer, a deletion in both directions, the read mark (`>=`, only the newest kept, a failed second mark rolled back) and that no module under `src/` imports the notifications (nothing reaches a model). `tests/test_app_notifications.py` runs the bell, the page, "Mark all as read", the toasts (three, then one summary, once a session; a new event on the next run), a guest, a store error, demo mode, German and the My data intros with AppTest; `tests/test_views_tables.py` the sentences and Berlin time; `tests/test_observability.py`'s store scenario lists and marks them with canary names.
+
 ## Live checks
 
 Record only what was actually run and observed: date, model, what was checked, result.

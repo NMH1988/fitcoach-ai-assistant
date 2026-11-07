@@ -4,7 +4,7 @@ import streamlit as st
 
 from src import config, i18n, observability
 from src.agent import memory
-from views import about, account, navigation, sidebar
+from views import about, account, navigation, notifications, sidebar
 
 # One JSON log handler for the app's lines, set up on every rerun (it keeps a single handler, T8.2).
 observability.configure_logging()
@@ -50,7 +50,12 @@ on_start = account.needs_start(user)
 if not on_start:
     with st.sidebar:
         account.sidebar_block(user)
-st.navigation(navigation.pages_for(user)).run()
+current_page = st.navigation(navigation.pages_for(user))
+# The bell under the account block, and this run's toasts, once the pages are registered so the
+# bell's link finds its page (T9.29); a guest and the welcome page have none.
+if not on_start:
+    notifications.sidebar(user)
+current_page.run()
 # Last in the sidebar on every other page: About, then the language control directly below it
 # (the answer prompt's language parts say so, T9.23).
 if not on_start:

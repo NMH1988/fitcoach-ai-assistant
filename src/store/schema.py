@@ -295,5 +295,26 @@ CREATE INDEX ai_reviews_week ON ai_reviews (coach_id, client_id, period_start);
 PRAGMA user_version = 2;
 """
 
-# In order: MIGRATIONS[0] creates version 1, MIGRATIONS[1] takes it to version 2.
-MIGRATIONS: tuple[str, ...] = (_V1, _V2)
+# T9.29: the in-app notifications are worked out from the rows above (relationships, consents and
+# approved reviews), so no event is copied (D23). The only new data is a reader's "read up to" mark:
+# the reader's own ID and a time, never another user's ID or the ID of another user's row. Only the
+# newest mark is kept: notifications.mark_all_read() adds a row and deletes the reader's earlier
+# ones in the same transaction (owner's choice, 2026-11-06: an exception to keeping every row, so
+# the table is no log of when a user read their notifications); no row is changed in place.
+_V3 = """
+CREATE TABLE notification_reads (
+    id INTEGER PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users (id),
+    read_up_to TEXT NOT NULL
+        CHECK (read_up_to GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
+            AND date(read_up_to) IS substr(read_up_to, 1, 10))
+) STRICT;
+CREATE INDEX notification_reads_user ON notification_reads (user_id);
+CREATE TRIGGER notification_reads_never_changed BEFORE UPDATE ON notification_reads
+BEGIN SELECT RAISE(ABORT, 'stored records are never changed in place'); END;
+
+PRAGMA user_version = 3;
+"""
+
+# In order: MIGRATIONS[0] creates version 1, MIGRATIONS[1] takes it to version 2, and so on.
+MIGRATIONS: tuple[str, ...] = (_V1, _V2, _V3)

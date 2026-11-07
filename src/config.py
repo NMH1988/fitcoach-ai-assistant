@@ -363,6 +363,13 @@ WORKOUT_WEIGHT_STEP: dict[str, float] = {"metric": 2.5, "imperial": 5.0}
 # chosen week's Sunday; each chart is this tall, its axes and legend included.
 WEIGHT_TREND_WEEKS = 8
 DASHBOARD_CHART_HEIGHT_PX = 240
+# In-app notifications (T9.29, D23): the Notifications page lists at most this many, newest first,
+# and at most NOTIFICATIONS_MAX_TOASTS show as toasts in one run (the rest as one "and N more"
+# toast). A scope granted within NOTIFICATIONS_SAME_EVENT_SECONDS after a code was accepted counts
+# as shared at the start (the store writes the two times apart, so they can be a second apart).
+NOTIFICATIONS_MAX_SHOWN = 50
+NOTIFICATIONS_MAX_TOASTS = 3
+NOTIFICATIONS_SAME_EVENT_SECONDS = 5
 # Words that would make a training view give advice; the workout texts (`workouts.`, `muscle.` in
 # src/i18n.py and the exercise names) must hold none, as the views report facts only (T9.14).
 # Whole words or phrases, any case; an entry ending in "*" matches any word that starts with it.
