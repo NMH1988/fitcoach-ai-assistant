@@ -14,7 +14,7 @@ from src import config, i18n, metrics
 from src.store import db, questions, reviews, users
 from tests.test_app_account import PROFILE, USER_ID, signed_in, start, store_account
 from tests.test_app_sharing import open_page, page_text
-from views import client_week, navigation
+from views import account, client_week, navigation
 
 pytestmark = pytest.mark.usefixtures("no_env_key")
 
@@ -467,3 +467,29 @@ def test_a_stale_answer_is_not_stored_under_a_newer_question(monkeypatch, coach_
     at = _answer(at, coach_world["trained"], "An answer to the first question")
     assert [row["kind"] for row in _rows()] == ["question", "answer", "question"]
     assert "This question has an answer already." in page_text(at)
+
+
+@pytest.mark.parametrize("role", ["gymer", "coach"])
+def test_a_sent_question_or_answer_drops_a_prepared_export(monkeypatch, request, role):
+    """The export prepared before a send lacks the new row, so it is prepared again (round 7)."""
+    if role == "gymer":
+        world = request.getfixturevalue("gymer_world")
+        at = _my_week(monkeypatch)
+        at.session_state[account.MY_DATA_EXPORT_KEY] = "{}"
+        at = _ask(at, world["trained"], QUESTION)
+    else:
+        world = request.getfixturevalue("coach_world")
+        at = _client_week(monkeypatch)
+        at.session_state[account.MY_DATA_EXPORT_KEY] = "{}"
+        at = _answer(at, world["trained"], ANSWER)
+    assert len(_rows()) == (1 if role == "gymer" else 2)
+    assert account.MY_DATA_EXPORT_KEY not in at.session_state
+
+
+def test_a_refused_question_keeps_a_prepared_export(monkeypatch, gymer_world):
+    """Nothing was written, so the prepared export is still whole and stays."""
+    at = _my_week(monkeypatch)
+    at.session_state[account.MY_DATA_EXPORT_KEY] = "{}"
+    at = _ask(at, gymer_world["trained"], "My knee hurts when I squat, why?")
+    assert _rows() == []
+    assert at.session_state[account.MY_DATA_EXPORT_KEY] == "{}"

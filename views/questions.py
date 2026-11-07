@@ -22,6 +22,14 @@ from views.text import lang, t
 FLASH_KEY = "questions_flash"
 
 
+def _written(review_id: int, key: str) -> None:
+    """Keep the success to show next run and drop a prepared export, which lacks the new row."""
+    # As Today and Workouts do after a save: My data prepares the export again, with the new
+    # question or answer in it (code review round 7).
+    st.session_state.pop(account.MY_DATA_EXPORT_KEY, None)
+    _flash(review_id, "success", key)
+
+
 def _flash(review_id: int, kind: str, key: str) -> None:
     """Keep the outcome of a send to show under its review on the next run."""
     st.session_state[FLASH_KEY] = (review_id, kind, key)
@@ -96,7 +104,7 @@ def _ask(user_id: str, review_id: int) -> None:
     except accounts.StoreUnavailable:
         _flash(review_id, "warning", "account.store_unavailable")
         return
-    _flash(review_id, "success", "questions.sent")
+    _written(review_id, "questions.sent")
 
 
 def gymer_thread(user: dict, review: dict, rows: list[dict], askable: frozenset[int]) -> None:
@@ -153,7 +161,7 @@ def _answer(user_id: str, review_id: int, question_id: int) -> None:
     except accounts.StoreUnavailable:
         _flash(review_id, "warning", "account.store_unavailable")
         return
-    _flash(review_id, "success", "questions.answered")
+    _written(review_id, "questions.answered")
 
 
 def coach_thread(user: dict, review: dict, rows: list[dict]) -> None:
