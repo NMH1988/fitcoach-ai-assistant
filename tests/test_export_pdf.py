@@ -973,9 +973,12 @@ def test_the_date_is_written_as_the_language_writes_it(lang, expected):
 @pytest.mark.parametrize("lang", ["en", "de"])
 def test_a_client_tool_result_gets_a_line_for_people(lang):
     """A coach's client tool shows a fixed line, never the message written for the model (T9.17)."""
+    # Registered here, so the test passes alone too (code review round 7).
+    export_pdf._register_fonts()
     result = coach_clients.ClientListResult(
         status="ok",
         message=coach_clients.LIST_MESSAGE,
+        today=date(2026, 10, 28),
         week_start=date(2026, 10, 26),
         week_end=date(2026, 11, 1),
         follow_up_min_logged_days=4,

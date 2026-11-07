@@ -9,11 +9,12 @@ message the model gets: the model knows a client only by the chat's reference (`
 
 import json
 from datetime import date
+from typing import get_args
 
 import pytest
 from langchain_core.messages import AIMessage
 
-from src import chat, config, guard
+from src import chat, config, dashboard, guard, i18n
 from src.agent.memory import Conversation
 from src.store import db, users
 from src.tools import coach_clients, registry
@@ -166,6 +167,7 @@ def test_a_listed_client_s_week_by_reference(relationships):
         "status",
         "message",
         "client",
+        "today",
         "week_start",
         "week_end",
         "shared_scopes",
@@ -436,6 +438,11 @@ def test_the_owner_s_coach_part_names_the_client_tools_and_fields():
         "`workouts`",
         # A logged average below the floor is reported with it (owner's choice, 2026-11-07).
         f"below {config.CALORIE_FLOOR_KCAL:,} kcal per day",
+        # Code review round 7: the date the results give, and the body fields it explains.
+        "`today`",
+        "`latest_weight_kg`",
+        "`latest_weight_on`",
+        "`weight_change_kg`",
     ]
     assert [phrase for phrase in expected if phrase not in text] == []
     # The sections and list fields it names are the results' own.
@@ -445,6 +452,31 @@ def test_the_owner_s_coach_part_names_the_client_tools_and_fields():
     assert set(coach_clients.ClientListResult.model_fields) >= {"follow_up_min_logged_days"}
     assert set(coach_clients.ClientSummary.model_fields) >= {"follow_up_reasons"}
     assert set(coach_clients.ClientWeekArgs.model_fields) == {"client", "week_of"}
+    assert "today" in coach_clients.ClientListResult.model_fields
+    assert "today" in coach_clients.ClientWeekResult.model_fields
+    assert {"latest_weight_kg", "latest_weight_on", "weight_change_kg"} == set(
+        coach_clients.BodyOut.model_fields
+    )
+    # The reasons and statuses it explains are exactly the ones the code gives (round 7).
+    assert set(dashboard.FOLLOW_UP_REASONS) == {"few_logged_days", "no_session"}
+    notice = coach_clients.ClientNotice.model_fields["status"].annotation
+    assert {"not_found", "invalid"} <= set(get_args(notice))
     # The weekly review's own prompt stays in src/prompts/weekly_review_system.md.
     assert "weekly review" not in text.casefold()
     assert "<metrics>" not in text
+
+
+def test_both_results_give_today_s_date(relationships):
+    """The model knows no date otherwise: both tools give today (code review round 7)."""
+    clients = _clients()
+    _, listed = _call(clients, LIST_TOOL)
+    _, week = _call(clients, WEEK_TOOL, {"client": "client-1"})
+    assert listed.result.today == week.result.today == TODAY
+
+
+def test_the_german_language_part_names_the_client_week_page():
+    """A German answer names the page as the German UI does (code review round 7)."""
+    path = config.PROJECT_ROOT / "src" / "prompts" / "answer_language_de.md"
+    text = chat.load_system_prompt(path)
+    page = i18n.t("page.client_week", "de")
+    assert f'"{i18n.t("page.client_week", "en")}" → „{page}“' in text

@@ -43,7 +43,7 @@ LIST_DESCRIPTION = (
     "shared), and a follow-up flag with its reasons: fewer than "
     f"{config.FOLLOW_UP_MIN_LOGGED_DAYS} logged days, or no workout. Clients' names are never "
     "given: refer to a client only by their reference, exactly as written, and never guess a name. "
-    "Takes no arguments."
+    "The result also gives today's date (`today`, Europe/Berlin). Takes no arguments."
 )
 WEEK_DESCRIPTION = (
     "One active client's week from the app's logs, only what the client shares with the coach: "
@@ -53,7 +53,8 @@ WEEK_DESCRIPTION = (
     "volume and top weight). A day with nothing logged is 'not logged', never a day without "
     "eating. Takes the client's reference from list_my_clients in this chat and, optionally, "
     "week_of: any day of the week wanted (YYYY-MM-DD, not after today; this week if left out). An "
-    "unknown reference, or a client who is no longer active, gives 'not found'."
+    "unknown reference, or a client who is no longer active, gives 'not found'. The result also "
+    "gives today's date (`today`), as a day of the current week after it has not happened yet."
 )
 LIST_MESSAGE = (
     "Your active clients this week, by reference. A null value is a scope the client does not "
@@ -130,6 +131,8 @@ class ClientListResult(BaseModel):
 
     status: Literal["ok"]
     message: str
+    # Today in Europe/Berlin: the model knows no date otherwise (code review round 7).
+    today: date
     week_start: date
     week_end: date
     follow_up_min_logged_days: int
@@ -205,6 +208,8 @@ class ClientWeekResult(BaseModel):
     status: Literal["ok"]
     message: str
     client: str
+    # Today in Europe/Berlin, so a later day of the current week is never read as missed.
+    today: date
     week_start: date
     week_end: date
     shared_scopes: list[str]
@@ -326,13 +331,14 @@ def _shared(week: dashboard.DashboardWeek) -> list[str]:
     return [scope for scope in ("nutrition", "training", "body") if scope in week.shared]
 
 
-def week_result(reference: str, week: dashboard.DashboardWeek) -> ClientWeekResult:
+def week_result(reference: str, week: dashboard.DashboardWeek, today: date) -> ClientWeekResult:
     """Return get_client_week's result for one client's week, the scopes shared only."""
     shared = week.shared
     return ClientWeekResult(
         status="ok",
         message=WEEK_MESSAGE,
         client=reference,
+        today=today,
         week_start=week.nutrition.week_start,
         week_end=week.nutrition.week_end,
         shared_scopes=_shared(week),
@@ -359,7 +365,8 @@ def summary(reference: str, week: dashboard.DashboardWeek) -> ClientSummary:
 
 def list_clients(clients: CoachClients) -> ClientListResult:
     """Return this week's summary of each of the coach's active clients, by reference."""
-    monday = metrics.week_start(clients.today())
+    today = clients.today()
+    monday = metrics.week_start(today)
     with clients.open_store() as conn:
         summaries = []
         for relationship in dashboard.active_clients(conn, clients.coach_id):
@@ -371,6 +378,7 @@ def list_clients(clients: CoachClients) -> ClientListResult:
     return ClientListResult(
         status="ok",
         message=LIST_MESSAGE,
+        today=today,
         week_start=monday,
         week_end=metrics.week_days(monday)[-1],
         follow_up_min_logged_days=config.FOLLOW_UP_MIN_LOGGED_DAYS,
@@ -395,7 +403,7 @@ def client_week(
     except NotFound:
         # Ended, never the coach's, or the account gone: the store's one answer (AC-21).
         return _not_found()
-    return week_result(client.strip().casefold(), week)
+    return week_result(client.strip().casefold(), week, today)
 
 
 def _not_run(**_: object) -> None:

@@ -882,6 +882,7 @@ def _client_week_result(weight_kg: float | None):
         status="ok",
         message="m",
         client="client-1",
+        today=MONDAY + timedelta(days=2),
         week_start=MONDAY,
         week_end=MONDAY + timedelta(days=6),
         shared_scopes=["body"],

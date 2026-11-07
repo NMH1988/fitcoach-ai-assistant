@@ -330,6 +330,7 @@ def run_turn(question: str, turn: int) -> None:
 
     # The model sends its answer in fast bursts; reveal it at a steady, readable pace.
     on_text = turns.PacedWriter(show_text, config.ANSWER_WORDS_PER_SECOND)
+    memory = coach_memory()
 
     result = turns.run_turn(
         question,
@@ -351,12 +352,14 @@ def run_turn(question: str, turn: int) -> None:
         # The session's own memory: the turn sees this chat's earlier questions and answers (T9.4).
         conversation=st.session_state["conversation"],
         # A coach's client names and saved preferences (T9.7); None for a guest.
-        coach=coach_memory(),
+        coach=memory,
         # The USDA FoodData Central API for foods the table lacks (T9.9); None without the key.
         # Read each turn, so a key added to the secrets works without a restart.
         food_api=fdc.build_food_api(),
-        # A coach's client tools and this chat's references (T9.17); None for a guest.
-        clients=coach_clients_for_turn(),
+        # A coach's client tools and this chat's references (T9.17); None for a guest. Offered
+        # only with the coach's part of the prompt, which explains them: when the store fails and
+        # the coach's memory cannot be read, the turn has neither (code review round 7).
+        clients=coach_clients_for_turn() if memory is not None else None,
     )
     if result.index_not_ready:
         # Open the index again on the next turn, e.g. once the owner has rebuilt it.

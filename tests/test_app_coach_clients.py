@@ -9,6 +9,8 @@ import pytest
 from langchain_core.messages import AIMessage
 from streamlit.testing.v1 import AppTest
 
+from src import account as accounts
+from src import preferences
 from src.store import db, users
 from src.tools.coach_clients import LIST_TOOL
 from tests.fakes import ScriptedChatModel, tool_reply
@@ -90,3 +92,20 @@ def test_new_chat_forgets_the_references(monkeypatch):
         else None
     )
     assert kept is None or kept[1].names() == {}
+
+
+def test_no_client_tools_when_the_coach_part_cannot_be_read(monkeypatch):
+    """A store failure reading the coach's memory leaves the turn without the client tools too."""
+    at = _coach(monkeypatch)
+
+    def unavailable(*_args, **_kwargs):
+        """Fail as the store does when it cannot be opened."""
+        raise accounts.StoreUnavailable
+
+    monkeypatch.setattr(preferences, "load", unavailable)
+    model = ScriptedChatModel(replies=[AIMessage("No basis.")], search_first=False)
+    _use_model(monkeypatch, model)
+    at.chat_input(key="chat_input").set_value("Who logged fewer than 4 days?").run(timeout=30)
+    offered = {tool["function"]["name"] for tool in model.call_kwargs[0]["tools"]}
+    assert LIST_TOOL not in offered
+    assert "get_client_week" not in offered
