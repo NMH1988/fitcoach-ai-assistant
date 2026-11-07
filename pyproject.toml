@@ -53,6 +53,16 @@ dev = [
     "pytest-cov==7.1.0",
     "ruff==0.17.1",
 ]
+# The evaluation scores of T9.10: run only by the owner's scripts/run_evaluation.py --score and
+# its tests, never by the app. Apache-2.0; what it pulls in is checked with the runtime
+# dependencies by tests/test_dependency_licences.py. Ragas could not be used: its `instructor`
+# needs jiter<0.15, the openai pin jiter>=0.16 (T9.10's Research phase).
+# CI's `pip-audit .` does not read this extra: a PR that changes this pin, Dependabot's included,
+# gets a hand `pip-audit --local --skip-editable` in a venv with `.[dev,eval]`, with CI's chromadb
+# ignores, and the result in the PR (owner's choice, 2026-11-07; docs/SECURITY.md).
+eval = [
+    "deepeval==4.3.3",
+]
 
 [tool.setuptools.packages.find]
 include = ["src*"]
@@ -66,4 +76,22 @@ select = ["E", "F", "I", "B", "UP"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+# deepeval (the eval extra, T9.10) installs pytest plugins that load themselves into every run:
+# its own (which imports deepeval, and with it a reader of .env files and telemetry) and four it
+# pulls in. None is used here, so the suite runs as it did before them.
+addopts = [
+    "-p", "no:deepeval",
+    "-p", "no:xdist",
+    "-p", "no:xdist.looponfail",
+    "-p", "no:rerunfailures",
+    "-p", "no:repeat",
+    "-p", "no:asyncio",
+]
+# deepeval's own code warns hundreds of times on Python 3.14 (asyncio.iscoroutinefunction). Its
+# `return` in a `finally` block warns when the file is compiled, which no module filter catches,
+# so that one is matched by its text; ruff's B012 keeps the pattern out of our own code.
+filterwarnings = [
+    "ignore::DeprecationWarning:deepeval",
+    "ignore:'return' in a 'finally' block:SyntaxWarning",
+]
 markers = ["turn_error: the test expects a turn to end in the catch-all's turn.error (T1.8)"]
