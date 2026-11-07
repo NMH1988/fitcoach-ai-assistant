@@ -412,3 +412,28 @@ def test_a_guest_turn_is_not_offered_the_client_tools(index_path):
     assert not {LIST_TOOL, WEEK_TOOL} & offered
     [run] = result.tool_runs
     assert (run.name, run.status) == (None, "invalid")
+
+
+def test_the_owner_s_coach_part_names_the_client_tools_and_fields():
+    """O15's client section names both tools, a reference and the result fields it explains."""
+    text = chat.load_system_prompt(config.PROJECT_ROOT / "src" / "prompts" / "answer_coach.md")
+    expected = [
+        f"`{LIST_TOOL}`",
+        f"`{WEEK_TOOL}`",
+        "client-1",
+        "`week_of`",
+        "`follow_up_reasons`",
+        "`few_logged_days`",
+        "`no_session`",
+        "`follow_up_min_logged_days`",
+        "`status: not_found`",
+        "`status: invalid`",
+    ]
+    assert [phrase for phrase in expected if phrase not in text] == []
+    # The result fields and statuses it explains are the tools' own.
+    assert set(coach_clients.ClientListResult.model_fields) >= {"follow_up_min_logged_days"}
+    assert set(coach_clients.ClientSummary.model_fields) >= {"follow_up_reasons"}
+    assert set(coach_clients.ClientWeekArgs.model_fields) == {"client", "week_of"}
+    # The weekly review's own prompt stays in src/prompts/weekly_review_system.md.
+    assert "weekly review" not in text.casefold()
+    assert "<metrics>" not in text
