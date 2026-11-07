@@ -428,8 +428,19 @@ def test_the_owner_s_coach_part_names_the_client_tools_and_fields():
         "`follow_up_min_logged_days`",
         "`status: not_found`",
         "`status: invalid`",
+        # Compliance run 2: which null means "not shared" (a section) and which "not logged".
+        "`nutrition`",
+        "`body`",
+        "`training`",
+        "`logged_days`",
+        "`workouts`",
+        # A logged average below the floor is reported with it (owner's choice, 2026-11-07).
+        f"below {config.CALORIE_FLOOR_KCAL:,} kcal per day",
     ]
     assert [phrase for phrase in expected if phrase not in text] == []
+    # The sections and list fields it names are the results' own.
+    assert {"nutrition", "body", "training"} <= set(coach_clients.ClientWeekResult.model_fields)
+    assert {"logged_days", "workouts"} <= set(coach_clients.ClientSummary.model_fields)
     # The result fields and statuses it explains are the tools' own.
     assert set(coach_clients.ClientListResult.model_fields) >= {"follow_up_min_logged_days"}
     assert set(coach_clients.ClientSummary.model_fields) >= {"follow_up_reasons"}
