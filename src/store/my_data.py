@@ -3,13 +3,15 @@
 The export holds the user's own rows in every table, the relationships and scopes they are part
 of, the reviews they may read (a gymer's approved reviews about them without the model's draft, a
 coach's own reviews of clients who still share nutrition and every other scope each review used,
-with the reviews' evidence and scopes) and the audit rows by or about them.
+with the reviews' evidence and scopes), the audit rows by or about them, and the user's own
+notification read mark (T9.29; never the other side's).
 The delete removes the user's rows in every table, their relationships and scopes, the
 reviews about them and those they wrote as a coach (with their evidence), the invitations and code
-attempts, and the audit rows by or about them: the app is local and keeps no audit duty (the owner
-may change this). It runs in one transaction with foreign keys on, and no reference cascades, so a
-table this list forgets makes the delete fail instead of leaving rows behind. The review workflow's
-threads in its checkpointer file go too, through the caller's `delete_threads` (T9.16).
+attempts, the read mark, and the audit rows by or about them: the app is local and keeps no audit
+duty (the owner may change this). It runs in one transaction with foreign keys on, and no
+reference cascades, so a table this list forgets makes the delete fail instead of leaving rows
+behind. The review workflow's threads in its checkpointer file go too, through the caller's
+`delete_threads` (T9.16).
 """
 
 import json
@@ -109,6 +111,9 @@ WHERE (review.client_id = ? AND review.status = 'APPROVED')
 ORDER BY kept.review_id, kept.scope
 """
 _AUDIT = "SELECT * FROM audit_log WHERE actor_id = ? OR subject_id = ? ORDER BY id"
+# The reader's own read mark (T9.29): never another user's, so the other side of a relationship
+# never learns whether or when a notification was read.
+_READ_MARKS = "SELECT * FROM notification_reads WHERE user_id = ? ORDER BY id"
 
 # The delete, children before parents.
 _DELETE_EVIDENCE = """
@@ -143,6 +148,7 @@ _DELETE_TARGETS = "DELETE FROM nutrition_targets WHERE user_id = ?"
 _DELETE_WEIGHTS = "DELETE FROM body_measurements WHERE user_id = ?"
 _DELETE_PROFILES = "DELETE FROM profile_entries WHERE user_id = ?"
 _DELETE_PREFERENCES = "DELETE FROM preferences WHERE user_id = ?"
+_DELETE_READ_MARKS = "DELETE FROM notification_reads WHERE user_id = ?"
 _DELETE_USER = "DELETE FROM users WHERE id = ?"
 _REVIEW_JSON = ("metrics", "data_quality", "draft", "final")
 
@@ -188,6 +194,7 @@ def export_user_data(conn: sqlite3.Connection, user_id: str) -> str:
             "ai_evidence_refs": [dict(r) for r in conn.execute(_EVIDENCE, both)],
             "ai_review_scopes": [dict(r) for r in conn.execute(_REVIEW_SCOPES, both)],
             "audit_log": [dict(r) for r in conn.execute(_AUDIT, both)],
+            "notification_reads": [dict(r) for r in conn.execute(_READ_MARKS, one)],
         }
     return json.dumps(document, ensure_ascii=False, indent=2)
 
@@ -226,5 +233,6 @@ def delete_user_data(
         conn.execute(_DELETE_WEIGHTS, one)
         conn.execute(_DELETE_PROFILES, one)
         conn.execute(_DELETE_PREFERENCES, one)
+        conn.execute(_DELETE_READ_MARKS, one)
         conn.execute(_DELETE_USER, one)
         delete_threads(threads)

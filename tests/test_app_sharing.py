@@ -423,29 +423,36 @@ def test_a_relationship_ended_while_saving_is_an_info_not_a_success(monkeypatch,
 
 
 @pytest.mark.parametrize(
-    ("language", "name_line", "end_line", "ai_line"),
+    ("language", "name_line", "told_line", "end_line", "ai_line"),
     [
         (
             "en",
             "always sees your display name",
-            "still sees your display name and the dates of the relationship",
+            "Your coach is told when you start or stop sharing something, and sees these changes "
+            "and their times until one of you deletes their data.",
+            "the dates of the relationship and when you started or stopped sharing something",
             "go to an AI model through OpenRouter",
         ),
         (
             "de",
             "sieht immer Ihren Anzeigenamen",
-            "weiterhin Ihren Anzeigenamen sowie Beginn und Ende der Verbindung",
+            "Ihr Coach wird benachrichtigt, wenn Sie etwas zu teilen beginnen oder aufhören, und "
+            "sieht diese Änderungen mit ihren Zeiten, bis einer von Ihnen seine Daten löscht.",
+            "Beginn und Ende der Verbindung sowie, wann Sie etwas zu teilen begonnen oder "
+            "aufgehört haben",
             "über OpenRouter an ein KI-Modell",
         ),
     ],
 )
 def test_the_page_says_what_the_coach_keeps_seeing_and_who_drafts_reviews(
-    monkeypatch, connected_gymer, language, name_line, end_line, ai_line
+    monkeypatch, connected_gymer, language, name_line, told_line, end_line, ai_line
 ):
-    """The texts name the shared display name, what stays after the end, and the AI draft."""
+    """The texts name the display name, the scope changes told (T9.29), what stays, the AI draft."""
     at = open_page(start(monkeypatch, user=signed_in(), language=language), navigation.SHARING)
     page = page_text(at)
     assert name_line in page
+    # Compliance run 1 of T9.29 (Low): the coach is notified of each scope change, with its time.
+    assert told_line in page
     assert end_line in page
     # The first scope box is nutrition's, in either language.
     assert ai_line in at.checkbox[0].label

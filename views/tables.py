@@ -6,10 +6,13 @@ without AppTest.
 
 import re
 from collections.abc import Sequence
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from src import chat, config, dashboard, exercises, i18n, metrics, units, usage
 from src.i18n import Language
 from src.profile import Goal
+from src.store.notifications import Notification
 from src.tools import coach_clients, registry
 from src.tools.energy import Macro, MacroTargetsResult, TdeeResult
 from src.tools.food import FoodLookupResult
@@ -904,3 +907,38 @@ def weights_line(weights: Sequence[dict], system: units.UnitSystem, lang: Langua
     """Return a day's logged weights in the user's units, oldest first."""
     shown = ", ".join(units.format_weight(row["weight_kg"], system, lang) for row in weights)
     return i18n.t("today.weights_logged", lang, weights=shown)
+
+
+def berlin_time(stamp: str) -> str:
+    """Return a stored UTC time as "YYYY-MM-DD HH:MM" in Berlin time (D21)."""
+    moment = datetime.fromisoformat(stamp).astimezone(ZoneInfo(config.TIME_ZONE))
+    return moment.strftime("%Y-%m-%d %H:%M")
+
+
+def notification_text(notification: Notification, role: str, lang: Language) -> str:
+    """Return a notification's sentence: the other side's name, the scope and the week (T9.29)."""
+    kind = notification.kind
+    if kind == "connected" and role == "coach":
+        key = "connected_coach" if notification.scopes else "connected_coach_none"
+    elif kind == "connected":
+        key = "connected_gymer"
+    else:
+        key = kind
+    scopes = ", ".join(i18n.t(f"scope.{scope}", lang) for scope in notification.scopes)
+    return i18n.t(
+        f"notifications.{key}",
+        lang,
+        # A display name is checked when it is chosen; escaped all the same (the other side's).
+        name=chat.escape_markdown(notification.other_name),
+        scopes=scopes,
+        week=notification.week or "",
+    )
+
+
+def notification_line(notification: Notification, role: str, lang: Language) -> str:
+    """Return a notification as one Markdown line: "New" when unread, the time, the sentence."""
+    text = f"{berlin_time(notification.at)} · {notification_text(notification, role, lang)}"
+    if notification.unread:
+        # A word, not a colour only, so the unread ones read as such in any theme.
+        return f":material/fiber_new: **{i18n.t('notifications.new', lang)}** · {text}"
+    return text

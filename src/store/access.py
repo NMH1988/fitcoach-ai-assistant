@@ -19,7 +19,7 @@ from src.store.db import transaction
 
 Scope = Literal["nutrition", "training", "body"]
 SCOPES: tuple[str, ...] = get_args(Scope)
-# The audit_log.action CHECK lists the same actions (schema._V3; tests/test_store_db.py).
+# The audit_log.action CHECK lists the same actions (schema._V4; tests/test_store_db.py).
 Action = Literal["read", "review_approved", "review_edited", "review_rejected", "target_set"]
 
 _ROLE = "SELECT role FROM users WHERE id = ?"

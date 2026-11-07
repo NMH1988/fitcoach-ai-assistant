@@ -69,6 +69,10 @@ OWN_ONLY = {
     "my_data.delete_user_data",
     # T9.16: the status of the coach's own review, asked after the store refused a decision.
     "reviews.is_pending",
+    # T9.29: the user's own notifications, from their own relationships, the scope history both
+    # sides see and the approved reviews about a gymer; not audited (owner's choice, 2026-11-06).
+    # Their isolation is tested in tests/test_store_notifications.py.
+    "notifications.list_notifications",
 }
 WRITES = {
     # Each takes the user it writes for; the ones that change shared data check that it is the
@@ -101,6 +105,8 @@ WRITES = {
     "reviews.prepare_review",
     # T9.16: removes the coach's own pending review of a run that failed after saving it.
     "reviews.discard_pending",
+    # T9.29: the acting user's own read mark only.
+    "notifications.mark_all_read",
 }
 INTERNALS = {
     # No user data in or out: opening the file, checks, and the access layer itself.

@@ -31,6 +31,7 @@ TABLES = {
     "ai_review_scopes",
     "audit_log",
     "invite_attempts",
+    "notification_reads",
 }
 NOW = "2026-10-27T10:00:00+00:00"
 DAY = "2026-10-27"
@@ -128,6 +129,7 @@ VALID_ROWS = {
         "created_at": NOW,
     },
     "invite_attempts": {"user_id": "g1", "day": DAY, "count": 1},
+    "notification_reads": {"user_id": "g1", "read_up_to": NOW},
 }
 NON_NEGATIVE = [
     ("profile_entries", "age"),
@@ -160,6 +162,7 @@ IMMUTABLE = [
     "exercise_sets",
     "preferences",
     "audit_log",
+    "notification_reads",
 ]
 
 
@@ -194,7 +197,7 @@ def test_connect_creates_the_file_in_the_configured_folder_with_every_table(stor
         for row in store_conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
     }
     assert names == TABLES
-    assert db.schema_version(store_conn) == len(schema.MIGRATIONS) == 3
+    assert db.schema_version(store_conn) == len(schema.MIGRATIONS) == 4
 
 
 def test_the_store_folder_is_gitignored_and_inside_the_project():
@@ -438,6 +441,35 @@ def test_every_timestamp_column_refuses_a_time_that_is_not_utc(store_conn):
         for bad in ("2026-10-27T10:00:00", "2026-10-27T10:00:00+01:00", "27.10.2026 10:00"):
             with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
                 _insert(store_conn, table, {**VALID_ROWS[table], column: bad})
+
+
+def test_a_read_mark_holds_a_utc_time_only(store_conn):
+    """notification_reads.read_up_to refuses a local time, another offset or a day (T9.29, D21)."""
+    _seed(store_conn)
+    for bad in (
+        "2026-10-27T10:00:00",
+        "2026-10-27T10:00:00+01:00",
+        DAY,
+        "2026-02-30T10:00:00+00:00",
+    ):
+        with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
+            _insert(store_conn, "notification_reads", {"user_id": "g1", "read_up_to": bad})
+
+
+def test_a_version_2_file_gets_the_read_mark_table_with_its_data_kept(tmp_path):
+    """Migration 3 (T9.29) adds notification_reads, empty, and keeps the rows already there."""
+    path = tmp_path / "old.sqlite3"
+    conn = sqlite3.connect(path, autocommit=True)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.executescript(schema.MIGRATIONS[0])
+    conn.executescript(schema.MIGRATIONS[1])
+    _seed(conn)
+    conn.close()
+    with db.connect(path) as conn:
+        assert db.schema_version(conn) == len(schema.MIGRATIONS)
+        assert conn.execute("SELECT count(*) FROM users").fetchone()[0] == 2
+        assert conn.execute("SELECT count(*) FROM notification_reads").fetchone()[0] == 0
 
 
 @pytest.mark.parametrize(
@@ -722,7 +754,7 @@ def test_an_empty_thread_id_is_refused(store_conn):
         _insert(store_conn, "ai_reviews", {**VALID_ROWS["ai_reviews"], "thread_id": ""})
 
 
-# --- T9.17: audit_log built again with the action `target_set` (migration 3) -----------------
+# --- T9.17: audit_log built again with the action `target_set` (migration 4) -----------------
 
 _ACTION_LIST = re.compile(r"action\s+IN\s*\((.*?)\)", re.IGNORECASE | re.DOTALL)
 _V1_AUDIT_LOG = re.compile(r"CREATE TABLE audit_log \(.*?\) STRICT", re.DOTALL)
@@ -757,7 +789,7 @@ def _v1_audit_log_sql() -> str:
 
 
 def test_the_rebuilt_audit_log_differs_from_version_1_only_in_its_actions(store_conn):
-    """Migration 3 keeps STRICT, both foreign keys and the created_at check; adds target_set."""
+    """Migration 4 keeps STRICT, both foreign keys and the created_at check; adds target_set."""
     stored = _stored_table_sql(store_conn, "audit_log")
     first = _v1_audit_log_sql()
     assert _without_actions(stored) == _without_actions(first)
@@ -788,7 +820,7 @@ def _audit_rows(conn) -> list[tuple]:
     return [tuple(row) for row in conn.execute("SELECT * FROM audit_log ORDER BY id")]
 
 
-@pytest.mark.parametrize("version", [1, 2])
+@pytest.mark.parametrize("version", [1, 2, 3])
 def test_an_older_file_keeps_its_audit_rows_indexes_and_trigger(tmp_path, version):
     """Upgrading keeps every audit row with its ID, both indexes and the no-update trigger."""
     path = tmp_path / "old.sqlite3"
@@ -797,7 +829,7 @@ def test_an_older_file_keeps_its_audit_rows_indexes_and_trigger(tmp_path, versio
         kept = _audit_rows(before)
     before.close()
     with db.connect(path) as conn:
-        assert db.schema_version(conn) == 3
+        assert db.schema_version(conn) == len(schema.MIGRATIONS)
         assert _audit_rows(conn) == kept
         names = {
             row["name"]

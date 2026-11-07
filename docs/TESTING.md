@@ -361,6 +361,10 @@ The owner's live check (O13, 2026-11-06) in the app on a228fa9 (the review secti
 - **Not checked live:** the cost (the review shows no token count in the app, and the owner did not find the call in OpenRouter's Activity view), Edit and Reject, a week with training shared (Sam shares body and nutrition only), the source lines with authors and licence (nothing was cited), the German UI, and the threads file after a restart; the unit tests and AppTests in the plan's T9.16 section cover these paths with a scripted model.
 - **Seen, for the owner (O15):** with an average near 1,040 kcal the draft did not suggest that the coach discuss the intake with the client or a healthcare professional, though the prompt asks for that when "the data is concerning"; and it cited no source, even for the protein and fibre recommendations, which the evidence may support. Both are the prompt's to tune, not checks in code.
 
+### Notifications (T9.29)
+
+No model is involved, so there is no live check with a key. `tests/test_store_notifications.py` runs the store's part on seeded times (the relationship and consent rows inserted with fixed UTC times, the read mark's clock fixed through `notifications._now`): what each side sees, the accept with two scopes one second apart, the end with two shared scopes, newest first, a second coach and gymer, a deletion in both directions, the read mark (`>=`, only the newest kept, a failed second mark rolled back) and that no module under `src/` imports the notifications (nothing reaches a model). `tests/test_app_notifications.py` runs the bell, the page, "Mark all as read", the toasts (three, then one summary, once a session; a new event on the next run), a guest, a store error, demo mode, German and the My data intros with AppTest; `tests/test_views_tables.py` the sentences and Berlin time; `tests/test_observability.py`'s store scenario lists and marks them with canary names.
+
 ## Live checks
 
 Record only what was actually run and observed: date, model, what was checked, result.
