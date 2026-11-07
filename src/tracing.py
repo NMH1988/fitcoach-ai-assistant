@@ -15,11 +15,12 @@ too), becomes one placeholder, so neither its keys nor its length show) and repl
 number, boolean and empty value with `config.TRACE_MASK`, except what is listed below: token counts
 and the turn's counters and flow flags, the node and model names LangGraph and LangChain add, the
 app's tool names, statuses, kinds and codes (not a guardrail's code, which names a health topic,
-nor a review's failed checks), and `turn_id` (a run's ID, which ties a trace to its log lines). An
-error keeps only its exception's class name. A tool call's arguments are masked whole, keys
-included. The run's name (a node, a model class), its tags and its timing are not data and are sent
-as LangSmith makes them. The question, rewrites, answer, chunk text, profile values, memories,
-logged values, review text, tool arguments and results, and the stored user IDs are masked (AC-33).
+nor a review's failed checks), `turn_id` (a run's ID, which ties a trace to its log lines), and
+each message's constant LangChain class path, so LangSmith shows a model call's roles. An error
+keeps only its exception's class name. A tool call's arguments are masked whole, keys included. The
+run's name (a node, a model class), its tags and its timing are not data and are sent as LangSmith
+makes them. The question, rewrites, answer, chunk text, profile values, memories, logged values,
+review text, tool arguments and results, and the stored user IDs are masked (AC-33).
 """
 
 import hashlib
@@ -105,8 +106,29 @@ _TYPES = frozenset(
         "ChatGeneration",
         "ChatGenerationChunk",
         "AIMessageChunk",
+        "LLMResult",
     }
 )
+# LangChain's serialised class path of a message ({"lc": 1, "id": ["langchain", "schema",
+# "messages", "HumanMessage"], ...}): constant names from the library, from which LangSmith shows a
+# model call's messages as a chat with their roles. Only these names are kept under an `id` key; a
+# message's or a tool call's own ID (any other value) is masked as before (owner's live check, O13,
+# 2026-11-07: the roles showed as "Unknown").
+_MESSAGE_CLASS_PATH = frozenset(
+    {
+        "langchain",
+        "schema",
+        "messages",
+        "SystemMessage",
+        "HumanMessage",
+        "AIMessage",
+        "AIMessageChunk",
+        "ToolMessage",
+        "ChatMessage",
+    }
+)
+# LangChain's serialisation format version, the only value "lc" holds.
+_SERIALISATION_VERSION = 1
 _STATUSES = frozenset({"ok", "found", "not_found", "invalid", "profile_needed", "error", "success"})
 _KINDS = frozenset({"answer", "no_sources", "rejected", "guardrail", "error", "memory"})
 # Masked whole, keys included: what the model passes to a tool.
@@ -158,7 +180,12 @@ def tool_names() -> frozenset[str]:
 def _kept(key: str | None, value: str | int | float) -> bool:
     """Return True if a text or number under this key is metadata, not data."""
     if isinstance(value, int | float):
+        if key == "lc":
+            return value == _SERIALISATION_VERSION
         return key in _TOKEN_KEYS or key in _COUNT_KEYS
+    if key == "id":
+        # Kept only as part of a message's class path, never a message's or a call's own ID.
+        return value in _MESSAGE_CLASS_PATH
     if key in _IDENTIFIER_KEYS:
         return _IDENTIFIER.fullmatch(value) is not None
     if key in _CODE_KEYS:

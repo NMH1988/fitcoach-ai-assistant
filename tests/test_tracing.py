@@ -15,6 +15,7 @@ import langsmith
 import pytest
 import requests
 from langchain_core.load import dumpd
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tracers.langchain import wait_for_all_tracers
 from langsmith import utils as ls_utils
 
@@ -427,6 +428,45 @@ def test_a_record_that_keeps_something_keeps_its_keys():
     """Only a record with nothing kept collapses; a message keeps its type and its shape."""
     masked = tracing.mask({"kwargs": {"content": "CANARY", "type": "human"}, "empty": {}})
     assert masked == {"kwargs": {"content": config.TRACE_MASK, "type": "human"}, "empty": {}}
+
+
+@pytest.mark.parametrize(
+    ("message", "role"),
+    [
+        (SystemMessage("CANARY system"), "SystemMessage"),
+        (HumanMessage("CANARY-Q 87.3 kg", id="CANARY-msg-1"), "HumanMessage"),
+        (AIMessage("CANARY-A", id="lc_run--CANARY"), "AIMessage"),
+        (ToolMessage("CANARY result", tool_call_id="call_CANARY"), "ToolMessage"),
+    ],
+)
+def test_a_message_keeps_its_class_path_so_its_role_shows(message, role):
+    """lc and the class path stay, so LangSmith shows the role; the text and the IDs go (O13)."""
+    masked = tracing.mask({"messages": [[dumpd(message)]]})
+    [[sent]] = masked["messages"]
+    assert sent["lc"] == 1
+    assert sent["id"] == ["langchain", "schema", "messages", role]
+    assert sent["kwargs"]["content"] == config.TRACE_MASK
+    assert "CANARY" not in json.dumps(masked) and "87.3" not in json.dumps(masked)
+
+
+@pytest.mark.parametrize("value", ["lc_run--1234", "call_abc", "CANARY", "HumanMessage x"])
+def test_an_id_outside_the_class_path_is_masked(value):
+    """A message's or a tool call's own ID is masked; only the class path's names are kept."""
+    assert tracing.mask({"id": value, "lc": 2}) == {
+        "id": config.TRACE_MASK,
+        "lc": config.TRACE_MASK,
+    }
+
+
+def test_a_traced_model_call_carries_its_messages_class_paths(index, traced):
+    """A real turn's model call keeps its messages' class paths, in and out (owner's O13)."""
+    obs.CANARY_ENDINGS["answer"](index)
+    text = json.dumps(traced.runs())
+    assert '"id": ["langchain", "schema", "messages", "SystemMessage"]' in text
+    assert '"id": ["langchain", "schema", "messages", "HumanMessage"]' in text
+    # The output: the reply's class path and the result's type (code review round 7).
+    assert re.search(r'"id": \["langchain", "schema", "messages", "AIMessage(Chunk)?"\]', text)
+    assert '"type": "LLMResult"' in text
 
 
 @pytest.mark.parametrize("items", [[], ["squat"], ["squat", "bench", "row", "deadlift"], [None]])
