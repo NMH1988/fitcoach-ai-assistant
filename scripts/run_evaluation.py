@@ -14,8 +14,8 @@ translation and hybrid search; T9.3: the agent decides whether to search). The m
 are the app's own (`llm.build_chat_model()`). Unlike the app, it passes no USDA FoodData Central
 API (T9.9): a food missing from the local table is not looked up online, so no evaluation
 question reaches USDA (none needs it: q14's food is in the table). A question with a "profile"
-(q13) runs twice: with
-that fixed session profile, then with none. Other questions run with no profile, as a new visitor
+(q13) runs twice: with that fixed session profile, then with none. Other questions run with no
+profile, as a new visitor
 asks them. `--repeat N` runs every question N times (default 1). `--language` is the answer
 language the app's language control would set (default en, T7.2); the questions keep their own
 language either way.
