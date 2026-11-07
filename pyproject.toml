@@ -57,6 +57,9 @@ dev = [
 # its tests, never by the app. Apache-2.0; what it pulls in is checked with the runtime
 # dependencies by tests/test_dependency_licences.py. Ragas could not be used: its `instructor`
 # needs jiter<0.15, the openai pin jiter>=0.16 (T9.10's Research phase).
+# CI's `pip-audit .` does not read this extra: a PR that changes this pin, Dependabot's included,
+# gets a hand `pip-audit --local --skip-editable` in a venv with `.[dev,eval]`, with CI's chromadb
+# ignores, and the result in the PR (owner's choice, 2026-11-07; docs/SECURITY.md).
 eval = [
     "deepeval==4.3.3",
 ]
