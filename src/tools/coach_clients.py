@@ -446,13 +446,19 @@ def build_tools(
     }
 
 
-# A line that holds any of these may hold a link, a URL, an autolink or an e-mail address: every
-# reference on it stays as written, so no name can end up in a link's target, whatever its
-# Markdown form (inline, angle brackets, reference definitions, bare URLs). One simple rule instead
-# of a pattern for each form (code review rounds 1-3; owner's rule for text heuristics). Two slashes
-# alone, not "://", so a URL with no scheme (a reference definition's destination on its own line)
-# counts too (round 3).
+# A paragraph that holds any of these may hold a link, a URL, an autolink or an e-mail address:
+# every reference in it stays as written, so no name can end up in a link's target, whatever its
+# Markdown form (inline, angle brackets, reference definitions, bare URLs, a destination on the next
+# line). The check is per paragraph, the lines between blank lines, as no Markdown link crosses a
+# blank line (code review rounds 1-5; the owner's rule for text heuristics). Two slashes alone, not
+# "://", so a URL with no scheme counts too (round 3). Round 5 is the last round of this rule
+# (owner's choice, 2026-11-07): a link form found later is a known limit in docs/SECURITY.md.
 LINK_MARKERS: tuple[str, ...] = ("](", "]:", "<", "//", "www.", "@")
+# A blank line ends a paragraph: only spaces, tabs or a carriage return between two newlines. The
+# text is split on the newline character only (str.splitlines() also breaks at U+2028, U+0085 and
+# others that end no Markdown line, round 4), so these paragraphs are never smaller than Markdown's
+# own; a lone carriage return only makes one longer, which keeps more references.
+_BLANK_LINE = re.compile(r"(\n[ \t\r]*\n)")
 
 
 def name_references(text: str, names: Mapping[str, str], quote: Callable[[str], str]) -> str:
@@ -464,12 +470,11 @@ def name_references(text: str, names: Mapping[str, str], quote: Callable[[str], 
         name = names.get(match.group(0).casefold())
         return match.group(0) if name is None else quote(name)
 
-    # Split on "\n" only: str.splitlines() also breaks at U+2028, U+0085 and other characters that
-    # end no Markdown line, so one link could span two of its lines (code review round 4). A "\r"
-    # left in a line only makes the line longer, which keeps more references, never fewer.
-    return "\n".join(
-        line
-        if any(marker in line.casefold() for marker in LINK_MARKERS)
-        else REFERENCE.sub(replace, line)
-        for line in text.split("\n")
-    )
+    def shown(paragraph: str) -> str:
+        """Return a paragraph with names, or as written when it may hold a link."""
+        if any(marker in paragraph.casefold() for marker in LINK_MARKERS):
+            return paragraph
+        return REFERENCE.sub(replace, paragraph)
+
+    # The split keeps the blank lines (the capturing group), which hold no reference.
+    return "".join(shown(part) for part in _BLANK_LINE.split(text))

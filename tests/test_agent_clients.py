@@ -311,19 +311,25 @@ def test_a_store_that_fails_gives_the_fixed_tool_failure(relationships):
         # not, inside a link destination.
         "[details](https://x.example/?n=\u2028client-1)",
         "[details](https://x.example/?n=\x85client-1)",
+        # Code review round 5: a destination on the next line, with a scheme and no slashes.
+        "[details](\nhttps:x.example/?n=client-1)",
+        "See [d][r].\n\n[r]:\nhttps:x.example/?n=client-1",
+        "Note for client-1.\n[d](\r\nhttps:x.example/?n=client-1)",
     ],
 )
-def test_no_name_is_put_into_a_line_that_may_hold_a_link(text):
-    """A line with a link marker keeps every reference: no name reaches another host."""
+def test_no_name_is_put_into_a_paragraph_that_may_hold_a_link(text):
+    """A paragraph with a link marker keeps every reference: no name reaches another host."""
     assert coach_clients.name_references(text, {"client-1": "Max"}, str) == text
 
 
-def test_only_the_line_with_a_link_keeps_its_references():
-    """The other lines of the answer still show the name."""
-    link = "[more](https://x.example/?c=client-1)"
-    text = "\n".join(["client-1 logged 3 days.", link, "Ask client-1 why.", ""])
+def test_only_the_paragraph_with_a_link_keeps_its_references():
+    """The other paragraphs of the answer still show the name; blank lines are kept as written."""
+    link = "Details: [more](https://x.example/?c=client-1), as client-1 asked."
+    text = "\n\n".join(
+        ["client-1 logged 3 days.", link, "Ask client-1 why.\r\n \r\nThen client-1."]
+    )
     shown = coach_clients.name_references(text, {"client-1": "Max"}, str)
-    assert shown == "\n".join(["Max logged 3 days.", link, "Ask Max why.", ""])
+    assert shown == "\n\n".join(["Max logged 3 days.", link, "Ask Max why.\r\n \r\nThen Max."])
 
 
 def test_known_references_become_quoted_names_and_others_stay():
