@@ -464,10 +464,12 @@ def name_references(text: str, names: Mapping[str, str], quote: Callable[[str], 
         name = names.get(match.group(0).casefold())
         return match.group(0) if name is None else quote(name)
 
-    lines = text.splitlines(keepends=True)
-    return "".join(
+    # Split on "\n" only: str.splitlines() also breaks at U+2028, U+0085 and other characters that
+    # end no Markdown line, so one link could span two of its lines (code review round 4). A "\r"
+    # left in a line only makes the line longer, which keeps more references, never fewer.
+    return "\n".join(
         line
         if any(marker in line.casefold() for marker in LINK_MARKERS)
         else REFERENCE.sub(replace, line)
-        for line in lines
+        for line in text.split("\n")
     )

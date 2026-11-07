@@ -307,6 +307,10 @@ def test_a_store_that_fails_gives_the_fixed_tool_failure(relationships):
         # Code review round 3: a reference definition's destination on the next line, with no
         # scheme (a protocol-relative URL).
         "See [details][r].\n[r]:\n//x.example/?n=client-1",
+        # Code review round 4: a character that str.splitlines() breaks at but Markdown does
+        # not, inside a link destination.
+        "[details](https://x.example/?n=\u2028client-1)",
+        "[details](https://x.example/?n=\x85client-1)",
     ],
 )
 def test_no_name_is_put_into_a_line_that_may_hold_a_link(text):
