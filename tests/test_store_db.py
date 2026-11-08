@@ -879,21 +879,25 @@ def test_a_migration_4_that_fails_halfway_leaves_the_version_3_file_as_it_was(tm
 
 
 def test_a_migration_5_that_fails_halfway_leaves_the_version_4_file_as_it_was(tmp_path):
-    """A clash part-way through migration 5 (T9.17) rolls it back: version 4, audit rows kept."""
+    """A failure after migration 5 (T9.17) copied the rows and dropped the old table undoes all."""
     path = tmp_path / "old.sqlite3"
     before = _old_file(path, 4)
     raw = sqlite3.connect(path, autocommit=True)
-    # The name migration 5 builds audit_log under is taken, so its CREATE fails.
-    raw.execute("CREATE TABLE audit_log_v5 (x INTEGER) STRICT")
+    # A view on audit_log lets the new table, the copy and the DROP run, then makes the RENAME
+    # fail, as SQLite checks every view while renaming and this one names a table now gone.
+    raw.execute("CREATE VIEW audit_probe AS SELECT id FROM audit_log")
     raw.close()
-    with pytest.raises(sqlite3.OperationalError):
+    with pytest.raises(sqlite3.OperationalError, match="audit_probe"):
         with db.connect(path):
             pass
     raw = sqlite3.connect(path)
     try:
         assert raw.execute("PRAGMA user_version").fetchone()[0] == 4
         sql = raw.execute("SELECT sql FROM sqlite_master WHERE name = 'audit_log'").fetchone()[0]
-        assert "target_set" not in sql
+        assert "review_answered" in sql and "target_set" not in sql
+        names = {row[0] for row in raw.execute("SELECT name FROM sqlite_master")}
+        assert "audit_log_v5" not in names
+        assert {"audit_log_actor", "audit_log_subject", "audit_log_never_changed"} <= names
         assert [tuple(row) for row in raw.execute("SELECT * FROM audit_log ORDER BY id")] == before
     finally:
         raw.close()
