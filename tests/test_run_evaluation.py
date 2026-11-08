@@ -3,8 +3,10 @@
 The real run is the owner's live check (O5), recorded in docs/TESTING.md.
 """
 
+import importlib.metadata
 import json
 import re
+import sys
 from decimal import Decimal
 
 import httpx2
@@ -13,7 +15,7 @@ import pytest
 from langchain_core.messages import AIMessage
 
 from scripts import run_evaluation
-from src import chat, config, llm, usage
+from src import chat, config, eval_results, llm, usage
 from src.eval_questions import EvalItem
 from src.rag import store
 from src.tools.registry import MACRO_TOOL
@@ -22,6 +24,7 @@ from tests.fakes import (
     CHUNKS,
     PROFILE,
     TEST_LANGUAGE_PARTS,
+    FakeJudgeChat,
     ScriptedChatModel,
     ScriptedTranslator,
     build_fixture_index,
@@ -633,3 +636,243 @@ def test_the_summary_lines_are_the_same_with_the_data_split_out(index):
     model = ScriptedChatModel(replies=[AIMessage(ANSWER)])
     [run] = _evaluate([_item("q1", QUESTION, expected=["1", "3"])], index, model)
     assert run_evaluation.expectation_line(run) == "expected #1 #3: found #1, cited #1"
+
+
+# Scores with DeepEval (T9.10), with a mocked judge.
+
+
+# What main() builds the judge with: the judge model and its own token cap.
+JUDGE_CLIENT = (config.EVAL_JUDGE_MODEL, config.EVAL_JUDGE_MAX_TOKENS)
+
+
+def test_the_judge_s_client_differs_from_the_answer_model_s():
+    """The judge's cap differs from the default, so the fake builder can tell the two apart."""
+    assert JUDGE_CLIENT != (config.DEFAULT_ANSWER_MODEL, config.DEFAULT_MAX_TOKENS)
+
+
+@pytest.fixture
+def scoring(real_pieces, monkeypatch):
+    """Add a fake judge to main()'s clients, and record which clients main() builds."""
+    judge = FakeJudgeChat()
+    built = []
+    build_app_model = llm.build_chat_model
+
+    def build(name=config.DEFAULT_ANSWER_MODEL, max_tokens=config.DEFAULT_MAX_TOKENS):
+        """Return the fake judge for the judge's client, else the app's fake models; record it."""
+        built.append((name, max_tokens))
+        # The judge may be the answer model itself (T9.10), so its own cap tells them apart.
+        if (name, max_tokens) == JUDGE_CLIENT:
+            return judge
+        return build_app_model(name, max_tokens)
+
+    monkeypatch.setattr(llm, "build_chat_model", build)
+    return judge, built
+
+
+def _item_dict(id="q1", question=QUESTION, expected=("1",)):
+    """Return one evaluation question as the questions file holds it."""
+    return {
+        "id": id,
+        "question": question,
+        "expected_sources": list(expected),
+        "good_answer": "Says to spread protein over the day.",
+    }
+
+
+def test_score_writes_each_question_s_scores_into_the_results_file(scoring, tmp_path, capsys):
+    """--score adds each run's scores and each metric's mean, judge and cost to the file."""
+    judge, built = scoring
+    assert run_evaluation.main(["--score", _questions_file(tmp_path, [_item_dict()])]) == 0
+    _, document = _results_file(tmp_path)
+    assert document["runs"][0]["scores"] == {
+        "faithfulness": {"score": 1.0, "note": None},
+        "answer_relevancy": {"score": 1.0, "note": None},
+    }
+    scores = document["scores"]
+    assert scores["judge_model"] == config.EVAL_JUDGE_MODEL
+    assert scores["library"] == f"deepeval {importlib.metadata.version('deepeval')}"
+    assert scores["metrics"]["faithfulness"] == {"mean": 1.0, "scored": 1, "not_scored": 0}
+    assert scores["tokens"] == 110 * len(judge.structured)
+    # The prices could not be read, so the judge's cost is unknown, not 0.
+    assert scores["cost_usd"] is None
+    # The judge is built by build_chat_model() from the allowlist, with the configured cap.
+    assert JUDGE_CLIENT in built
+    out = capsys.readouterr().out
+    assert "  q1: faithfulness 1.0000, answer_relevancy 1.0000" in out
+    assert "faithfulness: mean 1.0000 over 1 answers (0 not scored)" in out
+
+
+def test_the_judge_s_cost_is_priced_when_the_prices_are_read(scoring, tmp_path, monkeypatch):
+    """With the judge model's price read, the scores carry the judge's cost."""
+    judge, _ = scoring
+    price = ModelPrice(prompt=Decimal("0.000001"), completion=Decimal("0.00001"))
+    monkeypatch.setattr(
+        usage, "fetch_prices", lambda: {name: price for name in config.ALLOWED_MODELS}
+    )
+    assert run_evaluation.main(["--score", _questions_file(tmp_path, [_item_dict()])]) == 0
+    _, document = _results_file(tmp_path)
+    calls = len(judge.structured)
+    assert Decimal(document["scores"]["cost_usd"]) == calls * (
+        100 * price.prompt + 10 * price.completion
+    )
+
+
+def test_scores_hold_no_text_and_the_report_holds_the_judge_s_reasons(scoring, tmp_path):
+    """The judge's reason, the question and the answer stay out of the results file."""
+    judge, _ = scoring
+    judge.reason = "CANARY-REASON"
+    item = _item_dict(question="CANARY-QUESTION how much protein per meal?")
+    assert run_evaluation.main(["--score", _questions_file(tmp_path, [item])]) == 0
+    results, _ = _results_file(tmp_path)
+    text = results.read_text(encoding="utf-8")
+    for canary in ("CANARY", ANSWER, "claim one", "statement one"):
+        assert canary not in text
+    [report] = (tmp_path / "eval_runs").glob("run-*.md")
+    report_text = report.read_text(encoding="utf-8")
+    assert "**Scores:** faithfulness 1.0000 · answer_relevancy 1.0000" in report_text
+    assert "**faithfulness, judge's reason:**" in report_text
+    assert "CANARY-REASON" in report_text
+
+
+def test_a_turn_with_no_answer_is_not_scored_and_costs_no_judge_call(scoring, tmp_path):
+    """A guardrail stop has every metric unscored ("no_answer"), and the judge is not asked."""
+    judge, _ = scoring
+    item = _item_dict(question=STEROIDS, expected=())
+    assert run_evaluation.main(["--score", _questions_file(tmp_path, [item])]) == 0
+    _, document = _results_file(tmp_path)
+    [record] = document["runs"]
+    assert record["kind"] == "guardrail"
+    assert record["scores"] == {
+        name: {"score": None, "note": "no_answer"} for name in config.EVAL_SCORE_METRICS
+    }
+    assert document["scores"]["metrics"]["faithfulness"] == {
+        "mean": None,
+        "scored": 0,
+        "not_scored": 1,
+    }
+    assert judge.structured == []
+
+
+def test_a_failing_judge_is_recorded_and_exits_1(scoring, tmp_path, capsys):
+    """A judge error leaves its code in the file, the run finishes, and the exit code is 1."""
+    judge, _ = scoring
+    judge.error = llm.ServiceUnavailableError(diagnostic="test")
+    assert run_evaluation.main(["--score", _questions_file(tmp_path, [_item_dict()])]) == 1
+    _, document = _results_file(tmp_path)
+    assert document["runs"][0]["scores"]["faithfulness"] == {
+        "score": None,
+        "note": "llm.unavailable",
+    }
+    assert "2 scores missing: the judge failed" in capsys.readouterr().err
+
+
+def test_without_score_no_judge_is_built_and_the_file_reads_as_before(scoring, tmp_path):
+    """An unscored run builds no judge and writes no scores, so the baseline check is unchanged."""
+    judge, built = scoring
+    assert run_evaluation.main([_questions_file(tmp_path, [_item_dict()])]) == 0
+    _, document = _results_file(tmp_path)
+    assert "scores" not in document
+    assert "scores" not in document["runs"][0]
+    assert JUDGE_CLIENT not in built
+    assert judge.structured == []
+
+
+def test_a_confident_ai_key_stops_the_run_before_any_question(scoring, tmp_path, monkeypatch):
+    """With a Confident AI key, nothing is asked, scored or written; exit code 2."""
+    from src import eval_scoring
+
+    monkeypatch.setattr(eval_scoring, "is_confident", lambda: True)
+    assert run_evaluation.main(["--score", _questions_file(tmp_path, [_item_dict()])]) == 2
+    assert scoring[0].structured == []
+    assert not (tmp_path / "eval_runs").exists()
+
+
+def test_score_without_deepeval_says_how_to_install_it(scoring, tmp_path, monkeypatch, capsys):
+    """Without the eval extra, --score stops before any question with the install command."""
+    import src
+
+    monkeypatch.delattr(src, "eval_scoring", raising=False)
+    monkeypatch.setitem(sys.modules, "src.eval_scoring", None)
+    assert run_evaluation.main(["--score", _questions_file(tmp_path, [_item_dict()])]) == 2
+    assert 'pip install -e ".[dev,eval]"' in capsys.readouterr().err
+    assert not (tmp_path / "eval_runs").exists()
+
+
+def test_ctrl_c_during_the_scoring_still_writes_both_files(scoring, real_pieces, tmp_path, capsys):
+    """Stopping the judge leaves the rest "judge.interrupted", writes both files and exits 1."""
+    judge, _ = scoring
+    judge.error = KeyboardInterrupt()
+    items = [_item_dict("q1"), _item_dict("q2")]
+    real_pieces.replies *= 2
+    assert run_evaluation.main(["--score", _questions_file(tmp_path, items)]) == 1
+    _, document = _results_file(tmp_path)
+    notes = [{score["note"] for score in record["scores"].values()} for record in document["runs"]]
+    assert notes == [{"judge.interrupted"}, {"judge.interrupted"}]
+    # The judge was asked once, for the first answer; the second was not sent.
+    assert len(judge.structured) == 1
+    assert list((tmp_path / "eval_runs").glob("run-*.md"))
+    assert "Scoring stopped" in capsys.readouterr().err
+
+
+def test_no_credit_for_the_judge_stops_the_calls_for_every_later_answer(
+    scoring, real_pieces, tmp_path
+):
+    """After llm.out_of_credit no answer is sent to the judge; each gets that code."""
+    judge, _ = scoring
+    judge.error = llm.OutOfCreditError(402)
+    real_pieces.replies *= 2
+    path = _questions_file(tmp_path, [_item_dict("q1"), _item_dict("q2")])
+    assert run_evaluation.main(["--score", path]) == 1
+    _, document = _results_file(tmp_path)
+    assert [record["scores"]["answer_relevancy"]["note"] for record in document["runs"]] == [
+        "llm.out_of_credit",
+        "llm.out_of_credit",
+    ]
+    assert len(judge.structured) == 1
+
+
+def test_a_missing_score_is_counted_apart_never_as_zero():
+    """Means are over the scored answers only; only the judge's own failures count as failed."""
+    from src import eval_scoring
+
+    def score(value=None, note=None):
+        """Return one metric's score as score_answer() gives it."""
+        return eval_scoring.MetricScore(value, note)
+
+    scores = [
+        {"faithfulness": score(0.5), "answer_relevancy": score(1.0)},
+        {"faithfulness": score(note="no_chunks"), "answer_relevancy": score(0.5)},
+        eval_scoring.not_scored("no_answer"),
+        {"faithfulness": score(note="llm.timeout"), "answer_relevancy": score(note="llm.timeout")},
+    ]
+    records = [
+        eval_results.RunRecord(
+            id=f"q{n}",
+            run=1,
+            with_profile=False,
+            kind="answer",
+            code=None,
+            expected=(),
+            expected_found=(),
+            expected_cited=(),
+            unexpected_citations=(),
+            tools=(),
+            tokens=0,
+            cost_usd=None,
+            scores={name: eval_results.Score(s.score, s.note) for name, s in run.items()},
+        )
+        for n, run in enumerate(scores)
+    ]
+    summary = eval_results.score_summary(
+        records,
+        config.EVAL_SCORE_METRICS,
+        judge_model="judge",
+        library="deepeval",
+        tokens=0,
+        cost=None,
+    )
+    assert summary["metrics"] == {
+        "faithfulness": {"mean": 0.5, "scored": 1, "not_scored": 3},
+        "answer_relevancy": {"mean": 0.75, "scored": 2, "not_scored": 2},
+    }
+    assert run_evaluation.judge_failed(scores) == 2

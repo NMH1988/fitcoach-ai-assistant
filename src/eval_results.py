@@ -19,6 +19,20 @@ from src import config
 
 
 @dataclass(frozen=True)
+class Score:
+    """One metric's score of one run as the file records it: a number, or a code saying why not."""
+
+    # From 0 to 1, or None with a note: no_answer (the turn gave no answer to score), no_chunks
+    # (faithfulness of an answer that retrieved nothing), or the judge's error code (T9.10).
+    score: float | None
+    note: str | None = None
+
+    def as_dict(self) -> dict:
+        """Return the score as the plain dict that is written to the file."""
+        return {"score": self.score, "note": self.note}
+
+
+@dataclass(frozen=True)
 class RunRecord:
     """One question asked once, as the results file records it (IDs and counts, no text)."""
 
@@ -40,10 +54,13 @@ class RunRecord:
     tokens: int
     # The cost in dollars as plain text, or None when a price was unknown.
     cost_usd: str | None
+    # The DeepEval scores by metric name, when the run was scored (--score, T9.10); else None and
+    # left out of the file, so an unscored file reads as before.
+    scores: Mapping[str, Score] | None = None
 
     def as_dict(self) -> dict:
         """Return the record as the plain dict that is written to the file."""
-        return {
+        record = {
             "id": self.id,
             "run": self.run,
             "with_profile": self.with_profile,
@@ -57,6 +74,9 @@ class RunRecord:
             "tokens": self.tokens,
             "cost_usd": self.cost_usd,
         }
+        if self.scores is not None:
+            record["scores"] = {name: score.as_dict() for name, score in self.scores.items()}
+        return record
 
 
 @dataclass(frozen=True)
@@ -179,6 +199,41 @@ def summarise(records: Sequence[RunRecord]) -> dict:
     }
 
 
+def score_summary(
+    records: Sequence[RunRecord],
+    metrics: Sequence[str],
+    *,
+    judge_model: str,
+    library: str,
+    tokens: int,
+    cost: Decimal | None,
+) -> dict:
+    """Return the scores' summary: the judge, each metric's mean over the scored runs, the cost."""
+    # A run without a score (no answer, nothing retrieved, a failed judge) is counted apart, never
+    # as 0, so the mean is over the answers the judge did score (T9.10).
+    summary = {}
+    for name in metrics:
+        values = [
+            record.scores[name].score
+            for record in records
+            if record.scores is not None
+            and name in record.scores
+            and record.scores[name].score is not None
+        ]
+        summary[name] = {
+            "mean": round(sum(values) / len(values), 4) if values else None,
+            "scored": len(values),
+            "not_scored": len(records) - len(values),
+        }
+    return {
+        "judge_model": judge_model,
+        "library": library,
+        "metrics": summary,
+        "tokens": tokens,
+        "cost_usd": cost_text(cost),
+    }
+
+
 def results_document(
     records: Sequence[RunRecord],
     *,
@@ -189,12 +244,15 @@ def results_document(
     repeat: int,
     started: datetime,
     questions_file: str,
+    scores: Mapping | None = None,
 ) -> dict:
     """Return the whole results file: the run's details, then every run's record."""
     # `commit` and `dirty` are read when the run starts, as the modules are loaded then; the
     # `_at_end` fields are read when the file is written (T9.21). Fields were only added, so
     # EVAL_RESULTS_SCHEMA_VERSION stays 1 and an older file (the baseline) still compares.
-    return {
+    # `scores` (T9.10) is there only for a scored run (--score); fields were only added, so the
+    # schema version stays 1.
+    document = {
         "schema_version": config.EVAL_RESULTS_SCHEMA_VERSION,
         "commit": git.commit,
         "dirty": git.dirty,
@@ -207,8 +265,11 @@ def results_document(
         "date": started.astimezone().isoformat(timespec="seconds"),
         "questions_file": questions_file,
         "summary": summarise(records),
-        "runs": [record.as_dict() for record in records],
     }
+    if scores is not None:
+        document["scores"] = dict(scores)
+    document["runs"] = [record.as_dict() for record in records]
+    return document
 
 
 def write_results(document: Mapping, path: Path) -> Path:
