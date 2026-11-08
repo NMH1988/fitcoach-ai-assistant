@@ -17,6 +17,13 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-11-08 · Record the owner's approval of T9.30's criteria · NMH1988/fitcoach-ai-assistant#<PR> (closes NMH1988/fitcoach-ai-assistant#88)
+- **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 3 (user interface), in part; Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request), as T9.30 itself. Planning only, no code.
+- **What:** `docs/IMPLEMENTATION_PLAN.md`: T9.30's criteria marked as approved by the owner (2026-11-08); its second criterion takes the middle way for the audit; its Notes and the plan's status line record the approval. Issue NMH1988/fitcoach-ai-assistant#87 synced with the section.
+- **Why:** a ticket is not started until the owner approves its criteria (`.claude/rules/workflow.md`); T9.30 was planned by T9.25 (NMH1988/fitcoach-ai-assistant#80) with its criteria proposed.
+- **Decisions & gotchas:** the owner chose the middle way (2026-11-08) from three: (a) a `read` audit row on every read of a coach's question notifications, which would write one per client on every page run, as the sidebar reads the notifications each run; (b) own-only and not audited, as T9.29's other kinds; the middle way, the read checked by `access.authorise_read()` and the refused-cases matrix, audited only when the coach opens the Notifications page. It is an exception to `authorised_read()` auditing every read, so T9.30 records it in `.claude/rules/security-privacy.md` and `docs/SECURITY.md` when it is built.
+- **Follow-ups:** T9.30 can start (after T9.29, merged, and T9.25, merged).
+
 ## 2026-11-06 · T9.25 Questions to the coach under an approved review · NMH1988/fitcoach-ai-assistant#80 (closes NMH1988/fitcoach-ai-assistant#61)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 3 in part (a UI for the gymer to ask and the coach to answer); Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request): questions to the coach (PRD feature 27, AC-42, owner's decision, 2026-11-02, T9.24).
 - **What:**
