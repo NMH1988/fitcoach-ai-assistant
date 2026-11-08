@@ -658,6 +658,31 @@ def review_label(review: dict, lang: Language) -> str:
     )
 
 
+# The label of a thread row by its kind and who reads it (T9.25): the coach's answer is set apart
+# from the AI draft above it (AC-41) and is never called "your coach's", as a former coach's
+# threads stay on the gymer's page (owner's choice, 2026-11-06).
+_THREAD_LABELS = {
+    ("question", "gymer"): "questions.label.my_question",
+    ("question", "coach"): "questions.label.client_question",
+    ("answer", "gymer"): "questions.label.coach_answer",
+    ("answer", "coach"): "questions.label.my_answer",
+}
+
+
+def thread_label(row: dict, viewer: str, lang: Language) -> str:
+    """Return a thread row's label (who wrote it, and when in Berlin) for the gymer or the coach."""
+    return i18n.t(_THREAD_LABELS[(row["kind"], viewer)], lang, time=berlin_time(row["created_at"]))
+
+
+def waiting_weeks(reviews: Sequence[dict], rows: Sequence[dict]) -> list[str]:
+    """Return the weeks (Mondays, oldest first) of the reviews whose thread waits for an answer."""
+    last: dict[int, str] = {}
+    for row in rows:
+        last[row["review_id"]] = row["kind"]
+    weeks = {review["period_start"] for review in reviews if last.get(review["id"]) == "question"}
+    return sorted(weeks)
+
+
 def client_cells(
     relationship: dict, week: dashboard.DashboardWeek, system: units.UnitSystem, lang: Language
 ) -> dict[str, str]:

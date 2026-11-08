@@ -11,8 +11,9 @@ import streamlit as st
 
 from src import account as accounts
 from src import dashboard
+from src.store import questions as store_questions
 from src.store.access import NotFound
-from views import account, header, week_view, weekly_review
+from views import account, header, questions, week_view, weekly_review
 from views.text import t
 
 URL_PATH = "client-week"
@@ -51,6 +52,16 @@ def _pick(clients: list[dict]) -> str | None:
     )
 
 
+def _threads(conn, coach_id: str, client_id: str) -> list[dict]:
+    """Return the questions and answers under the client's reviews (T9.25); none if not shared."""
+    # The store's rule is the review's own, so a client who turned nutrition off (or a scope a
+    # review used) hides those threads, as it hides the reviews.
+    try:
+        return store_questions.list_questions(conn, coach_id, client_id)
+    except NotFound:
+        return []
+
+
 def page() -> None:
     """Show the Client week page: the client and week pickers, then the week's views."""
     with header.main_column():
@@ -62,6 +73,9 @@ def page() -> None:
         st.subheader(t("page.client_week"))
         st.markdown(t("client_week.intro"))
         st.caption(f":material/info: {t('clients.unverified')}")
+        # An answer refused while the page was open (T9.25): shown here, as its review, or the
+        # client, may no longer be on the page.
+        questions.show_flash()
         try:
             with accounts.open_store(account.store_path()) as conn:
                 clients = dashboard.active_clients(conn, user["id"])
@@ -80,6 +94,7 @@ def page() -> None:
         try:
             with accounts.open_store(account.store_path()) as conn:
                 week = dashboard.client_week(conn, user["id"], picked, monday)
+                threads = _threads(conn, user["id"], picked)
         except accounts.StoreUnavailable:
             st.error(t("account.store_unavailable"), icon=":material/error:")
             return
@@ -89,4 +104,4 @@ def page() -> None:
             return
         week_view.show(week, st.session_state["units"])
         # The week's review: start it, decide it, or read it (T9.16).
-        weekly_review.coach_section(user, picked, monday, week)
+        weekly_review.coach_section(user, picked, monday, week, threads)

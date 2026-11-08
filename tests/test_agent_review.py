@@ -16,7 +16,7 @@ import pytest
 from src import account, config, llm, observability
 from src.agent import review, review_threads
 from src.rag.retriever import RetrievedChunk, chunk_key
-from src.store import access, my_data, records, reviews, users
+from src.store import access, my_data, questions, records, reviews, users
 from tests import store_world as world
 from tests.fakes import ScriptedTranslator
 
@@ -137,6 +137,30 @@ def test_the_model_gets_aggregates_for_the_client_and_never_a_name(store_conn, r
     assert '"logged_days": 1' in text and '"latest_weight_kg": 87.3' in text
     for secret in (world.SHARED, world.COACH_A, "Coach A", "Oats", str(world.HEIGHT)):
         assert secret not in text
+
+
+def test_a_question_to_the_coach_never_reaches_the_review_s_model(store_conn, relationships):
+    """A question and an answer under an earlier review are in no message (T9.25, AC-42)."""
+    earlier = reviews.save_review(
+        store_conn,
+        world.COACH_A,
+        world.SHARED,
+        period_start=date(2026, 10, 19),
+        metrics={"logged_days": 2},
+        data_quality={},
+        draft={"observations": ["x"]},
+        model_version="m",
+    )
+    reviews.decide_review(store_conn, world.COACH_A, earlier, "approve")
+    questions.ask_question(store_conn, world.SHARED, earlier, "CANARY-QUESTION carbs at 87.3 kg?")
+    questions.answer_question(store_conn, world.COACH_A, earlier, "CANARY-ANSWER eat more rice")
+    model = _model(_draft())
+    assert _start(_context(model)).outcome == "pending"
+    [messages] = model.calls
+    sent = "\n".join(str(message.content) for message in messages)
+    assert "<metrics>" in sent
+    assert "CANARY" not in sent
+    assert "CANARY" not in json.dumps(_stored(store_conn))
 
 
 def test_a_scope_not_shared_stays_out_of_the_messages_and_the_review(store_conn, relationships):

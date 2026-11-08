@@ -859,6 +859,42 @@ def test_only_a_text_with_the_three_sections_counts_as_t9_16_s_fields():
     assert not tables.has_review_fields({"observations": [], "hypotheses": []})
 
 
+# --- The questions to the coach (T9.25) ----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("kind", "viewer", "lang", "label"),
+    [
+        ("question", "gymer", "en", "Your question · 2026-10-27 11:05"),
+        ("question", "coach", "en", "The client's question · 2026-10-27 11:05"),
+        ("answer", "gymer", "en", "Written by the coach, not by AI · 2026-10-27 11:05"),
+        ("answer", "coach", "en", "Your answer · 2026-10-27 11:05"),
+        ("answer", "gymer", "de", "Vom Coach geschrieben, nicht von der KI · 2026-10-27 11:05"),
+    ],
+)
+def test_a_thread_row_is_labelled_by_kind_and_reader(kind, viewer, lang, label):
+    """Who wrote a row and when; the coach's answer never reads as the AI's (AC-41)."""
+    row = {"kind": kind, "created_at": "2026-10-27T10:05:00+00:00", "text": "CANARY"}
+    assert tables.thread_label(row, viewer, lang) == label
+
+
+def test_the_weeks_waiting_for_an_answer():
+    """Only a thread whose last row is a question waits; weeks oldest first, each once."""
+    reviews = [
+        {"id": 1, "period_start": "2026-10-19"},
+        {"id": 2, "period_start": "2026-10-12"},
+        {"id": 3, "period_start": "2026-10-05"},
+    ]
+    rows = [
+        {"review_id": 1, "kind": "question"},
+        {"review_id": 2, "kind": "question"},
+        {"review_id": 2, "kind": "answer"},
+        {"review_id": 3, "kind": "question"},
+    ]
+    assert tables.waiting_weeks(reviews, rows) == ["2026-10-05", "2026-10-19"]
+    assert tables.waiting_weeks(reviews, []) == []
+
+
 # --- Notifications (T9.29) ------------------------------------------------------------------------
 
 
