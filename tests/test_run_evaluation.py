@@ -702,6 +702,35 @@ def test_score_writes_each_question_s_scores_into_the_results_file(scoring, tmp_
     assert "faithfulness: mean 1.0000 over 1 answers (0 not scored)" in out
 
 
+def test_each_answer_is_judged_under_its_own_turn_id(scoring, tmp_path, monkeypatch):
+    """The judge's calls for an answer carry that turn's turn_id, for its trace (T9.8)."""
+    from src import eval_scoring
+
+    asked = []
+    for_turn = eval_scoring.Judge.for_turn
+
+    def spy(self, turn_id):
+        """Record the turn_id the judge is given, then give it."""
+        asked.append(turn_id)
+        return for_turn(self, turn_id)
+
+    monkeypatch.setattr(eval_scoring.Judge, "for_turn", spy)
+    turns = []
+    run_turn = chat.run_turn
+
+    def recorded_turn(*args, **kwargs):
+        """Run the turn and keep its turn_id."""
+        result = run_turn(*args, **kwargs)
+        turns.append(result.turn_id)
+        return result
+
+    monkeypatch.setattr(chat, "run_turn", recorded_turn)
+    assert run_evaluation.main(["--score", _questions_file(tmp_path, [_item_dict()])]) == 0
+    assert len(turns) == 1
+    assert all(turns)
+    assert asked == turns
+
+
 def test_the_judge_s_cost_is_priced_when_the_prices_are_read(scoring, tmp_path, monkeypatch):
     """With the judge model's price read, the scores carry the judge's cost."""
     judge, _ = scoring

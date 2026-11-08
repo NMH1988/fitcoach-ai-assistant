@@ -68,6 +68,20 @@ RATE_LIMIT_PER_SESSION = 50
 # turn, WARNING only the guard rejections, model errors and failed tool calls.
 LOG_LEVEL = "INFO"
 
+# Masked LangSmith tracing (T9.8, D19; src/tracing.py). Off unless both the app's own flag and the
+# LangSmith key are set (secrets.toml or the environment); LangSmith's own LANGSMITH_TRACING flag
+# is always ignored, as it would trace with no masking. The key follows the OpenRouter key's rules
+# (.claude/rules/security-privacy.md): read only by get_langsmith_api_key(), never logged or shown.
+LANGSMITH_API_KEY_NAME = "LANGSMITH_API_KEY"
+TRACING_FLAG_NAME = "FITCOACH_TRACING"
+TRACING_ON_VALUES = frozenset({"1", "true", "yes", "on"})
+# The EU region (owner's choice, 2026-11-06): the LangSmith account is created there (O10).
+LANGSMITH_ENDPOINT = "https://eu.api.smith.langchain.com"
+LANGSMITH_PROJECT = "fitcoach-ai-assistant"
+# What a masked value or key becomes in a trace.
+TRACE_MASK = "[masked]"
+TRACE_MASKED_KEY = "[masked key {number}]"
+
 # Knowledge base sources (docs/SOURCES.md; docs/ARCHITECTURE.md section 4).
 SOURCES_MANIFEST_PATH = PROJECT_ROOT / "data" / "sources.json"
 # Downloaded article XML; gitignored (copyright policy rule 8).
@@ -1172,3 +1186,19 @@ def demo_mode() -> bool:
     if value is None:
         value = os.environ.get(DEMO_MODE_NAME, "")
     return str(value).strip().lower() in DEMO_MODE_ON_VALUES
+
+
+def get_langsmith_api_key() -> str | None:
+    """Return the LangSmith key from `st.secrets` or the environment; None when it is not set."""
+    # Missing is not an error: tracing is simply off (T9.8). A broken secrets.toml reads as missing.
+    value = _secret(LANGSMITH_API_KEY_NAME)
+    secret = value.strip() if isinstance(value, str) else ""
+    return secret or os.environ.get(LANGSMITH_API_KEY_NAME, "").strip() or None
+
+
+def tracing_requested() -> bool:
+    """Return True if the app's tracing flag is on (secrets or environment), key or not (T9.8)."""
+    value = _secret(TRACING_FLAG_NAME)
+    if value is None:
+        value = os.environ.get(TRACING_FLAG_NAME, "")
+    return str(value).strip().lower() in TRACING_ON_VALUES

@@ -3,7 +3,8 @@
 Imported only by `scripts/run_evaluation.py --score` and its tests, never by the app; DeepEval is
 in the `eval` extra. The judge is the app's own client from `llm.build_chat_model()`, wrapped in
 `Judge`: DeepEval gets no model name, key, URL or token limit, only this object, and the object
-passes nothing to the client but the schema of the answer DeepEval wants.
+passes nothing to the client but the schema of the answer DeepEval wants and, as run metadata for
+a masked trace (T9.8), the `turn_id` of the answer being scored.
 
 What DeepEval would otherwise do on its own, and what stops it:
 - send usage telemetry to PostHog: `DEEPEVAL_TELEMETRY_OPT_OUT`, set before the import and
@@ -45,7 +46,7 @@ from deepeval.test_case import LLMTestCase  # noqa: E402
 from langchain_core.language_models import BaseChatModel  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from src import config, llm, usage  # noqa: E402
+from src import config, llm, tracing, usage  # noqa: E402
 
 if not telemetry_opt_out():
     raise ImportError("DeepEval's telemetry is still on; nothing is scored.")
@@ -96,12 +97,20 @@ def _text(reply: Any) -> str:
 class Judge(DeepEvalBaseLLM):
     """DeepEval's judge: a client built by llm.build_chat_model(), recording the tokens it uses."""
 
-    def __init__(self, chat_model: BaseChatModel, recorder: usage.UsageRecorder) -> None:
-        """Keep the built client and the recorder its calls' usage goes to."""
+    def __init__(
+        self, chat_model: BaseChatModel, recorder: usage.UsageRecorder, turn_id: str = ""
+    ) -> None:
+        """Keep the built client, the recorder its calls' usage goes to and the scored turn's ID."""
         self._chat = chat_model
         self._recorder = recorder
         self._name = usage.model_name(chat_model)
+        # A traced call carries the turn_id of the answer it scores (T9.8, code review round 8).
+        self._config = {"metadata": tracing.run_metadata(turn_id)}
         super().__init__(self._name)
+
+    def for_turn(self, turn_id: str) -> Judge:
+        """Return a judge over the same client and recorder whose calls carry this turn's ID."""
+        return Judge(self._chat, self._recorder, turn_id)
 
     def load_model(self) -> BaseChatModel:
         """Return the built client (DeepEval keeps it; nothing here builds another)."""
@@ -115,14 +124,14 @@ class Judge(DeepEvalBaseLLM):
         """Ask the judge; return the reply in DeepEval's schema when it gives one, else text."""
         if schema is None:
             with llm.mapped_errors():
-                reply = self._chat.invoke(prompt)
+                reply = self._chat.invoke(prompt, config=self._config)
             self._recorder.add_chat(JUDGE_STEP, self._name, reply.usage_metadata)
             return _text(reply)
         structured = self._chat.with_structured_output(
             schema, method="json_schema", include_raw=True
         )
         with llm.mapped_errors():
-            out = structured.invoke(prompt)
+            out = structured.invoke(prompt, config=self._config)
         raw = out.get("raw")
         self._recorder.add_chat(JUDGE_STEP, self._name, getattr(raw, "usage_metadata", None))
         parsed = out.get("parsed")
