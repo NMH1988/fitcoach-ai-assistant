@@ -17,11 +17,12 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-08 · T9.8 follow-up: the judge's `turn_id` in SECURITY and TESTING · NMH1988/fitcoach-ai-assistant#<PR> (closes NMH1988/fitcoach-ai-assistant#90)
+## 2026-11-08 · T9.8 follow-up: the judge's `turn_id` in SECURITY and TESTING · NMH1988/fitcoach-ai-assistant#91 (closes NMH1988/fitcoach-ai-assistant#90)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): Hard 2 (an LLM observability tool), Sprint 2 review point 1 (request tracing), as T9.8; Sprint 2 (`docs/BRIEF.md`): Medium 10 (logging and monitoring). Docs only, no code.
 - **What:** `docs/SECURITY.md` (the evaluation judge's row, its evidence now naming `tests/test_tracing.py`) and `docs/TESTING.md` (the T9.10 section): `Judge` passes the client the reply's schema and, as run metadata for a masked trace, the scored turn's `turn_id` (both said only the schema). T9.10's evidence line in `docs/IMPLEMENTATION_PLAN.md` is left as it was: it records what was true when T9.10 merged.
 - **Why:** since c79154f (T9.8, code review round 8) `Judge.for_turn()` sets `turn_id` as run metadata (`src/eval_scoring.py`); the row was not updated. Code review round 10 on NMH1988/fitcoach-ai-assistant#85 raised it as a nit, round 11 found it still open, and #85 merged before it was fixed.
 - **Decisions & gotchas:** no compliance run: the text now matches what the code already sends; code review round 8 of NMH1988/fitcoach-ai-assistant#85 recorded why that change needed no new run (an ID LangSmith already gets for the answer's turn).
+- **Code review** round 1 (`code-reviewer` on the uncommitted tree on df84292, posted on the PR): needs changes, taken in e0eb238. Should fix: TESTING's T9.10 section said the same as SECURITY's row; this entry said compliance run 1 of #85 covered the change (it reviewed fcc8bd8, before the `turn_id`); the brief line left out Sprint 2 review point 1. Nit: SECURITY's evidence named no test for the `turn_id`. Its question on T9.10's line in the plan: left as T9.10's record.
 - **Follow-ups:** none.
 
 ## 2026-11-06 · T9.8 LangSmith tracing with personal data masked · NMH1988/fitcoach-ai-assistant#85 (closes NMH1988/fitcoach-ai-assistant#11)
