@@ -693,6 +693,7 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
         invitations,
         my_data,
         notifications,
+        questions,
         records,
         reviews,
         users,
@@ -793,6 +794,12 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
         model_version="m", evidence_refs=[("12", "12-3")],
     )  # fmt: skip
     reviews.decide_review(conn, "CANARY-COACH", review, "edit", {"text": "CANARY-EDIT 87.3"})
+    # T9.25: a question and an answer under the approved review, read by both sides.
+    questions.ask_question(conn, "CANARY-GYM", review, "CANARY-QUESTION carbs at 87.3 kg?")
+    questions.answer_question(conn, "CANARY-COACH", review, "CANARY-ANSWER eat more rice")
+    questions.list_questions(conn, "CANARY-COACH", "CANARY-GYM")
+    questions.list_questions(conn, "CANARY-GYM", "CANARY-GYM")
+    questions.askable_reviews(conn, "CANARY-GYM")
     for bad in (
         lambda: records.add_body_measurement(
             conn, "CANARY-GYM", weight_kg=-87.3, measured_on=date(2026, 10, 26)
@@ -848,10 +855,19 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
             fiber_g=None,
         ),  # fmt: skip
         lambda: diary.log_weight(conn, "CANARY-GYM", value=-87.3, system="metric", day=today),
+        # T9.25: another gymer's question, one too long, and an answer with no open question.
+        lambda: questions.ask_question(conn, "other-gym", review, "CANARY-QUESTION other"),
+        lambda: questions.ask_question(conn, "CANARY-GYM", review, "CANARY-QUESTION " * 100),
+        lambda: questions.answer_question(conn, "CANARY-COACH", review, "CANARY-ANSWER again"),
     ):
         try:
             bad()
-        except (values.StoreValueError, access.NotFound, diary.DiaryError) as error:
+        except (
+            values.StoreValueError,
+            access.NotFound,
+            diary.DiaryError,
+            questions.NotYourTurn,
+        ) as error:
             errors.append(error)
     # T9.29: the notifications name the canary users and scopes; listing, marking and the
     # gymer's approved (edited) review leave nothing in a log line.
@@ -875,12 +891,78 @@ def test_no_record_or_error_holds_a_stored_value(store_conn, caplog):
     codes: list[str] = []
     errors = _store_scenario(store_conn, codes)
     # Each kind of refusal happened, so their messages were checked.
-    assert len(errors) == 3 + 6 + 9 + 1  # T9.7: a gymer's preference is refused
+    # T9.7: a gymer's preference is refused; T9.25: three refused thread writes.
+    assert len(errors) == 3 + 6 + 9 + 1 + 3
     texts = [stream.getvalue(), caplog.text, *(str(e) for e in errors), *(repr(e) for e in errors)]
     # The two refused codes were logged, by reason only (T9.12).
     assert stream.getvalue().count('"event": "invite_refused"') == 2
     for canary in (*STORE_CANARY_TEXTS, "CANA-RYCA-NARY", "CANARYCANARY", *codes):
         for text in texts:
+            assert canary not in text, canary
+
+
+def _approved_review(conn, coach: str, client: str) -> int:
+    """Pair a coach and a client sharing nutrition, and approve a made-up review; return its ID."""
+    from src.store import reviews, users
+
+    relationship = users.start_relationship(conn, coach, client)
+    users.set_consent(conn, client, relationship, "nutrition", True)
+    found = reviews.save_review(
+        conn, coach, client, period_start=date(2026, 10, 19), metrics={"logged_days": 3},
+        data_quality={}, draft={"observations": ["x"]}, model_version="m",
+    )  # fmt: skip
+    reviews.decide_review(conn, coach, found, "approve")
+    return found
+
+
+def _send(at, form: str, key: str, text: str):
+    """Type into a box and press its form's button."""
+    at.text_area(key=key).input(text)
+    [button] = [item for item in at.button if item.proto.form_id == form]
+    button.click()
+    return at.run(timeout=30)
+
+
+@pytest.mark.parametrize("role", ["gymer", "coach"])
+def test_the_question_pages_log_no_question_or_answer(monkeypatch, caplog, no_env_key, role):
+    """Each page sends a canary question or answer, refused and accepted: no canary is logged."""
+    from src import metrics
+    from src.store import db, questions, users
+    from tests.test_app_account import PROFILE, USER_ID, signed_in, start, store_account
+    from tests.test_app_sharing import open_page
+    from views import client_week, navigation
+
+    monkeypatch.setattr(metrics, "berlin_day", lambda moment=None: date(2026, 11, 5))
+    caplog.set_level(logging.DEBUG)
+    stream = io.StringIO()
+    observability.configure_logging(level=logging.DEBUG, stream=stream)
+    if role == "gymer":
+        store_account("gymer", profile=PROFILE)
+        with db.connect() as conn:
+            users.create_user(conn, "coach-kai", "coach", "CANARY-NAME coach")
+            review = _approved_review(conn, "coach-kai", USER_ID)
+        at = open_page(start(monkeypatch, user=signed_in()), navigation.MY_WEEK)
+        form, box = f"questions_ask_{review}", f"questions_ask_text_{review}"
+        # A guardrail refusal, then a question that is stored.
+        at = _send(at, form, box, "CANARY-QUESTION my knee hurts at 87.3 kg")
+        at = _send(at, form, box, "CANARY-QUESTION carbs at 87.3 kg?")
+    else:
+        store_account("coach", name="CANARY-NAME coach")
+        with db.connect() as conn:
+            users.create_user(conn, "gym-alex", "gymer", "CANARY-NAME client")
+            review = _approved_review(conn, USER_ID, "gym-alex")
+            questions.ask_question(conn, "gym-alex", review, "CANARY-QUESTION carbs at 87.3 kg?")
+        at = open_page(start(monkeypatch, user=signed_in()), navigation.CLIENT_WEEK)
+        at.selectbox(key=client_week.PICK_KEY).set_value("gym-alex").run(timeout=30)
+        at.date_input(key=client_week.WEEK_KEY).set_value(date(2026, 10, 19)).run(timeout=30)
+        form, box = f"questions_answer_{review}", f"questions_answer_text_{review}"
+        at = _send(at, form, box, "CANARY-ANSWER eat more rice")
+    assert not at.exception
+    with db.connect() as conn:
+        kinds = [row["kind"] for row in questions.list_questions(conn, USER_ID, USER_ID)]
+    assert kinds == (["question"] if role == "gymer" else ["question", "answer"])
+    for canary in ("CANARY-QUESTION", "CANARY-ANSWER", "CANARY-NAME", "87.3"):
+        for text in (stream.getvalue(), caplog.text):
             assert canary not in text, canary
 
 

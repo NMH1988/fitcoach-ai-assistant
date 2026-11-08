@@ -6,11 +6,13 @@ from datetime import date
 
 import pytest
 
-from src.store import access, db, my_data, records, reviews
+from src.store import access, db, my_data, questions, records, reviews, users
 from tests import store_world as world
 from tests.store_world import no_threads
 
 NOW = "2026-10-27T10:00:00+00:00"
+QUESTION = "CANARY-QUESTION why fewer carbs?"
+ANSWER = "CANARY-ANSWER rest days need less."
 
 
 @pytest.fixture
@@ -33,6 +35,9 @@ def full_world(store_conn):
     reviews.decide_review(store_conn, world.COACH_A, approved, "approve")
     records.list_meal_items(store_conn, world.COACH_A, world.SHARED)  # an audited read
     records.list_meal_items(store_conn, world.COACH_B, world.OTHERS)
+    # T9.25: a question and the coach's answer under the approved review (an audited answer).
+    questions.ask_question(store_conn, world.SHARED, approved, QUESTION)
+    questions.answer_question(store_conn, world.COACH_A, approved, ANSWER)
     # T9.12 adds the functions for these two tables; the rows are written directly here.
     for coach in (world.COACH_A, world.COACH_B):
         store_conn.execute(
@@ -96,6 +101,7 @@ def test_the_store_has_the_columns_this_test_expects(full_world):
         ("audit_log", "actor_id"),
         ("audit_log", "subject_id"),
         ("invite_attempts", "user_id"),
+        ("review_questions", "author_id"),
         ("notification_reads", "user_id"),
     }
 
@@ -142,7 +148,15 @@ def test_a_gymers_export_holds_all_their_rows_as_json(full_world):
     assert document["ai_reviews"][0]["final"] == {"observations": ["x"]}
     assert len(document["ai_evidence_refs"]) == 1
     # The coach's read of the meals and the approval of the review, both about this gymer.
-    assert [r["action"] for r in document["audit_log"]] == ["review_approved", "read"]
+    assert [r["action"] for r in document["audit_log"]] == [
+        "review_approved",
+        "read",
+        "review_answered",
+    ]
+    assert [(r["kind"], r["text"]) for r in document["review_questions"]] == [
+        ("question", QUESTION),
+        ("answer", ANSWER),
+    ]
     assert document["invite_attempts"][0]["count"] == 2
     assert document["invitations"] == []
 
@@ -169,7 +183,10 @@ def test_a_coachs_export_audits_one_read_per_client_in_it(full_world):
     before = _read_rows(full_world)
     my_data.export_user_data(full_world, world.COACH_A)
     added = _read_rows(full_world)[len(before) :]
-    assert added == [(world.COACH_A, world.SHARED, "ai_reviews")]
+    assert added == [
+        (world.COACH_A, world.SHARED, "ai_reviews"),
+        (world.COACH_A, world.SHARED, "review_questions"),
+    ]
 
 
 def test_a_gymers_export_writes_no_audit_row(full_world):
@@ -283,3 +300,62 @@ def test_a_coachs_export_holds_their_preferences_and_delete_removes_them(store_c
     count = "SELECT count(*) FROM preferences WHERE user_id = ?"
     assert store_conn.execute(count, (world.COACH_A,)).fetchone()[0] == 0
     assert records.list_preferences(store_conn, world.COACH_B, world.COACH_B)
+
+
+# --- The questions to the coach (T9.25, AC-42) ----------------------------------------------------
+
+
+def _thread_texts(document):
+    """Return the texts of the thread rows in an export."""
+    return [row["text"] for row in document["review_questions"]]
+
+
+def test_a_coachs_export_holds_the_threads_they_may_read(full_world):
+    """The coach exports the thread under the review they wrote; another coach does not."""
+    document = json.loads(my_data.export_user_data(full_world, world.COACH_A))
+    assert _thread_texts(document) == [QUESTION, ANSWER]
+    other = json.loads(my_data.export_user_data(full_world, world.COACH_B))
+    assert other["review_questions"] == []
+    assert QUESTION not in json.dumps(other)
+
+
+def test_a_coachs_export_leaves_out_a_thread_once_the_client_stops_sharing(full_world):
+    """With nutrition off (or the relationship ended), the coach's export holds no thread."""
+    [relationship] = users.list_relationships(full_world, world.SHARED)
+    users.set_consent(full_world, world.SHARED, relationship["id"], "nutrition", False)
+    document = json.loads(my_data.export_user_data(full_world, world.COACH_A))
+    assert document["review_questions"] == []
+    gymer = json.loads(my_data.export_user_data(full_world, world.SHARED))
+    assert _thread_texts(gymer) == [QUESTION, ANSWER]
+
+
+def test_a_gymers_export_keeps_the_thread_after_the_end(full_world):
+    """The gymer still reads the thread once the relationship ends (owner's choice, 2026-11-06)."""
+    [relationship] = users.list_relationships(full_world, world.SHARED)
+    users.end_relationship(full_world, world.SHARED, relationship["id"])
+    document = json.loads(my_data.export_user_data(full_world, world.SHARED))
+    assert _thread_texts(document) == [QUESTION, ANSWER]
+
+
+@pytest.mark.parametrize("user", [world.SHARED, world.COACH_A])
+def test_deleting_either_side_removes_the_thread(full_world, user):
+    """The thread goes with its review, whoever deletes; its text is gone from the table."""
+    my_data.delete_user_data(full_world, user, no_threads)
+    assert full_world.execute("SELECT count(*) FROM review_questions").fetchone()[0] == 0
+
+
+def test_deleting_a_user_removes_every_row_they_wrote(full_world):
+    """A row by the user under another user's review goes too (no reference is left)."""
+    reviewed = full_world.execute(
+        "SELECT id FROM ai_reviews WHERE coach_id = ? AND status = 'APPROVED'", (world.COACH_A,)
+    ).fetchone()[0]
+    # Written directly: no store function lets a third user write here; the delete must still hold.
+    full_world.execute(
+        "INSERT INTO review_questions (review_id, author_id, kind, text, created_at)"
+        " VALUES (?, ?, 'question', 'x', ?)",
+        (reviewed, world.OTHERS, NOW),
+    )
+    my_data.delete_user_data(full_world, world.OTHERS, no_threads)
+    count = "SELECT count(*) FROM review_questions WHERE author_id = ?"
+    assert full_world.execute(count, (world.OTHERS,)).fetchone()[0] == 0
+    assert full_world.execute("SELECT count(*) FROM review_questions").fetchone()[0] == 2

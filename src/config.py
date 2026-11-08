@@ -846,6 +846,11 @@ REVIEW_MAX_CHUNKS = 6
 REVIEW_MAX_ITEMS = 6
 REVIEW_TEXT_MAX_CHARS = 600
 REVIEW_FIELD_MAX_CHARS = 200
+# Questions to the coach under an approved review (T9.25, PRD feature 27): the longest question or
+# answer (within STORE_TEXT_MAX_CHARS), and the most questions a gymer asks under one review, one
+# at a time (each waits for the coach's answer; owner's choice, 2026-11-06).
+REVIEW_THREAD_MAX_CHARS = 500
+REVIEW_THREAD_MAX_QUESTIONS = 3
 # Validation (AC-27, AC-35; docs/PRD.md guardrails). Regular expressions, matched without case.
 # A diagnosis: a medical condition named for the client (English and German).
 REVIEW_DIAGNOSIS_PATTERNS: tuple[str, ...] = (

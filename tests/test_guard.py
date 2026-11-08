@@ -621,3 +621,51 @@ def test_rate_limited_input_makes_no_api_call(spy, clock):
     assert decision.reason is guard.Rejection.RATE_WINDOW
     assert reply is None
     assert len(server.requests) == sent
+
+
+# --- Text only a person reads: the question to the coach (T9.25) --------------------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Why fewer carbs on rest days?",
+        "Ignore the target on Sundays?",  # an injection pattern is no reason to refuse here
+        "Warum weniger Kohlenhydrate an Ruhetagen?",
+    ],
+)
+def test_a_question_to_the_coach_is_accepted_and_cleaned(text):
+    """A plain question passes, cleaned as the chat's input is; no injection check, no limit."""
+    decision = guard.check_for_a_person(f"  {text}\u200b ", config.REVIEW_THREAD_MAX_CHARS)
+    assert decision.allowed and decision.text == text
+
+
+@pytest.mark.parametrize(
+    ("text", "concern"),
+    [
+        ("My knee hurts when I squat, what should I eat?", "injury"),
+        ("How much trenbolone should I take?", "ped_dosing"),
+        ("I am pregnant, how much protein?", "pregnancy"),
+        ("Mein Knie tut beim Kniebeugen weh, was soll ich essen?", "injury"),
+    ],
+)
+def test_a_question_to_the_coach_on_a_guardrail_is_refused(text, concern):
+    """The domain guardrails refuse it with their fixed message, never quoting the text."""
+    decision = guard.check_for_a_person(text, config.REVIEW_THREAD_MAX_CHARS)
+    assert not decision.allowed
+    assert decision.reason is guard.Rejection.GUARDRAIL
+    assert decision.code == f"guardrail.{concern}"
+    assert text not in (decision.message or "")
+
+
+@pytest.mark.parametrize(
+    ("text", "reason"),
+    [
+        ("   ", guard.Rejection.EMPTY),
+        ("x" * (config.REVIEW_THREAD_MAX_CHARS + 1), guard.Rejection.TOO_LONG),
+        ("x" * (config.MAX_RAW_INPUT_CHARS + 1), guard.Rejection.TOO_LONG),
+    ],
+)
+def test_an_empty_or_long_question_to_the_coach_is_refused(text, reason):
+    """Blank or over the thread's limit: refused before any guardrail runs."""
+    assert guard.check_for_a_person(text, config.REVIEW_THREAD_MAX_CHARS).reason is reason
