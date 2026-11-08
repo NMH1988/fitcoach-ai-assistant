@@ -752,6 +752,28 @@ def test_each_run_of_a_turn_carries_the_turn_id_of_its_log_line(index, traced):
     assert all(meta.get("turn_id") == result.turn_id for meta in _metadata(runs))
 
 
+def test_the_evaluation_judge_s_calls_are_masked_and_carry_the_scored_turn_s_id(traced):
+    """A scored evaluation's judge calls carry the answer's turn_id and hide its texts (round 8)."""
+    from src import eval_scoring, usage  # Needs the eval extra, as tests/test_eval_scoring.py.
+    from tests.fakes import FakeJudgeChat
+
+    turn_id = "0f1e2d3c-4b5a-4968-8776-655443322110"
+    judge = eval_scoring.Judge(FakeJudgeChat(reason="CANARY-REASON"), usage.UsageRecorder())
+    scores = eval_scoring.score_answer(
+        "CANARY-QUESTION protein?",
+        "CANARY-ANSWER 0.4 g/kg.",
+        ["CANARY-CHUNK text."],
+        judge.for_turn(turn_id),
+    )
+    assert all(score.score is not None for score in scores.values())
+    runs = traced.runs()
+    assert runs
+    assert all(meta.get("turn_id") == turn_id for meta in _metadata(runs))
+    searched = _searched(runs)
+    for canary in ("CANARY", "claim one", "statement one", "truth one"):
+        assert canary not in searched
+
+
 def test_a_search_tool_name_is_kept():
     """The knowledge base search keeps its name in a trace, like the other tools."""
     assert tracing.mask({"name": search.SEARCH_TOOL}) == {"name": search.SEARCH_TOOL}

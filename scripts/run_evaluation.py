@@ -278,7 +278,7 @@ def score_runs(runs: Sequence[EvalRun], judge: Any) -> list[dict[str, Any]]:
         chunks = [chunk.text for chunk in run.chunks]
         try:
             run_scores = eval_scoring.score_answer(
-                run.item.question, run.result.text, chunks, judge
+                run.item.question, run.result.text, chunks, judge.for_turn(run.result.turn_id)
             )
         except KeyboardInterrupt:
             stopped = eval_scoring.INTERRUPTED
