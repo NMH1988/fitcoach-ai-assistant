@@ -286,12 +286,11 @@ def test_a_delete_then_a_store_failure_leaves_no_stored_profile(monkeypatch, gym
 
 
 def test_my_data_says_where_the_relationships_are(monkeypatch, gymer_with_records):
-    """The gymer's intro says the relationships, sharing, the coach's reads and the read mark."""
+    """The gymer's intro: relationships, sharing, questions, the coach's reads, the read mark."""
     at = open_my_data(start(monkeypatch, user=signed_in()))
-    assert (
-        "sharing choices, your coach's reads of your data and your notification read mark"
-        in texts(at)
-    )
+    page = texts(at)
+    assert "relationships, sharing choices, your questions to the coach with the answers" in page
+    assert "your coach's reads of your data and your notification read mark" in page
 
 
 def test_demo_mode_opens_on_the_start_page(monkeypatch, demo_store_is_fresh):

@@ -16,7 +16,7 @@ from langchain_core.messages import AIMessage
 
 from src import chat, config, dashboard, guard, i18n
 from src.agent.memory import Conversation
-from src.store import db, users
+from src.store import db, questions, reviews, users
 from src.tools import coach_clients, registry
 from src.tools.coach_clients import LIST_TOOL, WEEK_TOOL, ClientRefs, CoachClients
 from tests import store_world as world
@@ -472,6 +472,32 @@ def test_both_results_give_today_s_date(relationships):
     _, listed = _call(clients, LIST_TOOL)
     _, week = _call(clients, WEEK_TOOL, {"client": "client-1"})
     assert listed.result.today == week.result.today == TODAY
+
+
+def test_a_question_to_the_coach_never_reaches_a_client_tool_s_result(store_conn, relationships):
+    """A question and its answer under an approved review are in no tool result (T9.25, AC-42)."""
+    approved = reviews.save_review(
+        store_conn,
+        world.COACH_A,
+        world.SHARED,
+        period_start=date(2026, 10, 19),
+        metrics={"logged_days": 2},
+        data_quality={},
+        draft={"observations": ["x"]},
+        model_version="m",
+    )
+    reviews.decide_review(store_conn, world.COACH_A, approved, "approve")
+    questions.ask_question(store_conn, world.SHARED, approved, "CANARY-QUESTION carbs at 87.3 kg?")
+    questions.answer_question(store_conn, world.COACH_A, approved, "CANARY-ANSWER eat more rice")
+    clients = _clients()
+    sent = [_call(clients, LIST_TOOL)[0].content]
+    for week_of in (None, "2026-10-19"):
+        args = {"client": "client-1", "week_of": week_of} if week_of else {"client": "client-1"}
+        message, run = _call(clients, WEEK_TOOL, args)
+        assert run.status == "ok"
+        sent.append(message.content)
+    assert "CANARY-QUESTION" not in "\n".join(sent)
+    assert "CANARY-ANSWER" not in "\n".join(sent)
 
 
 def test_the_german_language_part_names_the_client_week_page():

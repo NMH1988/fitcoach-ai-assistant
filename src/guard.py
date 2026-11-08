@@ -551,6 +551,31 @@ def check_text(text: str, max_chars: int = config.MAX_INPUT_CHARS) -> GuardResul
     return GuardResult(allowed=True, text=cleaned)
 
 
+def check_for_a_person(text: str, max_chars: int) -> GuardResult:
+    """Clean text only a person reads (never a model): the length and the domain guardrails."""
+    # A gymer's question to the coach (T9.25) is never sent to a model, so it gets no injection
+    # check (a pattern there could only refuse a harmless text) and no rate limit (it makes no
+    # call). The domain guardrails still refuse what the app does not advise on, on the same
+    # detection views as the chat, so a question about pain, an injury, medication, pregnancy,
+    # drug dosing or eating below the floor is not sent (owner's choice, 2026-11-06).
+    if len(text) > config.MAX_RAW_INPUT_CHARS:
+        return _reject(Rejection.TOO_LONG, TOO_LONG_MESSAGE)
+    cleaned = clean_input(text)
+    if not cleaned:
+        return _reject(Rejection.EMPTY, EMPTY_MESSAGE)
+    if len(cleaned) > max_chars:
+        return _reject(Rejection.TOO_LONG, TOO_LONG_MESSAGE)
+    concern = _first_concern(detection_views(text))
+    if concern is not None:
+        return GuardResult(
+            allowed=False,
+            reason=Rejection.GUARDRAIL,
+            message=guardrails.MESSAGES[concern],
+            concern=concern,
+        )
+    return GuardResult(allowed=True, text=cleaned)
+
+
 def check_message(text: str, limiter: RateLimiter) -> GuardResult:
     """Clean `text` and run every check; only an accepted message counts against `limiter`."""
     decision = check_text(text)

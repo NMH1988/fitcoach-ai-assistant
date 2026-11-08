@@ -19,8 +19,10 @@ from src.store.db import transaction
 
 Scope = Literal["nutrition", "training", "body"]
 SCOPES: tuple[str, ...] = get_args(Scope)
-# The audit_log.action CHECK lists the same actions (schema._V4; tests/test_store_db.py).
-Action = Literal["read", "review_approved", "review_edited", "review_rejected", "target_set"]
+# The audit actions; the audit_log.action CHECK lists the same (schema.py, a test checks it).
+Action = Literal[
+    "read", "review_approved", "review_edited", "review_rejected", "review_answered", "target_set"
+]
 
 _ROLE = "SELECT role FROM users WHERE id = ?"
 # The sharing rule itself is the open_shares view (schema.py), so it is written once.

@@ -6,7 +6,8 @@ draft with Approve, Edit and Reject (D17's human in the loop). The run and the d
 `dashboard.client_week()` already read (the coach's reviews of this client whose every scope is
 still shared) and the outcome of the last action. The texts are escaped onto plain lines
 (`tables.review_sections()`), so neither the model nor a coach adds a link, image or HTML. The
-gymer's My week shows an approved review's text the same way, read-only.
+gymer's My week shows an approved review's text the same way, read-only. Under an approved
+review, the client's questions and the coach's answers (T9.25, views/questions.py).
 """
 
 from datetime import date, timedelta
@@ -17,7 +18,7 @@ from src import account as accounts
 from src import config, dashboard, guard, i18n
 from src.agent import graph, review
 from src.chat import PromptMissingError
-from views import account, resources, tables
+from views import account, questions, resources, tables
 from views.text import lang, t
 
 # The outcome of the last start or decision, shown once on the next run.
@@ -214,7 +215,13 @@ def _pending(user: dict, row: dict) -> None:
         st.rerun()
 
 
-def coach_section(user: dict, client_id: str, monday: date, week: dashboard.DashboardWeek) -> None:
+def coach_section(
+    user: dict,
+    client_id: str,
+    monday: date,
+    week: dashboard.DashboardWeek,
+    threads: list[dict] | None = None,
+) -> None:
     """Show the weekly review of the picked client's week: start it, decide it, or read it."""
     st.subheader(t("review.section"))
     st.caption(f":material/smart_toy: {t('review.intro')}")
@@ -222,6 +229,12 @@ def coach_section(user: dict, client_id: str, monday: date, week: dashboard.Dash
     if week.reviews is None:
         st.caption(t("review.needs_nutrition"))
         return
+    threads = threads or []
+    # The other weeks with a question waiting: the picked week's shows its own box below.
+    picked = monday.isoformat()
+    waiting = [day for day in tables.waiting_weeks(week.reviews, threads) if day != picked]
+    if waiting:
+        st.info(t("questions.open_weeks", weeks=", ".join(waiting)), icon=":material/help:")
     this_week = [row for row in week.reviews if row["period_start"] == monday.isoformat()]
     by_status = {row["status"]: row for row in this_week}
     if "APPROVED" in by_status:
@@ -229,6 +242,9 @@ def coach_section(user: dict, client_id: str, monday: date, week: dashboard.Dash
         st.markdown(f"**{tables.review_heading(row, lang())}**")
         st.caption(f":material/smart_toy: {tables.review_label(row, lang())}")
         show_text(row["final"] or {})
+        # The client's questions under it and the coach's answers (T9.25), apart from the AI draft.
+        thread = [item for item in threads if item["review_id"] == row["id"]]
+        questions.coach_thread(user, row, thread)
         return
     if "PENDING_REVIEW" in by_status:
         _pending(user, by_status["PENDING_REVIEW"])

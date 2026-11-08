@@ -391,19 +391,21 @@ def test_my_week_has_no_chat_and_no_control_but_the_week(monkeypatch, gymer_worl
     assert not at.chat_input
     assert [item.key for item in main.date_input] == [my_week.WEEK_KEY]
     for kind in (
-        "button",
         "checkbox",
         "text_input",
-        "text_area",
         "number_input",
         "selectbox",
         "radio",
         "toggle",
         "segmented_control",
         "download_button",
-        "form",
     ):
         assert not main.get(kind), kind
+    # T9.25: the only other control is the box to ask the coach a question under an approved
+    # review; it writes a new row and changes nothing else (tests/test_app_questions.py).
+    for kind in ("text_area", "form"):
+        assert all(item.key.startswith("questions_ask_") for item in main.get(kind)), kind
+    assert all(item.proto.form_id.startswith("questions_ask_") for item in main.get("button"))
 
 
 def test_a_gymer_with_no_approved_review_is_told_so(monkeypatch):

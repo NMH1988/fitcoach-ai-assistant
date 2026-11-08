@@ -316,32 +316,47 @@ BEGIN SELECT RAISE(ABORT, 'stored records are never changed in place'); END;
 PRAGMA user_version = 3;
 """
 
-# T9.17: a coach sets a client's targets, and each one leaves an audit row with the new action
-# `target_set`. SQLite cannot change a CHECK in place, so audit_log is built again: the same
-# table as in _V1 apart from the action list, every row copied with its ID, then its indexes and
-# its trigger made again. The next migration that needs a new action (T9.25's `review_answered`)
-# builds it again the same way, from this version's table. (Version 4: T9.29's version 3 merged
-# first.)
+# T9.25 (migration 4, after T9.29's 3): the questions to the coach under an approved review, and
+# the audit action of an answer.
+# A thread belongs to its review: the gymer asks and the coach answers by the review's own rule
+# (src/store/questions.py). SQLite cannot change a CHECK in place, so audit_log is rebuilt with the
+# wider action list: a new table, every row copied with its ID, the old one dropped and the new one
+# renamed, then its indexes and trigger made again (they went with the old table). The new table is
+# _V1's apart from the action list (tests/test_store_db.py); the next migration that needs a new
+# action (T9.17's target_set) rebuilds it the same way.
 _V4 = """
-CREATE TABLE audit_log_new (
+CREATE TABLE review_questions (
+    id INTEGER PRIMARY KEY,
+    review_id INTEGER NOT NULL REFERENCES ai_reviews (id),
+    author_id TEXT NOT NULL REFERENCES users (id),
+    kind TEXT NOT NULL CHECK (kind IN ('question', 'answer')),
+    text TEXT NOT NULL CHECK (length(text) > 0),
+    created_at TEXT NOT NULL
+        CHECK (created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
+            AND date(created_at) IS substr(created_at, 1, 10))
+) STRICT;
+CREATE INDEX review_questions_review ON review_questions (review_id);
+CREATE INDEX review_questions_author ON review_questions (author_id);
+CREATE TRIGGER review_questions_never_changed BEFORE UPDATE ON review_questions
+BEGIN SELECT RAISE(ABORT, 'stored records are never changed in place'); END;
+
+CREATE TABLE audit_log_v4 (
     id INTEGER PRIMARY KEY,
     actor_id TEXT NOT NULL REFERENCES users (id),
     subject_id TEXT REFERENCES users (id),
     action TEXT NOT NULL
-        CHECK (action IN (
-            'read', 'review_approved', 'review_edited', 'review_rejected', 'target_set'
-        )),
+        CHECK (action IN ('read', 'review_approved', 'review_edited', 'review_rejected',
+            'review_answered')),
     resource_type TEXT NOT NULL CHECK (length(resource_type) > 0),
     resource_id INTEGER,
     created_at TEXT NOT NULL
         CHECK (created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
             AND date(created_at) IS substr(created_at, 1, 10))
 ) STRICT;
-
-INSERT INTO audit_log_new (id, actor_id, subject_id, action, resource_type, resource_id, created_at)
+INSERT INTO audit_log_v4 (id, actor_id, subject_id, action, resource_type, resource_id, created_at)
 SELECT id, actor_id, subject_id, action, resource_type, resource_id, created_at FROM audit_log;
 DROP TABLE audit_log;
-ALTER TABLE audit_log_new RENAME TO audit_log;
+ALTER TABLE audit_log_v4 RENAME TO audit_log;
 CREATE INDEX audit_log_actor ON audit_log (actor_id);
 CREATE INDEX audit_log_subject ON audit_log (subject_id);
 CREATE TRIGGER audit_log_never_changed BEFORE UPDATE ON audit_log
@@ -350,5 +365,35 @@ BEGIN SELECT RAISE(ABORT, 'stored records are never changed in place'); END;
 PRAGMA user_version = 4;
 """
 
+# T9.17 (migration 5, after T9.25's 4): a coach sets a client's targets, and each one leaves an
+# audit row with the new action `target_set`. audit_log is rebuilt again as in _V4: the same
+# table apart from the action list, every row copied with its ID, then its indexes and trigger
+# made again.
+_V5 = """
+CREATE TABLE audit_log_v5 (
+    id INTEGER PRIMARY KEY,
+    actor_id TEXT NOT NULL REFERENCES users (id),
+    subject_id TEXT REFERENCES users (id),
+    action TEXT NOT NULL
+        CHECK (action IN ('read', 'review_approved', 'review_edited', 'review_rejected',
+            'review_answered', 'target_set')),
+    resource_type TEXT NOT NULL CHECK (length(resource_type) > 0),
+    resource_id INTEGER,
+    created_at TEXT NOT NULL
+        CHECK (created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
+            AND date(created_at) IS substr(created_at, 1, 10))
+) STRICT;
+INSERT INTO audit_log_v5 (id, actor_id, subject_id, action, resource_type, resource_id, created_at)
+SELECT id, actor_id, subject_id, action, resource_type, resource_id, created_at FROM audit_log;
+DROP TABLE audit_log;
+ALTER TABLE audit_log_v5 RENAME TO audit_log;
+CREATE INDEX audit_log_actor ON audit_log (actor_id);
+CREATE INDEX audit_log_subject ON audit_log (subject_id);
+CREATE TRIGGER audit_log_never_changed BEFORE UPDATE ON audit_log
+BEGIN SELECT RAISE(ABORT, 'stored records are never changed in place'); END;
+
+PRAGMA user_version = 5;
+"""
+
 # In order: MIGRATIONS[0] creates version 1, MIGRATIONS[1] takes it to version 2, and so on.
-MIGRATIONS: tuple[str, ...] = (_V1, _V2, _V3, _V4)
+MIGRATIONS: tuple[str, ...] = (_V1, _V2, _V3, _V4, _V5)
