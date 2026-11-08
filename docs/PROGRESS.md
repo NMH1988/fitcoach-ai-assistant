@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-08 · Record the owner's approval of T9.30's criteria · NMH1988/fitcoach-ai-assistant#<PR> (closes NMH1988/fitcoach-ai-assistant#88)
+## 2026-11-08 · Record the owner's approval of T9.30's criteria · NMH1988/fitcoach-ai-assistant#89 (closes NMH1988/fitcoach-ai-assistant#88)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 3 (user interface), in part; Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request), as T9.30 itself. Planning only, no code.
 - **What:** `docs/IMPLEMENTATION_PLAN.md`: T9.30's criteria marked as approved by the owner (2026-11-08); its second criterion takes the middle way for the audit; its Notes and the plan's status line record the approval. Issue NMH1988/fitcoach-ai-assistant#87 synced with the section.
 - **Why:** a ticket is not started until the owner approves its criteria (`.claude/rules/workflow.md`); T9.30 was planned by T9.25 (NMH1988/fitcoach-ai-assistant#80) with its criteria proposed.
