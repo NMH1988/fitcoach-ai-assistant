@@ -39,7 +39,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
 from langgraph.types import Command, interrupt
 
-from src import chat, config
+from src import chat, config, tracing
 from src.chat import TurnResult
 from src.preferences import PreferenceCheck
 
@@ -182,9 +182,12 @@ class Conversation:
         )
         self.thread_id = str(uuid.uuid4())
 
-    def config(self) -> RunnableConfig:
-        """Return the run config of the current thread."""
-        return {"configurable": {"thread_id": self.thread_id}}
+    def config(self, turn_id: str = "") -> RunnableConfig:
+        """Return the run config of the current thread; with the turn's ID as metadata (T9.8)."""
+        run: RunnableConfig = {"configurable": {"thread_id": self.thread_id}}
+        if turn_id:
+            run["metadata"] = tracing.run_metadata(turn_id)
+        return run
 
     def messages(self) -> list[AnyMessage]:
         """Return the current thread's messages, oldest first."""
@@ -207,13 +210,16 @@ class Conversation:
         """Resume the paused graph with the coach's answer; return its outcome, or None."""
         if self.pending() is None:
             return None
+        # The turn's ID when a turn discards it; else the card's answer is a run of its own, with
+        # its own ID on the log line and the trace (T9.8).
+        run_id = turn_id or str(uuid.uuid4())
         context = ConversationContext(turn=_no_turn, save=save)
         self.graph.invoke(
-            Command(resume={"choice": choice, "text": text}), self.config(), context=context
+            Command(resume={"choice": choice, "text": text}), self.config(run_id), context=context
         )
         outcome = context.outcomes[0] if context.outcomes else None
-        # The outcome's code only, never the text; the turn's ID when a turn discards it.
-        logger.info("preference_decided", extra={"turn_id": turn_id or None, "code": outcome})
+        # The outcome's code only, never the text.
+        logger.info("preference_decided", extra={"turn_id": run_id, "code": outcome})
         if context.errors:
             raise context.errors[0]
         return outcome
@@ -222,6 +228,8 @@ class Conversation:
         self, run_turn: Callable[[list[AnyMessage]], Mapping[str, Any]], turn_id: str = ""
     ) -> TurnResult:
         """Run one turn on the current thread and return its result."""
+        # run_turn() passes its turn's ID; a run without one still gets an ID for its trace.
+        turn_id = turn_id or str(uuid.uuid4())
         if self.pending() is not None:
             # The chat is locked while a proposal waits (views/chat.py); should a turn come all the
             # same, the proposal is discarded first, so nothing is saved without an answer.
@@ -230,7 +238,7 @@ class Conversation:
         # LangGraph's default durability saves in the background, but the run waits for those
         # saves before invoke() returns, so the next turn sees this one. "sync" is not used: the
         # turn's graph inherits it and, having no checkpointer, fails on it (langgraph 1.2.17).
-        self.graph.invoke({"messages": []}, self.config(), context=context)
+        self.graph.invoke({"messages": []}, self.config(turn_id), context=context)
         if context.errors:
             # run_turn() maps it to a fixed message, as for a turn without a conversation.
             raise context.errors[0]

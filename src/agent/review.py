@@ -28,6 +28,7 @@ no thread (AC-30); the error is logged as a diagnostic and the caller shows a fi
 """
 
 import logging
+import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -45,7 +46,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
 from langgraph.types import Command, interrupt
 
-from src import account, config, dashboard, llm, metrics
+from src import account, config, dashboard, llm, metrics, tracing
 from src import weekly_review as wr
 from src.agent import review_threads
 from src.rag import hybrid
@@ -421,13 +422,15 @@ def mermaid() -> str:
     return _builder().compile().get_graph().draw_mermaid()
 
 
-def _run_config(thread_id: str, coach_id: str, client_id: str) -> RunnableConfig:
-    """Return a run's config: its thread, the IDs as checkpoint metadata, the step limit."""
+def _run_config(thread_id: str, coach_id: str, client_id: str, turn_id: str) -> RunnableConfig:
+    """Return a run's config: its thread, the IDs and turn_id as metadata, the step limit."""
+    # The turn_id ties the run's trace to its log line (T9.8); a trace masks the users' IDs.
     return {
         "configurable": {"thread_id": thread_id},
         "metadata": {
             review_threads.COACH_KEY: coach_id,
             review_threads.CLIENT_KEY: client_id,
+            **tracing.run_metadata(turn_id),
         },
         "recursion_limit": config.REVIEW_MAX_STEPS,
     }
@@ -442,12 +445,13 @@ def _result(values: Mapping) -> RunResult:
     )
 
 
-def _failed(exc: Exception) -> RunResult:
+def _failed(exc: Exception, turn_id: str) -> RunResult:
     """Log a failed run by its codes only and return the error outcome with the message's key."""
     code = getattr(exc, "code", None) or _SETUP_CODES.get(type(exc), "llm.error")
     logger.warning(
         "llm_error",
         extra={
+            "turn_id": turn_id,
             "kind": "weekly_review",
             "code": code,
             "status_code": getattr(exc, "status_code", None),
@@ -462,7 +466,9 @@ def start_review(
 ) -> RunResult:
     """Run a new review up to the coach's decision; a run that ends keeps no thread."""
     thread_id = review_threads.new_thread_id()
-    run = _run_config(thread_id, coach_id, client_id)
+    # Each run and each decision has an ID of its own, on its log lines and its trace (T9.8).
+    turn_id = str(uuid.uuid4())
+    run = _run_config(thread_id, coach_id, client_id, turn_id)
     start: ReviewState = {
         "coach_id": coach_id,
         "client_id": client_id,
@@ -477,7 +483,7 @@ def start_review(
         except _RUN_ERRORS as exc:
             # No review is saved and nothing of the client's logs changes (AC-30).
             _abandon(context, saver, coach_id, thread_id)
-            return _failed(exc)
+            return _failed(exc, turn_id)
         except BaseException:
             # E.g. the review was saved, then its checkpoint could not be written: the run cannot
             # wait for the coach, so its review goes too and the week can be run again.
@@ -487,15 +493,16 @@ def start_review(
         result = _result(values)
         if result.outcome != "pending":
             review_threads.delete_threads(saver, [thread_id])
-        _log(result, values)
+        _log(result, values, turn_id)
     return result
 
 
-def _log(result: RunResult, values: Mapping) -> None:
-    """Write one line per run or decision: the outcome, counts and codes, never a value."""
+def _log(result: RunResult, values: Mapping, turn_id: str) -> None:
+    """Write one line per run or decision: its ID, the outcome, counts and codes, never a value."""
     logger.info(
         "weekly_review",
         extra={
+            "turn_id": turn_id,
             "code": result.outcome,
             "attempts": values.get("attempts", 0),
             "chunks": len(values.get("chunks", ())),
@@ -568,6 +575,7 @@ def decide_review(
     # run is stuck at release or reject after the store failed, so it finishes the decision the
     # coach took then; or there is no run (its thread was lost), so only a rejection is possible,
     # in the store, and an approval or an edit gets "gone" (draft the week again instead).
+    turn_id = str(uuid.uuid4())
     with review_threads.open_saver(context.store_path) as saver:
         graph = review_graph(saver)
         snapshot = (
@@ -578,14 +586,14 @@ def decide_review(
             # Only the coach who started this run may resume it.
             if values.get("coach_id") != coach_id:
                 return RunResult(outcome="not_found")
-            run = _run_config(thread_id, coach_id, values["client_id"])
+            run = _run_config(thread_id, coach_id, values["client_id"], turn_id)
             if snapshot.next == _WAITING:
                 answer = {"decision": decision, "final": None if final is None else dict(final)}
                 graph.invoke(Command(resume=answer), run, context=context)
             elif snapshot.next in _STUCK:
                 stuck = _restart_stuck(graph, run, values, decision, final)
                 if stuck is not None:
-                    _log(stuck, values)
+                    _log(stuck, values, turn_id)
                     return stuck
                 graph.invoke(None, run, context=context)
             else:
@@ -594,10 +602,10 @@ def decide_review(
             result = _result(values)
             if result.outcome in _FINISHED:
                 review_threads.delete_threads(saver, [thread_id])
-            _log(result, values)
+            _log(result, values, turn_id)
             return result
     if decision != "reject":
         return RunResult(outcome="gone", review_id=review_id)
     result = _reject_without_run(context, coach_id, review_id)
-    _log(result, {})
+    _log(result, {}, turn_id)
     return result

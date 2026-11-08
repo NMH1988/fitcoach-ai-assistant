@@ -28,7 +28,7 @@ Either way:
 4. **Knowledge base on an ephemeral disk.** The host's disk is reset on restart. Decide in `docs/ARCHITECTURE.md` whether the Chroma index is rebuilt at startup (embedding cost on every cold start) or a built index is committed (allowed only under the copyright policy: approved CC BY sources, attribution in place).
 5. **USDA data.** A trimmed copy of the Foundation Foods CSV (CC0) is committed as `data/usda_foods.csv` (T4.3), so a deploy needs no download.
 6. **Limits.** Check the host's memory and CPU limits against Chroma, the embeddings and the PDF builder.
-7. **Personal data.** A guest's profile and every chat stay in the session only; a signed-in user's data is in the local store (`data/store/`), which an ephemeral disk loses on restart and which is not encrypted; logs contain no profile values or chat text. Demo mode stays off.
+7. **Personal data.** A guest's profile and every chat stay in the session only; a signed-in user's data is in the local store (`data/store/`), which an ephemeral disk loses on restart and which is not encrypted; logs contain no profile values or chat text. Demo mode stays off, and so does LangSmith tracing unless the owner decided otherwise (section "Tracing with LangSmith").
 8. **Costs.** Default model `openai/gpt-5-mini`, `max_tokens` capped, rate limit on; the token and cost display works.
 9. **Legal text on the page.** The "not medical advice" disclaimer and a link to the sources and attribution are visible.
 10. **Server address.** `.streamlit/config.toml` sets `server.address = "localhost"` (T1.7), so a local run is reachable from this machine only. A host may need another address (e.g. `0.0.0.0` in a container); change it only together with option 1 or 2 above, never on its own. Keep `browser.gatherUsageStats = false` and `client.showErrorDetails = "none"`.
@@ -50,6 +50,10 @@ What is stored and who sees it: `docs/PRD.md` "The privacy change" and `docs/SEC
 ## Demo mode (T9.5, D18)
 
 For a reviewer or a clone with no Google client: set `DEMO_MODE = true` in `.streamlit/secrets.toml` (or the environment variable `DEMO_MODE=1`) and leave the `[auth]` section out (with `[auth]` demo mode is ignored). The start page offers a "Demo user" picker (no guest) with three made-up users (`src/demo.py`: a coach, a gymer who shares body and nutrition with that coach, and a gymer with no coach), on a temporary database seeded when the app starts and deleted when it stops; `data/store/` is not touched. Never turn demo mode on for a deployment that real people use: anyone at the browser can pick any demo user.
+
+## Tracing with LangSmith (T9.8, D19)
+
+Off unless `FITCOACH_TRACING` and `LANGSMITH_API_KEY` are both set (secrets or environment); LangSmith's own `LANGSMITH_TRACING` flag is ignored. The account is in the EU region (`config.LANGSMITH_ENDPOINT`; the owner creates it, O10). A trace holds metadata only (`docs/SECURITY.md`, the LangSmith row). A public deployment leaves both unset until the owner has decided on LangSmith as a processor (a data processing agreement, the transfer to a US company even with EU storage) and the privacy notice names it.
 
 ## Deploy steps (Streamlit Community Cloud, first time)
 
