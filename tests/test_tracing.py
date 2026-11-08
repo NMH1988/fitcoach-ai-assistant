@@ -783,16 +783,28 @@ def test_a_search_tool_name_is_kept():
 
 # --- The coach's client tools (T9.17) -------------------------------------------------------------
 
-# What a client tool reads from the store: the clients' display names, the users' IDs, and the
-# made-up world's stored values (a weight, a target, a logged food and its energy).
-CLIENT_CANARIES = (
-    "CANARYNAME",
-    world.COACH_A,
-    *world.GYMERS,
-    str(world.WEIGHT),
-    "2345",
-    "571.5",
-    "Oats",
+# Never in either tool's result by design (a client is a reference), so they must not reach a
+# trace either: the clients' display names and the users' IDs.
+CLIENT_CANARIES = ("CANARYNAME", world.COACH_A, *world.GYMERS)
+# What the two results do hold for client-1 (the made-up world's week), as a trace would carry
+# it: in the tool message's JSON text (quotes escaped) or as the result's own fields. The week
+# gives the logged food's energy, the latest weight and the target; the list gives the logged
+# days, the workouts and a follow-up reason; both give the reference and the week's Monday.
+_FIELD = r'{}\\*"\s*:\s*{}\b'
+CLIENT_VALUES = tuple(
+    re.compile(pattern)
+    for pattern in (
+        r"571\.5",
+        re.escape(str(world.WEIGHT)),
+        r"2345",
+        _FIELD.format("logged_days", 1),
+        _FIELD.format("workouts", 1),
+        r"few_logged_days",
+        # As a JSON value: the tool's fixed description, kept in the trace, has 'client-1' as an
+        # example in single quotes.
+        r'\\*"client-1\\*"',
+        re.escape(str(world.DAY)),
+    )
 )
 relationships = clients_tests.relationships
 
@@ -834,9 +846,12 @@ def test_a_coach_s_client_tools_are_masked_in_a_trace(
     assert f'"name": "{coach_clients.LIST_TOOL}"' in text
     assert f'"name": "{coach_clients.WEEK_TOOL}"' in text
     searched = _searched(runs)
+    found = [pattern.pattern for pattern in CLIENT_VALUES if pattern.search(searched)]
     if not masked:
-        assert "571.5" in searched and str(world.WEIGHT) in searched
+        # The check itself: with the mask off, the search finds every value both results hold.
+        assert found == [pattern.pattern for pattern in CLIENT_VALUES]
         return
+    assert found == []
     for canary in CLIENT_CANARIES:
         assert canary not in searched, canary
 
