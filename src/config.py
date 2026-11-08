@@ -267,6 +267,19 @@ EVAL_TOLERANCES_BY_QUESTIONS_FILE: dict[str, float] = {
 }
 # How long each of the three git calls that read the evaluated code's state may take (T8.4, T9.21).
 EVAL_GIT_TIMEOUT_SECONDS = 10
+# The judge of the evaluation scores (`scripts/run_evaluation.py --score`, T9.10): the model that
+# writes the answers, so it grades its own (a limit in docs/TESTING.md). The owner chose
+# openai/gpt-5 first, a stronger model, but the course's OpenRouter key does not allow it (404 on
+# every judge call of the first run, no tokens billed); gpt-5-mini then (owner's choice,
+# 2026-11-06). Built by llm.build_chat_model(), so it must be on ALLOWED_MODELS.
+EVAL_JUDGE_MODEL = "openai/gpt-5-mini"
+# Twice the app's default: faithfulness lists the facts of every chunk an answer got in one reply,
+# and gpt-5's reasoning tokens count against the same cap; a cut-off reply is a lost score. Only
+# the tokens used are paid.
+EVAL_JUDGE_MAX_TOKENS = 2 * DEFAULT_MAX_TOKENS
+# The DeepEval metrics the script scores each answer on, in the order they are written. Context
+# precision and recall wait for the owner's reference answers (O14; owner's choice, 2026-11-06).
+EVAL_SCORE_METRICS: tuple[str, ...] = ("faithfulness", "answer_relevancy")
 
 # The store of signed-in users' data (T9.6, D13): one SQLite file in a gitignored folder, local.
 # Not encrypted: anyone who can read the file reads the data (docs/SECURITY.md).

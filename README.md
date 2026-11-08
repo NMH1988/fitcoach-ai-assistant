@@ -52,7 +52,7 @@ Requires Python 3.14 and an [OpenRouter](https://openrouter.ai/keys) API key.
 python3.14 -m venv .venv      # Windows: py -3.14 -m venv .venv
 source .venv/bin/activate     # Windows: .venv\Scripts\Activate.ps1 (PowerShell)
                               # or source .venv/Scripts/activate (Git Bash)
-pip install -e ".[dev]"
+pip install -e ".[dev,eval]"   # eval: DeepEval, for the evaluation scores and their tests
 ```
 
 If PowerShell says "running scripts is disabled on this system", run `Set-ExecutionPolicy -Scope Process RemoteSigned` first (for this window only), or skip activation and call the venv's programs directly (below). The `# ...` notes in the code blocks are for bash and PowerShell; leave them out in cmd.
