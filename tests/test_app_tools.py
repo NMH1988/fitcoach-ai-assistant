@@ -288,6 +288,32 @@ def test_a_food_from_the_api_shows_the_apis_source_line(monkeypatch):
     assert not at.exception
 
 
+def test_a_food_api_failure_shows_its_fixed_sentence_in_tool_results(monkeypatch):
+    """T9.11: a food missing from the table whose API search fails says so in Tool results."""
+    asked = []
+
+    class Unavailable:
+        """A FoodData Central search that fails as a 503 does, with no network."""
+
+        def search(self, name):
+            """Record the name and return the failure code."""
+            asked.append(name)
+            return food_api.ApiSearch("unavailable", attempts=config.FOOD_API_MAX_ATTEMPTS)
+
+    monkeypatch.setattr(food_api, "build_food_api", Unavailable)
+    lookup = tool_reply((FOOD_TOOL, {"food": "pizza", "grams": 100}))
+    _use_model(monkeypatch, lookup, AIMessage(ANSWER))
+    at = _ask()
+    message = _tool_results(at).caption[0].value
+    assert message.startswith("No close match in the USDA Foundation Foods table.")
+    assert message.endswith(
+        " The USDA FoodData Central API could not be searched just now, so only the table was"
+        " searched."
+    )
+    assert asked == ["pizza"]
+    assert not at.exception
+
+
 def test_without_a_profile_the_result_points_to_the_form(monkeypatch):
     """With no profile the result says the details are needed; its button opens the dialog."""
     _use_model(monkeypatch, tool_reply((MACRO_TOOL, {})), AIMessage(ANSWER))

@@ -11,11 +11,14 @@ import sqlite3
 from datetime import date
 from pathlib import Path
 
+import httpx2
+import openai
 import pytest
 
 from src import account, config, llm, observability
 from src.agent import review, review_threads
 from src.rag.retriever import RetrievedChunk, chunk_key
+from src.rag.store import IndexNotReadyError
 from src.store import access, my_data, questions, records, reviews, users
 from tests import store_world as world
 from tests.fakes import ScriptedTranslator
@@ -255,6 +258,63 @@ def test_a_model_error_saves_no_review_and_loses_no_log_entry(store_conn, relati
     lines = [json.loads(line) for line in stream.getvalue().splitlines()]
     assert [line["event"] for line in lines] == ["llm_error"]
     assert lines[0]["code"] == error.code and lines[0]["kind"] == "weekly_review"
+
+
+def _raise(error):
+    """Return a function that raises the error, whatever it is called with."""
+
+    def failing(*args, **kwargs):
+        """Raise the error."""
+        raise error
+
+    return failing
+
+
+def _stand_in_index() -> object:
+    """Return a stand-in index, which the replaced embeddings never use."""
+    return object()
+
+
+def _records(conn) -> list[str]:
+    """Return the store's rows as SQL lines, the audit rows of the coach's reads left out."""
+    return [line for line in conn.iterdump() if '"audit_log"' not in line]
+
+
+@pytest.mark.parametrize(
+    ("error", "code"),
+    [
+        (
+            openai.APITimeoutError(
+                httpx2.Request("POST", "https://openrouter.ai/api/v1/embeddings")
+            ),
+            "llm.timeout",
+        ),
+        (IndexNotReadyError("The knowledge base index is missing."), "index.missing"),
+    ],
+    ids=["embedding", "index"],
+)
+def test_an_embedding_or_index_error_saves_no_review_and_names_its_code(
+    store_conn, relationships, monkeypatch, error, code
+):
+    """The evidence search fails: the error's code, no draft, review or thread, records kept."""
+    # The world's week has a squat session, so the training topic is searched (AC-30).
+    if isinstance(error, IndexNotReadyError):
+        open_index = _raise(error)
+    else:
+        # The SDK's timeout, raised by the embeddings, is mapped by llm.mapped_errors().
+        monkeypatch.setattr(review, "embed_queries", _raise(error))
+        open_index = _stand_in_index
+    before = _records(store_conn)
+    stream = io.StringIO()
+    observability.configure_logging(stream=stream)
+    model = _model(_draft())
+    result = _start(_context(model, open_index=open_index))
+    assert (result.outcome, result.error_code) == ("error", code)
+    assert model.calls == []
+    assert _stored(store_conn) == [] and _threads() == set()
+    assert _records(store_conn) == before
+    [line] = [json.loads(text) for text in stream.getvalue().splitlines()]
+    assert (line["event"], line["code"], line["kind"]) == ("llm_error", code, "weekly_review")
 
 
 def test_a_missing_key_ends_the_run_with_its_fixed_message(store_conn, relationships):

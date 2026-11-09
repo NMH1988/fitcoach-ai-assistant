@@ -11,8 +11,8 @@ from datetime import date
 import pytest
 from streamlit.testing.v1 import AppTest
 
-from src import config, llm, metrics
-from src.agent import review
+from src import config, i18n, llm, metrics
+from src.agent import review, review_threads
 from src.store import db, reviews, users
 from tests.fakes import ScriptedTranslator
 from tests.test_app_account import PROFILE, USER_ID, signed_in, start, store_account
@@ -193,6 +193,24 @@ def test_a_clean_edit_is_released_as_edited(monkeypatch, coach_world):
         [seen] = reviews.list_reviews(conn, ALEX, ALEX)
     assert seen["edited_by_coach"] is True
     assert seen["final"]["observations"][0]["text"] == "Three days logged; ask about the weekend."
+
+
+def test_edit_on_a_pending_review_with_no_run_says_gone(monkeypatch, coach_world):
+    """Its thread lost, Edit then Approve my edit says "gone" and nothing is stored or released."""
+    at = _drafted(monkeypatch, GOOD)
+    [row] = _stored()
+    with review_threads.open_saver(config.STORE_PATH) as saver:
+        review_threads.delete_threads(saver, [row["thread_id"]])
+    at = _edit(at, "Three days logged; ask about the weekend.")
+    gone = i18n.TEXT["en"]["review.outcome.gone"]
+    assert gone in [item.value for item in at.main.warning]
+    # The form is closed and the draft waits as before: Reject is still the way out.
+    assert {"Approve", "Edit", "Reject"} <= set(_labels(at))
+    assert _stored() == [row]
+    with db.connect() as conn:
+        assert reviews.list_reviews(conn, ALEX, ALEX) == []
+        decisions = "SELECT count(*) FROM audit_log WHERE action <> 'read'"
+        assert conn.execute(decisions).fetchone()[0] == 0
 
 
 @pytest.mark.parametrize(

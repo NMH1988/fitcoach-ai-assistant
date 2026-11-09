@@ -11,7 +11,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 from streamlit.util import calc_hash
 
-from src import account, metrics
+from src import account, dashboard, metrics
 from src.store import db, records, reviews, users
 from tests.test_app_account import PROFILE, USER_ID, signed_in, start, store_account, texts
 from tests.test_app_sharing import open_page
@@ -275,6 +275,37 @@ def test_a_relationship_ended_after_the_pick_shows_nothing(monkeypatch, coach_wo
     assert at.selectbox(key=client_week.PICK_KEY).options == ["Bo"]
     assert "days logged" not in texts(at)
     assert _audit_subjects() == set()
+
+
+def test_a_relationship_ended_between_the_pick_and_the_read_shows_the_gone_line(
+    monkeypatch, coach_world
+):
+    """The week read's NotFound shows the gone line and nothing of the client's; then no pick."""
+    at = _client_week(monkeypatch, chosen=ALEX)
+    with db.connect() as conn:
+        [relationship] = [
+            row for row in users.list_relationships(conn, ALEX) if row["status"] == "active"
+        ]
+        conn.execute("DELETE FROM audit_log")
+    real = dashboard.client_week
+    ended = []
+
+    def ended_first(conn, coach_id, client_id, monday):
+        """End Alex's relationship once, after the picker's read, then read the week as the page."""
+        if not ended:
+            users.end_relationship(conn, ALEX, relationship["id"])
+            ended.append(True)
+        return real(conn, coach_id, client_id, monday)
+
+    monkeypatch.setattr(dashboard, "client_week", ended_first)
+    at.run(timeout=30)
+    page = texts(at)
+    assert "This client is no longer your active client." in page
+    assert "days logged" not in page
+    assert not at.get("vega_lite_chart")
+    assert _audit_subjects() == set()
+    at.run(timeout=30)  # the next run no longer offers them
+    assert at.selectbox(key=client_week.PICK_KEY).options == ["Bo"]
 
 
 def test_a_coach_with_no_active_client_is_told_how_to_get_one(monkeypatch):

@@ -222,6 +222,35 @@ def test_a_store_error_on_save_shows_one_fixed_message_and_keeps_the_draft(gymer
     assert len(gymer.dataframe) == 1  # the draft is kept
 
 
+def test_a_workout_the_store_refuses_shows_the_not_saved_line(gymer):
+    """A set the store refuses (an exercise taken off the list): the fixed line, nothing stored."""
+    _add_set(gymer, "squat", 5, 100.0, None)
+    [drafted] = gymer.session_state[workouts.DRAFT_KEY]
+    gymer.session_state[workouts.DRAFT_KEY] = [{**drafted, "exercise_id": "retired_exercise"}]
+    button(gymer, "Save workout").click().run(timeout=30)
+    assert not gymer.exception
+    errors = [item.value for item in gymer.error]
+    assert errors == ["The workout could not be saved: check the values and try again."]
+    assert _stored() == []
+    assert len(gymer.dataframe) == 1  # the draft is kept, to be fixed
+
+
+def test_editing_a_workout_deleted_in_another_tab_shows_the_gone_line(gymer):
+    """Save changes on a workout deleted elsewhere: the fixed line; the draft stays as a new one."""
+    session_id = _stored_workout(records.ExerciseSet("squat", 1, 5, 100.0))
+    gymer.run(timeout=30)
+    button(gymer, "Edit").click().run(timeout=30)
+    with db.connect() as conn:
+        records.delete_record(conn, USER_ID, "workout_sessions", session_id)
+    button(gymer, "Save changes").click().run(timeout=30)
+    assert not gymer.exception
+    errors = [item.value for item in gymer.error]
+    assert errors == ["This workout no longer exists (it was deleted). Log it as a new one."]
+    assert _stored() == []
+    assert workouts.EDITING_KEY not in gymer.session_state
+    assert not button(gymer, "Save workout").disabled  # the draft can be logged as a new workout
+
+
 def test_a_coach_has_no_workouts_page(monkeypatch):
     """A coach keeps no records, so the Workouts URL shows the coach's home, the chat."""
     store_account("coach")
