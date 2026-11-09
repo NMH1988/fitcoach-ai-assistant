@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-09 · T8.6 A manually started live evaluation workflow · PR to be opened (closes NMH1988/fitcoach-ai-assistant#4, the copy of #95)
+## 2026-11-09 · T8.6 A manually started live evaluation workflow · NMH1988/fitcoach-ai-assistant#93 (closes NMH1988/fitcoach-ai-assistant#4, the copy of #95)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): the Sprint 2 review, point 5 (evaluation is manual and not part of the development loop); Sprint 2 (`docs/BRIEF.md`): Hard 7 (RAG evaluation), which anyone with write access can now rerun against the baseline.
 - **What:**
   - `.github/workflows/eval.yml` (new): only `workflow_dispatch`, with a read-only token and two closed inputs (`questions`: nutrition or training, each against its own baseline; `repeat`: 3, 1 or 5). The steps download the sources through the Europe PMC REST API, build the index fresh, run `scripts/run_evaluation.py`, upload the results `.json` (30 days, never the `.md` report), then run `scripts/check_eval_baseline.py`. The upload and the check also run when the evaluation step failed. The key `OPENROUTER_API_KEY_EVAL` reaches only the index build and the evaluation, as `OPENROUTER_API_KEY`. Actions are pinned by commit (checkout v7.0.1, setup-python v7.1.0, upload-artifact v7.0.2), the checkout keeps no token, one run at a time, a 90-minute limit.
