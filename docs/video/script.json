@@ -1,0 +1,127 @@
+{
+  "about": "T9.28's presentation video: the script the owner approved on 2026-11-09 (draft 1, with changes the owner approved the same day: after code review round 1, the clients scene's sentence on the audit log and Piper's licence in the credits as GPL-3.0-or-later; after compliance run 1, the app's own log lines in the last scene and USDA FoodData Central in the credits; then the opening calls it a personal portfolio project, without naming a course). Each scene shows a title card or the demo's screenshots; 'shows' pairs a screenshot with the sentence it starts at. The sentences are the narration and the subtitles. scripts/make_video.py builds the video from it; tests/test_video_script.py checks what it must and must not say.",
+  "scenes": [
+    {
+      "id": "opening",
+      "card": [
+        "Fitcoach AI Assistant",
+        "A coach-first workspace with an AI agent",
+        "Demo mode: made-up users and data. Synthetic voice."
+      ],
+      "narration": [
+        "This is Fitcoach AI Assistant, a personal portfolio project.",
+        "You are hearing a synthetic voice.",
+        "Everything you see runs locally, in the app's demo mode, with made-up users and data."
+      ]
+    },
+    {
+      "id": "problem",
+      "card": [
+        "The problem",
+        "Coaches collect logs by hand and answer the same questions",
+        "Clients get advice with no source behind it"
+      ],
+      "narration": [
+        "Coaches who work with recreational lifters spend a lot of time collecting what their clients eat and train, and answering the same nutrition questions.",
+        "Clients often get advice with no source behind it.",
+        "Fitcoach gives the coach one workspace.",
+        "Clients log their own food, weight and workouts.",
+        "An AI agent answers from open-licensed sports nutrition research.",
+        "And the coach stays in charge of what the client is told."
+      ]
+    },
+    {
+      "id": "chat",
+      "shows": [["chat-frames", 0], ["chat", 4]],
+      "narration": [
+        "Here the demo coach asks how much protein a day helps build muscle.",
+        "The answer is written by an AI model.",
+        "The agent first decides whether to search the research at all.",
+        "Here it searches, and the answer cites the passages it used, as S1, S2 and so on.",
+        "Under Sources, each cited article is listed with its authors, year, journal and licence.",
+        "When the sources do not cover a question, the app says so instead of guessing.",
+        "The chat also has tools for personal numbers, such as energy needs, macro targets and the nutrients of a food."
+      ]
+    },
+    {
+      "id": "clients",
+      "shows": [["clients", 0]],
+      "narration": [
+        "On the Clients page, the coach sees each client's week at a glance, with a flag for whom to follow up.",
+        "The client decides what to share: body data, nutrition, training, or nothing.",
+        "That rule is checked in the data store itself, not only on the page, and when the coach opens a client's data, the read is recorded in a log that the client can see too."
+      ]
+    },
+    {
+      "id": "client-week",
+      "shows": [["client-week", 0]],
+      "narration": [
+        "Client week shows one client's logged days, calories against the target, and macros, from what the client shares."
+      ]
+    },
+    {
+      "id": "review",
+      "shows": [["review", 0], ["review-decide", 2], ["review-approved", 3]],
+      "narration": [
+        "At the end of a week, the coach asks the agent to draft a weekly review.",
+        "The agent reads the week's numbers and the research, then stops and waits.",
+        "The draft is made by an AI model, and it goes nowhere until the coach approves, edits or rejects it.",
+        "The client sees a review only after the coach has approved it."
+      ]
+    },
+    {
+      "id": "client-side",
+      "shows": [["today", 0], ["my-week", 3], ["notifications", 4]],
+      "narration": [
+        "Now the demo client.",
+        "Clients have no AI chat.",
+        "On Today they log food from the USDA food table, and their weight.",
+        "My week shows the same week, with the approved review, labelled as an AI draft approved by the coach.",
+        "Notifications say what changed, such as an approved review, without repeating its text."
+      ]
+    },
+    {
+      "id": "under-the-hood",
+      "card": [
+        "Under the hood",
+        "LangGraph agent with tool calling",
+        "Hybrid search over open-licensed research",
+        "Input guards and domain guardrails",
+        "App logs with no personal data",
+        "Evaluation against a committed baseline",
+        "Python, LangChain, Streamlit"
+      ],
+      "narration": [
+        "Under the hood, it is a LangGraph agent with tool calling, hybrid search over open-licensed research articles, input guards against prompt injection, and domain guardrails such as a calorie floor.",
+        "The app's own log lines hold no personal data, and its answers are evaluated against a committed baseline.",
+        "It is built with Python, LangChain and Streamlit."
+      ]
+    },
+    {
+      "id": "closing",
+      "card": [
+        "Fitcoach AI Assistant",
+        "General information for healthy adults. Not medical advice.",
+        "github.com/NMH1988/fitcoach-ai-assistant"
+      ],
+      "narration": [
+        "Fitcoach gives general information for healthy adults.",
+        "It is not medical advice.",
+        "The code and the documentation are on GitHub.",
+        "Thanks for watching."
+      ]
+    },
+    {
+      "id": "credits",
+      "card": [
+        "Credits",
+        "Narration: a synthetic voice made offline with Piper text-to-speech (GPL-3.0-or-later), voice en_US-ljspeech (high), trained on the LJ Speech dataset (public domain).",
+        "Research sources and USDA FoodData Central data, with their credits and licences: https://github.com/NMH1988/fitcoach-ai-assistant/blob/main/ATTRIBUTION.md",
+        "Title font: DejaVu Sans.",
+        "Made-up users and data. No author, journal, organisation or service named in the app is affiliated with or endorses it."
+      ],
+      "seconds": 8,
+      "narration": []
+    }
+  ]
+}

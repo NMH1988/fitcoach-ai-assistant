@@ -29,11 +29,11 @@ The app runs locally; it is not deployed. These screenshots come from its demo m
 
 <table>
 <tr>
-<td width="50%"><img src="docs/media/chat.jpg" alt="The demo coach's chat: the end of an answer about daily protein with citations such as [S3, S4], and the open Sources list with an article's title, authors, journal, year and CC BY 4.0 licence"><br><sub>The coach's chat: answers cite the research they use, listed under Sources.</sub></td>
+<td width="50%"><img src="docs/media/chat.jpg" alt="The demo coach's chat: the end of an answer about daily protein with numbered citations such as [S2, S3], and the open Sources list with an article's title, authors, journal, year and CC BY 4.0 licence"><br><sub>The coach's chat: answers cite the research they use, listed under Sources.</sub></td>
 <td width="50%"><img src="docs/media/clients.jpg" alt="The Clients page of the demo coach: a table with the made-up client Demo gymer Sam, since when, a follow-up flag for few days logged, this week's logged days and average kcal against the target"><br><sub>Clients: each client's week at a glance, with a flag for whom to follow up.</sub></td>
 </tr>
 <tr>
-<td><img src="docs/media/client-week.jpg" alt="Client week for Demo gymer Sam, 2026-11-02 to 2026-11-08: 6 of 7 days logged, a bar chart of kcal per day against a dashed target line with Thursday not logged, and the average macros against their targets"><br><sub>Client week: one client's logged days and intake against the target, from what the client shares.</sub></td>
+<td><img src="docs/media/client-week.jpg" alt="A client's week, 2026-11-02 to 2026-11-08: 6 of 7 days logged, a bar chart of kcal per day against a dashed target line with Thursday not logged, the average macros against their targets, and the latest weight"><br><sub>Client week: one client's logged days and intake against the target, from what the client shares.</sub></td>
 <td><img src="docs/media/review.jpg" alt="A weekly review drafted by an AI model for the coach: observations, possible reasons and recommendations with sources, and the buttons Approve, Edit and Reject"><br><sub>A weekly review drafted by an AI model: the coach approves, edits or rejects it; the client sees it only once approved.</sub></td>
 </tr>
 <tr>

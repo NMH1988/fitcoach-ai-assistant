@@ -85,6 +85,35 @@ def test_a_missing_tool_starts_nothing(monkeypatch, tmp_path):
     assert not (tmp_path / "capture").exists()
 
 
+def test_the_readme_capture_needs_ffmpeg_and_the_video_capture_does_not(monkeypatch, tmp_path):
+    """The GIF needs FFmpeg; the video's capture checks only the browser (T9.28)."""
+    monkeypatch.setitem(sys.modules, "playwright", None)
+    monkeypatch.setattr(capture_media, "OUTPUT_ROOT", tmp_path / "capture")
+    tool = tmp_path / "tool.exe"
+    tool.write_text("")
+    assert capture_media.main(["--browser", str(tool)]) == 2
+    missing = str(tmp_path / "missing.exe")
+    assert capture_media.main(["--video", "--browser", missing]) == 2
+    assert not (tmp_path / "capture").exists()
+
+
+def test_the_video_screenshots_are_the_video_size():
+    """The screenshots are 1920 by 1080 at 100%, the video's size, in light mode, no worker."""
+    from scripts import make_video
+
+    options = capture_media.context_options()
+    assert (options["viewport"]["width"], options["viewport"]["height"]) == make_video.SIZE
+    assert "device_scale_factor" not in options
+    assert options["service_workers"] == "block" and options["color_scheme"] == "light"
+
+
+def test_the_refused_draft_words_are_the_apps_own():
+    """The capture tells a refused draft by the app's English message, so the two must match."""
+    from src import i18n
+
+    assert capture_media.REFUSED_DRAFT in i18n.TEXT["en"]["review.outcome.invalid"]
+
+
 def test_playwright_is_imported_only_where_the_browser_starts():
     """No top-level import of Playwright, so the script's tests run in CI without it."""
     tree = ast.parse(SCRIPT.read_text(encoding="utf-8"))
