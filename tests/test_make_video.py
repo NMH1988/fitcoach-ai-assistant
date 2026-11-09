@@ -110,10 +110,11 @@ def test_a_wrong_capture_or_a_missing_tool_starts_nothing(monkeypatch, tmp_path,
 FAILURES = [
     lambda command: make_video.subprocess.CalledProcessError(1, command, stderr="voice not loaded"),
     lambda command: make_video.subprocess.TimeoutExpired(command, 1, stderr="voice not loaded"),
+    lambda command: make_video.subprocess.TimeoutExpired(command, 1, stderr=b"voice not loaded"),
 ]
 
 
-@pytest.mark.parametrize("failure", FAILURES, ids=["exit", "timeout"])
+@pytest.mark.parametrize("failure", FAILURES, ids=["exit", "timeout", "timeout-bytes"])
 def test_a_piper_failure_shows_its_message_and_stops(monkeypatch, tmp_path, capsys, failure):
     """Piper's stderr is printed on a failed exit or a timeout, and the error raised again."""
     root = tmp_path / "capture"

@@ -449,7 +449,11 @@ def main(args: Sequence[str] | None = None) -> int:
                 )
             except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
                 # Piper's own messages (it is given no key or secret), so a failure can be read.
-                print(exc.stderr or "", file=sys.stderr)
+                # A timeout's stderr is bytes outside Windows, even with text=True.
+                message = exc.stderr or ""
+                if isinstance(message, bytes):
+                    message = message.decode("ascii", errors="replace")
+                print(message, file=sys.stderr)
                 raise
             clips[(scene_index, sentence_index)] = clip
         if scene.card:
