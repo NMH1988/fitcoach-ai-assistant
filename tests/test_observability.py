@@ -845,6 +845,11 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
     questions.list_questions(conn, "CANARY-COACH", "CANARY-GYM")
     questions.list_questions(conn, "CANARY-GYM", "CANARY-GYM")
     questions.askable_reviews(conn, "CANARY-GYM")
+    # T9.30: the threads' events behind the question notifications, audited and not.
+    questions.list_question_events(conn, "CANARY-COACH", "CANARY-GYM")
+    questions.list_question_events(conn, "CANARY-COACH", "CANARY-COACH", audited=False)
+    questions.list_question_events(conn, "CANARY-COACH", "CANARY-COACH")
+    questions.list_question_events(conn, "CANARY-GYM", "CANARY-GYM")
     for bad in (
         lambda: records.add_body_measurement(
             conn, "CANARY-GYM", weight_kg=-87.3, measured_on=date(2026, 10, 26)
@@ -925,6 +930,8 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
         lambda: questions.ask_question(conn, "other-gym", review, "CANARY-QUESTION other"),
         lambda: questions.ask_question(conn, "CANARY-GYM", review, "CANARY-QUESTION " * 100),
         lambda: questions.answer_question(conn, "CANARY-COACH", review, "CANARY-ANSWER again"),
+        # T9.30: a coach's question notifications of someone not their client.
+        lambda: questions.list_question_events(conn, "CANARY-COACH", "other-gym", audited=False),
     ):
         try:
             bad()
@@ -940,6 +947,7 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
     users.end_relationship(conn, "CANARY-NEW", relationship_new)
     for user_id in ("CANARY-COACH", "CANARY-GYM", "CANARY-NEW"):
         notifications.list_notifications(conn, user_id)
+        notifications.list_notifications(conn, user_id, audited=True)  # the page's read (T9.30)
         notifications.mark_all_read(conn, user_id)
         notifications.list_notifications(conn, user_id)
     my_data.export_user_data(conn, "CANARY-GYM")
@@ -957,8 +965,9 @@ def test_no_record_or_error_holds_a_stored_value(store_conn, caplog):
     codes: list[str] = []
     errors = _store_scenario(store_conn, codes)
     # Each kind of refusal happened, so their messages were checked.
-    # T9.7: a gymer's preference is refused; T9.17: two targets; T9.25: three refused thread writes.
-    assert len(errors) == 3 + 6 + 9 + 1 + 2 + 3
+    # T9.7: a gymer's preference is refused; T9.17: two targets; T9.25: three refused thread writes;
+    # T9.30: one refused read of a client's question notifications.
+    assert len(errors) == 3 + 6 + 9 + 1 + 2 + 3 + 1
     texts = [stream.getvalue(), caplog.text, *(str(e) for e in errors), *(repr(e) for e in errors)]
     # The two refused codes were logged, by reason only (T9.12).
     assert stream.getvalue().count('"event": "invite_refused"') == 2

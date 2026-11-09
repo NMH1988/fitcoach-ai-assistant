@@ -31,6 +31,10 @@ READS = {
     "list_reviews": (reviews.list_reviews, "nutrition"),
     # T9.25: the threads under the reviews, by their rule (tests/test_store_questions.py).
     "list_questions": (questions.list_questions, "nutrition"),
+    # T9.30: the threads' events behind the question notifications, by the same rule; audited by
+    # default, so the matrix below checks its audit row (tests/test_store_question_notifications.py
+    # checks the coach's own list and the sidebar's unaudited read).
+    "list_question_events": (questions.list_question_events, "nutrition"),
 }
 # (actor, subject) pairs that must give NotFound for every read function.
 REFUSED = {
@@ -75,7 +79,10 @@ OWN_ONLY = {
     "questions.askable_reviews",
     # T9.29: the user's own notifications, from their own relationships, the scope history both
     # sides see and the approved reviews about a gymer; not audited (owner's choice, 2026-11-06).
-    # Their isolation is tested in tests/test_store_notifications.py.
+    # Their isolation is tested in tests/test_store_notifications.py. From T9.30 they also hold the
+    # questions and answers, read through questions.list_question_events (in READS, so in the
+    # matrix); a coach's read is audited only with audited=True, which only the Notifications page
+    # passes, never the sidebar's count or the toasts (the middle way, owner's choice, 2026-11-08).
     "notifications.list_notifications",
 }
 WRITES = {
@@ -290,6 +297,18 @@ def test_every_refused_read_gives_the_same_not_found_and_no_audit(
     with pytest.raises(access.NotFound) as caught:
         function(store_conn, actor, subject)
     assert type(caught.value) is access.NotFound
+    assert str(caught.value) == "not found"
+    assert _audit_rows(store_conn) == []
+
+
+@pytest.mark.parametrize("case", REFUSED)
+def test_the_unaudited_question_events_read_is_refused_the_same_way(
+    store_conn, relationships, case
+):
+    """T9.30: the sidebar's unaudited read is refused exactly where the audited one is."""
+    actor, subject = REFUSED[case]
+    with pytest.raises(access.NotFound) as caught:
+        questions.list_question_events(store_conn, actor, subject, audited=False)
     assert str(caught.value) == "not found"
     assert _audit_rows(store_conn) == []
 
