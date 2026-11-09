@@ -14,7 +14,8 @@ How to build the video again (`docs/TESTING.md`, "Presentation video (T9.28)", h
 2. Install Piper outside the repo, in a virtual environment of its own, with the voice beside it,
    as `docs/SOURCES.md` records (never into the project's `.venv`).
 3. Run `python -m scripts.make_video --capture data/capture/<time> --piper <piper.exe>
-   --voice <en_US-ljspeech-high.onnx> --ffmpeg <ffmpeg.exe>` (full paths for the tools).
+   --voice <en_US-ljspeech-high.onnx> --ffmpeg <ffmpeg.exe>` (full paths for the tools), in a
+   shell without `OPENROUTER_API_KEY` set, as Piper and FFmpeg inherit its environment.
 4. Watch the whole video before it is uploaded; it stays in `data/capture/` and is never committed.
 """
 
@@ -441,13 +442,14 @@ def main(args: Sequence[str] | None = None) -> int:
                     input=text + "\n",
                     text=True,
                     encoding="ascii",
+                    errors="replace",
                     capture_output=True,
                     check=True,
                     timeout=PIPER_TIMEOUT_SECONDS,
                 )
-            except subprocess.CalledProcessError as exc:
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
                 # Piper's own messages (it is given no key or secret), so a failure can be read.
-                print(exc.stderr, file=sys.stderr)
+                print(exc.stderr or "", file=sys.stderr)
                 raise
             clips[(scene_index, sentence_index)] = clip
         if scene.card:

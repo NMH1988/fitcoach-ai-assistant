@@ -107,8 +107,15 @@ def test_a_wrong_capture_or_a_missing_tool_starts_nothing(monkeypatch, tmp_path,
     assert not (root / "run" / "video").exists()
 
 
-def test_a_piper_failure_shows_its_message_and_stops(monkeypatch, tmp_path, capsys):
-    """Piper's stderr is printed and its error raised again; each call has a timeout."""
+FAILURES = [
+    lambda command: make_video.subprocess.CalledProcessError(1, command, stderr="voice not loaded"),
+    lambda command: make_video.subprocess.TimeoutExpired(command, 1, stderr="voice not loaded"),
+]
+
+
+@pytest.mark.parametrize("failure", FAILURES, ids=["exit", "timeout"])
+def test_a_piper_failure_shows_its_message_and_stops(monkeypatch, tmp_path, capsys, failure):
+    """Piper's stderr is printed on a failed exit or a timeout, and the error raised again."""
     root = tmp_path / "capture"
     run = root / "run"
     (run / "frames").mkdir(parents=True)
@@ -123,15 +130,16 @@ def test_a_piper_failure_shows_its_message_and_stops(monkeypatch, tmp_path, caps
     def failing_run(command, **kwargs):
         """Fail as Piper does, with a made-up message."""
         calls.append(kwargs)
-        raise make_video.subprocess.CalledProcessError(1, command, stderr="voice not loaded")
+        raise failure(command)
 
     monkeypatch.setattr(make_video.subprocess, "run", failing_run)
     args = ["--capture", str(run), "--piper", str(tool), "--voice", str(tool)]
     args += ["--ffmpeg", str(tool)]
-    with pytest.raises(make_video.subprocess.CalledProcessError):
+    with pytest.raises(make_video.subprocess.SubprocessError):
         make_video.main(args)
     assert "voice not loaded" in capsys.readouterr().err
     assert calls[0]["timeout"] == make_video.PIPER_TIMEOUT_SECONDS
+    assert calls[0]["errors"] == "replace"  # a non-ASCII byte from Piper cannot fail the build
     assert len(calls) == 1  # nothing else runs after the failure
 
 
