@@ -272,6 +272,9 @@ def test_the_fixture_questions_and_recorded_rates_are_well_formed(suite, questio
     assert len({question.id for question in questions}) == len(questions)
     for question in questions:
         assert set(question.expected) <= ids, question.id
+        # A typo here would show up as a missed or stray chunk, not as a fixture error.
+        assert set(question.known_missed) <= set(question.expected), question.id
+        assert question.only_topic is None or question.only_topic in config.TOPICS, question.id
     # Both rates need questions to count: some with expected chunks, some off topic.
     assert any(question.expected for question in questions)
     assert any(not question.expected for question in questions)
@@ -349,6 +352,7 @@ def test_a_retry_that_searches_everything_lets_a_nutrition_chunk_into_the_traini
     """Breaking the training retry (it falls through to an unfiltered search) fails the suite."""
     # No plan's topic is the training topic any more, and the nutrition-only retry filters
     # nothing, so a training-only plan whose filter found nothing is searched over everything.
+    # The stray chunk is then 6-0, which BM25 finds through the rewrite's word "time".
     monkeypatch.setattr(config, "TRAINING_TOPIC", "not_a_topic")
     monkeypatch.setattr(chat, "_NUTRITION_ONLY", None)
     scores = run_suite(fixture_index, questions)
