@@ -29,7 +29,7 @@ dependencies = [
     # github.com/langchain-ai/langsmith-sdk and the wheel's metadata, checked 2026-11-06).
     "langsmith==0.14.12",
     # Used directly by src/llm.py (its error classes); its retry policy is what the tests pin.
-    "openai==3.35.1",
+    "openai==3.46.0",
     "pydantic==2.14.1",
     "rank-bm25==0.2.2",
     "rapidfuzz==3.14.6",
