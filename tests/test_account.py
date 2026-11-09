@@ -287,8 +287,9 @@ def test_the_demo_fixture_seeds_its_users_and_records(store_conn):
     assert len(records.list_body_measurements(store_conn, coach, sam)) == 2
     assert records.list_targets(store_conn, coach, sam)
     meals = records.list_meal_items(store_conn, coach, sam)  # T9.13: Sam's made-up diary
-    assert len(meals) == len(demo.MEALS)
-    assert len({meal["consumed_on"] for meal in meals}) == 3
+    today = account.today().isoformat()
+    todays = [meal for meal in demo.MEALS if meal[0] == 0]
+    assert len([meal for meal in meals if meal["consumed_on"] == today]) == len(todays)
     with pytest.raises(NotFound):
         records.list_workout_sessions(store_conn, coach, sam)  # training is not shared
     with pytest.raises(NotFound):
@@ -302,8 +303,38 @@ def test_the_demo_gymer_has_workouts(store_conn):
     demo.seed(store_conn)
     sam, kim = demo.SHARING_GYMER.id, demo.OTHER_GYMER.id
     sessions = records.list_workout_sessions(store_conn, sam, sam)
-    assert [len(session["sets"]) for session in sessions] == [3, 3]
+    assert all(len(session["sets"]) == 3 for session in sessions)
+    assert len(sessions) >= len(demo.LAST_WEEK_WORKOUTS) + 1  # today's, and last week's (T9.27)
     assert records.list_workout_sessions(store_conn, kim, kim) == []
+
+
+@pytest.mark.parametrize("days_ago", range(7))
+def test_the_demo_gymer_has_a_full_last_week_on_any_weekday(store_conn, monkeypatch, days_ago):
+    """Last week: a day plan on every day but Thursday, three workouts, a target (T9.27)."""
+    # Seeding as if today were each weekday in turn: on a Monday or Tuesday the recent records'
+    # earlier days would fall in last week, so they are left out there.
+    today = account.today() - timedelta(days=days_ago)
+    monkeypatch.setattr(demo.account, "today", lambda: today)
+    demo.seed(store_conn)
+    sam = demo.SHARING_GYMER.id
+    this_monday = today - timedelta(days=today.weekday())
+    last_monday = this_monday - timedelta(days=7)
+    last_week = {(last_monday + timedelta(days=offset)).isoformat() for offset in range(7)}
+    by_day: dict[str, list[tuple[str, float]]] = {}
+    for meal in records.list_meal_items(store_conn, sam, sam):
+        by_day.setdefault(meal["consumed_on"], []).append((meal["food_name"], meal["grams"]))
+    plans = [sorted((food, grams) for _meal, food, grams in plan) for plan in demo.DAY_PLANS]
+    logged = sorted(day for day in by_day if day in last_week)
+    assert len(logged) == len(demo.LAST_WEEK_DAYS)
+    assert all(sorted(by_day[day]) in plans for day in logged)
+    assert (last_monday + timedelta(days=3)).isoformat() not in by_day  # no Thursday
+    assert all(day >= this_monday.isoformat() for day in by_day if day not in last_week)
+    sessions = records.list_workout_sessions(store_conn, sam, sam)
+    days = [session["performed_on"] for session in sessions]
+    assert len(days) == len(set(days))  # never two sessions on one day
+    assert len([day for day in days if day in last_week]) == len(demo.LAST_WEEK_WORKOUTS)
+    targets = records.list_targets(store_conn, sam, sam)
+    assert min(target["effective_from"] for target in targets) < last_monday.isoformat()
 
 
 def test_the_demo_users_are_made_up():
