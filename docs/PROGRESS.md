@@ -17,6 +17,18 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-11-09 · T8.6 The live evaluation workflow's first dispatched run · PR to be opened (closes NMH1988/fitcoach-ai-assistant#95)
+- **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): the Sprint 2 review, point 5; Sprint 2 (`docs/BRIEF.md`): Hard 7 (RAG evaluation).
+- **What:** docs only. `docs/TESTING.md`: a section "Live evaluation workflow, first run (T8.6)" (the run's link, its steps, the index counts, the rates against T8.4's baseline, the misses, the cost, the artifact, the review of the log) and a row in "Live checks"; the CI paragraph points to it instead of a cost still to come. `docs/IMPLEMENTATION_PLAN.md`: T8.6's criteria 2-4 ticked with that evidence, T8.6 and O11 done. A missing blank line before T8.5's entry here put back (code review round 4 of NMH1988/fitcoach-ai-assistant#93).
+- **Why:** T8.6 merged with its dispatched run still to come (GitHub offers a `workflow_dispatch` workflow only on the default branch); this records that run, closing its follow-up issue.
+- **Decisions & gotchas:**
+  - The owner's run, 2026-11-09, on `main` at 1cf566b (run 42602414526, nutrition, 3 askings): every step passed in about 20 minutes; found 0.7843 and cited 0.7647 (exit 0), each about 0.02 above its lowest allowed rate; $0.0956 for the evaluation's 940,939 tokens; 2302 chunks from 31 sources (T9.19's build had 2304, not looked into).
+  - Claude reviewed the log (the key only as `***`, no `sk-or` string, no question, answer or chunk text) and the artifact (one `.json` of IDs and counts), downloaded into the gitignored `data/eval_runs/`.
+  - The index build's embedding cost is not printed by the scripts (langchain returns no embedding token use), so the recorded cost is the evaluation's; the key's usage page shows the whole run.
+  - The repository's only collaborator is the owner (admin), as `docs/SECURITY.md` says (checked 2026-11-09 with the collaborators API; code review rounds 3 and 4 had asked).
+  - The page checks compliance run 1 named for the owner (GitHub's Actions terms, Europe PMC's REST API terms, OpenRouter's terms and provider settings, artifact visibility) are the owner's and are not recorded here.
+- **Follow-ups:** none for T8.6. A new nutrition baseline (with the `index` field, so the check's note goes away) can be taken whenever the owner chooses; the training set has not been run through the workflow yet.
+
 ## 2026-11-09 · T8.6 A manually started live evaluation workflow · NMH1988/fitcoach-ai-assistant#93 (closes NMH1988/fitcoach-ai-assistant#4, the copy of #95)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): the Sprint 2 review, point 5 (evaluation is manual and not part of the development loop); Sprint 2 (`docs/BRIEF.md`): Hard 7 (RAG evaluation), which anyone with write access can now rerun against the baseline.
 - **What:**
@@ -37,6 +49,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
   - Code review round 2 (uncommitted tree after compliance run 1's fix): ready to merge, five nits, taken in 298214e (PROGRESS and plan status wording, a `CLAUDE.md` command that can be pasted, a test for a chunk with no `source_id`, the download step's lines in SECURITY). 298214e is the tree round 2 reviewed plus those nits; round 1 and compliance run 1 each reviewed an earlier tree.
   - Code review round 3 (the whole PR at 9fb70db): needs changes in the PR description only (it still called the follow-up issue to be created, misdescribed which tree each review saw, and gave round 2's test count), plus four doc nits: the cost with 5 askings, TESTING's cost "recorded below" before any run, rounds 2 and 3 missing here, and the plan's T8.6 heading naming two different "#95" issues. All fixed with the merge of `main` (T8.5); full suite 6366 passed, 9 skipped on 9fb70db.
 - **Follow-ups:** O11 (the owner creates the key and the secret), then one run on `main` (`gh workflow run eval.yml`), and a docs PR, closing the follow-up issue for the dispatched run (NMH1988/fitcoach-ai-assistant#95, created with the owner's approval on 2026-11-09), that links it in `docs/TESTING.md` with its cost and the review of its log (criteria 2-4), and marks T8.6 done.
+
 ## 2026-11-09 · T8.5 An offline retrieval regression suite in CI · NMH1988/fitcoach-ai-assistant#92 (closes NMH1988/fitcoach-ai-assistant#3, the copy of #94)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): the Sprint 2 review, point 5 (evaluation is manual and not part of the development loop: an offline retrieval suite in ordinary CI); Sprint 2 (`docs/BRIEF.md`): Hard 7 (RAG evaluation), which now runs on every PR, and Hard 1 (hybrid search), which it guards.
 - **What:**
