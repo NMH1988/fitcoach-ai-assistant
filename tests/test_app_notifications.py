@@ -222,7 +222,7 @@ def test_a_guest_has_no_bell_and_no_page(monkeypatch):
 def test_a_store_error_leaves_the_page_working_without_the_bell(monkeypatch, coach_world):
     """Criterion 5: one fixed message, never the error's text; the rest of the page works."""
 
-    def failing(conn, user_id):
+    def failing(conn, user_id, **kwargs):
         """Fail as a broken store file does."""
         raise sqlite3.OperationalError("CANARY C:/private/fitcoach.sqlite3 is locked")
 

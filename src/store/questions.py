@@ -12,6 +12,12 @@ the next question, at most `config.REVIEW_THREAD_MAX_QUESTIONS` per review; ther
 delete of one row (rows are never changed in place; "delete everything" removes them). A coach's
 read is audited by `authorised_read()` and an answer writes a `review_answered` audit row, both
 without the text. The text is never sent to a model and is shown as plain text (views/questions.py).
+
+The notifications of a new question or answer (T9.30) read the same threads by the same rule
+through `list_question_events()`, which returns only IDs, the week and the time, never the text.
+A coach's read of one client is always audited; the coach's own list is audited only when the
+caller says so: the Notifications page does, the sidebar's count and the toasts, which run on
+every page, do not (the middle way, owner's choice, 2026-11-08).
 """
 
 import sqlite3
@@ -39,7 +45,7 @@ INSERT INTO review_questions (review_id, author_id, kind, text, created_at) VALU
 # The review's sharing rule (nutrition and every scope in ai_review_scopes, from open_shares) is
 # written out in each query below, as in reviews._WRITTEN_ABOUT and _WRITTEN_FOR_SHARED and
 # my_data._COACH_QUESTIONS: a read cannot call another store function inside its transaction, so a
-# change to the rule changes all of them (code review round 1).
+# change to the rule changes all of them (code review round 1), the notifications' three below too.
 # The threads a coach reads about one client, after access.authorise_read() allowed nutrition:
 # those under the approved reviews they wrote whose every scope the client still shares.
 _OF_COACH_ABOUT = """
@@ -88,6 +94,54 @@ FROM review_questions AS question
 JOIN ai_reviews AS review ON review.id = question.review_id
 WHERE review.client_id = ? AND review.status = 'APPROVED'
 ORDER BY question.review_id, question.id
+"""
+# The notifications' reads (T9.30): the same rules as the three reads above, the questions for a
+# coach and the answers for a gymer, with the review's coach, client and week and the row's time;
+# never the text. A coach reading one client, after access.authorise_read() allowed nutrition:
+_ASKED_ABOUT = """
+SELECT question.id, review.coach_id, review.client_id, review.period_start, question.created_at
+FROM review_questions AS question
+JOIN ai_reviews AS review ON review.id = question.review_id
+WHERE review.coach_id = ? AND review.client_id = ? AND review.status = 'APPROVED'
+    AND question.kind = 'question'
+    AND NOT EXISTS (
+        SELECT 1 FROM ai_review_scopes AS used
+        WHERE used.review_id = review.id AND NOT EXISTS (
+            SELECT 1 FROM open_shares AS share
+            WHERE share.coach_id = review.coach_id AND share.client_id = review.client_id
+              AND share.scope = used.scope
+        )
+    )
+ORDER BY question.id
+"""
+# A coach's own: the questions of every client who still shares nutrition and every review scope.
+_ASKED_OF_COACH = """
+SELECT question.id, review.coach_id, review.client_id, review.period_start, question.created_at
+FROM review_questions AS question
+JOIN ai_reviews AS review ON review.id = question.review_id
+WHERE review.coach_id = ? AND review.status = 'APPROVED' AND question.kind = 'question'
+    AND EXISTS (
+        SELECT 1 FROM open_shares AS share
+        WHERE share.coach_id = review.coach_id AND share.client_id = review.client_id
+          AND share.scope = 'nutrition'
+    )
+    AND NOT EXISTS (
+        SELECT 1 FROM ai_review_scopes AS used
+        WHERE used.review_id = review.id AND NOT EXISTS (
+            SELECT 1 FROM open_shares AS share
+            WHERE share.coach_id = review.coach_id AND share.client_id = review.client_id
+              AND share.scope = used.scope
+        )
+    )
+ORDER BY question.id
+"""
+# A gymer's own: the answers under every approved review about them, a former coach's too.
+_ANSWERED_ABOUT_GYMER = """
+SELECT question.id, review.coach_id, review.client_id, review.period_start, question.created_at
+FROM review_questions AS question
+JOIN ai_reviews AS review ON review.id = question.review_id
+WHERE review.client_id = ? AND review.status = 'APPROVED' AND question.kind = 'answer'
+ORDER BY question.id
 """
 # The approved reviews about a gymer whose coach may read them now: those the gymer may ask under.
 _ASKABLE = """
@@ -203,6 +257,33 @@ def list_questions(conn: sqlite3.Connection, actor_id: str, subject_id: str) -> 
                 audit(conn, actor_id, "read", "review_questions", subject_id=client_id)
         else:
             rows = conn.execute(_ABOUT_GYMER, (subject_id,)).fetchall()
+    return [dict(row) for row in rows]
+
+
+def list_question_events(
+    conn: sqlite3.Connection, actor_id: str, subject_id: str, *, audited: bool = True
+) -> list[dict]:
+    """Return the question or answer events the actor may be told of about the subject, no text."""
+    # The same three cases as list_questions: a coach reading a client gets that client's
+    # questions under the reviews they wrote whose every scope is still shared (NotFound
+    # otherwise); a coach reading their own gets those of every client who still shares; a gymer
+    # reading their own gets the coach's answers under every approved review about them. A coach's
+    # read of one named client is always audited, as every read of another user's data is. Only
+    # the coach's own list, which the sidebar's count and the toasts read on every page, skips its
+    # audit rows (one `read` per client found) unless `audited` (the Notifications page): the
+    # middle way, owner's choice, 2026-11-08, and the one exception (code review round 1).
+    with transaction(conn):
+        by_coach = authorise_read(conn, actor_id, subject_id, "nutrition")
+        if by_coach:
+            rows = conn.execute(_ASKED_ABOUT, (actor_id, subject_id)).fetchall()
+            audit(conn, actor_id, "read", "review_questions", subject_id=subject_id)
+        elif role_of(conn, actor_id) == "coach":
+            rows = conn.execute(_ASKED_OF_COACH, (actor_id,)).fetchall()
+            if audited:
+                for client_id in dict.fromkeys(row["client_id"] for row in rows):
+                    audit(conn, actor_id, "read", "review_questions", subject_id=client_id)
+        else:
+            rows = conn.execute(_ANSWERED_ABOUT_GYMER, (subject_id,)).fetchall()
     return [dict(row) for row in rows]
 
 
