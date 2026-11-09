@@ -28,6 +28,11 @@ How to capture the images again when the UI changes:
 5. Look at every image (synthetic data only; no key, account or real person; only `localhost`), then
    copy the chosen files into `docs/media/` and run `python -m pytest tests/test_readme_media.py`
    (sizes and the GIF's length). `docs/TESTING.md`, "README images (T9.27)", has the checklist.
+
+The presentation video's screenshots (T9.28): the same steps with `--video` (no `--ffmpeg` needed)
+take them as PNGs, add the gymer's Today page and shoot the weekly review three times (the draft,
+its buttons, approved); `scripts/make_video.py` then builds the video from that folder
+(`docs/TESTING.md`, "Presentation video (T9.28)").
 """
 
 import argparse
@@ -46,8 +51,11 @@ OUTPUT_ROOT = ROOT / "data" / "capture"
 # The app's own time zone (src/config.py TIME_ZONE, D21), so "last week" is the week the demo
 # seeded; the script imports nothing of the app.
 TIME_ZONE = ZoneInfo("Europe/Berlin")
-# The window the images are taken in; the README shows them at this size or smaller.
-VIEWPORT = {"width": 1280, "height": 860}
+# The window the images and the video's screenshots are taken in: a full HD screen at 100%, so a
+# screenshot shows a whole page, and the video's own size (scripts/make_video.py) (owner's choice,
+# 2026-11-09, T9.28: T9.27's 1280 by 860 and a 1280 by 720 window at 1.5 times the pixels showed
+# about two thirds of a page). The README shows the images at this size or smaller.
+VIEWPORT = {"width": 1920, "height": 1080}
 JPEG_QUALITY = 80
 # The demo users' names in the picker (src/demo.py) and the question the coach asks in the chat.
 COACH = "Demo coach Alex"
@@ -57,7 +65,8 @@ QUESTION = "How much protein per day helps build muscle?"
 # most GIF_SECONDS (the README's limit is 10 seconds and 5 MB, tests/test_readme_media.py).
 FRAME_SECONDS = 0.5
 GIF_SECONDS = 9.0
-GIF_WIDTH = 960
+# Two thirds of the window, so the chat's text stays readable in the README (T9.28).
+GIF_WIDTH = 1280
 # A frame is kept only when it differs from the last kept one over more than this share of the
 # window (the wait's spinner is smaller), and the GIF plays at least this many frames a second.
 MIN_CHANGED_SHARE = 0.01
@@ -66,6 +75,9 @@ MIN_FRAME_RATE = 1.0
 ANSWER_TIMEOUT_MS = 180_000
 REVIEW_TIMEOUT_MS = 300_000
 REVIEW_TRIES = 3
+PICK_TRIES = 3
+# The app's words when its checks refuse a draft (src/i18n.py, review.outcome.invalid).
+REFUSED_DRAFT = "did not pass the app's checks"
 # Run in the page: put an element in the middle of the nearest box that scrolls around it.
 CENTRE_IN_SCROLL_BOX = """element => {
     let box = element.parentElement;
@@ -160,12 +172,17 @@ def gif_command(ffmpeg: Path, frames: Path, frame_count: int, out: Path) -> list
 
 
 def _parse(args: Sequence[str] | None) -> argparse.Namespace:
-    """Read the command line: the app's address, the browser and FFmpeg."""
+    """Read the command line: the app's address, the browser, FFmpeg and the video mode."""
     parser = argparse.ArgumentParser(description="Capture the README images (T9.27).")
     parser.add_argument("--url", default=APP_URL, help="the app (only http://localhost:8501)")
     parser.add_argument("--browser", type=Path, required=True, help="Chromium's chrome.exe")
-    parser.add_argument("--ffmpeg", type=Path, required=True, help="FFmpeg's ffmpeg.exe")
+    parser.add_argument("--ffmpeg", type=Path, help="FFmpeg's ffmpeg.exe (for the GIF)")
     parser.add_argument("--headed", action="store_true", help="show the browser while it runs")
+    parser.add_argument(
+        "--video",
+        action="store_true",
+        help="the presentation video's screenshots instead of the README's (T9.28)",
+    )
     return parser.parse_args(args)
 
 
@@ -180,29 +197,47 @@ def main(args: Sequence[str] | None = None) -> int:
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 2
-    for tool in (options.browser, options.ffmpeg):
+    if not options.video and options.ffmpeg is None:
+        print("--ffmpeg is needed for the README's GIF", file=sys.stderr)
+        return 2
+    tools = [options.browser] if options.video else [options.browser, options.ffmpeg]
+    for tool in tools:
         if not tool.is_file():
             print(f"not found: {tool}", file=sys.stderr)
             return 2
     out = OUTPUT_ROOT / datetime.now().strftime("%Y%m%d-%H%M%S")
     (out / "frames").mkdir(parents=True)
-    count = capture(url, options.browser, out, headed=options.headed)
-    subprocess.run(gif_command(options.ffmpeg, out / "frames", count, out / "chat.gif"), check=True)
+    count = capture(url, options.browser, out, headed=options.headed, video=options.video)
+    if not options.video:
+        gif = gif_command(options.ffmpeg, out / "frames", count, out / "chat.gif")
+        subprocess.run(gif, check=True)
     print(f"written: {out}")
     return 0
 
 
-def capture(url: str, browser_path: Path, out: Path, *, headed: bool = False) -> int:
-    """Drive the app through the coach's and the gymer's pages; return the GIF's frame count."""
+def context_options() -> dict:
+    """Return the browser window's settings: light, English, its size, no service worker."""
+    return {
+        "color_scheme": "light",
+        "locale": "en-US",
+        "service_workers": "block",
+        "viewport": VIEWPORT,
+    }
+
+
+def capture(
+    url: str, browser_path: Path, out: Path, *, headed: bool = False, video: bool = False
+) -> int:
+    """Drive the app through the coach's and the gymer's pages; return the chat's frame count."""
     # Imported here, so the address check and its tests run without Playwright (CI installs only
     # the dev extra).
     from playwright.sync_api import sync_playwright
 
+    # The README's images are JPEGs; the video's PNGs, as the video encodes them once more.
+    ext = "png" if video else "jpg"
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(executable_path=str(browser_path), headless=not headed)
-        context = browser.new_context(
-            viewport=VIEWPORT, color_scheme="light", locale="en-US", service_workers="block"
-        )
+        context = browser.new_context(**context_options())
         context.route(
             "**/*",
             lambda route: route.continue_() if is_app_request(route.request.url) else route.abort(),
@@ -210,27 +245,32 @@ def capture(url: str, browser_path: Path, out: Path, *, headed: bool = False) ->
         page = context.new_page()
         page.goto(url)
         _pick(page, "Demo user", COACH)
-        count = _chat(page, out)
+        count = _chat(page, out, ext)
         _open(page, "Clients")
         # The client table is drawn on a canvas after the run.
         page.locator("[data-testid='stDataFrame'] canvas").first.wait_for()
         page.wait_for_timeout(1500)
         _top(page, "Clients")
-        _shot(page, out / "clients.jpg")
+        _shot(page, out / f"clients.{ext}")
         _open(page, "Client week")
         _pick(page, "Client", GYMER)
         _week(page, "Client week")
         _top(page, "Nutrition")
-        _shot(page, out / "client-week.jpg")
-        _review(page, out)
+        _shot(page, out / f"client-week.{ext}")
+        _review(page, out, video)
         _pick(page, "Demo user", GYMER)
+        if video:
+            # The gymer's diary, for the video's scene on the client's side (T9.28).
+            _open(page, "Today")
+            _top(page, "Today")
+            _shot(page, out / f"today.{ext}")
         _open(page, "My week")
         _week(page, "My week")
         _top(page, "Weekly reviews")
-        _shot(page, out / "my-week.jpg")
+        _shot(page, out / f"my-week.{ext}")
         _open(page, "Notifications")
         _top(page, "Notifications")
-        _shot(page, out / "notifications.jpg")
+        _shot(page, out / f"notifications.{ext}")
         browser.close()
     return count
 
@@ -251,8 +291,20 @@ def _settle(page, timeout_ms: int = 60_000) -> None:
 
 def _pick(page, label: str, option: str) -> None:
     """Choose an option in the select box with this label."""
-    page.get_by_label(label, exact=True).first.click()
-    page.get_by_role("option", name=option, exact=True).click()
+    from playwright.sync_api import TimeoutError as PlaywrightTimeout
+
+    choice = page.get_by_role("option", name=option, exact=True)
+    # A rerun that ends just after the click can close the list before its option shows (seen on
+    # Client week in the video's window, T9.28): open it again, a few times at most.
+    for _ in range(PICK_TRIES):
+        page.get_by_label(label, exact=True).first.click()
+        try:
+            choice.click(timeout=5_000)
+            break
+        except PlaywrightTimeout:
+            page.wait_for_timeout(1_000)
+    else:
+        raise RuntimeError(f"the option did not show in {PICK_TRIES} tries")
     _settle(page)
 
 
@@ -290,11 +342,14 @@ def _top(page, heading: str) -> None:
 
 
 def _shot(page, path: Path) -> None:
-    """Save the window as a JPEG."""
-    page.screenshot(path=str(path), type="jpeg", quality=JPEG_QUALITY)
+    """Save the window as a JPEG, or as a PNG for the video."""
+    if path.suffix == ".png":
+        page.screenshot(path=str(path), type="png")
+    else:
+        page.screenshot(path=str(path), type="jpeg", quality=JPEG_QUALITY)
 
 
-def _chat(page, out: Path) -> int:
+def _chat(page, out: Path, ext: str) -> int:
     """Ask the coach's question, keep frames while the answer appears, open its sources."""
     frames = out / "frames"
     box = page.get_by_placeholder("Ask about nutrition or training principles")
@@ -330,27 +385,52 @@ def _chat(page, out: Path) -> int:
     for _ in range(4):  # the open sources stay on screen for the GIF's last second
         page.screenshot(path=str(frames / f"{count:04d}.png"))
         count += 1
-    _shot(page, out / "chat.jpg")
+    _shot(page, out / f"chat.{ext}")
     return count
 
 
-def _review(page, out: Path) -> None:
-    """Draft the weekly review of last week, shoot it waiting for approval, then approve it."""
+def _drafted(page, approve) -> bool:
+    """Wait until the draft shows its Approve button (True) or the app's refusal (False)."""
     from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
+    # The draft's own outcome, not Streamlit's run status, which a draft's run may not show (T9.28:
+    # a wait on the status clicked the button again while the draft was still being written).
+    refused = page.get_by_text(REFUSED_DRAFT, exact=False)
+    try:  # a refusal of the try before stays on the page until this run replaces it
+        refused.first.wait_for(state="detached", timeout=10_000)
+    except PlaywrightTimeout:
+        pass
+    # A draft that ends in an error or the session's rate limit shows neither, so this wait runs
+    # out and Playwright's TimeoutError stops the capture: look at the page, then run it again.
+    approve.or_(refused).first.wait_for(timeout=REVIEW_TIMEOUT_MS)
+    _settle(page)
+    return approve.count() > 0 and approve.first.is_visible()
+
+
+def _review(page, out: Path, video: bool = False) -> None:
+    """Draft the weekly review of last week, shoot it waiting for approval, then approve it."""
     approve = page.get_by_role("button", name="Approve", exact=True)
     # A draft the app's checks refuse leaves a warning and the button to draft again: try again,
     # a few times at most (each try is one model run).
     for _ in range(REVIEW_TRIES):
         page.get_by_role("button", name="Draft weekly review").click()
-        _settle(page, timeout_ms=REVIEW_TIMEOUT_MS)
-        try:
-            approve.wait_for(timeout=10_000)
+        if _drafted(page, approve):
             break
-        except PlaywrightTimeout:  # no draft to decide on: the app's checks refused this one
-            continue
     else:
         raise RuntimeError(f"no draft passed the app's checks in {REVIEW_TRIES} tries")
+    if video:
+        # The video keeps its 1920 by 1080 window: the draft's start, then its buttons, then the
+        # review once approved (T9.28).
+        _top(page, "Weekly review")
+        _shot(page, out / "review.png")
+        approve.evaluate("element => element.scrollIntoView({block: 'center'})")
+        page.wait_for_timeout(600)
+        _shot(page, out / "review-decide.png")
+        approve.click()
+        _settle(page)
+        _top(page, "Weekly review")
+        _shot(page, out / "review-approved.png")
+        return
     # A taller window for this one image, so the draft and its Approve, Edit and Reject buttons
     # show together; then back to the usual size.
     _top(page, "Weekly review")
@@ -358,7 +438,8 @@ def _review(page, out: Path) -> None:
     buttons = approve.bounding_box()
     if heading and buttons:
         height = int(buttons["y"] + buttons["height"] - heading["y"]) + 120
-        page.set_viewport_size({"width": VIEWPORT["width"], "height": min(max(height, 860), 2400)})
+        tall = min(max(height, VIEWPORT["height"]), 2400)
+        page.set_viewport_size({"width": VIEWPORT["width"], "height": tall})
         _top(page, "Weekly review")
     _shot(page, out / "review.jpg")
     page.set_viewport_size(VIEWPORT)
