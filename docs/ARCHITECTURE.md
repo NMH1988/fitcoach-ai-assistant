@@ -348,7 +348,7 @@ The mapping lives in `src/llm.py`: callers wrap a model or embedding call in `wi
 
 ## 11. Testing
 
-Full strategy in `docs/TESTING.md`. In short: unit tests for pure logic; integration tests with `DeterministicFakeEmbedding` (langchain-core) and Chroma in a temp dir, and the tool loop with a scripted fake chat model that returns tool calls; UI tests with `streamlit.testing.v1.AppTest`; no network and no key in CI. Each tool has known-answer tests (e.g. TDEE for a fixed profile), unit conversion is tested both ways, RRF has a hand-computed example.
+Full strategy in `docs/TESTING.md`. In short: unit tests for pure logic; integration tests with `DeterministicFakeEmbedding` (langchain-core) and Chroma in a temp dir, and the tool loop with a scripted fake chat model that returns tool calls; UI tests with `streamlit.testing.v1.AppTest`; no network and no key in CI. Each tool has known-answer tests (e.g. TDEE for a fixed profile), unit conversion is tested both ways, RRF has a hand-computed example. Since T8.5 an offline retrieval regression suite (`tests/test_retrieval_regression.py`) runs the search (`chat.find_chunks()`) on a fixture index of texts written for the tests, with a deterministic concept-count embedder, and fails when its hit rate or no-sources rate drops below the rate recorded in the fixture.
 
 ## 12. Dependencies
 

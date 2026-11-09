@@ -1,0 +1,128 @@
+{
+  "about": "Offline retrieval regression suite (T8.5). Every text here was written for these tests; none comes from an article (copyright policy rule 8). Each section becomes one chunk, <source id>-<section number>. A question's expected list holds the chunk IDs it must find in the top RETRIEVAL_TOP_K; an empty list means the coverage gate must return nothing; known_missed lists the expected chunks today's pipeline does not find (a known limit), and only_topic a topic every chunk found must carry. The recorded rates are what the pipeline gave on 2026-11-09 (T8.5), rounded down to four decimals: 8 of 9 expected chunks (the known miss is the ninth) and 2 of 2 off-topic questions with nothing back; the suite fails when a rate drops below them. Raise a rate when a change finds more; lower one only as a decision recorded in docs/TESTING.md.",
+  "recorded_hit_rate": 0.8888,
+  "recorded_no_sources_rate": 1.0,
+  "texts": {
+    "1": [
+      {"title": "Protein over the day", "text": "Eating protein at three or four meals spreads the protein supply over the day."},
+      {"title": "Protein in the evening", "text": "A protein snack in the evening adds to the protein total of the day."},
+      {"title": "Protein at breakfast", "text": "Breakfast is often low in protein, so adding eggs or yogurt raises the protein of the first meal."}
+    ],
+    "2": [
+      {"title": "Creatine loading", "text": "A creatine loading phase takes a larger daily creatine amount for about a week, to support strength."},
+      {"title": "Creatine maintenance", "text": "After loading, a smaller maintenance dose of creatine keeps the stores full and supports strength."},
+      {"title": "Creatine and strength", "text": "Creatine raises the stores used in short, hard efforts, which supports strength."},
+      {"title": "Creatine forms", "text": "Creatine monohydrate is the form most studied; other forms add no extra strength."},
+      {"title": "Creatine tolerance", "text": "Creatine at usual doses was well tolerated in the trials that measured strength."},
+      {"title": "Creatine responders", "text": "Some people store more creatine than others, so their strength response varies."}
+    ],
+    "3": [
+      {"title": "Creatine with lifting", "text": "Creatine with lifting helped lifters get stronger, with more muscle and a higher training volume."}
+    ],
+    "4": [
+      {"title": "Caffeine before a session", "text": "A caffeine supplement about an hour before a session can lift performance; coffee works too."},
+      {"title": "Caffeine and sleep", "text": "Caffeine late in the day can shorten sleep, so a daily supplement is best taken early."}
+    ],
+    "5": [
+      {"title": "Velorin", "text": "Velorin, a made-up compound named only in this test, had no effect on sleep, caffeine use, water intake or soreness."}
+    ],
+    "6": [
+      {"title": "Recovery after a hard session", "text": "Recovery after a hard session takes one to three days, and soreness fades over that time."},
+      {"title": "Soreness", "text": "Soreness peaks a day or two after an unfamiliar session and then eases; recovery is gradual."},
+      {"title": "Recovery and food", "text": "Recovery is supported by enough protein and carbohydrate after training."},
+      {"title": "Recovery and sleep", "text": "Recovery is helped by regular sleep."}
+    ],
+    "7": [
+      {"title": "Active recovery", "text": "Light activity on recovery days may ease soreness."},
+      {"title": "Recovery markers", "text": "Lifters can track recovery by how sore they feel and by bar speed."},
+      {"title": "Recovery and stress", "text": "Life stress can slow recovery from training."}
+    ],
+    "8": [
+      {"title": "Protein after a session", "text": "A serving of protein after a session, alongside carbohydrate and water, starts the repair."}
+    ],
+    "9": [
+      {"title": "Protein amount", "text": "Daily protein targets for lifters are often given per kilogram of body weight; protein needs rise in a deficit."},
+      {"title": "Protein sources", "text": "Protein from milk, eggs, meat or beans all counts toward the protein total; a protein supplement is only a convenience."},
+      {"title": "Protein quality", "text": "Protein quality depends on the amino acids a protein supplies."}
+    ],
+    "10": [
+      {"title": "Rest between sets", "text": "Longer rest between sets lets lifters keep the load and the repetitions up across sets."},
+      {"title": "Training frequency", "text": "Training each muscle twice a week is a common frequency for the same weekly volume."}
+    ],
+    "11": [
+      {"title": "Easy days", "text": "Easy cycling the morning after heavy lifting, with some water, may ease stiffness."},
+      {"title": "Fluids", "text": "Drinking water through the day keeps fluid balance; a creatine supplement does not change this."}
+    ],
+    "12": [
+      {"title": "Fat intake", "text": "Dietary fat should not drop too low in a calorie deficit."},
+      {"title": "Energy balance", "text": "A small calorie surplus with lifting supports muscle gain; a daily creatine supplement cannot replace food."}
+    ]
+  },
+  "questions": [
+    {
+      "id": "plain",
+      "why": "A plain question found by meaning.",
+      "query": "How should I spread protein over the day?",
+      "plan": {"queries": ["protein spread over meals", "protein at each meal", "protein distribution through the day"], "topics": [], "min_year": null, "evidence_tier": null},
+      "expected": ["1-0"]
+    },
+    {
+      "id": "keyword",
+      "why": "Only keyword search knows the made-up word; vector search alone ranks six recovery chunks ahead of it.",
+      "query": "Does velorin help recovery?",
+      "plan": {"queries": ["velorin and recovery after training", "velorin effect on soreness", "velorin benefits"], "topics": [], "min_year": null, "evidence_tier": null},
+      "expected": ["5-0"]
+    },
+    {
+      "id": "cap",
+      "why": "Six chunks of source 2 rank ahead of source 3's; the per-source cap of three lets source 3 in.",
+      "query": "Does creatine improve strength?",
+      "plan": {"queries": ["creatine and strength", "creatine strength gains", "creatine, muscle and training volume"], "topics": [], "min_year": null, "evidence_tier": null},
+      "expected": ["3-0"]
+    },
+    {
+      "id": "cap_second_chunk",
+      "why": "Both of source 2's loading and maintenance chunks belong in the list; a cap of one pushes the second out.",
+      "query": "Creatine loading and maintenance doses",
+      "plan": {"queries": ["creatine supplement loading phase", "creatine maintenance dose per day", "daily supplement amount of creatine"], "topics": [], "min_year": null, "evidence_tier": null},
+      "expected": ["2-0", "2-1"]
+    },
+    {
+      "id": "year_filter",
+      "why": "The plan asks for 2024 or later; without the filter, older protein chunks push source 8 out.",
+      "query": "How much protein after training?",
+      "plan": {"queries": ["protein amount after training", "protein after a workout", "post-workout protein dose"], "topics": [], "min_year": 2024, "evidence_tier": null},
+      "expected": ["8-0"]
+    },
+    {
+      "id": "training_retry",
+      "why": "A training-only plan whose year filter finds nothing is searched again on the training topic alone: it finds 10-0, and every chunk it returns carries that topic (only_topic).",
+      "query": "How long should I rest between sets?",
+      "plan": {"queries": ["rest interval between sets", "rest time between sets", "how long to rest between sets"], "topics": ["resistance_training"], "min_year": 2025, "evidence_tier": null},
+      "expected": ["10-0"],
+      "only_topic": "resistance_training"
+    },
+    {
+      "id": "known_miss",
+      "why": "Known limit (as q10's #8, T8.3): source 11's chunk shares no word and no meaning the fake embedder sees with the question, so no candidate list holds it.",
+      "query": "What speeds up recovery?",
+      "plan": null,
+      "expected": ["6-0", "11-0"],
+      "known_missed": ["11-0"]
+    },
+    {
+      "id": "off_topic",
+      "why": "Off topic: the gate returns nothing.",
+      "query": "What is the offside rule in football?",
+      "plan": null,
+      "expected": []
+    },
+    {
+      "id": "off_topic_rewrites",
+      "why": "Off topic with on-topic rewrites: only the question's own vector decides (T3.8).",
+      "query": "Who won the chess match yesterday?",
+      "plan": {"queries": ["protein per meal", "creatine and strength", "recovery after training"], "topics": [], "min_year": null, "evidence_tier": null},
+      "expected": []
+    }
+  ]
+}
