@@ -52,10 +52,15 @@ EVENTS = frozenset(
 )
 UNNAMED_EVENT = "unnamed_event"
 _PLAIN = (str, int, float, bool, type(None))
-# The libraries whose own loggers could write a prompt, the profile or the key at DEBUG level (the
-# OpenAI SDK logs its request options, httpcore its headers, LangSmith its runs before they are
-# sent). They bypass the allowlist, so configure_logging() keeps them at WARNING.
-_CHATTY_LIBRARIES = ("openai", "httpx", "httpcore", "langsmith")
+# The libraries whose own loggers could write a prompt, the profile, a secret or a server's reply at
+# DEBUG or INFO level (the HTTP libraries log URLs, response headers and errors, LangSmith its run
+# IDs and error text, Authlib the sign-in's PKCE code_verifier); older or later versions may write
+# more, such as request options, headers or the runs LangSmith sends. They bypass the allowlist,
+# so configure_logging() keeps them at WARNING. The OpenAI SDK 3.x sends through httpx2 and
+# httpcore2 (T1.12); httpx and httpcore are still pulled in by other libraries (e.g. chromadb,
+# langchain-core). Each library's child loggers (e.g. httpcore2.http11) follow this level unless
+# something sets a child's own level.
+_CHATTY_LIBRARIES = ("openai", "httpx", "httpcore", "httpx2", "httpcore2", "langsmith", "authlib")
 
 # The only fields a record may carry besides ts, level, logger and event. None of them holds text
 # the user typed or the model wrote (docs/SECURITY.md, "What is logged").
