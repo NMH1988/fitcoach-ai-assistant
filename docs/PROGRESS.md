@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-09 · T8.6 The live evaluation workflow's first dispatched run · PR to be opened (closes NMH1988/fitcoach-ai-assistant#95)
+## 2026-11-09 · T8.6 The live evaluation workflow's first dispatched run · NMH1988/fitcoach-ai-assistant#97 (closes NMH1988/fitcoach-ai-assistant#95)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): the Sprint 2 review, point 5; Sprint 2 (`docs/BRIEF.md`): Hard 7 (RAG evaluation).
 - **What:** docs only. `docs/TESTING.md`: a section "Live evaluation workflow, first run (T8.6)" (the run's link, its steps, the index counts, the rates against T8.4's baseline, the misses, the cost, the artifact, the review of the log) and a row in "Live checks"; the CI paragraph points to it instead of a cost still to come. `docs/IMPLEMENTATION_PLAN.md`: T8.6's criteria 2-4 ticked with that evidence, T8.6 and O11 done. A missing blank line before T8.5's entry here put back (code review round 4 of NMH1988/fitcoach-ai-assistant#93).
 - **Why:** T8.6 merged with its dispatched run still to come (GitHub offers a `workflow_dispatch` workflow only on the default branch); this records that run, closing its follow-up issue.
