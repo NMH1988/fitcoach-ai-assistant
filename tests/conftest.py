@@ -118,7 +118,7 @@ def app_logger_is_reset():
     logger.setLevel(logging.NOTSET)
     logger.propagate = True
     # configure_logging() also keeps these libraries' loggers at WARNING.
-    for name in ("openai", "httpx", "httpcore", "langsmith"):
+    for name in observability._CHATTY_LIBRARIES:
         logging.getLogger(name).setLevel(logging.NOTSET)
 
 
