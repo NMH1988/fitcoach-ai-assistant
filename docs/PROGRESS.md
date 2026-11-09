@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-09 · T9.11 Record T9.11 as done in the plan · PR not opened yet (closes NMH1988/fitcoach-ai-assistant#101)
+## 2026-11-09 · T9.11 Record T9.11 as done in the plan · NMH1988/fitcoach-ai-assistant#102 (closes NMH1988/fitcoach-ai-assistant#101)
 - **Brief:** as T9.11: Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 5, evaluation; Sprint 2 (`docs/BRIEF.md`): evaluation. Records only.
 - **What:** `docs/IMPLEMENTATION_PLAN.md`: T9.11 is done, in the overview and in the ticket's header.
 - **Why:** NMH1988/fitcoach-ai-assistant#100 merged T9.11 with criteria 1-7 met (code review round 4: ready to merge; compliance run 1's three Lows fixed; CI green) and criterion 8 moved to T9.11b, but the plan still said "in review".
