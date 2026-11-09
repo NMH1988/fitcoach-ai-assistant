@@ -12,6 +12,7 @@ from decimal import Decimal
 import httpx2
 import openai
 import pytest
+from chromadb.errors import ChromaError
 from langchain_core.messages import AIMessage
 
 from scripts import run_evaluation
@@ -521,6 +522,55 @@ def test_main_writes_the_results_file_next_to_the_report(real_pieces, tmp_path, 
     assert document["runs"][0]["cost_usd"] is None
 
 
+def test_the_results_file_records_the_index_the_run_used(real_pieces, tmp_path):
+    """The file holds the index's chunk and source counts, so a fresh build is noted (T8.6)."""
+    item = {"id": "q1", "question": QUESTION, "expected_sources": ["1"], "good_answer": "x"}
+    assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 0
+    _, document = _results_file(tmp_path)
+    sources = {chunk.metadata["source_id"] for chunk in CHUNKS}
+    assert document["index"] == {"chunks": len(CHUNKS), "sources": len(sources)}
+
+
+def test_index_counts_reads_every_chunk_and_its_distinct_sources(tmp_path):
+    """Two sources over three chunks count as three chunks from two sources."""
+    chunks = [chunk("4", 0, "Text one."), chunk("4", 1, "Text two."), chunk("7", 0, "Text three.")]
+    index = open_fixture_index(build_fixture_index(tmp_path / "chroma", chunks))
+    assert run_evaluation.index_counts(index) == {"chunks": 3, "sources": 2}
+
+
+def test_a_chunk_with_no_source_id_counts_as_a_chunk_but_not_as_a_source():
+    """A chunk whose metadata lacks `source_id` is never counted as a source named 'None'."""
+
+    class Stored:
+        """An index whose chunks' metadata is given."""
+
+        def get(self, **_kwargs):
+            """Return two chunks of source 4 and one with no source_id."""
+            return {"metadatas": [{"source_id": "4"}, {"source_id": "4"}, {"title": "x"}]}
+
+    assert run_evaluation.index_counts(Stored()) == {"chunks": 3, "sources": 1}
+
+
+def test_an_unreadable_index_stops_the_run_before_any_question(
+    real_pieces, tmp_path, monkeypatch, capsys
+):
+    """An index whose chunks cannot be read stops the run with the index message (exit 1)."""
+
+    class Unreadable:
+        """An index whose get() fails as a damaged Chroma collection does."""
+
+        def get(self, **_kwargs):
+            """Raise Chroma's error."""
+            raise ChromaError("damaged")
+
+    monkeypatch.setattr(store, "open_index", Unreadable)
+    item = {"id": "q1", "question": QUESTION, "expected_sources": [], "good_answer": "x"}
+    assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 1
+    assert "Evaluation not run" in capsys.readouterr().err
+    assert real_pieces.calls == []
+    assert not (tmp_path / "eval_runs").exists()
+
+
 def test_the_commit_is_read_from_the_code_that_ran_not_the_working_folder(
     real_pieces, tmp_path, monkeypatch
 ):
@@ -582,7 +632,7 @@ def test_no_change_note_is_printed_when_the_code_stayed_the_same(
 def test_the_results_file_holds_no_text_from_the_answer_the_chunks_or_the_key(
     tmp_path, monkeypatch, capsys
 ):
-    """Canary text in the answer, a chunk, the good answer and the key never reaches the file."""
+    """Canary text in the answer, a chunk, the question and the key reaches neither file nor log."""
     monkeypatch.setenv("OPENROUTER_API_KEY", FAKE_KEY)
     canary_chunk = chunk("1", 0, "CANARY-CHUNK protein per meal.")
     index = open_fixture_index(build_fixture_index(tmp_path / "chroma", [canary_chunk]))
@@ -605,12 +655,15 @@ def test_the_results_file_holds_no_text_from_the_answer_the_chunks_or_the_key(
         "good_answer": "CANARY-GOOD-ANSWER",
     }
     assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 0
-    capsys.readouterr()
+    # The printed output is the live evaluation workflow's log, public with the repository (T8.6).
+    out, err = capsys.readouterr()
     results, document = _results_file(tmp_path)
     assert document["runs"][0]["expected_cited"] == ["1"]
     text = results.read_text(encoding="utf-8")
     for canary in ("CANARY", FAKE_KEY, "protein per meal"):
         assert canary not in text
+        assert canary not in out
+        assert canary not in err
     # The report next to it does hold them: the canaries can reach a file, so the check can fail.
     [report] = (tmp_path / "eval_runs").glob("run-*.md")
     assert "CANARY-ANSWER" in report.read_text(encoding="utf-8")

@@ -245,13 +245,15 @@ def results_document(
     started: datetime,
     questions_file: str,
     scores: Mapping | None = None,
+    index: Mapping[str, int] | None = None,
 ) -> dict:
     """Return the whole results file: the run's details, then every run's record."""
     # `commit` and `dirty` are read when the run starts, as the modules are loaded then; the
     # `_at_end` fields are read when the file is written (T9.21). Fields were only added, so
     # EVAL_RESULTS_SCHEMA_VERSION stays 1 and an older file (the baseline) still compares.
     # `scores` (T9.10) is there only for a scored run (--score); fields were only added, so the
-    # schema version stays 1.
+    # schema version stays 1. `index` (T8.6) holds the index's chunk and source counts, so a run on
+    # another index (a fresh build) is noted by the check; fields were only added again.
     document = {
         "schema_version": config.EVAL_RESULTS_SCHEMA_VERSION,
         "commit": git.commit,
@@ -264,8 +266,10 @@ def results_document(
         "repeat": repeat,
         "date": started.astimezone().isoformat(timespec="seconds"),
         "questions_file": questions_file,
-        "summary": summarise(records),
     }
+    if index is not None:
+        document["index"] = dict(index)
+    document["summary"] = summarise(records)
     if scores is not None:
         document["scores"] = dict(scores)
     document["runs"] = [record.as_dict() for record in records]
@@ -306,6 +310,10 @@ def load_results(path: Path) -> dict:
         rate = summary.get(name)
         if rate is not None and not _is_rate(rate):
             raise ResultsFileError(f"{path} has a {name} that is not a number from 0 to 1.")
+    if "index" in document and not _is_index(document["index"]):
+        raise ResultsFileError(
+            f"{path} has an `index` that is not whole-number `chunks` and `sources` counts."
+        )
     if not isinstance(document.get("runs"), list):
         raise ResultsFileError(f"{path} has no list of runs.")
     for number, run in enumerate(document["runs"], start=1):
@@ -315,6 +323,36 @@ def load_results(path: Path) -> dict:
                 "of text `expected` sources, or with a `kind` that is not text."
             )
     return document
+
+
+def _is_index(index: object) -> bool:
+    """Return True for an index field of whole-number `chunks` and `sources` counts (T8.6)."""
+    if not isinstance(index, dict) or set(index) != {"chunks", "sources"}:
+        return False
+    return all(
+        isinstance(count, int) and not isinstance(count, bool) and count >= 0
+        for count in index.values()
+    )
+
+
+def _index_text(index: Mapping) -> str:
+    """Return an index field as '2304 chunks from 31 sources'."""
+    return f"{index['chunks']} chunks from {index['sources']} sources"
+
+
+def _index_note(results: Mapping, baseline: Mapping) -> str | None:
+    """Return a note when the run's index differs from the baseline's or one does not record it."""
+    ran, base = results.get("index"), baseline.get("index")
+    if ran == base:
+        return None
+    if base is None:
+        return f"note: the baseline does not record its index; the results' is {_index_text(ran)}"
+    if ran is None:
+        return f"note: the results do not record their index; the baseline's is {_index_text(base)}"
+    return (
+        f"note: the index differs from the baseline's ({_index_text(ran)}; "
+        f"the baseline's: {_index_text(base)})"
+    )
 
 
 def _is_run(run: object) -> bool:
@@ -413,6 +451,8 @@ def compare(results: Mapping, baseline: Mapping, tolerance: float) -> Comparison
         lines.append(
             f"note: --repeat is {results.get('repeat')}, the baseline's is {baseline.get('repeat')}"
         )
+    if note := _index_note(results, baseline):
+        lines.append(note)
     below = []
     for name, label in (("found_rate", "found rate"), ("cited_rate", "cited rate")):
         rate, base = results["summary"].get(name), baseline["summary"].get(name)
