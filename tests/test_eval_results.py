@@ -351,3 +351,16 @@ def test_the_summary_is_in_the_document_before_the_runs():
     document = _document(records)
     assert document["summary"] == eval_results.summarise(records)
     assert list(document)[-2:] == ["summary", "runs"]
+
+
+def test_the_index_the_run_used_is_recorded_before_the_summary():
+    """A run given its index's counts writes them (T8.6); the field comes before the summary."""
+    document = _document([_record()], index={"chunks": 2304, "sources": 31})
+    assert document["index"] == {"chunks": 2304, "sources": 31}
+    assert list(document)[-3:] == ["index", "summary", "runs"]
+    assert document["schema_version"] == 1
+
+
+def test_without_index_counts_the_file_has_no_index_field():
+    """A run that passes no counts writes the file as before T8.6."""
+    assert "index" not in _document([_record()])
