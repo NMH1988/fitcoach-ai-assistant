@@ -1,6 +1,7 @@
 """UI tests for the My data page (AC-34) and demo mode (AC-19, D18) (T9.5)."""
 
 import json
+import sqlite3
 from datetime import date
 
 import pytest
@@ -28,6 +29,12 @@ from views import my_data as my_data_page
 from views import navigation, resources
 
 pytestmark = pytest.mark.usefixtures("no_env_key")
+
+# The fixed message of a store that cannot be used (`account.store_unavailable`, English).
+STORE_UNAVAILABLE = (
+    "Your saved data cannot be opened right now, so nothing is read or saved. Try again later, "
+    "or restart the app."
+)
 
 
 def open_my_data(at: AppTest) -> AppTest:
@@ -167,6 +174,47 @@ def test_my_data_shows_the_fixed_message_when_the_store_fails_later(monkeypatch)
     button(at, "Prepare the export").click().run(timeout=30)
     assert "cannot be opened right now" in texts(at)
     assert "private" not in texts(at)
+
+
+def _failing_store(*args, **kwargs):
+    """Fail as a locked store file does, with a text that must never be shown."""
+    raise sqlite3.OperationalError("CANARY C:/private/fitcoach.sqlite3 is locked")
+
+
+def _errors(at: AppTest) -> list[str]:
+    """Return the text of the page's error messages."""
+    return [str(item.value) for item in at.error]
+
+
+def test_a_store_that_fails_on_deleting_one_entry_shows_the_fixed_message(
+    monkeypatch, gymer_with_records
+):
+    """T9.11: a delete that fails in the store shows the fixed message; the entry stays stored."""
+    at = open_my_data(start(monkeypatch, user=signed_in()))
+    at.selectbox(key="my_data_entry").set_value(("body_measurements", _older_weight_id()))
+    at.run(timeout=30)
+    monkeypatch.setattr(records, "delete_record", _failing_store)
+    button(at, "Delete this entry").click().run(timeout=30)
+    assert _errors(at) == [STORE_UNAVAILABLE]
+    assert "CANARY" not in texts(at)
+    assert _rows("body_measurements") == 2
+    assert "**Weights** · 2 stored" in texts(at)
+
+
+def test_a_store_that_fails_on_delete_everything_shows_the_fixed_message(
+    monkeypatch, gymer_with_records, login_calls
+):
+    """T9.11: a failed Delete everything shows the fixed message and signs no one out."""
+    at = open_my_data(start(monkeypatch, user=signed_in()))
+    at.checkbox(key="my_data_confirm").check().run(timeout=30)
+    monkeypatch.setattr(stored_data, "delete_user_data", _failing_store)
+    button(at, "Delete everything").click().run(timeout=30)
+    assert _errors(at) == [STORE_UNAVAILABLE]
+    assert "CANARY" not in texts(at)
+    assert login_calls == []
+    assert _rows("users") == 1
+    assert _rows("profile_entries") == 1
+    assert _rows("body_measurements") == 2
 
 
 # --- Demo mode (AC-19, D18) -----------------------------------------------------------------------

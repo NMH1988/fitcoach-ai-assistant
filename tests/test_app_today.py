@@ -1,5 +1,6 @@
 """UI tests for the Today page: the gymer's food and weight diary (T9.13, AC-23)."""
 
+import sqlite3
 from datetime import timedelta
 
 import pytest
@@ -257,6 +258,26 @@ def test_a_store_that_fails_on_the_page_shows_the_fixed_message(monkeypatch, gym
     page = texts(at)
     assert "cannot be opened right now" in page
     assert "private" not in page
+
+
+def test_a_store_that_fails_on_a_weight_save_shows_the_fixed_message(monkeypatch, gymer):
+    """The store failing at the weight's write: the fixed message, no weight written."""
+
+    def failing(*args, **kwargs):
+        """Fail as SQLite does on a locked file."""
+        raise sqlite3.OperationalError("C:/private/file is locked")
+
+    monkeypatch.setattr(records, "add_body_measurement", failing)
+    gymer.number_input(key="today_weight_metric").set_value(79.5).run(timeout=30)
+    at = button(gymer, "Save weight").click().run(timeout=30)
+    assert not at.exception
+    assert [item.value for item in at.error] == [
+        "Your saved data cannot be opened right now, so nothing is read or saved. Try again "
+        "later, or restart the app."
+    ]
+    assert "private" not in texts(at)
+    with db.connect() as conn:
+        assert len(records.list_body_measurements(conn, USER_ID, USER_ID)) == 1  # the profile's
 
 
 @pytest.mark.parametrize("role", [None, "coach"])

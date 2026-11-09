@@ -539,6 +539,29 @@ def _counts_unchecked() -> tuple[int, int, int]:
         )
 
 
+def _users_unchecked() -> int:
+    """Return how many accounts the store holds, read past any faked connect()."""
+    import sqlite3
+
+    with sqlite3.connect(config.STORE_PATH) as conn:
+        return conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+
+
+def test_a_store_that_fails_at_create_account_shows_the_fixed_message(monkeypatch):
+    """Create account's own write failing shows the fixed message, not its text; no account."""
+    at = start(monkeypatch, user=signed_in())
+    _fail_after(monkeypatch, 1)  # the click run's resolve() works; Create account's opening fails
+    at = _create(at, "gymer", "Sam")
+    page = texts(at)
+    assert page.count("cannot be opened right now") == 1
+    assert "private" not in page
+    # resolve() worked, so the message is Create account's own and the welcome page stays.
+    assert at.session_state["store_unavailable"] is False
+    assert "Set up your account" in page
+    assert at.session_state["account"]["role"] == "pending"
+    assert _users_unchecked() == 0
+
+
 def test_with_the_store_down_a_gymer_runs_as_a_guest(monkeypatch):
     """Store down: the fixed message, the guest note, no stored profile left, nothing written."""
     store_account("gymer", profile=PROFILE)

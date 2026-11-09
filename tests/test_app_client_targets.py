@@ -11,6 +11,7 @@ from datetime import date
 import pytest
 from streamlit.testing.v1 import AppTest
 
+from src import config
 from src.store import db, records, users
 from src.store.access import NotFound
 from tests.test_app_account import PROFILE, USER_ID, button, signed_in, start, store_account
@@ -156,6 +157,25 @@ def test_a_write_the_store_refuses_shows_one_fixed_message(monkeypatch):
     monkeypatch.setattr(records, "add_client_target", refused)
     at = _fill_and_save(at, COACH_TARGET)
     assert "The targets were not set: you cannot set targets for this client now." in _page_text(at)
+
+
+@pytest.mark.usefixtures("coach_world")
+def test_a_target_the_store_finds_out_of_range_shows_the_invalid_line(monkeypatch):
+    """A kcal under the floor reaches the store's own check: the invalid line, nothing written."""
+    at = _client_week(monkeypatch, chosen=ALEX)
+    before = len(_targets_of(ALEX))
+    real = records.add_client_target
+
+    def below_the_floor(conn, coach_id, client_id, **target):
+        """Pass the real store a kcal under the calorie floor, as the form's limits would not."""
+        target["kcal"] = config.CALORIE_FLOOR_KCAL - 1.0
+        return real(conn, coach_id, client_id, **target)
+
+    monkeypatch.setattr(records, "add_client_target", below_the_floor)
+    at = _fill_and_save(at, COACH_TARGET)
+    assert "The targets were not set: fill in every field within its range." in _page_text(at)
+    assert len(_targets_of(ALEX)) == before
+    assert "target_set" not in _audit_actions()
 
 
 @pytest.mark.usefixtures("coach_world")

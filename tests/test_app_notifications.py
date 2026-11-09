@@ -16,7 +16,11 @@ from src import config, demo
 from src.store import db, my_data, notifications, reviews, users
 from tests.store_world import no_threads
 from tests.test_app_account import PROFILE, USER_ID, signed_in, start, store_account, texts
-from tests.test_app_my_data import demo_store_is_fresh, start_demo  # noqa: F401 (a fixture)
+from tests.test_app_my_data import (  # noqa: F401 (a fixture)
+    STORE_UNAVAILABLE,
+    demo_store_is_fresh,
+    start_demo,
+)
 from tests.test_app_sharing import open_page
 from views import navigation
 from views import notifications as view
@@ -235,6 +239,26 @@ def test_a_store_error_leaves_the_page_working_without_the_bell(monkeypatch, coa
     at = open_page(at, navigation.NOTIFICATIONS)
     assert "CANARY" not in texts(at) + " ".join(str(e.value) for e in at.error)
     assert [str(e.value) for e in at.error] == ["Notifications could not be loaded just now."]
+
+
+def test_a_failed_mark_all_as_read_shows_the_fixed_message_once(monkeypatch, coach_world):
+    """T9.11: a mark the store refuses shows the fixed message once; all stay unread."""
+
+    def failing(conn, user_id, loaded_at):
+        """Fail as a locked store file does."""
+        raise sqlite3.OperationalError("CANARY C:/private/fitcoach.sqlite3 is locked")
+
+    at = open_page(_signed_in(monkeypatch), navigation.NOTIFICATIONS)
+    monkeypatch.setattr(notifications, "mark_all_read", failing)
+    next(b for b in at.button if b.label == "Mark all as read").click().run(timeout=30)
+    assert [str(e.value) for e in at.error] == [STORE_UNAVAILABLE]
+    assert "CANARY" not in texts(at)
+    assert _bell(at) == ["Notifications · 4 unread"]
+    assert [line.split("**New** · ", 1)[1] for line in _lines(at)] == COACH_LINES
+    at.run(timeout=30)
+    assert [str(e.value) for e in at.error] == []
+    with db.connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM notification_reads").fetchone()[0] == 0
 
 
 def test_demo_users_have_their_notifications(monkeypatch, demo_store_is_fresh):  # noqa: F811
