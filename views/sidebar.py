@@ -19,6 +19,8 @@ GOAL_ICONS = {
 SAVE_FAILED_KEY = account.PROFILE_NOTICE_KEY
 # A notice, not a failure: the goal was kept for the session (shown as a warning).
 NOT_SAVED = "profile.goal_not_saved"
+# A Save that kept the coach's target (T9.17): the profile was saved, the target was not.
+COACH_TARGET_KEPT = "profile.coach_target_kept"
 
 
 def change_goal() -> None:
@@ -40,7 +42,8 @@ def change_goal() -> None:
                     st.session_state[SAVE_FAILED_KEY] = NOT_SAVED
                     st.session_state["profile"] = updated
                     return
-                accounts.save_profile(conn, user["id"], updated, with_weight=False)
+                if not accounts.save_profile(conn, user["id"], updated, with_weight=False):
+                    st.session_state[SAVE_FAILED_KEY] = COACH_TARGET_KEPT
         except accounts.StoreUnavailable:
             st.session_state[SAVE_FAILED_KEY] = "account.store_unavailable"
             return
@@ -69,6 +72,8 @@ def show_profile() -> None:
     failed = st.session_state.pop(SAVE_FAILED_KEY, None)
     if failed == NOT_SAVED:
         st.warning(t(failed), icon=":material/info:")
+    elif failed == COACH_TARGET_KEPT:
+        st.info(t(failed), icon=":material/sports:")
     elif failed is not None:
         st.error(t(failed), icon=":material/error:")
     current = st.session_state.get("profile")

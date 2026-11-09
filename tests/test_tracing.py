@@ -24,10 +24,12 @@ from src.agent import search
 from src.agent.memory import Conversation
 from src.config import tracing_requested as real_tracing_requested
 from src.preferences import PreferenceCheck
-from src.tools import registry
+from src.tools import coach_clients, registry
 from tests import store_world as world
+from tests import test_agent_clients as clients_tests
 from tests import test_agent_review as review_tests
 from tests import test_observability as obs
+from tests.fakes import tool_reply
 
 # The canary fixtures of the log tests, so a trace is checked on the same turns as a log line.
 canary_setup = obs.canary_setup
@@ -777,6 +779,81 @@ def test_the_evaluation_judge_s_calls_are_masked_and_carry_the_scored_turn_s_id(
 def test_a_search_tool_name_is_kept():
     """The knowledge base search keeps its name in a trace, like the other tools."""
     assert tracing.mask({"name": search.SEARCH_TOOL}) == {"name": search.SEARCH_TOOL}
+
+
+# --- The coach's client tools (T9.17) -------------------------------------------------------------
+
+# Never in either tool's result by design (a client is a reference), so they must not reach a
+# trace either: the clients' display names and the users' IDs.
+CLIENT_CANARIES = ("CANARYNAME", world.COACH_A, *world.GYMERS)
+# What the two results do hold for client-1 (the made-up world's week), as a trace would carry
+# it: in the tool message's JSON text (quotes escaped) or as the result's own fields. The week
+# gives the logged food's energy, the latest weight and the target; the list gives the logged
+# days, the workouts and a follow-up reason; both give the reference and the week's Monday.
+_FIELD = r'{}\\*"\s*:\s*{}\b'
+CLIENT_VALUES = tuple(
+    re.compile(pattern)
+    for pattern in (
+        r"571\.5",
+        re.escape(str(world.WEIGHT)),
+        r"2345",
+        _FIELD.format("logged_days", 1),
+        _FIELD.format("workouts", 1),
+        r"few_logged_days",
+        # As a JSON value: the tool's fixed description, kept in the trace, has 'client-1' as an
+        # example in single quotes.
+        r'\\*"client-1\\*"',
+        re.escape(str(world.DAY)),
+    )
+)
+relationships = clients_tests.relationships
+
+
+@pytest.mark.parametrize("name", [coach_clients.LIST_TOOL, coach_clients.WEEK_TOOL])
+def test_a_client_tool_name_is_kept(name):
+    """Both client tools keep their names in a trace, like the other tools."""
+    assert tracing.mask({"name": name}) == {"name": name}
+
+
+@pytest.mark.parametrize("masked", [True, False])
+def test_a_coach_s_client_tools_are_masked_in_a_trace(
+    relationships, index_path, traced, monkeypatch, masked
+):
+    """Both tools' results, a week now and a past one, leave no stored value or name in a trace."""
+    if not masked:
+        # The check itself: with the mask switched off, the same search finds the values.
+        monkeypatch.setattr(tracing, "_mask_value", lambda value, key: value)
+    clients = clients_tests._clients()
+    result, _ = clients_tests._turn(
+        index_path,
+        clients,
+        tool_reply((coach_clients.LIST_TOOL, {})),
+        tool_reply((coach_clients.WEEK_TOOL, {"client": "client-1"})),
+        tool_reply((coach_clients.WEEK_TOOL, {"client": "client-1", "week_of": "2026-10-19"})),
+        AIMessage("client-1 logged one day."),
+        question="How did my clients do?",
+    )
+    assert result.kind == "answer"
+    assert [(run.name, run.status) for run in result.tool_runs] == [
+        (coach_clients.LIST_TOOL, "ok"),
+        (coach_clients.WEEK_TOOL, "ok"),
+        (coach_clients.WEEK_TOOL, "ok"),
+    ]
+    # The tools did read the stored values: the unmasked result holds the logged food's energy.
+    assert "571.5" in result.tool_runs[1].result.model_dump_json()
+    runs = traced.runs()
+    text = json.dumps(runs)
+    assert f'"name": "{coach_clients.LIST_TOOL}"' in text
+    assert f'"name": "{coach_clients.WEEK_TOOL}"' in text
+    searched = _searched(runs)
+    found = [pattern.pattern for pattern in CLIENT_VALUES if pattern.search(searched)]
+    if not masked:
+        # The check itself: with the mask off, the search finds every value both results hold.
+        assert found == [pattern.pattern for pattern in CLIENT_VALUES]
+        return
+    assert found == []
+    for canary in CLIENT_CANARIES:
+        assert canary not in searched, canary
 
 
 # --- No other way to trace, and nothing that writes past the mask (code review round 1) ---------

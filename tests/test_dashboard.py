@@ -4,7 +4,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from src import dashboard
+from src import dashboard, i18n
 from src.store import records, reviews, users
 from src.store.access import NotFound
 from tests import store_world as world
@@ -177,3 +177,52 @@ def test_the_trend_keeps_the_configured_weeks_up_to_sunday(store, monkeypatch):
     week = dashboard.own_week(conn, world.SHARED, MONDAY)
     # Two weeks back from Sunday 2026-11-01 starts on Monday 2026-10-19: 10-18 is left out.
     assert [kg for _, kg in week.weight_trend] == [87.9, 87.5, world.WEIGHT]
+
+
+# --- T9.17: the follow-up flag ------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("lang", ["en", "de"])
+def test_every_follow_up_reason_has_a_text(lang):
+    """The client list can name each reason in both languages."""
+    for reason in dashboard.FOLLOW_UP_REASONS:
+        assert f"clients.follow_up.{reason}" in i18n.TEXT[lang]
+
+
+def _shared_only(conn, relationships, scopes) -> None:
+    """Leave only these scopes shared by the SHARED client."""
+    for scope in ("nutrition", "training", "body"):
+        users.set_consent(conn, world.SHARED, relationships[world.SHARED], scope, scope in scopes)
+
+
+def test_few_logged_days_and_no_workout_both_flag_a_client(store):
+    """One logged day and a week with no workout: both reasons (a week after the records)."""
+    conn, _ = store
+    week = dashboard.client_week(conn, world.COACH_A, world.SHARED, MONDAY + timedelta(weeks=1))
+    assert dashboard.follow_up_reasons(week) == ("few_logged_days", "no_session")
+
+
+def test_the_limit_comes_from_config(store, monkeypatch):
+    """With the limit at one day, the one logged day is enough; the workout clears the other."""
+    conn, _ = store
+    monkeypatch.setattr(dashboard.config, "FOLLOW_UP_MIN_LOGGED_DAYS", 1)
+    week = dashboard.client_week(conn, world.COACH_A, world.SHARED, MONDAY)
+    assert dashboard.follow_up_reasons(week) == ()
+    monkeypatch.setattr(dashboard.config, "FOLLOW_UP_MIN_LOGGED_DAYS", 2)
+    assert dashboard.follow_up_reasons(week) == ("few_logged_days",)
+
+
+@pytest.mark.parametrize(
+    ("scopes", "reasons"),
+    [
+        ({"nutrition"}, ("few_logged_days",)),
+        ({"training", "body"}, ("no_session",)),
+        ({"body"}, ()),
+    ],
+)
+def test_a_scope_not_shared_never_flags_a_client(store, scopes, reasons):
+    """Each reason is judged only on a scope the client shares."""
+    conn, relationships = store
+    _shared_only(conn, relationships, scopes)
+    week = dashboard.client_week(conn, world.COACH_A, world.SHARED, MONDAY + timedelta(weeks=1))
+    assert dashboard.follow_up_reasons(week) == reasons

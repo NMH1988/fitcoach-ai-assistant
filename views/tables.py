@@ -13,7 +13,7 @@ from src import chat, config, dashboard, exercises, i18n, metrics, units, usage
 from src.i18n import Language
 from src.profile import Goal
 from src.store.notifications import Notification
-from src.tools import registry
+from src.tools import coach_clients, registry
 from src.tools.energy import Macro, MacroTargetsResult, TdeeResult
 from src.tools.food import FoodLookupResult
 
@@ -299,6 +299,11 @@ def _day(stamp: str) -> str:
     return stamp[:10]
 
 
+def set_by_coach(kind: str, row: dict) -> bool:
+    """Return True for a target the gymer's coach set: read-only for the gymer (T9.17)."""
+    return kind == "nutrition_targets" and row.get("set_by") == "coach"
+
+
 def stored_cells(kind: str, row: dict, system: units.UnitSystem, lang: Language) -> list[str]:
     """Return one stored record as the cells of its My data table, in the user's units."""
     cells = {
@@ -438,7 +443,7 @@ def entry_label(kind: str, row: dict, system: units.UnitSystem, lang: Language) 
 # The columns of the coach's client list (T9.12; the week's values since T9.15), as keys under
 # "clients.col." in src/i18n.py; the former clients keep only their name and days (T9.15, from the
 # compliance review of T9.12).
-CLIENT_COLUMNS = ("name", "since", "logged", "kcal", "sessions", "weight", "review")
+CLIENT_COLUMNS = ("name", "since", "follow_up", "logged", "kcal", "sessions", "weight", "review")
 FORMER_COLUMNS = ("name", "since", "ended")
 INVITATION_COLUMNS = ("created", "expires", "state")
 
@@ -701,7 +706,91 @@ def client_cells(
         "sessions": shared("training", lambda: str(week.training.sessions)),
         "weight": shared("body", lambda: weight_on(dashboard.latest_weight(week), system, lang)),
         "review": shared("nutrition", lambda: review_status(dashboard.latest_review(week), lang)),
+        "follow_up": follow_up_text(dashboard.follow_up_reasons(week), lang),
     }
+
+
+def _client_name(reference: str, names: dict[str, str]) -> str:
+    """Return the display name a reference stands for in this chat, or the reference itself."""
+    return names.get(reference, reference)
+
+
+CLIENT_TOOL_COLUMNS = ("name", "logged", "sessions", "follow_up")
+
+
+def client_list_tool_table(
+    result: coach_clients.ClientListResult, names: dict[str, str], lang: Language
+) -> dict[str, list[str]]:
+    """Return list_my_clients' result as the client list's columns, names in place (T9.17)."""
+    not_shared = i18n.t("clients.not_shared", lang)
+    rows = [
+        [
+            _client_name(item.client, names),
+            not_shared
+            if item.logged_days is None
+            else i18n.t("week.logged_days", lang, logged=item.logged_days, days=item.days_in_week),
+            not_shared if item.workouts is None else str(item.workouts),
+            follow_up_text(tuple(item.follow_up_reasons), lang),
+        ]
+        for item in result.clients
+    ]
+    return columns(column_names(CLIENT_TOOL_COLUMNS, lang), rows)
+
+
+def client_week_tool_rows(
+    result: coach_clients.ClientWeekResult,
+    names: dict[str, str],
+    system: units.UnitSystem,
+    lang: Language,
+) -> dict[str, str]:
+    """Return get_client_week's result as label and value pairs, the name in place (T9.17)."""
+    not_shared = i18n.t("clients.not_shared", lang)
+    nutrition, body, training = result.nutrition, result.body, result.training
+    rows = {
+        i18n.t("clients.col.name", lang): _client_name(result.client, names),
+        i18n.t("tool.client_week.week", lang): i18n.t(
+            "tool.client_week.range",
+            lang,
+            start=result.week_start.isoformat(),
+            end=result.week_end.isoformat(),
+        ),
+        i18n.t("clients.col.logged", lang): not_shared
+        if nutrition is None
+        else i18n.t(
+            "week.logged_days", lang, logged=nutrition.logged_days, days=nutrition.days_in_week
+        ),
+    }
+    if nutrition is not None and nutrition.average_over_logged_days is not None:
+        target = nutrition.target
+        rows[i18n.t("clients.col.kcal", lang)] = i18n.t(
+            "tool.client_week.kcal",
+            lang,
+            average=i18n.number(round(nutrition.average_over_logged_days.kcal), lang),
+            target="–" if target is None else i18n.number(round(target.nutrients.kcal), lang),
+        )
+    latest = None if body is None else body.latest_weight_kg
+    rows[i18n.t("clients.col.weight", lang)] = (
+        not_shared
+        if body is None
+        else "–"
+        if latest is None
+        else units.format_weight(latest, system, lang)
+    )
+    rows[i18n.t("clients.col.sessions", lang)] = (
+        not_shared if training is None else str(training.sessions)
+    )
+    rows[i18n.t("clients.col.follow_up", lang)] = follow_up_text(
+        tuple(result.follow_up_reasons), lang
+    )
+    return rows
+
+
+def follow_up_text(reasons: tuple[str, ...], lang: Language) -> str:
+    """Return the client list's follow-up cell: why the client is flagged, or "No" (T9.17)."""
+    if not reasons:
+        return i18n.t("clients.follow_up.none", lang)
+    named = "; ".join(i18n.t(f"clients.follow_up.{reason}", lang) for reason in reasons)
+    return i18n.t("clients.follow_up.flagged", lang, reasons=named)
 
 
 def column_names(keys: tuple[str, ...], lang: Language) -> tuple[str, ...]:

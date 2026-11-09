@@ -49,7 +49,7 @@ from src.rag.sources import (
     FORMULA_CHANGES_MADE,
     Source,
 )
-from src.tools import meal_plan, registry
+from src.tools import coach_clients, meal_plan, registry
 from src.tools.energy import FORMULA_SOURCES, MACRO_SOURCES, FormulaSource, Macro, TdeeResult
 from src.tools.food import FoodLookupResult, FoodTableError, food_source_line, read_usda_release
 from src.tools.meal_plan import MealPlanResult
@@ -93,6 +93,7 @@ TEXT_KEYS = (
     "answer",
     "sources",
     "tool_results",
+    "client_tool",
     "credits",
     "credits_intro",
     "formula_sources",
@@ -526,6 +527,10 @@ def _tool_run_flowables(
         body = _food_flowables(result, lang)
     elif isinstance(result, MealPlanResult) and result.status != "invalid":
         body = _meal_plan_flowables(result, lang)
+    elif isinstance(result, coach_clients.ClientListResult | coach_clients.ClientWeekResult):
+        # A coach's client tools (T9.17): their table is in the app; the answer above names the
+        # clients, and the message written for the model is not repeated (code review round 2).
+        body = [_para(i18n.t("pdf.client_tool", lang), "small")]
     else:
         # A refused or failed call: the fixed message, never what the model sent.
         body = [_para(result.message, "small")]

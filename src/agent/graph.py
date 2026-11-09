@@ -58,7 +58,7 @@ from src.rag import hybrid
 from src.rag.hybrid import KeywordIndex
 from src.rag.retriever import RetrievedChunk
 from src.rag.sources import Source
-from src.tools import registry
+from src.tools import coach_clients, registry
 from src.tools.registry import ToolRun
 from src.usage import UsageRecorder
 
@@ -373,6 +373,8 @@ def tool_node() -> ToolNode:
         *registry.build_tools(None).values(),
         search.search_tool_definition(),
         preferences.tool_definition(),
+        # A coach's client tools (T9.17): named here, run through the registry with the session's.
+        *coach_clients.tool_definitions(),
     ]
     return ToolNode(definitions, wrap_tool_call=run_checked_call, handle_tool_errors=False)
 

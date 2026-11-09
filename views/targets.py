@@ -2,10 +2,13 @@
 
 import streamlit as st
 
-from src import config, units
+from src import account as accounts
+from src import config, metrics, units
+from src.store import records
+from src.store.access import NotFound
 from src.tools import registry
 from src.tools.energy import protein_lowered_note
-from views import charts, profile_form, tables
+from views import account, charts, profile_form, tables
 from views.text import lang, n, percent, t
 
 
@@ -54,7 +57,45 @@ def sidebar_card(system: units.UnitSystem) -> None:
             st.caption(f"**{label}** {n(macro.grams)} g · {share} · {per_weight}")
         if targets.protein_lowered:
             st.caption(f":material/warning: {t('targets.protein_lowered')}")
+        if active_coach_target() is not None:
+            # Not the active target: the coach's is (T9.17, code review round 1).
+            st.caption(f":material/sports: {t('targets.computed_not_active')}")
         st.caption(t("targets.more"))
+
+
+def active_coach_target() -> metrics.Target | None:
+    """Return a signed-in gymer's active target if their coach set it, else None (T9.17)."""
+    user = account.current_user()
+    if user is None or user["role"] != "gymer":
+        return None
+    try:
+        with accounts.open_store(account.store_path()) as conn:
+            stored = records.list_targets(conn, user["id"], user["id"])
+    except accounts.StoreUnavailable, NotFound:
+        return None  # the page's store notice says the store is down; a deleted account reruns
+    active = metrics.active_target(stored, accounts.today())
+    return active if active is not None and active.set_by == "coach" else None
+
+
+def coach_target_notice() -> None:
+    """Show a gymer's active target when their coach set it: read-only, no control (T9.17)."""
+    active = active_coach_target()
+    if active is None:
+        return
+    st.info(
+        t(
+            "targets.coach_set",
+            day=active.effective_from.isoformat(),
+            kcal=n(active.kcal),
+            protein=n(active.protein_g),
+            carbohydrate=n(active.carbohydrate_g),
+            fat=n(active.fat_g),
+        ),
+        icon=":material/sports:",
+    )
+    # A coach's numbers become the active target: the app does not check their qualifications
+    # (PRD, Users and roles; T9.17 compliance run 1).
+    st.caption(f":material/info: {t('sharing.unverified')}")
 
 
 def tab() -> None:

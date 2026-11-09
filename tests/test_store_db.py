@@ -206,7 +206,7 @@ def test_connect_creates_the_file_in_the_configured_folder_with_every_table(stor
         for row in store_conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
     }
     assert names == TABLES
-    assert db.schema_version(store_conn) == len(schema.MIGRATIONS) == 4
+    assert db.schema_version(store_conn) == len(schema.MIGRATIONS) == 5
 
 
 def test_the_store_folder_is_gitignored_and_inside_the_project():
@@ -811,16 +811,16 @@ def test_the_rebuilt_audit_table_is_v1_s_apart_from_the_action_list(store_conn):
 def test_the_audit_check_and_access_action_list_the_same_actions(store_conn):
     """A new action is added in both places, or neither."""
     assert set(_check_actions(store_conn)) == set(get_args(access.Action))
-    assert "review_answered" in get_args(access.Action)
+    assert {"review_answered", "target_set"} <= set(get_args(access.Action))
 
 
-@pytest.mark.parametrize("migrations", [1, 2, 3])
+@pytest.mark.parametrize("migrations", [1, 2, 3, 4])
 def test_upgrading_an_older_file_keeps_every_audit_row_index_and_trigger(tmp_path, migrations):
-    """A version 1, 2 or 3 file with audit rows reaches version 4, its rows, IDs and guards kept."""
+    """A version 1 to 4 file with audit rows reaches version 5, its rows, IDs and guards kept."""
     path = tmp_path / "old.sqlite3"
     before = _old_file(path, migrations)
     with db.connect(path) as conn:
-        assert db.schema_version(conn) == 4
+        assert db.schema_version(conn) == len(schema.MIGRATIONS) == 5
         after = [tuple(row) for row in conn.execute("SELECT * FROM audit_log ORDER BY id")]
         assert after == before
         indexes = {
@@ -831,8 +831,9 @@ def test_upgrading_an_older_file_keeps_every_audit_row_index_and_trigger(tmp_pat
         with pytest.raises(sqlite3.IntegrityError, match="never changed in place"):
             conn.execute("UPDATE audit_log SET resource_type = 'x'")
         _insert(conn, "audit_log", {**VALID_ROWS["audit_log"], "action": "review_answered"})
+        _insert(conn, "audit_log", {**VALID_ROWS["audit_log"], "action": "target_set"})
         with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
-            _insert(conn, "audit_log", {**VALID_ROWS["audit_log"], "action": "target_set"})
+            _insert(conn, "audit_log", {**VALID_ROWS["audit_log"], "action": "deleted"})
         assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
         assert "review_questions" in {
             row["name"] for row in conn.execute("SELECT name FROM sqlite_master")
@@ -872,6 +873,31 @@ def test_a_migration_4_that_fails_halfway_leaves_the_version_3_file_as_it_was(tm
         assert raw.execute("PRAGMA user_version").fetchone()[0] == 3
         names = {row[0] for row in raw.execute("SELECT name FROM sqlite_master")}
         assert "review_questions" not in names and "audit_log_never_changed" in names
+        assert [tuple(row) for row in raw.execute("SELECT * FROM audit_log ORDER BY id")] == before
+    finally:
+        raw.close()
+
+
+def test_a_migration_5_that_fails_halfway_leaves_the_version_4_file_as_it_was(tmp_path):
+    """A failure after migration 5 (T9.17) copied the rows and dropped the old table undoes all."""
+    path = tmp_path / "old.sqlite3"
+    before = _old_file(path, 4)
+    raw = sqlite3.connect(path, autocommit=True)
+    # A view on audit_log lets the new table, the copy and the DROP run, then makes the RENAME
+    # fail, as SQLite checks every view while renaming and this one names a table now gone.
+    raw.execute("CREATE VIEW audit_probe AS SELECT id FROM audit_log")
+    raw.close()
+    with pytest.raises(sqlite3.OperationalError, match="audit_probe"):
+        with db.connect(path):
+            pass
+    raw = sqlite3.connect(path)
+    try:
+        assert raw.execute("PRAGMA user_version").fetchone()[0] == 4
+        sql = raw.execute("SELECT sql FROM sqlite_master WHERE name = 'audit_log'").fetchone()[0]
+        assert "review_answered" in sql and "target_set" not in sql
+        names = {row[0] for row in raw.execute("SELECT name FROM sqlite_master")}
+        assert "audit_log_v5" not in names
+        assert {"audit_log_actor", "audit_log_subject", "audit_log_never_changed"} <= names
         assert [tuple(row) for row in raw.execute("SELECT * FROM audit_log ORDER BY id")] == before
     finally:
         raw.close()

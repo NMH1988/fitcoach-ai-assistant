@@ -249,6 +249,9 @@ def test_the_coachs_notes_say_preferences_are_stored_and_sent(monkeypatch, langu
         assert "OpenRouter" in i18n.t(key, language)
     assert "preferences" in i18n.t("profile.note_coach", "en")
     assert "Vorlieben" in i18n.t("profile.note_coach", "de")
+    # T9.17 (compliance run 1): the clients' figures, under a reference, go to the model too.
+    assert "under a reference, never their names" in i18n.t("profile.note_coach", "en")
+    assert "unter einer Referenz, nie mit ihrem Namen" in i18n.t("profile.note_coach", "de")
 
 
 # --- My data -------------------------------------------------------------------------------------

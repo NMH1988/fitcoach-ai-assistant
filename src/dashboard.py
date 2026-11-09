@@ -12,6 +12,7 @@ unit-tested on a real store.
 import sqlite3
 from dataclasses import dataclass
 from datetime import date, timedelta
+from typing import Literal, get_args
 
 from src import config, metrics
 from src.store import records, reviews, users
@@ -118,6 +119,23 @@ def relationship_week(
 def own_week(conn: sqlite3.Connection, user_id: str, monday: date) -> DashboardWeek:
     """Return a gymer's own week, every scope."""
     return _week(_read(conn, user_id, user_id, monday, SCOPES), monday)
+
+
+# Why a client is flagged for follow-up (T9.17): fewer logged days than
+# config.FOLLOW_UP_MIN_LOGGED_DAYS, or no workout in the week. Each is judged only on a scope the
+# client shares; a scope not shared never flags them.
+FollowUp = Literal["few_logged_days", "no_session"]
+FOLLOW_UP_REASONS: tuple[FollowUp, ...] = get_args(FollowUp)
+
+
+def follow_up_reasons(week: DashboardWeek) -> tuple[FollowUp, ...]:
+    """Return why the client needs a follow-up this week (empty: none), from the scopes shared."""
+    reasons: list[FollowUp] = []
+    if "nutrition" in week.shared and week.nutrition.logged_days < config.FOLLOW_UP_MIN_LOGGED_DAYS:
+        reasons.append("few_logged_days")
+    if week.training is not None and week.training.sessions == 0:
+        reasons.append("no_session")
+    return tuple(reasons)
 
 
 def latest_review(week: DashboardWeek) -> dict | None:

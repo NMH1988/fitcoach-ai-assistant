@@ -302,6 +302,27 @@ def test_a_coachs_export_holds_their_preferences_and_delete_removes_them(store_c
     assert records.list_preferences(store_conn, world.COACH_B, world.COACH_B)
 
 
+@pytest.mark.parametrize("user", [world.SHARED, world.COACH_A])
+def test_both_sides_export_the_target_set_row_and_the_gymer_the_target(full_world, user):
+    """A coach's target is in the gymer's export; its audit row is in both sides' (T9.17)."""
+    target_id = records.add_client_target(
+        full_world,
+        world.COACH_A,
+        world.SHARED,
+        kcal=2100.0,
+        protein_g=170.0,
+        carbs_g=200.0,
+        fat_g=65.0,
+        effective_from=date(2026, 10, 27),
+    )
+    document = json.loads(my_data.export_user_data(full_world, user))
+    rows = [row for row in document["audit_log"] if row["action"] == "target_set"]
+    assert [(row["resource_id"], row["subject_id"]) for row in rows] == [(target_id, world.SHARED)]
+    if user == world.SHARED:
+        targets = {row["id"]: row["set_by"] for row in document["nutrition_targets"]}
+        assert targets[target_id] == "coach"
+
+
 # --- The questions to the coach (T9.25, AC-42) ----------------------------------------------------
 
 

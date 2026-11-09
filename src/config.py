@@ -376,6 +376,13 @@ WORKOUT_WEIGHT_STEP: dict[str, float] = {"metric": 2.5, "imperial": 5.0}
 # chosen week's Sunday; each chart is this tall, its axes and legend included.
 WEIGHT_TREND_WEEKS = 8
 DASHBOARD_CHART_HEIGHT_PX = 240
+# The coach assistant (T9.17). A client is flagged for follow-up in the client list (and in
+# list_my_clients) with fewer logged days than this in the week, or no workout when they share
+# training. The coach's target form: the largest values its fields take (a typing guard for the
+# form only; the store keeps the calorie floor, CALORIE_FLOOR_KCAL, whoever sets a target).
+FOLLOW_UP_MIN_LOGGED_DAYS = 4
+TARGET_INPUT_MAX_KCAL = 10000
+TARGET_INPUT_MAX_GRAMS = 1000
 # In-app notifications (T9.29, D23): the Notifications page lists at most this many, newest first,
 # and at most NOTIFICATIONS_MAX_TOASTS show as toasts in one run (the rest as one "and N more"
 # toast). A scope granted within NOTIFICATIONS_SAME_EVENT_SECONDS after a code was accepted counts
@@ -789,6 +796,17 @@ TOO_MANY_MEAL_PLANS_MESSAGE = (
     f"Not run: at most {MAX_MEAL_PLAN_CALLS_PER_ROUND} meal plan check is run from one reply."
 )
 TOOL_FAILED_MESSAGE = "Not available: the tool could not run, so there is no result."
+# The coach's client tools (T9.17): one "not found" for every client the coach may not read in
+# this chat (an unknown reference, an ended relationship, anyone else; AC-21), and the fixed
+# message for get_client_week arguments that fail its schema or ask for a week after today.
+CLIENT_NOT_FOUND_MESSAGE = (
+    "Not found: no active client of yours has that reference in this chat. list_my_clients gives "
+    "the current references."
+)
+INVALID_CLIENT_WEEK_MESSAGE = (
+    "Invalid call: client must be a reference from list_my_clients (e.g. 'client-1'), and week_of, "
+    "if given, a day (YYYY-MM-DD) not after today."
+)
 # The coach's long-term memory (T9.7, D12): `remember_preference`, offered only in a coach's chat,
 # proposes one of the coach's own working preferences; it is saved only when the coach approves it
 # on the card. The longest text a preference may have, the most proposals per turn, and how many
@@ -817,6 +835,11 @@ PREFERENCE_REFUSED_MESSAGES: dict[str, str] = {
     "client_name": (
         "Not proposed: the text names one of the coach's clients, and a preference must not hold "
         "a client's personal data."
+    ),
+    # T9.17: a client named by the chat's reference ("client-2").
+    "client_reference": (
+        "Not proposed: the text names one of the coach's clients by their reference, and a "
+        "preference must not hold a client's personal data."
     ),
     "one_per_turn": (
         f"Not proposed: at most {MAX_PREFERENCE_PROPOSALS_PER_TURN} preference is proposed per "
