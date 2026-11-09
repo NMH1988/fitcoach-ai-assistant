@@ -44,6 +44,12 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 - **Code review** round 3 (`code-reviewer` on the uncommitted tree on main 6054a25, narrow: round 2's fixes and compliance run 2's alt-text fix; posted on the PR by the caller): needs changes, all taken, in the record only, in the reviewer's own words. Should fix: the plan's criterion 7 note said the README is unchanged (now: no link to the video until the upload, its only change two alt texts); criterion 5's note said the compliance run was still to come (now: runs 1 and 2 checked the script). Nits: a stray parenthesis in criterion 4's note; "Run 4 ... was the one used for the first build"; this entry's Tests line names the no-course and description checks.
 - **The owner's review** (2026-11-09): the owner watched the video (`data/capture/20261109-184154/video/fitcoach-demo.mp4`, 3:03) and approved it, which meets criteria 4 to 6.
 - **Follow-ups:** the owner uploads the video with `docs/video/description.md`, and then the README links to it (a small PR).
+## 2026-11-09 · T9.11 Record T9.11 as done in the plan · NMH1988/fitcoach-ai-assistant#102 (closes NMH1988/fitcoach-ai-assistant#101)
+- **Brief:** as T9.11: Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 5, evaluation; Sprint 2 (`docs/BRIEF.md`): evaluation. Records only.
+- **What:** `docs/IMPLEMENTATION_PLAN.md`: T9.11 is done, in the overview and in the ticket's header.
+- **Why:** NMH1988/fitcoach-ai-assistant#100 merged T9.11 with criteria 1-7 met (code review round 4: ready to merge; compliance run 1's three Lows fixed; CI green) and criterion 8 moved to T9.11b, but the plan still said "in review".
+- **Decisions & gotchas:** docs only; no code or test change, nothing the compliance rule covers. The working tree's uncommitted T9.28 work was moved off `main` to `feature/t9.28-presentation-video` as a WIP commit (owner's choice, 2026-11-09), so it is not in this PR.
+- **Follow-ups:** T9.11b (NMH1988/fitcoach-ai-assistant#99) once the course repository's URL exists.
 
 ## 2026-11-09 · T9.11 Sprint 3 documentation and reflection · NMH1988/fitcoach-ai-assistant#100 (closes NMH1988/fitcoach-ai-assistant#14)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 5, evaluation (problem definition, core concepts (how agents work, the differences between agent types, how function calling is implemented, error scenarios and edge cases), reflection); core 3 not needed, as T9.20 was not cut; Sprint 2 (`docs/BRIEF.md`): evaluation: core concepts (how tool calling is implemented, error scenarios and edge cases).
