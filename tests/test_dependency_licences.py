@@ -10,7 +10,9 @@ fails on a licence outside `ALLOWED`: GPL, LGPL, AGPL, SSPL, proprietary,
 unrecognised or missing. A runtime requirement that is missing or installed at another version
 than its pin fails too, so a stale venv cannot pass.
 
-What it does not check: the dev tools (they do not ship with the app); the licences of the
+What it does not check: the dev tools (they do not ship with the app); the `media` extra (T9.27:
+Playwright and what it pulls in, a local tool for the README images, recorded by hand in
+`docs/SOURCES.md`, "Tools used to make media"); the licences of the
 knowledge base, the USDA data, fonts or screenshots (`docs/SOURCES.md`, `ATTRIBUTION.md`); whether a
 package's metadata is right or it bundles code under another licence; packages installed only on
 another platform (CI runs on Linux, so a Windows-only package such as colorama is checked only by a

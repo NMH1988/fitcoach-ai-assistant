@@ -25,6 +25,10 @@ data/eval_runs/
 # test-run store would go here, neither of which the scoring uses
 .deepeval/
 
+# The capture script's screenshots, frames and GIF (scripts/capture_media.py, T9.27); the chosen
+# images are copied into docs/media/ after the owner's review, and T9.28's video stays here too
+data/capture/
+
 # Signed-in users' data: the SQLite store (T9.6); never committed
 data/store/
 

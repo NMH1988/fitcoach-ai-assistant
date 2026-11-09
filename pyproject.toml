@@ -67,6 +67,15 @@ dev = [
 eval = [
     "deepeval==4.3.3",
 ]
+# The README images of T9.27: scripts/capture_media.py drives a local browser with Playwright,
+# only on the owner's machine, never in the app or in CI. Apache-2.0; it pulls in greenlet
+# (MIT AND PSF-2.0) and pyee (MIT). The browser is an open-source Chromium snapshot downloaded by
+# hand, never `playwright install`, whose builds are excluded (docs/SOURCES.md, "Tools used to
+# make media"). tests/test_dependency_licences.py does not walk this extra (a local tool, recorded
+# by hand); a PR that changes this pin gets a hand `pip-audit` like the eval extra's.
+media = [
+    "playwright==1.64.1",
+]
 
 [tool.setuptools.packages.find]
 include = ["src*"]

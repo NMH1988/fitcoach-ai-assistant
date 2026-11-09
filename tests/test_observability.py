@@ -1102,6 +1102,11 @@ def test_every_script_configures_logging_first_in_main(script):
     """Each script's main() starts with observability.configure_logging()."""
     if script.name == "__init__.py":
         pytest.skip("not a script")
+    if script.name == "capture_media.py":
+        # T9.27's capture script writes no log lines and runs no model; configure_logging() would
+        # read the secrets file and put the key in the environment its browser and FFmpeg inherit
+        # (owner's decision, 2026-11-09). tests/test_capture_media.py checks it imports no `src`.
+        pytest.skip("imports nothing of the app (T9.27)")
     assert _first_statement_of_main(script) == "observability.configure_logging()"
 
 

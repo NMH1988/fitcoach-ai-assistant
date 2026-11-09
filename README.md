@@ -4,7 +4,28 @@ A chatbot that answers nutrition questions for adults who do recreational streng
 
 **Status:** the project serves two course briefs of the Turing College AI Engineering course. Sprint 2 ([`docs/BRIEF.md`](docs/BRIEF.md), deadline 2026-11-02) is complete; this README describes it. Sprint 3 ([`docs/BRIEF_SPRINT3.md`](docs/BRIEF_SPRINT3.md), deadline 2026-11-23) is in progress: it turns the chatbot into a coach-first workspace with an AI agent, where a coach invites gymers, follows their nutrition and training, and approves the weekly reviews the agent drafts, while the gymers log their own food, weight and workouts and read the reviews their coach approved, with no AI chat of their own ([`docs/PRD.md`](docs/PRD.md), "Sprint 3"). Every ticket and its status are in [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md); what each change did and why is in [`docs/PROGRESS.md`](docs/PROGRESS.md).
 
+![A coach asks the chat how much protein a day helps build muscle; the answer appears with numbered citations, and the list of cited research articles opens below it](docs/media/chat.gif)
+
+*The demo coach asks a question; the answer cites its sources (demo mode, made-up users; sped up, no sound).*
+
 ## What it does
+
+The app runs locally; it is not deployed. These screenshots come from its demo mode, with made-up users and data ([`docs/TESTING.md`](docs/TESTING.md), "README images (T9.27)", says how they are captured again).
+
+<table>
+<tr>
+<td width="50%"><img src="docs/media/chat.jpg" alt="The demo coach's chat: the end of an answer about daily protein with citations such as [S3, S4], and the open Sources list with an article's title, authors, journal, year and CC BY 4.0 licence"><br><sub>The coach's chat: answers cite the research they use, listed under Sources.</sub></td>
+<td width="50%"><img src="docs/media/clients.jpg" alt="The Clients page of the demo coach: a table with the made-up client Demo gymer Sam, since when, a follow-up flag for few days logged, this week's logged days and average kcal against the target"><br><sub>Clients: each client's week at a glance, with a flag for whom to follow up.</sub></td>
+</tr>
+<tr>
+<td><img src="docs/media/client-week.jpg" alt="Client week for Demo gymer Sam, 2026-11-02 to 2026-11-08: 6 of 7 days logged, a bar chart of kcal per day against a dashed target line with Thursday not logged, and the average macros against their targets"><br><sub>Client week: one client's logged days and intake against the target, from what the client shares.</sub></td>
+<td><img src="docs/media/review.jpg" alt="A weekly review drafted by an AI model for the coach: observations, possible reasons and recommendations with sources, and the buttons Approve, Edit and Reject"><br><sub>A weekly review drafted by an AI model: the coach approves, edits or rejects it; the client sees it only once approved.</sub></td>
+</tr>
+<tr>
+<td><img src="docs/media/my-week.jpg" alt="The gymer's My week page: the weekly review labelled AI draft, approved by the coach"><br><sub>The gymer's My week: the review, labelled as an AI draft approved by the coach.</sub></td>
+<td><img src="docs/media/notifications.jpg" alt="The gymer's Notifications page: the coach approved the weekly review for the week of 2026-11-02, and the connection with the coach"><br><sub>Notifications: what changed with the coach, never the text of a review.</sub></td>
+</tr>
+</table>
 
 - **Chat with sources:** ask a nutrition question; the answer cites the research it used (`[S1]`, `[S2]`...) and lists each cited article with its title, authors, year, evidence tier, licence and link. When the sources do not cover a question, the app says so instead of guessing.
 - **Conversation memory:** the chat remembers the earlier questions and answers of the session, so a follow-up such as "and for 200 g?" works; "New chat" starts again and deletes the old conversation. It is kept in memory only, never written to disk (T9.4).
