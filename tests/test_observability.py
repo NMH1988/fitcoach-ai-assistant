@@ -166,13 +166,29 @@ def test_a_handler_found_by_its_marker_is_reused():
     assert _app_handlers() == [handler]
 
 
-def test_the_chatty_libraries_are_kept_at_warning():
-    """The SDK and HTTP libraries bypass the allowlist, so a debug level on them is undone."""
-    for name in ("openai", "httpx", "httpcore"):
-        logging.getLogger(name).setLevel(logging.DEBUG)
+# Written out, not read from observability, so dropping a name from the code fails the test. The
+# OpenAI SDK 3.x sends through httpx2 and httpcore2 (T1.12); httpx and httpcore are still pulled in
+# by other libraries; LangSmith logs run IDs and error text (T9.8); Authlib the code_verifier.
+_CHATTY = ("openai", "httpx", "httpcore", "httpx2", "httpcore2", "langsmith", "authlib")
+
+
+@pytest.mark.parametrize("name", _CHATTY)
+def test_the_chatty_libraries_are_kept_at_warning(name):
+    """The SDK, HTTP, tracing and sign-in libraries bypass the allowlist, so DEBUG is undone."""
+    logging.getLogger(name).setLevel(logging.DEBUG)
     observability.configure_logging()
-    for name in ("openai", "httpx", "httpcore"):
-        assert logging.getLogger(name).level == logging.WARNING
+    assert logging.getLogger(name).level == logging.WARNING
+
+
+@pytest.mark.parametrize(
+    ("parent", "child"),
+    [("httpcore2", "httpcore2.http11"), ("authlib", "authlib.integrations.base_client.sync_app")],
+)
+def test_httpcore2_and_authlib_child_loggers_inherit_warning(parent, child):
+    """Both libraries log through child loggers, which follow the level set on the parent."""
+    logging.getLogger(parent).setLevel(logging.DEBUG)
+    observability.configure_logging()
+    assert logging.getLogger(child).getEffectiveLevel() == logging.WARNING
 
 
 def test_configuring_twice_leaves_one_handler():
