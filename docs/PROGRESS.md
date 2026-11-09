@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-09 · T9.28 A presentation video of the app with offline narration · PR to come (closes NMH1988/fitcoach-ai-assistant#72)
+## 2026-11-09 · T9.28 A presentation video of the app with offline narration · NMH1988/fitcoach-ai-assistant#103 (closes NMH1988/fitcoach-ai-assistant#72)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): evaluation: problem definition (the problem and how the app addresses it), in part; Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request, 2026-11-06): a video for recruiters, and (owner's request, 2026-11-09) the README's images captured again as whole pages.
 - **What:**
   - `docs/video/script.json` (new): the script the owner approved (ten scenes; each sentence is narration and subtitle; `shows` pairs a screenshot with the sentence it starts at); `docs/video/description.md` (new): the upload's description with the same credits.
