@@ -14,7 +14,7 @@ This is a student portfolio project. If you find a security problem, contact the
 | A signed-in user's stored data (T9.6): the account (keyed ID, role, display name), profile history, weights, food and workout logs, targets, a coach's working preferences (T9.7), relationships and scopes, reviews, the questions to the coach and the answers under them (T9.25), invitations, code attempts, audit rows, notification read marks (T9.29) | Personal health data kept on disk, and shared with a coach only by the user's choice |
 | The questions to the coach and the answers (T9.25, `review_questions`) | Free text a gymer writes to a person, possibly about their health. Read only by the gymer (under the approved reviews about them, also after the relationship ends) and by the review's coach by the review's own rule (an active relationship, nutrition and every scope the review used shared), every coach read and answer audited without the text (the one exception: a coach's question notifications, T9.30, below); written only through `src/store/questions.py` by that rule; never sent to a model (not the review's prompt, no chat, no tool), never logged, shown as plain text (`st.text`); a question on a domain guardrail is refused before it is stored |
 | The users themselves | Wrong or harmful nutrition advice can hurt people |
-| The repo's legal state | It is public; everything in it must be redistributable (`.claude/rules/copyright.md`) |
+| The repo's legal state | It is public; everything in it from third parties must be redistributable, and the owner's own code and documentation are all rights reserved (the README's copyright notice, T1.14) (`.claude/rules/copyright.md`) |
 
 ## Threats and controls
 

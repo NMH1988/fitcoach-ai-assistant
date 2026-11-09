@@ -83,7 +83,8 @@ Deadline: **2026-11-02** (Sprint 2, already submitted by the owner, 2026-10-28).
 | T1.10 | NMH1988/fitcoach-ai-assistant#36 | Compliance reviewer agent: copyright, data protection, legal (owner's request) | S | T1.4 | 10-27 | done |
 | T1.11 | NMH1988/fitcoach-ai-assistant#38 | CI: offline licence check of the runtime dependencies, Dependabot's bumps included (owner's request after T1.10's review) | S | T1.10 (criterion 7 only) | 10-27 | done |
 | T1.12 | NMH1988/fitcoach-ai-assistant#84 | Keep the httpx2, httpcore2 and authlib loggers at WARNING (found in passing by T9.9) | S | T8.2 | 11-09 | done |
-| T1.13 | NMH1988/fitcoach-ai-assistant#104 | Docs: record the Dependabot bumps of 2026-11-09 in the dependency table (owner's request after merging them) | S | - | 11-09 | in review |
+| T1.13 | NMH1988/fitcoach-ai-assistant#104 | Docs: record the Dependabot bumps of 2026-11-09 in the dependency table (owner's request after merging them) | S | - | 11-09 | done |
+| T1.14 | NMH1988/fitcoach-ai-assistant#105 | Docs: the repo's own code stays all rights reserved (copyright notice) (owner's request) | S | T1.13 (order only) | 11-09 | in review |
 | T3.2 | #8 | Query translation and structured filters | M | T3.1, O7 | 10-26 | done |
 | T3.3 | #9 | Hybrid search (BM25 + RRF) | M | T3.2 | 10-27 | done |
 | T3.4 | #10 | Prompt injection hardening | S | T3.1 | 10-27 | done |
@@ -306,15 +307,29 @@ Deadline: **2026-11-02** (Sprint 2, already submitted by the owner, 2026-10-28).
 - [x] (Owner's choice after code review round 1, 2026-11-09.) The `authlib` logger is kept at WARNING too, as Authlib logs the sign-in's PKCE `code_verifier` at DEBUG (`authlib/integrations/base_client/sync_app.py`), and so are its child loggers - `test_the_chatty_libraries_are_kept_at_warning[authlib]`, `test_httpcore2_and_authlib_child_loggers_inherit_warning[authlib-...]`; SECURITY and the rule name it.
 **Notes:** found in passing by T9.9 (PR NMH1988/fitcoach-ai-assistant#83): the OpenAI SDK 3.x sends through `httpx2` and `httpcore2`, whose loggers are not in `observability._CHATTY_LIBRARIES` (`openai`, `httpx`, `httpcore`); at DEBUG they could put prompts, profiles or headers on stderr, outside the allowlist. Small; its place in the order is the owner's choice. Read in `.venv` (2026-11-09): `httpx2` logs as `httpx2`, `httpcore2` through child loggers (`httpcore2.connection`, `.http11`, `.http2`, `.proxy`, `.socks`). `httpx` and `httpcore` stay in the list, as chromadb, langchain-core, langgraph-sdk and Streamlit's `auth` extra still require `httpx` (Authlib itself prefers `httpx2` when it is installed). The owner's choice (2026-11-09): the compliance-reviewer and `/security-review` run on the PR, besides the code-reviewer. At the owner's request (2026-11-09, beyond the brief) this PR also added a rule to `.claude/rules/workflow.md` (check that every review report is on the PR, post it if missing, link it; post `/security-review`'s report; what a posted report may hold) and let the compliance-reviewer and security-reviewer count an earlier `run <N>`, as T1.11 added the posting rule.
 
-### T1.13 Docs: record the Dependabot bumps of 2026-11-09 in the dependency table (S) · status: in review · issue NMH1988/fitcoach-ai-assistant#104
+### T1.13 Docs: record the Dependabot bumps of 2026-11-09 in the dependency table (S) · status: done · issue NMH1988/fitcoach-ai-assistant#104
 **Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 5 (documentation: the technical decisions); Sprint 2 (`docs/BRIEF.md`): none.
 **Depends on:** -
 **Acceptance criteria** (approved by the owner, 2026-11-09)
 - [x] `docs/ARCHITECTURE.md` section 12 lists openai 3.46.0 and reportlab 5.1.0, and the Dev line ruff 0.17.4, httpx2 2.16.0 and pypdf 7.0.0, with their licences read again on PyPI (unchanged: Apache-2.0, BSD, MIT, BSD-3-Clause, BSD-3-Clause) and the check date - review against `pyproject.toml`. (The approved text said ruff 0.17.3 and pypdf 6.21.2, the PR titles before the rebase; Dependabot's rebase moved #27 and #26 to 0.17.4 and 7.0.0, which is what merged, so the criterion names what `pyproject.toml` pins.)
 - [x] A `docs/PROGRESS.md` entry records the seven Dependabot PRs merged (NMH1988/fitcoach-ai-assistant#22-#28), the check of the openai release notes and CI green on `main` at e9f113d - review.
 - [x] T1.13 is in this plan - review.
-- [ ] CI passes - CI on the PR.
+- [x] CI passes - CI on the PR: NMH1988/fitcoach-ai-assistant#106's lint, test, security and linked-issue checks passed; merged on 2026-11-09 (recorded as done by T1.14's PR, owner's choice).
 **Notes:** the owner asked to merge the seven Dependabot PRs in order of risk (2026-11-09), then for this PR. Left as they are: the line that reportlab 5.0.1 writes a broken text map (a record of what was found then), and `docs/SECURITY.md`'s "pinned by tag" (still true with v7). Docs only, so no compliance-reviewer run.
+
+### T1.14 Docs: the repo's own code stays all rights reserved (copyright notice) (S) · status: in review · issue NMH1988/fitcoach-ai-assistant#105
+**Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): none; Sprint 2 (`docs/BRIEF.md`): none. Beyond the brief (owner's request, 2026-11-09).
+**Depends on:** T1.13 (order only: after its PR merged, on its own branch from `main`, owner's choice)
+**Acceptance criteria** (approved by the owner, 2026-11-09)
+- [x] The README has a copyright notice for the project's own code and documentation: Copyright (c) 2026 Nguyen Mai Hoang, all rights reserved; the code may be viewed and run to evaluate it, and any other use (copying, modifying, redistributing, commercial use) needs the author's written permission; third-party content keeps its own licence and is not covered by the notice (links to `docs/SOURCES.md`, `ATTRIBUTION.md` and `assets/fonts/LICENSE`) - review: `README.md`, "Copyright and licences".
+- [x] There is no `LICENSE` file at the repo root, and `pyproject.toml` declares no open-source licence (no `license` field and no licence classifier) - review: both were already true; nothing changed.
+- [x] `docs/PRD.md` records the decision: the open item "The repo's own code licence" is closed with the owner's choice and date, and "possibly opened as open source later" in "Beyond the brief" is reworded to match - review.
+- [x] `.claude/rules/copyright.md` matches the decision: the intro no longer says the repo may be opened as open source, and says that third-party content must still be reusable and redistributable by anyone while the owner's own code is all rights reserved; rule 9's "The repo's own code licence (if one is added)" is reworded to match; nothing else in the policy changes - review.
+- [x] `.claude/agents/compliance-reviewer.md` item 10 no longer reports the missing code licence as an open decision: it checks that the README notice is there and that no open-source licence was added without the owner's decision - review.
+- [ ] The `compliance-reviewer` agent runs on the PR with no open Blocker or High finding, and its report is on the PR - the PR's comments.
+- [x] T1.14 is in this plan, and a `docs/PROGRESS.md` entry records the owner's decision - review.
+- [ ] CI passes - CI on the PR.
+**Notes:** docs and agent instructions only, no code. The notice only states the default (without a licence nobody may reuse the code anyway), but it makes the owner's intent plain; it cannot stop anyone from viewing or cloning a public repository, and GitHub's terms let other users view and fork it on GitHub. Left as it is (owner's choice, 2026-11-09): `ATTRIBUTION.md`'s line that "the licence of this repository's code does not apply to them", generated by `src/rag/sources.py`; it stays true for the all-rights-reserved terms, and rewording it would change code and the generated file. Also in this PR (owner's choice): T1.13 recorded as done. Owner check, not part of this ticket: whether Turing College's terms grant the school rights over work copied into the course repository (T9.11b).
 
 ## Epic 2: Knowledge base
 

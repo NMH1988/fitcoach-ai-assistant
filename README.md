@@ -216,9 +216,11 @@ Otherwise, and always before 2026-10-26, numbers such as `#76` in the docs and c
 
 Stack: Python, Streamlit, LangChain, LangGraph, OpenRouter, Chroma, rank-bm25, SQLite, reportlab, USDA FoodData Central.
 
-## Content and licences
+## Copyright and licences
 
-The knowledge base uses only openly licensed material (CC BY articles and the public-domain USDA FoodData Central data). Each source keeps its own licence and is credited; see [`docs/SOURCES.md`](docs/SOURCES.md) and [`ATTRIBUTION.md`](ATTRIBUTION.md). The article texts are not committed: `scripts/download_sources.py` fetches them. No author, journal, society or USDA endorses this app. The PDF summary uses the bundled DejaVu fonts, under their own licence (`assets/fonts/LICENSE`).
+Copyright (c) 2026 Nguyen Mai Hoang. All rights reserved. This covers the project's own code and documentation. You may view the code and run it to evaluate the project; any other use, such as copying (beyond the local copy needed to run it), modifying, redistributing or commercial use, needs the author's written permission. No open-source licence is granted. Third-party content is not covered by this notice and keeps its own licence: the knowledge base articles and the USDA data ([`docs/SOURCES.md`](docs/SOURCES.md), [`ATTRIBUTION.md`](ATTRIBUTION.md)) and the bundled DejaVu fonts ([`assets/fonts/LICENSE`](assets/fonts/LICENSE)).
+
+The knowledge base uses only openly licensed material (CC BY articles and the public-domain USDA FoodData Central data), each credited in [`ATTRIBUTION.md`](ATTRIBUTION.md). The article texts are not committed: `scripts/download_sources.py` fetches them. No author, journal, society or USDA endorses this app. The PDF summary uses the bundled DejaVu fonts.
 
 ## Disclaimer
 

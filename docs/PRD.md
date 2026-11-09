@@ -189,7 +189,7 @@ The owner drafts the system prompt(s) and the evaluation questions; Claude revie
 
 ## Beyond the brief (owner's request)
 
-- The repo is the owner's personal, public portfolio project, viewed by recruiters and possibly opened as open source later; it is copied into the course repository for the review.
+- The repo is the owner's personal, public portfolio project, viewed by recruiters; it is copied into the course repository for the review. Its own code and documentation stay all rights reserved, with no open-source licence (owner's decision, 2026-11-09, T1.14; the notice is in the README).
 - Because of that, a strict copyright policy applies (`.claude/rules/copyright.md`): open licences only (public domain, CC0, CC BY), nothing that needs permission, licence checked on the article itself, text only, attribution, raw documents not committed. The brief only asks for a relevant knowledge base.
 - Light and dark mode (T7.3). German support (T7.1, T7.2) is an optional task in the brief (Hard 4) but goes beyond this PRD's original English-only scope.
 - Sprint 3: the coach role, invitations and sharing, the workout log and the dashboards (section "Sprint 3" above), the training principles (feature 26), the coach-first product model (T9.24) and the questions to the coach (feature 27, P1).
@@ -199,5 +199,5 @@ The owner drafts the system prompt(s) and the evaluation questions; Claude revie
 ## Open items
 
 - Deployment: the app runs locally for the review; a public demo comes later (`docs/DEPLOYMENT.md`). Not deployed for now because of the hosting cost (owner's decision, 2026-11-06); a public deployment would also need the privacy notice and the GDPR review first ("Sprint 3" above: out of scope, and the privacy change). The README images and the video (T9.27, T9.28) show the app instead.
-- The repo's own code licence (e.g. MIT). Without one, others may view the code but not reuse it.
+- The repo's own code licence. **Closed on 2026-11-09 (T1.14):** the owner chose no open-source licence, to keep control and develop the project further; the project's own code and documentation are all rights reserved (others may view and run the code to evaluate it, not reuse it; the copyright notice is in the README); third-party content keeps its own licence.
 - The Capstone project: the parts of the owner's product plan that Sprint 3 leaves out ("Moved to the Capstone" above).
