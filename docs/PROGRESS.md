@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-09 · T9.30 Notifications of a new question or answer · NMH1988/fitcoach-ai-assistant#TBD (closes NMH1988/fitcoach-ai-assistant#87)
+## 2026-11-09 · T9.30 Notifications of a new question or answer · NMH1988/fitcoach-ai-assistant#96 (closes NMH1988/fitcoach-ai-assistant#87)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 3 (user interface: a user learns what changed without opening each page), in part; Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request, 2026-11-06). PRD features 27 and 28, AC-42, AC-43.
 - **What:**
   - Store: `questions.list_question_events(conn, actor, subject, *, audited=True)` reads the threads by their review's rule (T9.25) and returns IDs, the review's coach, client and week and the row's time, never the text: a coach reading a client (`authorise_read()` for nutrition, then every scope the review used in `open_shares`; `NotFound` otherwise), a coach's own list (filtered: every client still sharing), a gymer's own answers (every approved review about them, a former coach's too). A coach's read writes a `read` audit row of `review_questions` per client only when `audited`. `notifications.list_notifications(..., audited=False)` calls it before its own transaction and adds the kinds `question_asked` (coach) and `question_answered` (gymer), keyed by kind, row ID and time.
