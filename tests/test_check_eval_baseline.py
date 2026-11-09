@@ -419,3 +419,50 @@ def test_the_committed_training_baseline_passes_against_itself_within_its_tolera
     path = str(config.EVAL_TRAINING_BASELINE_PATH)
     assert check_eval_baseline.main([path, "--baseline", path]) == 0
     assert "BELOW" not in capsys.readouterr().out
+
+
+def test_a_run_on_another_index_is_a_note_not_a_failure(tmp_path, capsys):
+    """Another chunk or source count than the baseline's is compared, with both counts (T8.6)."""
+    baseline = _results(index={"chunks": 2304, "sources": 31})
+    results = _results(index={"chunks": 2290, "sources": 30})
+    assert _check(tmp_path, results, baseline) == 0
+    assert (
+        "note: the index differs from the baseline's (2290 chunks from 30 sources; "
+        "the baseline's: 2304 chunks from 31 sources)"
+    ) in capsys.readouterr().out
+
+
+def test_a_baseline_that_does_not_record_its_index_is_a_note(tmp_path, capsys):
+    """The committed baselines predate the field: the check says so and still compares (T8.6)."""
+    results = _results(index={"chunks": 2304, "sources": 31})
+    assert _check(tmp_path, results, _results()) == 0
+    assert (
+        "note: the baseline does not record its index; the results' is 2304 chunks from 31 sources"
+    ) in capsys.readouterr().out
+
+
+def test_results_that_do_not_record_their_index_are_a_note(tmp_path, capsys):
+    """A results file from before T8.6 against a baseline with counts is noted the other way."""
+    baseline = _results(index={"chunks": 2304, "sources": 31})
+    assert _check(tmp_path, _results(), baseline) == 0
+    assert (
+        "note: the results do not record their index; the baseline's is 2304 chunks from 31 sources"
+    ) in capsys.readouterr().out
+
+
+def test_the_same_index_or_none_in_both_adds_no_note(tmp_path, capsys):
+    """Equal counts, or no counts in either file, print no index note."""
+    same = _results(index={"chunks": 2304, "sources": 31})
+    assert _check(tmp_path, same, same) == 0
+    assert _check(tmp_path, _results(), _results()) == 0
+    assert "index" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "index",
+    ["2304", {"chunks": "2304", "sources": 31}, {"chunks": 1}, {"chunks": True, "sources": 1}],
+)
+def test_an_index_field_in_the_wrong_shape_is_a_broken_file(tmp_path, capsys, index):
+    """A hand-edited index field is refused with exit 2, like any other broken entry (T8.6)."""
+    assert _check(tmp_path, _results(index=index)) == 2
+    assert "index" in capsys.readouterr().err

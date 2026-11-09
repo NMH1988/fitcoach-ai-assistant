@@ -33,8 +33,9 @@ Next to the report it writes a results file with the same name and a .json endin
 commit (read when the run starts, and again at the end: a change in between is noted in the file
 and printed, T9.21), models, language and date, and for each run only IDs and counts (how it
 ended, the expected sources found and cited, the sources cited that were not expected, the tools,
-tokens and cost). It holds no answer, question or chunk text, so one run can be committed as
-data/eval_baseline.json; scripts/check_eval_baseline.py compares a later run with it.
+tokens and cost), with the index's chunk and source counts (T8.6). It holds no answer, question or
+chunk text, so one run can be committed as data/eval_baseline.json; scripts/check_eval_baseline.py
+compares a later run with it.
 
 With `--score` (T9.10) it also scores every answer with DeepEval (the `eval` extra:
 `pip install -e ".[dev,eval]"`): faithfulness (whether the answer's claims are supported by the
@@ -56,6 +57,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from chromadb.errors import ChromaError
 from langchain_chroma import Chroma
 from langchain_core.language_models import BaseChatModel
 
@@ -459,6 +461,21 @@ def write_report(
     return path
 
 
+def index_counts(index: Chroma) -> dict[str, int]:
+    """Return the index's chunk count and number of distinct sources, for the results file."""
+    # Recorded so a run on another index (a fresh build, T8.6's workflow) is noted by the check.
+    try:
+        metadatas = index.get(include=["metadatas"])["metadatas"]
+    except ChromaError:
+        raise store.IndexNotReadyError(store.UNREADABLE) from None
+    sources = {
+        str(metadata["source_id"])
+        for metadata in metadatas
+        if metadata and metadata.get("source_id") is not None
+    }
+    return {"chunks": len(metadatas), "sources": len(sources)}
+
+
 def _prices() -> Mapping[str, ModelPrice] | None:
     """Return OpenRouter's public prices, or None when they cannot be read (costs then unknown)."""
     try:
@@ -519,6 +536,7 @@ def main(args: Sequence[str] | None = None) -> int:
     try:
         # Built and opened before the first question, so a missing key or index stops the run.
         index = store.open_index()
+        counts = index_counts(index)
         chat_model = llm.build_chat_model()
         translation_model = llm.build_chat_model(
             config.QUERY_TRANSLATION_MODEL, config.QUERY_TRANSLATION_MAX_TOKENS
@@ -590,6 +608,7 @@ def main(args: Sequence[str] | None = None) -> int:
             started=started,
             questions_file=options.path.name,
             scores=score_summary,
+            index=counts,
         ),
         report.with_suffix(".json"),
     )

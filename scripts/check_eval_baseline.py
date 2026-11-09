@@ -11,7 +11,9 @@ two JSON files and calls nothing: no key, no index, no network. It prints the fo
 cited rate (the share of the expected sources found among the chunks the answer model got, and
 cited by its answer) with the baseline's and the lowest rate allowed, the baseline's tolerance
 below the baseline's (`config.EVAL_TOLERANCE`, or its questions file's own in
-`config.EVAL_TOLERANCES_BY_QUESTIONS_FILE`: the training baseline, T9.20). Exit code 0: neither
+`config.EVAL_TOLERANCES_BY_QUESTIONS_FILE`: the training baseline, T9.20). Other models, another
+`--repeat` or another index (its chunk and source counts, or a file that does not record them, T8.6)
+are printed as notes, not failures. Exit code 0: neither
 rate is below its limit. 1: a rate is below. 2: a file is missing or broken (including a
 hand-edited run entry), or the run cannot be compared: a scored run ended in an error (no credit, an
 outage: rerun the results, or take a new baseline when the error is the baseline's), or another

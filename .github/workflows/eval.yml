@@ -1,0 +1,82 @@
+name: Live evaluation
+
+# T8.6: the owner's evaluation questions through the real models, against the committed baseline.
+# Started by hand only (Actions > Live evaluation > Run workflow): only people with write access
+# to the repository can start it, so no visitor can spend the key. It never runs on a push or a
+# pull request. The key is the separate, credit-limited `OPENROUTER_API_KEY_EVAL` (O11), given only
+# to the two steps that call OpenRouter. GitHub masks it in the log, and no step prints it.
+# What leaves the runner: the log (public, as the repository is: source IDs, counts, the app's
+# fixed messages, never an answer or chunk text) and the results .json (IDs and counts only). The
+# full report (answers and article text) stays on the runner and is discarded with it.
+# docs/SECURITY.md and docs/TESTING.md ("Live evaluation workflow").
+
+on:
+  workflow_dispatch:
+    inputs:
+      questions:
+        description: Question set, compared with its own baseline
+        type: choice
+        options: [nutrition, training]
+        default: nutrition
+      repeat:
+        description: Times to ask each question (the baselines asked 3)
+        type: choice
+        options: ["3", "1", "5"]
+        default: "3"
+
+permissions:
+  contents: read
+
+# One run at a time, and a second one waits instead of cancelling a paid run.
+concurrency:
+  group: live-evaluation
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      QUESTIONS: ${{ inputs.questions == 'training' && 'data/eval_questions_training.json' || 'data/eval_questions.json' }}
+      BASELINE: ${{ inputs.questions == 'training' && 'data/eval_baseline_training.json' || 'data/eval_baseline.json' }}
+      REPEAT: ${{ inputs.repeat }}
+    steps:
+      # Pinned by commit, as this job holds a secret; Dependabot updates the pins.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      # The app's dependencies only: --score (DeepEval) is not run here.
+      - run: pip install -e .
+      # The Europe PMC REST API only (copyright policy rule 10); any refused article fails the job,
+      # so no run is made on a partial index.
+      - name: Download the sources
+        run: python -m scripts.download_sources
+      # Built fresh every run (owner's choice, 2026-11-09): no article text in the Actions cache.
+      - name: Build the index
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY_EVAL }}
+        run: python -m scripts.build_index
+      - name: Run the evaluation
+        id: evaluation
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY_EVAL }}
+        run: python -m scripts.run_evaluation --repeat "$REPEAT" "$QUESTIONS"
+      # Also when a turn ended in an error, so the file shows which (not after a cancel); never the
+      # .md report.
+      - name: Upload the results file
+        if: ${{ !cancelled() && steps.evaluation.outcome != 'skipped' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: eval-results-${{ inputs.questions }}-${{ github.run_number }}
+          path: data/eval_runs/*.json
+          if-no-files-found: error
+          retention-days: 30
+      # Exit 1 below the baseline minus its tolerance, 2 when the run cannot be compared.
+      - name: Compare with the baseline
+        if: ${{ !cancelled() && steps.evaluation.outcome != 'skipped' }}
+        run: python -m scripts.check_eval_baseline data/eval_runs/run-*.json --baseline "$BASELINE"
