@@ -887,13 +887,18 @@ _EN: dict[str, str] = {
     # In-app notifications (T9.29): the kind, the other side's name, the scope and the week only.
     "notifications.bell": "Notifications · {count} unread",
     "notifications.intro_coach": (
-        "What changed with your clients: who connected, started or stopped sharing, and which "
-        "relationships ended. A notification shows a name, what is shared and a time, never a "
-        "client's values. New ones appear the next time a page loads."
+        "What changed with your clients: who connected, started or stopped sharing, which "
+        "relationships ended, and the questions they asked under your weekly reviews. A "
+        "notification shows a name, what is shared, a week and a time, never a client's values "
+        "or the text of a question. Each time this page loads with notifications of your "
+        "clients' questions, it counts as a read of those clients' questions, which each client "
+        "sees in their export. New ones appear the next time a page loads."
     ),
     "notifications.intro_gymer": (
         "What changed with your coach: when you connected, when a coach approved a weekly review "
-        "about you, and when a relationship ended. New ones appear the next time a page loads."
+        "about you or answered your question under one, and when a relationship ended. A "
+        "notification never shows the text of a review, a question or an answer. New ones appear "
+        "the next time a page loads."
     ),
     "notifications.read_note": (
         "Mark all as read stores one mark with the time this list was loaded. Only you see it; "
@@ -911,6 +916,13 @@ _EN: dict[str, str] = {
     "notifications.scope_stopped": "{name} stopped sharing {scopes}.",
     "notifications.ended": "Your relationship with {name} ended.",
     "notifications.review_approved": "{name} approved your weekly review for the week of {week}.",
+    # T9.30: the week only, never the question's or the answer's text.
+    "notifications.question_asked": (
+        "{name} asked a question under the weekly review for the week of {week}."
+    ),
+    "notifications.question_answered": (
+        "{name} answered your question under the weekly review for the week of {week}."
+    ),
     # The dashboards (T9.15): the coach's client list and client week, the gymer's My week.
     "page.client_week": "Client week",
     "page.my_week": "My week",
@@ -1163,7 +1175,8 @@ _EN: dict[str, str] = {
         "Your coach sees what you share here, the days you logged before you shared it included, "
         "and always sees your display name. You can change what you share at any time. Your "
         "coach is told when you start or stop sharing something, and sees these changes and their "
-        "times until one of you deletes their data."
+        "times until one of you deletes their data. Your coach is also told when you ask a "
+        "question under a weekly review, while they may read it."
     ),
     "sharing.accept": "Accept the invitation",
     "sharing.accepted": "You are now connected with your coach.",
@@ -2201,14 +2214,18 @@ _DE: dict[str, str] = {
     "notifications.bell": "Benachrichtigungen · {count} ungelesen",
     "notifications.intro_coach": (
         "Was sich bei Ihren Kunden geändert hat: wer sich verbunden hat, etwas zu teilen begonnen "
-        "oder aufgehört hat und welche Verbindungen beendet sind. Eine Benachrichtigung zeigt "
-        "einen Namen, was geteilt wird, und eine Zeit, nie die Werte eines Kunden. Neue "
-        "erscheinen, wenn eine Seite das nächste Mal lädt."
+        "oder aufgehört hat, welche Verbindungen beendet sind und welche Fragen sie zu Ihren "
+        "Wochenberichten gestellt haben. Eine Benachrichtigung zeigt einen Namen, was geteilt "
+        "wird, eine Woche und eine Zeit, nie die Werte eines Kunden oder den Text einer Frage. "
+        "Jedes Mal, wenn diese Seite mit Benachrichtigungen über Fragen Ihrer Kunden lädt, gilt "
+        "das als Zugriff auf die Fragen dieser Kunden, den jeder Kunde in seinem Export sieht. "
+        "Neue erscheinen, wenn eine Seite das nächste Mal lädt."
     ),
     "notifications.intro_gymer": (
         "Was sich bei Ihrem Coach geändert hat: wann Sie sich verbunden haben, wann ein Coach "
-        "einen Wochenbericht über Sie freigegeben hat und wann eine Verbindung beendet wurde. Neue "
-        "erscheinen, wenn eine Seite das nächste Mal lädt."
+        "einen Wochenbericht über Sie freigegeben oder Ihre Frage dazu beantwortet hat und wann "
+        "eine Verbindung beendet wurde. Eine Benachrichtigung zeigt nie den Text eines Berichts, "
+        "einer Frage oder einer Antwort. Neue erscheinen, wenn eine Seite das nächste Mal lädt."
     ),
     "notifications.read_note": (
         "„Alle als gelesen markieren“ speichert eine Markierung mit der Zeit, zu der diese Liste "
@@ -2230,6 +2247,12 @@ _DE: dict[str, str] = {
     "notifications.ended": "Ihre Verbindung mit {name} ist beendet.",
     "notifications.review_approved": (
         "{name} hat Ihren Wochenbericht für die Woche vom {week} freigegeben."
+    ),
+    "notifications.question_asked": (
+        "{name} hat eine Frage zum Wochenbericht für die Woche vom {week} gestellt."
+    ),
+    "notifications.question_answered": (
+        "{name} hat Ihre Frage zum Wochenbericht für die Woche vom {week} beantwortet."
     ),
     # Die Übersichten (T9.15).
     "page.client_week": "Klientenwoche",
@@ -2506,7 +2529,9 @@ _DE: dict[str, str] = {
         "Ihr Coach sieht, was Sie hier teilen, auch die Tage, die Sie vor dem Teilen erfasst "
         "haben, und sieht immer Ihren Anzeigenamen. Sie können jederzeit ändern, was Sie teilen. "
         "Ihr Coach wird benachrichtigt, wenn Sie etwas zu teilen beginnen oder aufhören, und sieht "
-        "diese Änderungen mit ihren Zeiten, bis einer von Ihnen seine Daten löscht."
+        "diese Änderungen mit ihren Zeiten, bis einer von Ihnen seine Daten löscht. Ihr Coach "
+        "wird auch benachrichtigt, wenn Sie eine Frage zu einem Wochenbericht stellen, solange er "
+        "sie lesen darf."
     ),
     "sharing.accept": "Einladung annehmen",
     "sharing.accepted": "Sie sind jetzt mit Ihrem Coach verbunden.",

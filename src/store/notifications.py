@@ -14,10 +14,21 @@ scope granted within `config.NOTIFICATIONS_SAME_EVENT_SECONDS` after the code wa
 as shared at the start and shows only inside "connected"; `end_relationship()` revokes the open
 scopes with the end's own time, so a scope revoked at `ended_at` shows only inside "ended".
 
+From T9.30, a coach also sees each question a client asked under a weekly review, and a gymer
+each answer a coach wrote under an approved review about them, read by
+`questions.list_question_events()` by the thread's own rule (T9.25): the coach while the
+relationship is active and the client shares nutrition and every scope the review used; the gymer
+under every approved review about them, a former coach's too. Each row is its own event (a
+question and its answer are separate actions), so no same-event window applies to them.
+
 A notification holds its kind, its time, the other side's display name (`users.display_name_of()`,
-not audited), the scope and the week; never a value, a metric or a review's text. Reading them is
-not audited (owner's choice, 2026-11-06): they come from the user's own relationship rows, which
-both sides see, and from the approved reviews about a gymer, which are theirs to read.
+not audited), the scope and the week; never a value, a metric, a review's text or a question's or
+answer's text. Reading the relationship and review kinds is not audited (owner's choice,
+2026-11-06): they come from the user's own relationship rows, which both sides see, and from the
+approved reviews about a gymer, which are theirs to read. A coach's question notifications read a
+client's thread, so they are audited (a `read` of `review_questions` per client), but only when
+the caller passes `audited=True`, as the Notifications page does; the sidebar's count and the
+toasts, which run on every page, do not (the middle way, owner's choice, 2026-11-08).
 
 The read mark holds only the reader's own ID and a time ("read up to": when the page that was
 marked had loaded the list, so nothing stored after it is marked read unseen). A notification is
@@ -32,11 +43,19 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from src import config
-from src.store import users, values
+from src.store import questions, users, values
 from src.store.access import NotFound, role_of
 from src.store.db import transaction
 
-Kind = Literal["connected", "scope_started", "scope_stopped", "ended", "review_approved"]
+Kind = Literal[
+    "connected",
+    "scope_started",
+    "scope_stopped",
+    "ended",
+    "review_approved",
+    "question_asked",
+    "question_answered",
+]
 
 # The user's own relationships, either side, their status read as a value from ended_at (never a
 # sharing filter, which only the open_shares view writes).
@@ -68,7 +87,9 @@ _ORDER: dict[str, int] = {
     "scope_started": 1,
     "scope_stopped": 2,
     "review_approved": 3,
-    "ended": 4,
+    "question_asked": 4,
+    "question_answered": 5,
+    "ended": 6,
 }
 
 
@@ -173,9 +194,14 @@ def _with_unread(found: list[Notification], mark: str | None) -> list[Notificati
     ]
 
 
-def list_notifications(conn: sqlite3.Connection, user_id: str) -> list[Notification]:
+def list_notifications(
+    conn: sqlite3.Connection, user_id: str, *, audited: bool = False
+) -> list[Notification]:
     """Return the user's own notifications, newest first, each marked read or unread."""
     user_id = values.user_id(user_id)
+    # The thread read runs first, in its own transaction (a store read cannot open one inside
+    # another); `audited` is the Notifications page's, so its coach's read leaves an audit row.
+    thread_events = questions.list_question_events(conn, user_id, user_id, audited=audited)
     with transaction(conn):
         if role_of(conn, user_id) is None:
             raise NotFound
@@ -214,6 +240,24 @@ def list_notifications(conn: sqlite3.Connection, user_id: str) -> list[Notificat
                     coach,
                     week=review["period_start"],
                     key=("review_approved", review["id"], review["reviewed_at"]),
+                )
+            )
+        for event in thread_events:
+            # A coach gets only their clients' questions, a gymer only their coaches' answers.
+            as_coach = event["coach_id"] == user_id
+            kind: Kind = "question_asked" if as_coach else "question_answered"
+            # A side who deleted their data between the two reads takes the thread with them.
+            try:
+                other = name_of(event["client_id"] if as_coach else event["coach_id"])
+            except NotFound:
+                continue
+            found.append(
+                Notification(
+                    kind,
+                    event["created_at"],
+                    other,
+                    week=event["period_start"],
+                    key=(kind, event["id"], event["created_at"]),
                 )
             )
         mark = conn.execute(_LATEST_MARK, (user_id,)).fetchone()

@@ -6,6 +6,10 @@ in one run, the rest as one "and N more" toast; owner's choices, 2026-11-06), an
 Notifications page with "Mark all as read". Nothing is real time: a new notification shows on the
 page's next run. Guests and a new account's welcome page have none.
 
+From T9.30 the list also holds a coach's clients' questions and a gymer's coach's answers. The
+page's read is audited (a coach's `read` of each listed client's questions, on every run of the
+page); the bell's and the toasts' reads are not (the middle way, owner's choice, 2026-11-08).
+
 The notifications come from the store with the session's own user ID (`views/account.py`). Which
 ones were toasted is kept in `st.session_state` only (never `st.cache_data` or `st.cache_resource`,
 which sessions share, never a URL or the store), so no visit time is stored. A store error leaves
@@ -39,11 +43,14 @@ def page_ref() -> st.Page:
     return st.Page(page, title=t("page.notifications"), icon=ICON, url_path=URL_PATH)
 
 
-def _load(user: dict) -> list[Notification] | None:
+def _load(user: dict, *, audited: bool = False) -> list[Notification] | None:
     """Return the user's notifications, newest first; None when the store cannot be used."""
+    # Only the page passes audited=True: a coach's question notifications read a client's thread,
+    # so showing them on the page writes a `read` audit row per client; the bell and the toasts,
+    # which run on every page, write none (T9.30, the middle way, owner's choice, 2026-11-08).
     try:
         with accounts.open_store(account.store_path()) as conn:
-            return notifications.list_notifications(conn, user["id"])
+            return notifications.list_notifications(conn, user["id"], audited=audited)
     except accounts.StoreUnavailable:
         return None
     except NotFound:
@@ -113,7 +120,8 @@ def page() -> None:
             st.error(t("account.store_unavailable"), icon=":material/error:")
         # Taken before the list is read, so the mark never covers an event the page did not show.
         loaded_at = datetime.now(UTC)
-        found = _load(user)
+        # Audited on each run of the page (owner's choice, 2026-11-08), Streamlit's reruns included.
+        found = _load(user, audited=True)
         if found is None:
             st.error(t("notifications.unavailable"), icon=":material/error:")
             return
