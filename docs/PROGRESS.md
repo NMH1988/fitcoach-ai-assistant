@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-09 · T9.27 README screenshots and a short GIF of the app · NMH1988/fitcoach-ai-assistant#PR (closes NMH1988/fitcoach-ai-assistant#71)
+## 2026-11-09 · T9.27 README screenshots and a short GIF of the app · NMH1988/fitcoach-ai-assistant#98 (closes NMH1988/fitcoach-ai-assistant#71)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 5 (documentation: examples of common use cases), in part; Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request, 2026-11-06): images that show recruiters what the app does.
 - **What:**
   - `README.md`: a GIF of the demo coach's chat under the intro, and six screenshots in "What it does" (the chat with its sources, Clients, Client week, a weekly review waiting for the coach's decision, the gymer's My week with the approved review, Notifications), each with alt text and a one-line caption; files in `docs/media/`.
