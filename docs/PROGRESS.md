@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-09 · T1.13 Docs: record the Dependabot bumps of 2026-11-09 in the dependency table · (closes NMH1988/fitcoach-ai-assistant#104)
+## 2026-11-09 · T1.13 Docs: record the Dependabot bumps of 2026-11-09 in the dependency table · NMH1988/fitcoach-ai-assistant#106 (closes NMH1988/fitcoach-ai-assistant#104)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 5 (documentation: the technical decisions); Sprint 2 (`docs/BRIEF.md`): none.
 - **What:**
   - The seven Dependabot PRs open since 2026-10-26 were merged on 2026-11-09 at the owner's request, in order of risk, after `@dependabot rebase` on each: NMH1988/fitcoach-ai-assistant#26 (pypdf 6.21.1 to 7.0.0), #27 (ruff 0.17.1 to 0.17.4), #28 (httpx2 2.14.0 to 2.16.0), #25 (reportlab 5.0.1 to 5.1.0), #24 (openai 3.35.1 to 3.46.0), #22 (actions/checkout v4 to v7) and #23 (actions/setup-python v5 to v7). Five of them were rebased onto 6054a25 (`main` at the time) and tested alone there, so, for example, openai 3.46.0 was tested with httpx2 2.14.0; #28 was rebased later onto f38f51e and #23 onto 762f554. All seven pins were first tested together by #23's CI on 27fa9c0 (lint, test, security passed), whose tree is the same as `main` at e9f113d, where CI passed again.
