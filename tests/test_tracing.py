@@ -821,7 +821,7 @@ def test_a_coach_s_client_tools_are_masked_in_a_trace(
 ):
     """Both tools' results, a week now and a past one, leave no stored value or name in a trace."""
     if not masked:
-        # The check itself: with the mask switched off, the same search finds the canaries.
+        # The check itself: with the mask switched off, the same search finds the values.
         monkeypatch.setattr(tracing, "_mask_value", lambda value, key: value)
     clients = clients_tests._clients()
     result, _ = clients_tests._turn(
@@ -839,7 +839,7 @@ def test_a_coach_s_client_tools_are_masked_in_a_trace(
         (coach_clients.WEEK_TOOL, "ok"),
         (coach_clients.WEEK_TOOL, "ok"),
     ]
-    # The tools did read the canaries: the unmasked result holds the logged food's energy.
+    # The tools did read the stored values: the unmasked result holds the logged food's energy.
     assert "571.5" in result.tool_runs[1].result.model_dump_json()
     runs = traced.runs()
     text = json.dumps(runs)
