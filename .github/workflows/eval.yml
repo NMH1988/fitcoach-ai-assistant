@@ -3,7 +3,8 @@ name: Live evaluation
 # T8.6: the owner's evaluation questions through the real models, against the committed baseline.
 # Started by hand only (Actions > Live evaluation > Run workflow): only people with write access
 # to the repository can start it, so no visitor can spend the key. It never runs on a push or a
-# pull request. The key is the separate, credit-limited `OPENROUTER_API_KEY_EVAL` (O11), given only
+# pull request. The key is `OPENROUTER_API_KEY_EVAL` (O11), a separate, credit-limited key of the
+# owner's own (not set since 2026-11-09: with none, a run stops at the index build), given only
 # to the two steps that call OpenRouter. GitHub masks it in the log, and no step prints it.
 # What leaves the runner: the log (public, as the repository is: source IDs, counts, the app's
 # fixed messages, never an answer or chunk text) and the results .json (IDs and counts only). The
