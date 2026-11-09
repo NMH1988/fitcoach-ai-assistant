@@ -7,7 +7,7 @@ Notifications page with "Mark all as read". Nothing is real time: a new notifica
 page's next run. Guests and a new account's welcome page have none.
 
 From T9.30 the list also holds a coach's clients' questions and a gymer's coach's answers. The
-page's read is audited (a coach's `read` of each listed client's questions, on every run of the
+page's read is audited (a coach's `read` of each found client's questions, on every run of the
 page); the bell's and the toasts' reads are not (the middle way, owner's choice, 2026-11-08).
 
 The notifications come from the store with the session's own user ID (`views/account.py`). Which

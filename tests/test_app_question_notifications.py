@@ -158,23 +158,30 @@ def test_the_coach_s_question_line_and_intro_in_german(monkeypatch, coach_review
 
 
 @pytest.mark.parametrize(
-    ("language", "told"),
+    ("language", "told", "recorded"),
     [
         (
             "en",
             "Your coach is also told when you ask a question under a weekly review, while they "
             "may read it.",
+            "Your export records it as a read of your questions when your coach opens their "
+            "Notifications page, not when the sidebar count or a pop-up tells them.",
         ),
         (
             "de",
             "Ihr Coach wird auch benachrichtigt, wenn Sie eine Frage zu einem Wochenbericht "
             "stellen, solange er sie lesen darf.",
+            "Ihr Export verzeichnet es als Zugriff auf Ihre Fragen, wenn Ihr Coach seine "
+            "Benachrichtigungsseite öffnet, nicht wenn die Anzeige in der Seitenleiste oder ein "
+            "Hinweisfenster es ihm mitteilt.",
         ),
     ],
 )
 def test_the_sharing_page_says_the_coach_is_told_of_a_question(
-    monkeypatch, gymer_review, language, told
+    monkeypatch, gymer_review, language, told, recorded
 ):
-    """Criterion 6: the gymer's sharing text names the new notification, in both languages."""
+    """Criterion 6: the sharing text names the notification and what the export records."""
     at = open_page(_signed_in(monkeypatch, language), navigation.SHARING)
     assert told in texts(at)
+    # Compliance run 1 (Low): only the Notifications page leaves a read in the export.
+    assert recorded in texts(at)

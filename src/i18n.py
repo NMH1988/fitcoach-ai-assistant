@@ -1176,7 +1176,9 @@ _EN: dict[str, str] = {
         "and always sees your display name. You can change what you share at any time. Your "
         "coach is told when you start or stop sharing something, and sees these changes and their "
         "times until one of you deletes their data. Your coach is also told when you ask a "
-        "question under a weekly review, while they may read it."
+        "question under a weekly review, while they may read it. Your export records it as a "
+        "read of your questions when your coach opens their Notifications page, not when the "
+        "sidebar count or a pop-up tells them."
     ),
     "sharing.accept": "Accept the invitation",
     "sharing.accepted": "You are now connected with your coach.",
@@ -2531,7 +2533,9 @@ _DE: dict[str, str] = {
         "Ihr Coach wird benachrichtigt, wenn Sie etwas zu teilen beginnen oder aufhören, und sieht "
         "diese Änderungen mit ihren Zeiten, bis einer von Ihnen seine Daten löscht. Ihr Coach "
         "wird auch benachrichtigt, wenn Sie eine Frage zu einem Wochenbericht stellen, solange er "
-        "sie lesen darf."
+        "sie lesen darf. Ihr Export verzeichnet es als Zugriff auf Ihre Fragen, wenn Ihr Coach "
+        "seine Benachrichtigungsseite öffnet, nicht wenn die Anzeige in der Seitenleiste oder ein "
+        "Hinweisfenster es ihm mitteilt."
     ),
     "sharing.accept": "Einladung annehmen",
     "sharing.accepted": "Sie sind jetzt mit Ihrem Coach verbunden.",

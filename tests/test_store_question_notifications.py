@@ -2,8 +2,9 @@
 
 A coach is told of each question a client asked under a weekly review, a gymer of each answer a
 coach wrote under an approved review about them, by the thread's own rule (T9.25); no text is in a
-notification; a coach's read is audited only when the caller says so (the Notifications page), one
-`read` row of `review_questions` per client listed; a deletion takes the notifications with it.
+notification; a coach's read of one client is always audited, and the coach's own list only when
+the caller says so (the Notifications page), one `read` row of `review_questions` per client
+found; a deletion takes the notifications with it.
 """
 
 import json
