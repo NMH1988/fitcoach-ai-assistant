@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-10 · T1.14 Docs: the repo's own code stays all rights reserved (copyright notice) · NMH1988/fitcoach-ai-assistant#<PR> (closes NMH1988/fitcoach-ai-assistant#105)
+## 2026-11-10 · T1.14 Docs: the repo's own code stays all rights reserved (copyright notice) · NMH1988/fitcoach-ai-assistant#107 (closes NMH1988/fitcoach-ai-assistant#105)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): none; Sprint 2 (`docs/BRIEF.md`): none. Beyond the brief (owner's request, 2026-11-09).
 - **What:**
   - `README.md`: the section "Content and licences" is now "Copyright and licences" and opens with the copyright notice: Copyright (c) 2026 Nguyen Mai Hoang, all rights reserved, for the project's own code and documentation; view and run to evaluate, any other use (copying beyond the local copy needed to run it included) only with the author's written permission (the words in brackets added at the owner's choice after code review round 1's question, as running the code means cloning it); no open-source licence; third-party content keeps its own licence (links to `docs/SOURCES.md`, `ATTRIBUTION.md`, `assets/fonts/LICENSE`).
