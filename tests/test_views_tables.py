@@ -977,6 +977,15 @@ def test_a_notification_s_time_is_shown_in_berlin(stamp, shown):
         (_notification("ended"), "gymer", "de", "Ihre Verbindung mit Bo ist beendet."),
         (_notification("review_approved", week="2026-10-05"), "gymer", "en",
          "Bo approved your weekly review for the week of 2026-10-05."),
+        # T9.30: the week only, never the question's or the answer's text.
+        (_notification("question_asked", week="2026-10-05"), "coach", "en",
+         "Bo asked a question under the weekly review for the week of 2026-10-05."),
+        (_notification("question_answered", week="2026-10-05"), "gymer", "en",
+         "Bo answered your question under the weekly review for the week of 2026-10-05."),
+        (_notification("question_asked", week="2026-10-05"), "coach", "de",
+         "Bo hat eine Frage zum Wochenbericht für die Woche vom 2026-10-05 gestellt."),
+        (_notification("question_answered", week="2026-10-05"), "gymer", "de",
+         "Bo hat Ihre Frage zum Wochenbericht für die Woche vom 2026-10-05 beantwortet."),
     ],
 )  # fmt: skip
 def test_each_kind_reads_as_its_sentence(notification, role, language, text):
