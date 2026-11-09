@@ -56,3 +56,5 @@ Python 3.14 (`.python-version`), in a local `.venv`. Every command below assumes
 - Audit: `pip-audit .` with the `--ignore-vuln` flags listed in `.github/workflows/ci.yml` (reasons in `docs/SECURITY.md`)
 
 CI (`.github/workflows/ci.yml`) runs lint, tests with coverage and `pip-audit` on every push to `main` and every PR.
+
+Live evaluation (T8.6, owner, needs the repository secret `OPENROUTER_API_KEY_EVAL` from O11): `.github/workflows/eval.yml` runs only when started by hand (`gh workflow run eval.yml -f questions=nutrition -f repeat=3`, or `questions=training`); it downloads the sources, builds the index fresh, runs the evaluation, uploads the results `.json` and fails below the baseline (`docs/TESTING.md`, "Live evaluation workflow").
