@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-09 · T9.11 Sprint 3 documentation and reflection · PR to come (closes NMH1988/fitcoach-ai-assistant#14)
+## 2026-11-09 · T9.11 Sprint 3 documentation and reflection · NMH1988/fitcoach-ai-assistant#100 (closes NMH1988/fitcoach-ai-assistant#14)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 5, evaluation (problem definition, core concepts (how agents work, the differences between agent types, how function calling is implemented, error scenarios and edge cases), reflection); core 3 not needed, as T9.20 was not cut; Sprint 2 (`docs/BRIEF.md`): evaluation: core concepts (how tool calling is implemented, error scenarios and edge cases).
 - **What:**
   - `README.md` rewritten for Sprint 3: "Who it is for" (the problem, the users, why an agent), "What it does" (the AI parts, then the workspace; T9.27's GIF and six screenshots unchanged), "How to use it" (guest, demo mode, coach and gymer), "Use cases" (a coach invites a gymer, a gymer logs a day, a coach approves a review and the gymer reads it, a guest asks a research question, a guest or a coach asks a training question, a coach asks about clients), "How it works", and the brief coverage of both sprints. Run locally, the options, the documentation table, the history line and the disclaimer kept.
