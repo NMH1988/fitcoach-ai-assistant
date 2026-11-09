@@ -55,7 +55,7 @@ dev = [
     "pypdf==7.0.0",
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
-    "ruff==0.17.1",
+    "ruff==0.17.4",
 ]
 # The evaluation scores of T9.10: run only by the owner's scripts/run_evaluation.py --score and
 # its tests, never by the app. Apache-2.0; what it pulls in is checked with the runtime
