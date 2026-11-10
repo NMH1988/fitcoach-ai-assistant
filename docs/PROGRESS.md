@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-10 · T9.32 The README links the presentation video · NMH1988/fitcoach-ai-assistant#PR (closes NMH1988/fitcoach-ai-assistant#110)
+## 2026-11-10 · T9.32 The README links the presentation video · NMH1988/fitcoach-ai-assistant#111 (closes NMH1988/fitcoach-ai-assistant#110)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): evaluation: problem definition and core 5 (documentation: examples of common use cases), in part, as T9.28; Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request, 2026-11-10): the video for recruiters.
 - **What:** `README.md`: a **Video** line under the chat GIF links https://youtu.be/A2SC3zs6ovM, with what it shows, demo mode with made-up users and data, the synthetic narrator voice and where the credits are. `docs/PRD.md` ("Beyond the brief") and `docs/TESTING.md` ("Presentation video (T9.28)", step 5) record the upload. The plan adds T9.32 and sets T9.31 to done. Docs only, no code, no video file.
 - **Why:** T9.28 let the README link the video only after the owner's upload; the owner uploaded the 3:03 build on 2026-11-10 with `docs/video/description.md` as its description. A text link, not an image: GitHub's README cannot embed a YouTube player, and a thumbnail from YouTube's image host would load a third-party image for every reader.
