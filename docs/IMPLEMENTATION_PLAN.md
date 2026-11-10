@@ -317,7 +317,7 @@ Deadline: **2026-11-02** (Sprint 2, already submitted by the owner, 2026-10-28).
 - [x] CI passes - CI on the PR: NMH1988/fitcoach-ai-assistant#106's lint, test, security and linked-issue checks passed; merged on 2026-11-09 (recorded as done by T1.14's PR, owner's choice).
 **Notes:** the owner asked to merge the seven Dependabot PRs in order of risk (2026-11-09), then for this PR. Left as they are: the line that reportlab 5.0.1 writes a broken text map (a record of what was found then), and `docs/SECURITY.md`'s "pinned by tag" (still true with v7). Docs only, so no compliance-reviewer run.
 
-### T1.14 Docs: the repo's own code stays all rights reserved (copyright notice) (S) · status: in review · issue NMH1988/fitcoach-ai-assistant#105
+### T1.14 Docs: the repo's own code stays all rights reserved (copyright notice) (S) · status: done · issue NMH1988/fitcoach-ai-assistant#105
 **Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): none; Sprint 2 (`docs/BRIEF.md`): none. Beyond the brief (owner's request, 2026-11-09).
 **Depends on:** T1.13 (order only: after its PR merged, on its own branch from `main`, owner's choice)
 **Acceptance criteria** (approved by the owner, 2026-11-09)
@@ -1203,12 +1203,12 @@ Made by the owner while reviewing the T9.15 dashboard mockups on a Claude Design
 - [x] No code changes; the Sprint 2 claims of Medium 3 (prompt injection protection) are unchanged - read the diff. Done: the PR changes five docs files only; code review round 1 listed the Sprint 2 lines as unchanged.
 **Notes:** the full brief asks for one more function tool that calls an external API (Medium 3) and an agent that enriches its knowledge from external data sources (Hard 5). T9.9 added the API as a fallback of the existing food tool, and its live check waits for the owner's USDA key (O12, O13), so a strict reviewer may not count either. Evaluation: maximum points is still met without them (Medium 1, 2, 4, 8; Hard 1, 2, 3). A separate tool that calls the API, or the live check, would let the two be claimed in full again.
 
-### T9.32 The README links the presentation video (S, extra) · status: in review · issue NMH1988/fitcoach-ai-assistant#110
+### T9.32 The README links the presentation video (S, extra) · status: done · issue NMH1988/fitcoach-ai-assistant#110
 **Serves:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): evaluation: problem definition and core 5 (documentation: examples of common use cases), in part, as T9.28; Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request, 2026-11-10): the video for recruiters.
 **Depends on:** T9.28 (merged), the owner's upload
-**Acceptance criteria** (proposed on 2026-11-10)
-- [ ] `README.md` links the uploaded video (https://youtu.be/A2SC3zs6ovM) right under the chat GIF, saying what it shows, that it is demo mode with made-up users and data, that the narrator voice is synthetic, and where its credits are - read the diff.
-- [ ] `docs/PRD.md` ("Beyond the brief") and `docs/TESTING.md` ("Presentation video (T9.28)", step 5) record the upload (date, link, the build uploaded) - read the diff.
-- [ ] The link opens the video with the title of `docs/video/description.md` - YouTube's oEmbed answer for the link (checked 2026-11-10: the title matches).
-- [ ] No video file is committed and no code changes - `git ls-files` lists no video file; read the diff.
-**Notes:** T9.28's criterion 6 let the README link the video only after the owner's upload. The owner uploaded it on 2026-11-10 and chose its visibility on YouTube; changing the visibility between unlisted and public keeps the link. In the same PR, T9.31's status is set to done (it merged as NMH1988/fitcoach-ai-assistant#109 with "in review").
+**Acceptance criteria** (proposed on 2026-11-10; the owner had the issue and the PR opened with them)
+- [x] `README.md` links the uploaded video (https://youtu.be/A2SC3zs6ovM) right under the chat GIF, saying what it shows, that it is demo mode with made-up users and data, that the narrator voice is synthetic, and where its credits are - read the diff. Done: the **Video** line under the GIF; code review round 1 and compliance run 1 of NMH1988/fitcoach-ai-assistant#111 checked it against `docs/video/script.json` and `docs/video/description.md`.
+- [x] `docs/PRD.md` ("Beyond the brief") and `docs/TESTING.md` ("Presentation video (T9.28)", step 5) record the upload (date, link, the build uploaded) - read the diff. Done: both, with the owner's YouTube choices in step 5.
+- [x] The link opens the video with the title of `docs/video/description.md` - YouTube's oEmbed answer for the link. Done: checked on 2026-11-10, the title matches word for word.
+- [x] No video file is committed and no code changes - `git ls-files` lists no video file; read the diff. Done: no video, audio or subtitle file is tracked; the PR changes docs files only.
+**Notes:** T9.28's criterion 6 let the README link the video only after the owner's upload. The owner uploaded it on 2026-11-10 and chose its visibility on YouTube; changing the visibility between unlisted and public keeps the link. In the same PR, T9.31's and T1.14's statuses are set to done (they merged as NMH1988/fitcoach-ai-assistant#109 and NMH1988/fitcoach-ai-assistant#107 with "in review"; code review round 1).

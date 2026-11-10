@@ -109,7 +109,7 @@ Gaps (criterion 5): no tier 1 source; no openly licensed dose-response meta-anal
 
 ### Tools used to make media (T9.27, T9.28)
 
-Tools used only on the owner's machine to make the README images (T9.27) and the presentation video (T9.28). None ships with the app or is committed; a copyleft licence is allowed for such a tool, as long as neither it nor a model it uses puts a condition on what it outputs (copyright policy rule 9). What they output (the screenshots and the GIF in `docs/media/`, and the video, which stays in the gitignored `data/capture/` until the owner uploads it) shows only the app's own text and synthetic demo data, under the rules above. Each licence was read on the tool's own page before its download, and the owner approved each download (2026-11-09, T9.27's Question and Implement phases and T9.28's Question phase).
+Tools used only on the owner's machine to make the README images (T9.27) and the presentation video (T9.28). None ships with the app or is committed; a copyleft licence is allowed for such a tool, as long as neither it nor a model it uses puts a condition on what it outputs (copyright policy rule 9). What they output (the screenshots and the GIF in `docs/media/`, and the video, kept in the gitignored `data/capture/` and uploaded by the owner to YouTube as an unlisted video on 2026-11-10, T9.32) shows only the app's own text and synthetic demo data, under the rules above. Each licence was read on the tool's own page before its download, and the owner approved each download (2026-11-09, T9.27's Question and Implement phases and T9.28's Question phase).
 
 | Tool | Version | Licence | Read on (2026-11-09) | Where it comes from | Use |
 |---|---|---|---|---|---|
