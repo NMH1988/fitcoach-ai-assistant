@@ -109,7 +109,7 @@ The knowledge base is 20 open-access sports nutrition articles (ISSN position st
 | Core 3: a UI for every function | pages per role (section 16), [`docs/UI_DESIGN.md`](docs/UI_DESIGN.md) |
 | Core 4: tools, error handling, real-world use | section 10 (every error path with the test that shows it), sections 16 and 17 |
 | Core 5: documentation | this README, [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/TESTING.md`](docs/TESTING.md) |
-| Optional tasks | Medium 1 (token cost), 2 (memory), 3 (a tool calling an external API), 4 (authentication and personalisation), 8 (guard against misuse); Hard 1 (agentic RAG), 2 (LangSmith observability), 3 (DeepEval report), 5 (external data source) |
+| Optional tasks | Medium 1 (token cost), 2 (memory), 4 (authentication and personalisation), 8 (guard against misuse); Hard 1 (agentic RAG), 2 (LangSmith observability), 3 (DeepEval report). In part only, not counted for maximum points: Medium 3 (a tool calling an external API) and Hard 5 (an external data source), as the USDA FoodData Central API is a fallback inside the existing food tool, asked only when the table has no match, not a tool of its own, and is checked by mocked tests only until the owner's USDA key allows a live check |
 | Agent types, function calling | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) section 17 |
 | Reflection: problems, improvements, prompt engineering vs RAG vs agent | [`docs/TESTING.md`](docs/TESTING.md), "Known problems and suggested improvements (Sprint 3, T9.11)" and "When prompt engineering, RAG or an agent fits (T9.11)" |
 
