@@ -17,6 +17,13 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
+## 2026-11-10 · T9.32 The README links the presentation video · NMH1988/fitcoach-ai-assistant#PR (closes NMH1988/fitcoach-ai-assistant#110)
+- **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): evaluation: problem definition and core 5 (documentation: examples of common use cases), in part, as T9.28; Sprint 2 (`docs/BRIEF.md`): none; beyond the brief (owner's request, 2026-11-10): the video for recruiters.
+- **What:** `README.md`: a **Video** line under the chat GIF links https://youtu.be/A2SC3zs6ovM, with what it shows, demo mode with made-up users and data, the synthetic narrator voice and where the credits are. `docs/PRD.md` ("Beyond the brief") and `docs/TESTING.md` ("Presentation video (T9.28)", step 5) record the upload. The plan adds T9.32 and sets T9.31 to done. Docs only, no code, no video file.
+- **Why:** T9.28 let the README link the video only after the owner's upload; the owner uploaded the 3:03 build on 2026-11-10 with `docs/video/description.md` as its description. A text link, not an image: GitHub's README cannot embed a YouTube player, and a thumbnail from YouTube's image host would load a third-party image for every reader.
+- **Decisions & gotchas:** the owner's choices on YouTube (2026-11-10): unlisted (only people with the link; switching to public keeps the link), not made for kids, and "No" to YouTube's question on AI use, as none of its four cases fits (Claude had first suggested "Yes", then advised "No" once the question's cases were seen; the description already states the synthetic voice and the AI-made answers). The link was checked with YouTube's oEmbed answer: the title matches `docs/video/description.md`. A new build of the video needs a new upload and a new link. T9.31 merged as NMH1988/fitcoach-ai-assistant#109 with its status still "in review"; this PR sets it to done.
+- **Follow-ups:** none.
+
 ## 2026-11-10 · T1.14 Docs: the repo's own code stays all rights reserved (copyright notice) · NMH1988/fitcoach-ai-assistant#107 (closes NMH1988/fitcoach-ai-assistant#105)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): none; Sprint 2 (`docs/BRIEF.md`): none. Beyond the brief (owner's request, 2026-11-09).
 - **What:**

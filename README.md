@@ -8,6 +8,8 @@ A coach-first workspace for gym coaching, with an AI agent that works for the co
 
 *The demo coach asks a question; the answer cites its sources (demo mode, made-up users; sped up, no sound).*
 
+**Video:** [a three-minute walk-through of the app on YouTube](https://youtu.be/A2SC3zs6ovM): the coach's chat, Clients, a client's week, a weekly review the coach approves, and the gymer's pages (demo mode, made-up users and data; a synthetic narrator voice made offline with Piper, with subtitles; credits in the video's description).
+
 ## Who it is for
 
 **The problem:** coaches who follow gym clients' nutrition and training gather the data by hand from messages, spreadsheets and apps, and a weekly review of each client takes time, so clients get feedback late. (This is the owner's working assumption, not yet checked with coaches; [`docs/PRD.md`](docs/PRD.md), "Sprint 3".)
