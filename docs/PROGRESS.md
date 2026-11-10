@@ -17,7 +17,7 @@ What each PR did and why, newest first. **Read this before starting a ticket**, 
 
 ---
 
-## 2026-11-10 · T9.31 Docs: Medium 3 and Hard 5 claimed in part only · NMH1988/fitcoach-ai-assistant#PR (closes NMH1988/fitcoach-ai-assistant#108)
+## 2026-11-10 · T9.31 Docs: Medium 3 and Hard 5 claimed in part only · NMH1988/fitcoach-ai-assistant#109 (closes NMH1988/fitcoach-ai-assistant#108)
 - **Brief:** Sprint 3 (`docs/BRIEF_SPRINT3.md`): core 5 (the documentation states the technical decisions as built) and the bonus-points line, which no longer rests on these two; Sprint 2 (`docs/BRIEF.md`): none.
 - **What:** `README.md` ("Course brief coverage"), `docs/ARCHITECTURE.md` (section 15), `docs/PRD.md` ("Extras") and the plan (Epic 9's priorities, T9.9's **Serves** line, the new T9.31) now count Medium 1, 2, 4, 8 and Hard 1, 2, 3 for maximum points, and Medium 3 and Hard 5 in part only. Docs only, no code.
 - **Why:** the owner asked Claude to check the repo against the full Sprint 3 brief (2026-11-10). Medium 3 asks for one more function tool that calls an external API, and Hard 5 for an agent that enriches its knowledge from external data sources; T9.9 added the USDA FoodData Central API as a fallback inside the existing `lookup_food_nutrition` tool, not as a tool of its own, and its live check waits for the owner's USDA key (O12, O13). Claiming both in full could read as overclaiming; the bonus line (at least 2 medium and 1 hard) is still met without them.
