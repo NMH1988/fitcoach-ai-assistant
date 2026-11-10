@@ -1,6 +1,6 @@
 # The video's description (T9.28)
 
-A draft for the upload (the owner chooses where, e.g. an unlisted YouTube video, and checks the credits and the link again then). The video file is not in the repository.
+The description of the uploaded video: the owner uploaded it to YouTube on 2026-11-10 as an unlisted video, https://youtu.be/A2SC3zs6ovM, with the text below (T9.32). The video file is not in the repository.
 
 ---
 
