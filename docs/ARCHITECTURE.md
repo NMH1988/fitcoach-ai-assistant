@@ -482,7 +482,7 @@ Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 
 | Core 5 documentation | `README.md` (purpose, how to use it, use cases); this file (sections 1, 16 and 17; D9-D23); `docs/TESTING.md` |
 | Medium 1 token use and cost (kept from Sprint 2) | section 9 |
 | Medium 2 memory | D12; section 2 ("The conversation"); section 16 (memory) |
-| Medium 3 one more tool that calls an external API; Hard 5 knowledge from an external source (extra) | T9.9, the FoodData Central API (section 6) |
+| Medium 3 one more tool that calls an external API; Hard 5 knowledge from an external source (extra; in part only, not counted for maximum points, T9.31) | T9.9, the FoodData Central API (section 6): a fallback inside `lookup_food_nutrition`, asked only when the table has no match, not a tool of its own; checked by mocked tests only until the owner's USDA key (O12) allows a live check |
 | Medium 4 authentication and personalisation | D14, D18; section 16 |
 | Medium 8 a guard against misuse, developer settings kept off the user's screen (kept from Sprint 2) | section 8; `docs/SECURITY.md` |
 | Hard 1 agentic RAG | D10; section 2 |
