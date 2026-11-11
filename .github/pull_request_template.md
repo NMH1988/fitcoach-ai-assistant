@@ -23,5 +23,5 @@ Closes #
 - [ ] No secrets, personal data or raw source documents committed
 
 ## Records
-- [ ] Entry added at the top of `docs/PROGRESS.md`
-- [ ] Ticket status updated in `docs/IMPLEMENTATION_PLAN.md`; ticket ID in the PR title and commits
+- [ ] Entry added: a file in `docs/progress/` and its line at the top of `docs/PROGRESS.md`
+- [ ] Ticket status updated in its file in `docs/tickets/` and in the order table of `docs/IMPLEMENTATION_PLAN.md`; ticket ID in the PR title and commits

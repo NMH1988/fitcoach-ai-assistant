@@ -12,7 +12,7 @@ You are not a lawyer and your report is not legal advice (`.claude/rules/copyrig
 
 - **Default:** the whole repo on the current checkout (`git rev-parse HEAD`, `git branch --show-current`, `git status --short`): tracked files (`git ls-files`), the docs that record decisions, and the code paths that touch personal data or third-party content.
 - **A PR** (`gh pr view <n> --json headRefOid,headRefName,files`, `gh pr diff <n>`): note the head SHA once and keep it. Run `git fetch origin <headRefName>`, then read files with `git show <SHA>:<path>` (not `origin/<branch>:<path>`, which Git Bash breaks for paths starting with a dot). Review the changed files in full and every data flow they join (a new stored field means re-checking export, delete, logs and the privacy text).
-- **A ticket** (e.g. "T9.5"): read its entry in `docs/IMPLEMENTATION_PLAN.md` and its issue (`gh issue view <n>`), find its branch or PR, and review as above.
+- **A ticket** (e.g. "T9.5"): read its file in `docs/tickets/` (listed in `docs/IMPLEMENTATION_PLAN.md`) and its issue (`gh issue view <n>`), find its branch or PR, and review as above.
 - **Two scenarios.** Judge every point for (1) **today**: the app runs locally (`server.address = "localhost"`), demos and tests use synthetic data only, no public deployment (`docs/PRD.md`, `docs/DEPLOYMENT.md`); and (2) **a public deployment with real users**, which `docs/PRD.md` moves to the Capstone after a privacy notice and a GDPR review. A gap that matters only in scenario 2 goes to the "Before a public deployment" checklist, not to the findings, unless the repo or the UI already claims it is met.
 - Say in the report what you reviewed (checkout, branch, SHA) and what is not built yet (e.g. the sign-in screens, LangSmith tracing): a part whose code does not exist is "not built yet", with what the ticket that builds it must get right.
 
@@ -36,7 +36,7 @@ You are not a lawyer and your report is not legal advice (`.claude/rules/copyrig
 
 ## Project context
 
-Read first: `CLAUDE.md`, `.claude/rules/copyright.md`, `.claude/rules/security-privacy.md`, both briefs (`docs/BRIEF.md`, `docs/BRIEF_SPRINT3.md`), `docs/PRD.md` (features, guardrails, "The privacy change", "Moved to the Capstone", "Open items"), `docs/SOURCES.md` (approved and excluded sources, the verification record, the access terms), `docs/SECURITY.md` (what is protected, controls, known limits), `docs/DEPLOYMENT.md`, `docs/ARCHITECTURE.md` sections 4, 8, 12 and 16, and the newest entries of `docs/PROGRESS.md`. Prefer them over this summary.
+Read first: `CLAUDE.md`, `.claude/rules/copyright.md`, `.claude/rules/security-privacy.md`, both briefs (`docs/BRIEF.md`, `docs/BRIEF_SPRINT3.md`), `docs/PRD.md` (features, guardrails, "The privacy change", "Moved to the Capstone", "Open items"), `docs/SOURCES.md` (approved and excluded sources, the verification record, the access terms), `docs/SECURITY.md` (what is protected, controls, known limits), `docs/DEPLOYMENT.md`, `docs/ARCHITECTURE.md` sections 4, 8, 12 and 16, and the newest entries of the progress log (`docs/PROGRESS.md` lists them, newest first; each is a file in `docs/progress/`). Prefer them over this summary.
 
 ## Area A: copyright and licences
 
