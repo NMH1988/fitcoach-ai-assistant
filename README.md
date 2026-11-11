@@ -204,15 +204,15 @@ These are not needed to run the app:
 | [`docs/PRD.md`](docs/PRD.md) | What we build: features, guardrails, acceptance criteria |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Technical design and decisions; how the agents work (section 17) |
 | [`docs/UI_DESIGN.md`](docs/UI_DESIGN.md) | Layout, tabs, language and themes |
-| [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) | Tickets, acceptance criteria, order and status |
+| [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) | Tickets, order and status: the index, one file per ticket with its acceptance criteria in [`docs/tickets/`](docs/tickets/) |
 | [`docs/TESTING.md`](docs/TESTING.md) | Test strategy, evaluation results, known problems and live checks |
 | [`docs/SECURITY.md`](docs/SECURITY.md) | Threat model and controls |
 | [`docs/SOURCES.md`](docs/SOURCES.md) | Knowledge base sources and their licences |
 | [`ATTRIBUTION.md`](ATTRIBUTION.md) | Credits for every source and the food data |
 | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Deployment notes and the transfer checklist |
-| [`docs/PROGRESS.md`](docs/PROGRESS.md) | What each change did and why |
+| [`docs/PROGRESS.md`](docs/PROGRESS.md) | What each change did and why: the index, one file per entry in [`docs/progress/`](docs/progress/) |
 
-The app was called "Nutrition AI Assistant" until 2026-10-30 (T9.22), so the history and earlier commit messages use that name. The work started in https://github.com/NMH1988/nutrition-ai-assistant and continues, since 2026-10-26, in https://github.com/NMH1988/fitcoach-ai-assistant, whose issues and pull requests are mostly written with the repository name (e.g. NMH1988/fitcoach-ai-assistant#52). Not always: in text and commit messages written since 2026-10-26, a bare PR or issue number next to work of that repository may be one of its numbers (e.g. "PR #37" for T1.10, "PR #35" for T9.6, and every "Merge pull request #n" from T8.3's #29 on (T8.2's #121, merged the same morning, is the old repository's)); the `docs/PROGRESS.md` entry's heading names the repository of its PR.
+The app was called "Nutrition AI Assistant" until 2026-10-30 (T9.22), so the history and earlier commit messages use that name. The work started in https://github.com/NMH1988/nutrition-ai-assistant and continues, since 2026-10-26, in https://github.com/NMH1988/fitcoach-ai-assistant, whose issues and pull requests are mostly written with the repository name (e.g. NMH1988/fitcoach-ai-assistant#52). Not always: in text and commit messages written since 2026-10-26, a bare PR or issue number next to work of that repository may be one of its numbers (e.g. "PR #37" for T1.10, "PR #35" for T9.6, and every "Merge pull request #n" from T8.3's #29 on (T8.2's #121, merged the same morning, is the old repository's)); a progress entry's heading (`docs/progress/`) names the repository of its PR.
 
 Otherwise, and always before 2026-10-26, numbers such as `#76` in the docs and commit messages are issues and pull requests in the repository where the work started, https://github.com/NMH1988/nutrition-ai-assistant; a source number such as "#18a" is a row in `docs/SOURCES.md`. Issue and PR numbers in the course repository, if it has any, are unrelated.
 

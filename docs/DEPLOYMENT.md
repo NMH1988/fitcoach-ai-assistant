@@ -68,7 +68,7 @@ Off unless `FITCOACH_TRACING` and `LANGSMITH_API_KEY` are both set (secrets or e
 The work happens in `NMH1988/fitcoach-ai-assistant` (since 2026-10-26; it started in `NMH1988/nutrition-ai-assistant`, where the earlier `#<n>` numbers live); when it is finished, it is copied into the repository the course provides, where the reviewers read it. Only files and commit history travel; issues, pull requests, PR descriptions and review comments stay behind.
 
 Before copying:
-1. `docs/IMPLEMENTATION_PLAN.md` shows every ticket's final status, and `docs/PROGRESS.md` has an entry for every merged PR.
+1. `docs/IMPLEMENTATION_PLAN.md` (the order table) and `docs/tickets/` show every ticket's final status, and `docs/PROGRESS.md` lists an entry (a file in `docs/progress/`) for every merged PR.
 2. The README explains how to install, download the sources, build the index and run the app, and links the docs.
 3. CI is green on `main`; no secrets in the history (GitHub secret scanning shows no alerts).
 4. Docs refer to tickets by ID (`T1.2`). The `#<n>` issue and PR numbers stay as they are: the README, `docs/IMPLEMENTATION_PLAN.md` and `docs/PROGRESS.md` say they refer to the personal repo, and that a source number is a row in `docs/SOURCES.md` (owner's choice in T6.2, 2026-10-22, instead of rewriting about 400 numbers as full URLs).

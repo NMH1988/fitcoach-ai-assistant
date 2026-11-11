@@ -1,4 +1,5 @@
-# Parallel PRs all add entries at the top of the progress log; keep both sides on local merges.
+# Parallel PRs all add a line at the top of the progress log's index (each entry is a file in docs/progress/);
+# keep both sides on local merges.
 docs/PROGRESS.md merge=union
 # The PDF fonts (assets/fonts/): never touch their line endings.
 *.ttf binary

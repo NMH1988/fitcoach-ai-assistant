@@ -7,7 +7,7 @@ The owner writes in Vietnamese: reply in Vietnamese. Everything in the repo is i
 ## Mandatory reading (non-negotiable)
 
 1. **Before writing or changing any code**, in every session: read this whole file and the rules in `.claude/rules/` (the unconditional ones load automatically: `copyright.md`, `workflow.md`, `security-privacy.md`; `testing.md` loads when working on `tests/`).
-2. **Before starting any ticket**: read both briefs, `docs/BRIEF.md` (what the Sprint 2 course brief asks) and `docs/BRIEF_SPRINT3.md` (the Sprint 3 brief and the reviewer's points on Sprint 2), and `docs/PRD.md` (what we build), and check the ticket against them; name what it serves by its number in each brief, then read `docs/PROGRESS.md` and run `gh pr list --state open`. If the ticket touches the knowledge base, data, prompts, tests, fixtures or docs content, also read `docs/SOURCES.md`.
+2. **Before starting any ticket**: read both briefs, `docs/BRIEF.md` (what the Sprint 2 course brief asks) and `docs/BRIEF_SPRINT3.md` (the Sprint 3 brief and the reviewer's points on Sprint 2), and `docs/PRD.md` (what we build), and check the ticket against them; name what it serves by its number in each brief, then read `docs/PROGRESS.md` (the index of the progress log) and the entries in `docs/progress/` of the tickets this one builds on, changes or names as a follow-up, and run `gh pr list --state open`. If the ticket touches the knowledge base, data, prompts, tests, fixtures or docs content, also read `docs/SOURCES.md`.
 3. If a ticket, plan or prompt contradicts either brief, the PRD or the copyright policy, or a choice changes what the product does, stop, say so and ask the owner. Don't guess. Always flag work neither brief asks for, even when the owner asked for it (label it "beyond the brief (owner's request)").
 
 ## Where things are
@@ -18,12 +18,14 @@ The owner writes in Vietnamese: reply in Vietnamese. Everything in the repo is i
 | `docs/BRIEF_SPRINT3.md` | Summary of the Sprint 3 brief (the agent) and of the reviewer's feedback on Sprint 2 |
 | `docs/PRD.md` | Product decisions, features, guardrails, product-level acceptance criteria |
 | `docs/ARCHITECTURE.md` | Technical design and the approved decisions D1-D8 |
-| `docs/IMPLEMENTATION_PLAN.md` | Epics, tickets, acceptance criteria, dependencies, order, status |
+| `docs/IMPLEMENTATION_PLAN.md` | The plan's index: owner tasks, the order table with each ticket's status, each epic's list of tickets |
+| `docs/tickets/` | One file per ticket (`T<x.y>.md`): Serves, dependencies, acceptance criteria, status, notes |
 | `docs/TESTING.md` | Test strategy, evaluation results, live-check records |
 | `docs/SECURITY.md` | Vulnerability reporting, threat model and controls |
 | `docs/SOURCES.md` | Approved and excluded knowledge base sources with licences |
 | `docs/DEPLOYMENT.md` | Deploy notes and the checklist for copying the repo to the course repository |
-| `docs/PROGRESS.md` | What each PR did and why, newest first |
+| `docs/PROGRESS.md` | The progress log's index: one line per entry, newest first |
+| `docs/progress/` | One file per entry (`<date>-<ticket ID>.md`): what each PR did and why |
 | `app.py`, `views/` | The Streamlit UI: `app.py` only composes the page (at most 150 lines); `views/` holds one module per concern (`chat`, `targets`, `food`, `details`, `sidebar`, `profile_form`, `sources`, `tool_results`, `usage_view`, `about`, `export`, `header`, `account`, `navigation`, `pages`, `my_data`, `today`, `workouts`, `clients`, `sharing`, `client_week`, `client_targets`, `my_week`, `week_view`, `weekly_review`, `questions`, `notifications`, plus `text` and `resources`); `views/charts.py` and `views/tables.py` build chart specs and table rows and import no streamlit (T8.1) |
 | `.claude/rules/` | Copyright, workflow, security and privacy, testing rules |
 | `.claude/skills/qrspi/`, `.claude/agents/code-reviewer.md` | The coding workflow and the reviewer |

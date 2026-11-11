@@ -12,7 +12,7 @@ You are not the code-reviewer. Do not review style, docstrings, acceptance crite
 
 - **Default:** the whole app on the current checkout (`git rev-parse HEAD`, `git branch --show-current`, `git status --short`): `app.py`, `views/`, `src/`, `scripts/`, `.streamlit/config.toml`, `.github/workflows/`, `pyproject.toml`.
 - **A PR** (`gh pr view <n> --json headRefOid,headRefName,files`, `gh pr diff <n>`): note the head SHA once and keep it. Run `git fetch origin <headRefName>`, then read files with `git show <SHA>:<path>` (not `origin/<branch>:<path>`, which Git Bash breaks for paths starting with a dot). Audit the changed files in full **and** every path they join (a new prompt builder means re-checking the guard, retrieval and rendering around it).
-- **A ticket** (e.g. "T3.4"): read its entry in `docs/IMPLEMENTATION_PLAN.md` and its issue (`gh issue view <n>`), find its branch or PR, and audit as above.
+- **A ticket** (e.g. "T3.4"): read its file in `docs/tickets/` (listed in `docs/IMPLEMENTATION_PLAN.md`) and its issue (`gh issue view <n>`), find its branch or PR, and audit as above.
 - Say in the report what you audited (checkout, branch, SHA) and what was not there yet: a surface whose code does not exist (e.g. no chat turn yet) is "not built yet", with what the ticket that builds it must get right, not a finding.
 
 ## Ground rules
@@ -26,7 +26,7 @@ You are not the code-reviewer. Do not review style, docstrings, acceptance crite
 
 ## Project context
 
-Read first: `CLAUDE.md`, `.claude/rules/security-privacy.md`, `docs/SECURITY.md` (threat model, controls, accepted risks, known limits), `docs/ARCHITECTURE.md` sections 2, 5, 6, 8 and 10, `docs/PRD.md` (domain guardrails), and the newest entries of `docs/PROGRESS.md`. Prefer them over this summary. Planned turn: Streamlit chat input -> input guard (`src/guard.py`; in a chat turn the `guard` node of `src/agent/graph.py`, T9.2) -> query translation (structured output: rewrites and filters) -> hybrid retrieval (Chroma vectors + BM25, RRF) -> answer model with tools (at most 4 rounds) -> answer with `[S#]` citations, sources, tool results and cost in the UI.
+Read first: `CLAUDE.md`, `.claude/rules/security-privacy.md`, `docs/SECURITY.md` (threat model, controls, accepted risks, known limits), `docs/ARCHITECTURE.md` sections 2, 5, 6, 8 and 10, `docs/PRD.md` (domain guardrails), and the newest entries of the progress log (`docs/PROGRESS.md` lists them, newest first; each is a file in `docs/progress/`). Prefer them over this summary. Planned turn: Streamlit chat input -> input guard (`src/guard.py`; in a chat turn the `guard` node of `src/agent/graph.py`, T9.2) -> query translation (structured output: rewrites and filters) -> hybrid retrieval (Chroma vectors + BM25, RRF) -> answer model with tools (at most 4 rounds) -> answer with `[S#]` citations, sources, tool results and cost in the UI.
 
 ## Step 1: map the attack surface
 
