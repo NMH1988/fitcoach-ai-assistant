@@ -18,6 +18,7 @@ The owner writes in Vietnamese: reply in Vietnamese. Everything in the repo is i
 | `docs/BRIEF_SPRINT3.md` | Summary of the Sprint 3 brief (the agent) and of the reviewer's feedback on Sprint 2 |
 | `docs/PRD.md` | Product decisions, features, guardrails, product-level acceptance criteria |
 | `docs/ARCHITECTURE.md` | Technical design and the approved decisions D1-D8 |
+| `docs/DIAGRAMS.md` | Hand-drawn Mermaid diagrams (the whole app, the RAG search, the tool loop, the store's sharing); its numbers and model names are checked against `src/config.py` (T1.16) |
 | `docs/IMPLEMENTATION_PLAN.md` | The plan's index: owner tasks, the order table with each ticket's status, each epic's list of tickets |
 | `docs/tickets/` | One file per ticket (`T<x.y>.md`): Serves, dependencies, acceptance criteria, status, notes |
 | `docs/TESTING.md` | Test strategy, evaluation results, live-check records |

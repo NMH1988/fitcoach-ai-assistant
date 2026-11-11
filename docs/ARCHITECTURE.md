@@ -6,29 +6,7 @@
 
 ## 1. Overview
 
-Since Sprint 3 the app is a coach-first workspace with two AI parts, both built with LangGraph (section 17 explains them side by side):
-
-```mermaid
-flowchart LR
-    G[Guest] --> UI
-    C[Coach] --> UI
-    Y[Gymer] --> UI
-    UI[Streamlit pages per role<br/>chat, clients, client week, diary,<br/>workouts, my week, sharing, my data]
-    UI --> GU[Input guard<br/>validation, injection, guardrails, rate limit]
-    GU --> CH[Chat agent<br/>ReAct loop over tools]
-    CH <--> T[Tools<br/>search, TDEE, macros, food, meal plan;<br/>coach: clients, client week, remember]
-    T --> S[Search: query translation,<br/>hybrid retrieval, distance gate]
-    S --- KB[(Chroma index<br/>CC BY chunks)]
-    T --- USDA[(USDA table<br/>and optional API)]
-    UI --> RV[Weekly review workflow<br/>authorise, compute, retrieve,<br/>draft, validate, coach decides]
-    RV --- KB
-    UI --- ST[(SQLite store<br/>accounts, logs, sharing, reviews)]
-    T --- ST
-    RV --- ST
-    CH -.-> OR{{OpenRouter}}
-    S -.-> OR
-    RV -.-> OR
-```
+Since Sprint 3 the app is a coach-first workspace with two AI parts, both built with LangGraph (section 17 explains them side by side). The overview diagram, with one knowledge base search, the tool-calling loop and the store's sharing rule, is in [`DIAGRAMS.md`](DIAGRAMS.md) (T1.16; until then a simpler overview was drawn here).
 
 - **The chat agent** (guests and coaches; D9-D12, sections 2 and 17): each turn passes the input guard, then the model decides in a loop whether to search the knowledge base, call a tool, both, or answer, and stops when it has an answer with a basis or reaches the round limit. The session's earlier turns are its short-term memory; a coach's approved working preferences are its long-term memory. The UI shows the answer with its sources, the tool results, the searches it ran and the token cost.
 - **The weekly review** (coaches; D17, section 16): a fixed workflow, not a free agent. It checks access, computes the week's figures in code, searches the evidence for the topics the figures raise, has the model draft the review once (twice if the checks fail), validates the draft in code and pauses until the coach approves, edits or rejects it; only then does the gymer read it.
@@ -479,7 +457,7 @@ Dev (as in Sprint 1, pinned in the `dev` extra): pytest 9.1.1 (MIT), pytest-cov 
 | Core 2 core functionality and interactions | sections 2, 16 and 17; `README.md` ("Use cases"); `docs/PRD.md` features 14-23, 25 (coach assistant), 26 (training principles, D22), 27 (questions to the coach) and 28 (notifications); feature 24 moved to the Capstone (T9.24) |
 | Core 3 a UI for every function | section 7, section 16 (pages per role, D20); `docs/UI_DESIGN.md` |
 | Core 4 tools, error handling, real-world use | D9-D23; section 10 (every error path with the test that shows it); logs and tracing (section 10) |
-| Core 5 documentation | `README.md` (purpose, how to use it, use cases); this file (sections 1, 16 and 17; D9-D23); `docs/TESTING.md` |
+| Core 5 documentation | `README.md` (purpose, how to use it, use cases); this file (sections 1, 16 and 17; D9-D23); `docs/DIAGRAMS.md` (T1.16); `docs/TESTING.md` |
 | Medium 1 token use and cost (kept from Sprint 2) | section 9 |
 | Medium 2 memory | D12; section 2 ("The conversation"); section 16 (memory) |
 | Medium 3 one more tool that calls an external API; Hard 5 knowledge from an external source (extra; in part only, not counted for maximum points, T9.31) | T9.9, the FoodData Central API (section 6): a fallback inside `lookup_food_nutrition`, asked only when the table has no match, not a tool of its own; checked by mocked tests only until the owner's USDA key (O12) allows a live check |
