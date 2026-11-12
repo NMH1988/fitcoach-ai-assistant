@@ -8,7 +8,10 @@ one write into another user's records is a coach's target for a client (`add_cli
 T9.17): only while the client shares nutrition with that coach, audited as `target_set`. A
 coach-set target is the gymer's to read, never to delete alone (`delete_record()` refuses it; only
 `my_data.delete_user_data()` removes it), and a profile Save keeps it while the gymer shares
-nutrition with a coach (`add_profile_with_target()`; owner's choices, 2026-11-06).
+nutrition with a coach (`add_profile_with_target()`; owner's choices, 2026-11-06). The other one
+is a coach's list of suggested foods (`suggestions.add_client_suggestions()`, T9.34); a meal item
+the gymer logs from it is flagged `from_suggestion` here, after the store checked the item is on
+the gymer's active list, and an edit keeps the flag only for the same food.
 
 Each `list_*` takes the acting user and the user whose data it reads and goes through
 `access.authorised_read()`: the user's own data, or a coach's read within the scope the data
@@ -29,7 +32,7 @@ from typing import Literal, get_args
 
 from src import config, exercises, metrics
 from src.profile import ActivityLevel, Goal, Sex
-from src.store import values
+from src.store import suggestions, values
 from src.store.access import NotFound, audit, authorise_read, authorised_read, role_of
 from src.store.db import transaction
 
@@ -84,12 +87,14 @@ _SHARES_NUTRITION = "SELECT 1 FROM open_shares WHERE client_id = ? AND scope = '
 _ADD_MEAL = """
 INSERT INTO meal_items (
     user_id, consumed_on, meal, fdc_id, food_name, grams,
-    kcal, protein_g, carbohydrate_g, fat_g, fiber_g, recorded_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    kcal, protein_g, carbohydrate_g, fat_g, fiber_g, recorded_at, from_suggestion
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
+# An edited item keeps its from_suggestion flag only with the same food (T9.34).
+_MEAL_FOOD = "SELECT fdc_id, from_suggestion FROM meal_items WHERE id = ? AND user_id = ?"
 _MEALS = """
 SELECT id, consumed_on, meal, fdc_id, food_name, grams,
-    kcal, protein_g, carbohydrate_g, fat_g, fiber_g, recorded_at
+    kcal, protein_g, carbohydrate_g, fat_g, fiber_g, recorded_at, from_suggestion
 FROM meal_items
 WHERE user_id = ? AND (? IS NULL OR consumed_on >= ?) AND (? IS NULL OR consumed_on <= ?)
 ORDER BY consumed_on, id
@@ -382,8 +387,11 @@ def add_meal_item(
     carbohydrate_g: float,
     fat_g: float,
     fiber_g: float | None,
+    suggestion_item_id: int | None = None,
 ) -> int:
     """Add a food eaten with its nutrient snapshot for the grams eaten; return its ID."""
+    # With suggestion_item_id (T9.34), the item must be on the gymer's active list with this meal
+    # slot and food, checked in the write transaction; the row is then flagged from_suggestion.
     row = _meal_row(
         user_id,
         consumed_on,
@@ -399,7 +407,13 @@ def add_meal_item(
     )
     with transaction(conn):
         _check_gymer(conn, user_id)
-        return conn.execute(_ADD_MEAL, row).lastrowid
+        flag = 0
+        if suggestion_item_id is not None:
+            # row[2] and row[3] are the checked meal slot and food ID (_meal_row()).
+            if not suggestions.is_active_item(conn, user_id, suggestion_item_id, row[2], row[3]):
+                raise NotFound
+            flag = 1
+        return conn.execute(_ADD_MEAL, (*row, flag)).lastrowid
 
 
 def replace_meal_item(
@@ -437,9 +451,13 @@ def replace_meal_item(
         raise NotFound
     with transaction(conn):
         _check_gymer(conn, user_id)
-        if conn.execute(_DELETE_MEAL, (record_id, user_id)).rowcount != 1:
+        old = conn.execute(_MEAL_FOOD, (record_id, user_id)).fetchone()
+        if old is None or conn.execute(_DELETE_MEAL, (record_id, user_id)).rowcount != 1:
             raise NotFound
-        return conn.execute(_ADD_MEAL, row).lastrowid
+        # A food logged from the coach's suggestions keeps the flag while it stays the same food
+        # (the grams, day or meal slot changed); another food no longer counts (T9.34).
+        flag = old["from_suggestion"] if old["fdc_id"] == row[3] else 0
+        return conn.execute(_ADD_MEAL, (*row, flag)).lastrowid
 
 
 def _meal_row(

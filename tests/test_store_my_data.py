@@ -6,11 +6,12 @@ from datetime import date
 
 import pytest
 
-from src.store import access, db, my_data, questions, records, reviews, users
+from src.store import access, db, my_data, questions, records, reviews, suggestions, users
 from tests import store_world as world
 from tests.store_world import no_threads
 
 NOW = "2026-10-27T10:00:00+00:00"
+SUGGESTED = suggestions.SuggestedFood("breakfast", 9001, "CANARY-FOOD oats", 80.0)
 QUESTION = "CANARY-QUESTION why fewer carbs?"
 ANSWER = "CANARY-ANSWER rest days need less."
 
@@ -38,6 +39,9 @@ def full_world(store_conn):
     # T9.25: a question and the coach's answer under the approved review (an audited answer).
     questions.ask_question(store_conn, world.SHARED, approved, QUESTION)
     questions.answer_question(store_conn, world.COACH_A, approved, ANSWER)
+    # T9.34: each coach suggests foods to their client (an audited suggestions_set each).
+    for coach, client in ((world.COACH_A, world.SHARED), (world.COACH_B, world.OTHERS)):
+        suggestions.add_client_suggestions(store_conn, coach, client, [SUGGESTED])
     # T9.12 adds the functions for these two tables; the rows are written directly here.
     for coach in (world.COACH_A, world.COACH_B):
         store_conn.execute(
@@ -103,6 +107,8 @@ def test_the_store_has_the_columns_this_test_expects(full_world):
         ("invite_attempts", "user_id"),
         ("review_questions", "author_id"),
         ("notification_reads", "user_id"),
+        ("food_suggestion_lists", "client_id"),
+        ("food_suggestion_lists", "coach_id"),
     }
 
 
@@ -152,6 +158,7 @@ def test_a_gymers_export_holds_all_their_rows_as_json(full_world):
         "review_approved",
         "read",
         "review_answered",
+        "suggestions_set",
     ]
     assert [(r["kind"], r["text"]) for r in document["review_questions"]] == [
         ("question", QUESTION),
@@ -159,6 +166,11 @@ def test_a_gymers_export_holds_all_their_rows_as_json(full_world):
     ]
     assert document["invite_attempts"][0]["count"] == 2
     assert document["invitations"] == []
+    # T9.34: the list coach A suggested to this gymer, with its item; never coach B's.
+    [listed] = document["food_suggestion_lists"]
+    assert (listed["client_id"], listed["coach_id"]) == (world.SHARED, world.COACH_A)
+    [item] = document["food_suggestion_items"]
+    assert (item["list_id"], item["food_name"]) == (listed["id"], SUGGESTED.food_name)
 
 
 def test_a_coachs_export_holds_their_relationships_reviews_and_invitations(full_world):
@@ -170,6 +182,9 @@ def test_a_coachs_export_holds_their_relationships_reviews_and_invitations(full_
     assert len(document["invitations"]) == 1
     assert {r["actor_id"] for r in document["audit_log"]} == {world.COACH_A}
     assert document["meal_items"] == []
+    # T9.34: the lists a coach wrote are their clients' data, so only their audit rows are here.
+    assert document["food_suggestion_lists"] == [] and document["food_suggestion_items"] == []
+    assert "suggestions_set" in {r["action"] for r in document["audit_log"]}
 
 
 def _read_rows(conn):
@@ -243,6 +258,47 @@ def test_deleting_a_coach_removes_the_reviews_they_wrote_and_keeps_the_clients_r
     assert coaches == [world.COACH_B]
     assert full_world.execute("SELECT count(*) FROM consents").fetchone()[0] == 3  # coach B's
     assert records.list_meal_items(full_world, world.SHARED, world.SHARED)
+
+
+@pytest.mark.parametrize("user", [world.SHARED, world.COACH_A])
+def test_deleting_either_side_removes_their_suggestion_lists_and_items(full_world, user):
+    """Coach A's list for SHARED goes with either side's data (T9.34); coach B's list stays."""
+    suggestions.add_client_suggestions(
+        full_world,
+        world.COACH_A,
+        world.SHARED,
+        [SUGGESTED, suggestions.SuggestedFood("lunch", 9002, "Rice", 150.0)],
+    )
+    [item] = [
+        i
+        for i in suggestions.current_suggestions(full_world, world.SHARED, world.SHARED)["items"]
+        if i["meal"] == "breakfast"
+    ]
+    if user == world.COACH_A:  # the client's flagged item stays with the client's records
+        records.add_meal_item(
+            full_world,
+            world.SHARED,
+            consumed_on=world.DAY,
+            meal="breakfast",
+            fdc_id=SUGGESTED.fdc_id,
+            food_name=SUGGESTED.food_name,
+            grams=80.0,
+            kcal=300.0,
+            protein_g=10.0,
+            carbohydrate_g=50.0,
+            fat_g=5.0,
+            fiber_g=None,
+            suggestion_item_id=item["id"],
+        )
+    my_data.delete_user_data(full_world, user, no_threads)
+    lists = full_world.execute("SELECT client_id, coach_id FROM food_suggestion_lists").fetchall()
+    assert [tuple(row) for row in lists] == [(world.OTHERS, world.COACH_B)]
+    assert full_world.execute("SELECT count(*) FROM food_suggestion_items").fetchone()[0] == 1
+    if user == world.COACH_A:
+        flags = [
+            r["from_suggestion"] for r in records.list_meal_items(full_world, *[world.SHARED] * 2)
+        ]
+        assert sorted(flags) == [0, 1]
 
 
 def test_deleted_values_are_gone_from_the_files_bytes(tmp_path):

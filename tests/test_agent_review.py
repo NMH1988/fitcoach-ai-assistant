@@ -19,7 +19,7 @@ from src import account, config, llm, observability
 from src.agent import review, review_threads
 from src.rag.retriever import RetrievedChunk, chunk_key
 from src.rag.store import IndexNotReadyError
-from src.store import access, my_data, questions, records, reviews, users
+from src.store import access, my_data, questions, records, reviews, suggestions, users
 from tests import store_world as world
 from tests.fakes import ScriptedTranslator
 
@@ -140,6 +140,42 @@ def test_the_model_gets_aggregates_for_the_client_and_never_a_name(store_conn, r
     assert '"logged_days": 1' in text and '"latest_weight_kg": 87.3' in text
     for secret in (world.SHARED, world.COACH_A, "Coach A", "Oats", str(world.HEIGHT)):
         assert secret not in text
+
+
+def test_suggested_foods_and_their_share_never_reach_the_review_s_model(store_conn, relationships):
+    """T9.34: a canary list and an item logged from it in the week are in no message or review."""
+    suggestions.add_client_suggestions(
+        store_conn,
+        world.COACH_A,
+        world.SHARED,
+        [suggestions.SuggestedFood("lunch", 4242, "CANARY-FOOD suggested", 66.6)],
+    )
+    [item] = suggestions.current_suggestions(store_conn, world.SHARED, world.SHARED)["items"]
+    records.add_meal_item(
+        store_conn,
+        world.SHARED,
+        consumed_on=MONDAY,
+        meal="lunch",
+        fdc_id=4242,
+        food_name="CANARY-FOOD suggested",
+        grams=66.6,
+        kcal=432.1,
+        protein_g=20.0,
+        carbohydrate_g=50.0,
+        fat_g=10.0,
+        fiber_g=None,
+        suggestion_item_id=item["id"],
+    )
+    model = _model(_draft())
+    assert _start(_context(model)).outcome == "pending"
+    [messages] = model.calls
+    sent = "\n".join(str(message.content) for message in messages)
+    assert "<metrics>" in sent
+    # The share's field names (metrics.SuggestedShare), not "suggest": the draft's own schema
+    # has model_suggestion.
+    for canary in ("CANARY", "66.6", "suggested_items", "energy_share", "from_suggestion"):
+        assert canary not in sent, canary
+        assert canary not in json.dumps(_stored(store_conn)), canary
 
 
 def test_a_question_to_the_coach_never_reaches_the_review_s_model(store_conn, relationships):

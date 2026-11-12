@@ -36,6 +36,9 @@ class DashboardWeek:
     # The reviews the reader may read (a gymer: the approved ones; a coach: the ones they wrote);
     # None when nutrition is not shared.
     reviews: tuple[dict, ...] | None
+    # How much of the week's food was logged from the coach's suggestions (T9.34); None when
+    # nutrition is not shared. Shown on the pages only: never in a tool result or a review.
+    suggested: metrics.SuggestedShare | None = None
 
 
 def _read(conn: sqlite3.Connection, actor_id: str, subject_id: str, monday: date, scopes) -> dict:
@@ -69,7 +72,7 @@ def _read(conn: sqlite3.Connection, actor_id: str, subject_id: str, monday: date
     return found
 
 
-def _week(found: dict, monday: date) -> DashboardWeek:
+def _week(found: dict, monday: date, since: str | None = None) -> DashboardWeek:
     """Build the week from the records read, leaving out what was not read."""
     meals, targets, written = found.get("nutrition", ([], [], None))
     weights = found.get("body", [])
@@ -85,6 +88,10 @@ def _week(found: dict, monday: date) -> DashboardWeek:
             None if "body" not in found else metrics.weights_between(weights, trend_start, sunday)
         ),
         reviews=None if written is None else tuple(written),
+        # A coach's share counts only items logged since their relationship began (T9.34).
+        suggested=(
+            None if "nutrition" not in found else metrics.suggested_share(meals, monday, since)
+        ),
     )
 
 
@@ -112,7 +119,9 @@ def relationship_week(
     """Return the week of one of active_clients()'s rows, the scopes it shares only."""
     # The row comes from the coach's own list; each read still goes through the store's checks.
     return _week(
-        _read(conn, coach_id, relationship["other_id"], monday, relationship["scopes"]), monday
+        _read(conn, coach_id, relationship["other_id"], monday, relationship["scopes"]),
+        monday,
+        relationship["accepted_at"],
     )
 
 

@@ -860,12 +860,16 @@ def test_a_coach_s_client_tools_are_masked_in_a_trace(
 
 ROOT = Path(__file__).resolve().parents[1]
 TRACING_MODULE = ROOT / "src" / "tracing.py"
+# The evaluation's LangSmith experiments (T9.33): its own unmasked client and a tracer for each
+# evaluation turn, used only by scripts/run_evaluation.py (test_only_the_evaluation_script_...).
+EXPERIMENTS_MODULE = ROOT / "src" / "experiments.py"
+EVALUATION_SCRIPT = ROOT / "scripts" / "run_evaluation.py"
 SCANNED = [*(ROOT / "src").rglob("*.py"), *(ROOT / "views").rglob("*.py")]
 SCANNED += [*(ROOT / "scripts").glob("*.py"), ROOT / "app.py"]
-# Only src/tracing.py imports langsmith (configure, traceable, trace, tracing_context all come from
-# it). LangChain's own ways to trace are named too, and a retry, whose events carry an error's
-# message and a reply past the anonymizer (LangGraph's RetryPolicy also logs the error outside the
-# app's formatter).
+# Only src/tracing.py and src/experiments.py import langsmith (configure, traceable, trace,
+# tracing_context all come from it). LangChain's own ways to trace are named too, and a retry,
+# whose events carry an error's message and a reply past the anonymizer (LangGraph's RetryPolicy
+# also logs the error outside the app's formatter).
 TRACE_BYPASS = re.compile(
     r"^\s*(?:import|from)\s+langsmith\b"
     r"|\b(?:with_retry|RetryPolicy|retry_policy|tracing_v2_enabled|LangChainTracer)\b",
@@ -878,14 +882,66 @@ def bypasses(source: str) -> list[str]:
     return [found.strip() for found in TRACE_BYPASS.findall(source)]
 
 
+# What src/experiments.py may use of the scanned names: LangSmith's client and LangChain's tracer,
+# for its own unmasked runs. A retry stays refused there too (code review round 1 of T9.33).
+EXPERIMENTS_ALLOWED = re.compile(r"^\s*(?:import|from)\s+langsmith\b|^LangChainTracer$")
+
+
 def test_only_the_tracing_module_uses_langsmith_and_nothing_retries():
-    """No module but src/tracing.py imports langsmith or traces otherwise; nothing retries."""
-    found = {
-        str(path.relative_to(ROOT)): bypasses(path.read_text(encoding="utf-8"))
-        for path in SCANNED
-        if path != TRACING_MODULE and bypasses(path.read_text(encoding="utf-8"))
-    }
+    """No module but the two tracing ones imports langsmith or traces otherwise; nothing retries."""
+    found = {}
+    for path in SCANNED:
+        if path == TRACING_MODULE:
+            continue
+        hits = bypasses(path.read_text(encoding="utf-8"))
+        if path == EXPERIMENTS_MODULE:
+            hits = [hit for hit in hits if not EXPERIMENTS_ALLOWED.match(hit)]
+        if hits:
+            found[str(path.relative_to(ROOT))] = hits
     assert found == {}
+
+
+def test_the_experiments_module_may_not_retry_either():
+    """The experiments module's exemption covers langsmith and the tracer, never a retry."""
+    hits = bypasses("from langsmith import Client\ntracer = LangChainTracer()\nm.with_retry()")
+    assert [hit for hit in hits if not EXPERIMENTS_ALLOWED.match(hit)] == ["with_retry"]
+
+
+# An import of src/experiments.py in any form: `from src import experiments`, the module named
+# among others on one line or in parentheses over several (as ruff wraps a long import),
+# `import src.experiments`, or `from src.experiments import ...`.
+EXPERIMENTS_IMPORT = re.compile(
+    r"^\s*(?:from\s+src\s+import\s+(?:\([^)]*|[^\n]*)\bexperiments\b"
+    r"|(?:import|from)\s+src\.experiments\b)",
+    re.MULTILINE,
+)
+
+
+def test_only_the_evaluation_script_uses_the_unmasked_experiments():
+    """Only scripts/run_evaluation.py imports src/experiments.py: the app's runs stay masked."""
+    found = sorted(
+        str(path.relative_to(ROOT))
+        for path in SCANNED
+        if path not in {EXPERIMENTS_MODULE, EVALUATION_SCRIPT}
+        and EXPERIMENTS_IMPORT.search(path.read_text(encoding="utf-8"))
+    )
+    assert found == []
+    assert EXPERIMENTS_IMPORT.search(EVALUATION_SCRIPT.read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from src import experiments",
+        "from src import chat, experiments, guard",
+        "from src import (\n    chat,\n    experiments,\n    guard,\n)",
+        "import src.experiments",
+        "from src.experiments import build_client",
+    ],
+)
+def test_the_experiments_import_scan_catches(source):
+    """The scan finds each way of importing the experiments module."""
+    assert EXPERIMENTS_IMPORT.search(source)
 
 
 @pytest.mark.parametrize(

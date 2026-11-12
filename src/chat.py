@@ -42,7 +42,7 @@ from langchain_core.messages.utils import count_tokens_approximately, trim_messa
 from langchain_core.runnables import Runnable
 from langchain_core.tools import StructuredTool
 
-from src import config, guard, i18n, llm, preferences, profile, usage
+from src import config, guard, i18n, llm, preferences, profile, tracing, usage
 from src.prompt_data import escape_prompt_data
 from src.rag import hybrid, query_translation
 from src.rag.hybrid import KeywordIndex
@@ -673,6 +673,7 @@ def run_turn(
     coach: preferences.CoachMemory | None = None,
     food_api: FoodSearch | None = None,
     clients: CoachClients | None = None,
+    run_trace: tracing.RunTrace | None = None,
 ) -> TurnResult:
     """Run one chat turn: guard, agent, tools; never raise for an error a user can cause."""
     # on_step(step) is called as each step starts; on_text(text) as the answer streams in. `user`
@@ -693,6 +694,8 @@ def run_turn(
     # table does not have; None (no key, the evaluation run) keeps the table alone.
     # clients is a coach's client tools (T9.17): the coach, the store and the chat's references,
     # which give list_my_clients and get_client_week. None for a guest.
+    # run_trace is an evaluation experiment's tracer and root run ID (T9.33, src/experiments.py):
+    # only `scripts/run_evaluation.py --langsmith` passes one, never the app.
     if language not in config.ANSWER_LANGUAGE_PROMPT_PATHS:
         raise ValueError(f"Unknown answer language: {language!r}")
     turn_id = str(uuid.uuid4())
@@ -755,7 +758,7 @@ def run_turn(
             return graph.chat_graph().invoke(
                 {"text": text, "history": history},
                 context=context,
-                config=graph.run_config(turn_id),
+                config=graph.run_config(turn_id, run_trace),
             )
 
         if conversation is None:

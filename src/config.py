@@ -294,6 +294,16 @@ EVAL_JUDGE_MAX_TOKENS = 2 * DEFAULT_MAX_TOKENS
 # The DeepEval metrics the script scores each answer on, in the order they are written. Context
 # precision and recall wait for the owner's reference answers (O14; owner's choice, 2026-11-06).
 EVAL_SCORE_METRICS: tuple[str, ...] = ("faithfulness", "answer_relevancy")
+# LangSmith experiments of the evaluation run (`scripts/run_evaluation.py --langsmith`, T9.33;
+# src/experiments.py): one dataset per questions file, named with this prefix and the file's stem
+# (e.g. fitcoach-eval-eval_questions), and each run an experiment of its own on that dataset,
+# named with this prefix, the commit, the answer model, the language and the start time. The
+# evaluation's own text is not masked there (owner's choice, 2026-11-12); the app's runs always
+# are (LANGSMITH_PROJECT, src/tracing.py).
+EVAL_DATASET_PREFIX = "fitcoach-eval-"
+EVAL_EXPERIMENT_PREFIX = "fitcoach-eval"
+# Seconds to wait at the end of a run for the experiment's runs and feedback to reach LangSmith.
+EVAL_EXPERIMENT_FLUSH_SECONDS = 60
 
 # The store of signed-in users' data (T9.6, D13): one SQLite file in a gitignored folder, local.
 # Not encrypted: anyone who can read the file reads the data (docs/SECURITY.md).
@@ -383,6 +393,10 @@ DASHBOARD_CHART_HEIGHT_PX = 240
 FOLLOW_UP_MIN_LOGGED_DAYS = 4
 TARGET_INPUT_MAX_KCAL = 10000
 TARGET_INPUT_MAX_GRAMS = 1000
+# The foods a coach suggests to a client (T9.34): at most this many items in one list, each with
+# grams in the food log's range (FOOD_MIN_GRAMS to FOOD_MAX_GRAMS) and a food at most once per
+# meal slot; the store checks them all (owner's choice, 2026-11-12).
+MAX_SUGGESTED_FOODS = 20
 # In-app notifications (T9.29, D23): the Notifications page lists at most this many, newest first,
 # and at most NOTIFICATIONS_MAX_TOASTS show as toasts in one run (the rest as one "and N more"
 # toast). A scope granted within NOTIFICATIONS_SAME_EVENT_SECONDS after a code was accepted counts

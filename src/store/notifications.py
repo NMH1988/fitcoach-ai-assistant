@@ -21,6 +21,9 @@ relationship is active and the client shares nutrition and every scope the revie
 under every approved review about them, a former coach's too. Each row is its own event (a
 question and its answer are separate actions), so no same-event window applies to them.
 
+From T9.34, a gymer also sees each list of suggested foods a coach saved about them (a former
+coach's too, as with reviews): the coach's name and the time, never a food or an amount.
+
 A notification holds its kind, its time, the other side's display name (`users.display_name_of()`,
 not audited), the scope and the week; never a value, a metric, a review's text or a question's or
 answer's text. Reading the relationship and review kinds is not audited (owner's choice,
@@ -55,6 +58,7 @@ Kind = Literal[
     "review_approved",
     "question_asked",
     "question_answered",
+    "suggestions_updated",
 ]
 
 # The user's own relationships, either side, their status read as a value from ended_at (never a
@@ -75,6 +79,11 @@ _APPROVED_ABOUT = """
 SELECT id, coach_id, period_start, reviewed_at FROM ai_reviews
 WHERE client_id = ? AND status = 'APPROVED' ORDER BY id
 """
+# T9.34: each list of suggested foods a coach saved about a gymer: who saved it and when; never a
+# food or an amount. A former coach's lists too, as an approved review of theirs is.
+_SUGGESTIONS_ABOUT = """
+SELECT id, coach_id, created_at FROM food_suggestion_lists WHERE client_id = ? ORDER BY id
+"""
 _LATEST_MARK = """
 SELECT read_up_to FROM notification_reads WHERE user_id = ? ORDER BY id DESC LIMIT 1
 """
@@ -89,7 +98,8 @@ _ORDER: dict[str, int] = {
     "review_approved": 3,
     "question_asked": 4,
     "question_answered": 5,
-    "ended": 6,
+    "suggestions_updated": 6,
+    "ended": 7,
 }
 
 
@@ -258,6 +268,20 @@ def list_notifications(
                     other,
                     week=event["period_start"],
                     key=(kind, event["id"], event["created_at"]),
+                )
+            )
+        for saved in conn.execute(_SUGGESTIONS_ABOUT, (user_id,)).fetchall():
+            # Saved only within a relationship, and both go with a deletion (T9.34).
+            try:
+                coach = name_of(saved["coach_id"])
+            except NotFound:
+                continue
+            found.append(
+                Notification(
+                    "suggestions_updated",
+                    saved["created_at"],
+                    coach,
+                    key=("suggestions_updated", saved["id"], saved["created_at"]),
                 )
             )
         mark = conn.execute(_LATEST_MARK, (user_id,)).fetchone()

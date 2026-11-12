@@ -21,7 +21,13 @@ Scope = Literal["nutrition", "training", "body"]
 SCOPES: tuple[str, ...] = get_args(Scope)
 # The audit actions; the audit_log.action CHECK lists the same (schema.py, a test checks it).
 Action = Literal[
-    "read", "review_approved", "review_edited", "review_rejected", "review_answered", "target_set"
+    "read",
+    "review_approved",
+    "review_edited",
+    "review_rejected",
+    "review_answered",
+    "target_set",
+    "suggestions_set",
 ]
 
 _ROLE = "SELECT role FROM users WHERE id = ?"

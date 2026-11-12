@@ -152,5 +152,5 @@ flowchart TB
 | (never) | preferences |
 
 - The rule is written once, as the `open_shares` view; every read of another user's data goes through `access.authorised_read()`, in the store, never only in the UI or a prompt. Two documented exceptions: the other side's display name (checked against the relationship, not audited), and the sidebar's count and the toasts of a coach's client questions, checked like a read but with no audit row (the Notifications page audits it) ([`ARCHITECTURE.md`](ARCHITECTURE.md), section 16).
-- The one write into a client's records is a coach's nutrition target: the same check runs inside the write, with the audit row `target_set`.
+- There are two writes into a client's records, both needing the nutrition scope: a coach's nutrition target and, from T9.34, a coach's list of suggested foods. The same check runs inside each write, with the audit row `target_set` or `suggestions_set`.
 - Each signed-in user can export or delete all their own data (My data).

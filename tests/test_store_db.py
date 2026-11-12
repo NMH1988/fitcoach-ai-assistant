@@ -33,6 +33,8 @@ TABLES = {
     "invite_attempts",
     "review_questions",
     "notification_reads",
+    "food_suggestion_lists",
+    "food_suggestion_items",
 }
 NOW = "2026-10-27T10:00:00+00:00"
 DAY = "2026-10-27"
@@ -138,6 +140,14 @@ VALID_ROWS = {
         "created_at": NOW,
     },
     "notification_reads": {"user_id": "g1", "read_up_to": NOW},
+    "food_suggestion_lists": {"client_id": "g1", "coach_id": "c1", "created_at": NOW},
+    "food_suggestion_items": {
+        "list_id": 1,
+        "meal": "breakfast",
+        "fdc_id": 2,
+        "food_name": "Oats",
+        "grams": 80.0,
+    },
 }
 NON_NEGATIVE = [
     ("profile_entries", "age"),
@@ -160,6 +170,8 @@ ABOVE_ZERO = [
     ("body_measurements", "weight_kg"),
     ("meal_items", "grams"),
     ("meal_items", "fdc_id"),
+    ("food_suggestion_items", "grams"),
+    ("food_suggestion_items", "fdc_id"),
 ]
 IMMUTABLE = [
     "profile_entries",
@@ -172,6 +184,8 @@ IMMUTABLE = [
     "audit_log",
     "review_questions",
     "notification_reads",
+    "food_suggestion_lists",
+    "food_suggestion_items",
 ]
 
 
@@ -191,6 +205,9 @@ def _seed(conn):
     )
     _insert(conn, "workout_sessions", VALID_ROWS["workout_sessions"])
     _insert(conn, "ai_reviews", VALID_ROWS["ai_reviews"])
+    names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master")}
+    if "food_suggestion_lists" in names:  # from version 6 (T9.34)
+        _insert(conn, "food_suggestion_lists", VALID_ROWS["food_suggestion_lists"])
 
 
 def _columns(conn, table):
@@ -206,7 +223,7 @@ def test_connect_creates_the_file_in_the_configured_folder_with_every_table(stor
         for row in store_conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
     }
     assert names == TABLES
-    assert db.schema_version(store_conn) == len(schema.MIGRATIONS) == 5
+    assert db.schema_version(store_conn) == len(schema.MIGRATIONS) == 6
 
 
 def test_the_store_folder_is_gitignored_and_inside_the_project():
@@ -444,7 +461,7 @@ def _time_columns(conn):
 def test_every_timestamp_column_refuses_a_time_that_is_not_utc(store_conn):
     """A local time, or one with another offset, is refused in every *_at column (D21)."""
     columns = _time_columns(store_conn)
-    assert len(columns) == 18  # review_questions.created_at since T9.25
+    assert len(columns) == 19  # food_suggestion_lists.created_at since T9.34
     _seed(store_conn)
     for table, column in columns:
         for bad in ("2026-10-27T10:00:00", "2026-10-27T10:00:00+01:00", "27.10.2026 10:00"):
@@ -811,16 +828,16 @@ def test_the_rebuilt_audit_table_is_v1_s_apart_from_the_action_list(store_conn):
 def test_the_audit_check_and_access_action_list_the_same_actions(store_conn):
     """A new action is added in both places, or neither."""
     assert set(_check_actions(store_conn)) == set(get_args(access.Action))
-    assert {"review_answered", "target_set"} <= set(get_args(access.Action))
+    assert {"review_answered", "target_set", "suggestions_set"} <= set(get_args(access.Action))
 
 
-@pytest.mark.parametrize("migrations", [1, 2, 3, 4])
+@pytest.mark.parametrize("migrations", [1, 2, 3, 4, 5])
 def test_upgrading_an_older_file_keeps_every_audit_row_index_and_trigger(tmp_path, migrations):
-    """A version 1 to 4 file with audit rows reaches version 5, its rows, IDs and guards kept."""
+    """A version 1 to 5 file with audit rows reaches version 6, its rows, IDs and guards kept."""
     path = tmp_path / "old.sqlite3"
     before = _old_file(path, migrations)
     with db.connect(path) as conn:
-        assert db.schema_version(conn) == len(schema.MIGRATIONS) == 5
+        assert db.schema_version(conn) == len(schema.MIGRATIONS) == 6
         after = [tuple(row) for row in conn.execute("SELECT * FROM audit_log ORDER BY id")]
         assert after == before
         indexes = {
@@ -832,6 +849,7 @@ def test_upgrading_an_older_file_keeps_every_audit_row_index_and_trigger(tmp_pat
             conn.execute("UPDATE audit_log SET resource_type = 'x'")
         _insert(conn, "audit_log", {**VALID_ROWS["audit_log"], "action": "review_answered"})
         _insert(conn, "audit_log", {**VALID_ROWS["audit_log"], "action": "target_set"})
+        _insert(conn, "audit_log", {**VALID_ROWS["audit_log"], "action": "suggestions_set"})
         with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
             _insert(conn, "audit_log", {**VALID_ROWS["audit_log"], "action": "deleted"})
         assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
@@ -901,3 +919,67 @@ def test_a_migration_5_that_fails_halfway_leaves_the_version_4_file_as_it_was(tm
         assert [tuple(row) for row in raw.execute("SELECT * FROM audit_log ORDER BY id")] == before
     finally:
         raw.close()
+
+
+def test_a_migration_6_that_fails_halfway_leaves_the_version_5_file_as_it_was(tmp_path):
+    """A failure after migration 6 (T9.34) made its tables and copied the audit rows undoes all."""
+    path = tmp_path / "old.sqlite3"
+    before = _old_file(path, 5)
+    raw = sqlite3.connect(path, autocommit=True)
+    # As for migration 5: a view on audit_log makes the RENAME fail after everything else ran.
+    raw.execute("CREATE VIEW audit_probe AS SELECT id FROM audit_log")
+    raw.close()
+    with pytest.raises(sqlite3.OperationalError, match="audit_probe"):
+        with db.connect(path):
+            pass
+    raw = sqlite3.connect(path)
+    try:
+        assert raw.execute("PRAGMA user_version").fetchone()[0] == 5
+        sql = raw.execute("SELECT sql FROM sqlite_master WHERE name = 'audit_log'").fetchone()[0]
+        assert "target_set" in sql and "suggestions_set" not in sql
+        names = {row[0] for row in raw.execute("SELECT name FROM sqlite_master")}
+        assert not {"audit_log_v6", "food_suggestion_lists", "food_suggestion_items"} & names
+        assert "from_suggestion" not in {
+            row[1] for row in raw.execute("PRAGMA table_info(meal_items)")
+        }
+        assert [tuple(row) for row in raw.execute("SELECT * FROM audit_log ORDER BY id")] == before
+    finally:
+        raw.close()
+
+
+def test_an_upgraded_meal_item_is_not_from_a_suggestion(tmp_path):
+    """A meal item stored before version 6 gets from_suggestion 0; the flag is 0 or 1 only."""
+    path = tmp_path / "old.sqlite3"
+    _old_file(path, 5)
+    raw = sqlite3.connect(path, autocommit=True)
+    _insert(raw, "meal_items", VALID_ROWS["meal_items"])
+    raw.close()
+    with db.connect(path) as conn:
+        assert conn.execute("SELECT from_suggestion FROM meal_items").fetchone()[0] == 0
+        with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
+            _insert(conn, "meal_items", {**VALID_ROWS["meal_items"], "from_suggestion": 2})
+
+
+def test_a_suggestion_list_needs_two_users_and_an_item_appears_once_per_meal(store_conn):
+    """A list for the coach themself, or a food twice in one meal slot, is refused."""
+    _seed(store_conn)
+    with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
+        _insert(
+            store_conn,
+            "food_suggestion_lists",
+            {**VALID_ROWS["food_suggestion_lists"], "client_id": "c1"},
+        )
+    _insert(store_conn, "food_suggestion_items", VALID_ROWS["food_suggestion_items"])
+    with pytest.raises(sqlite3.IntegrityError, match="UNIQUE"):
+        _insert(store_conn, "food_suggestion_items", VALID_ROWS["food_suggestion_items"])
+    _insert(
+        store_conn,
+        "food_suggestion_items",
+        {**VALID_ROWS["food_suggestion_items"], "meal": "snack"},
+    )
+    with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
+        _insert(
+            store_conn,
+            "food_suggestion_items",
+            {**VALID_ROWS["food_suggestion_items"], "meal": "brunch"},
+        )
