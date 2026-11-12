@@ -294,6 +294,16 @@ EVAL_JUDGE_MAX_TOKENS = 2 * DEFAULT_MAX_TOKENS
 # The DeepEval metrics the script scores each answer on, in the order they are written. Context
 # precision and recall wait for the owner's reference answers (O14; owner's choice, 2026-11-06).
 EVAL_SCORE_METRICS: tuple[str, ...] = ("faithfulness", "answer_relevancy")
+# LangSmith experiments of the evaluation run (`scripts/run_evaluation.py --langsmith`, T9.33;
+# src/experiments.py): one dataset per questions file, named with this prefix and the file's stem
+# (e.g. fitcoach-eval-eval_questions), and each run an experiment of its own on that dataset,
+# named with this prefix, the commit, the answer model, the language and the start time. The
+# evaluation's own text is not masked there (owner's choice, 2026-11-12); the app's runs always
+# are (LANGSMITH_PROJECT, src/tracing.py).
+EVAL_DATASET_PREFIX = "fitcoach-eval-"
+EVAL_EXPERIMENT_PREFIX = "fitcoach-eval"
+# Seconds to wait at the end of a run for the experiment's runs and feedback to reach LangSmith.
+EVAL_EXPERIMENT_FLUSH_SECONDS = 60
 
 # The store of signed-in users' data (T9.6, D13): one SQLite file in a gitignored folder, local.
 # Not encrypted: anyone who can read the file reads the data (docs/SECURITY.md).

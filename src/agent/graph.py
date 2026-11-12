@@ -150,14 +150,19 @@ class TurnContext:
     proposals: preferences.Proposals = field(default_factory=preferences.Proposals)
 
 
-def run_config(turn_id: str = "") -> RunnableConfig:
+def run_config(turn_id: str = "", trace: tracing.RunTrace | None = None) -> RunnableConfig:
     """Return the config every turn runs with: the step limit, one tool call at a time, turn_id."""
     # ToolNode runs a round's calls in worker threads; one at a time keeps them in order, as before.
     # LangGraph counts the input as a step too, so the limit is one more than the node steps. The
     # turn_id goes on every run of the turn as metadata, so a trace matches its log lines (T9.8).
+    # `trace` is an evaluation experiment's (T9.33): its tracer and the root run's ID, so the
+    # script can attach the run's scores to it. The app never passes one.
     run: RunnableConfig = {"recursion_limit": MAX_STEPS + 1, "max_concurrency": 1}
     if turn_id:
         run["metadata"] = tracing.run_metadata(turn_id)
+    if trace is not None:
+        run["callbacks"] = list(trace.callbacks)
+        run["run_id"] = trace.run_id
     return run
 
 

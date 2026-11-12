@@ -16,11 +16,12 @@ from chromadb.errors import ChromaError
 from langchain_core.messages import AIMessage
 
 from scripts import run_evaluation
-from src import chat, config, eval_results, llm, usage
+from src import chat, config, eval_results, experiments, llm, tracing, usage
 from src.eval_questions import EvalItem
 from src.rag import store
 from src.tools.registry import MACRO_TOOL
 from src.usage import ModelPrice
+from tests import test_experiments
 from tests.fakes import (
     CHUNKS,
     PROFILE,
@@ -958,3 +959,155 @@ def test_a_missing_score_is_counted_apart_never_as_zero():
         "answer_relevancy": {"mean": 0.75, "scored": 2, "not_scored": 2},
     }
     assert run_evaluation.judge_failed(scores) == 2
+
+
+# LangSmith experiments (T9.33), with a fake LangSmith client and no network.
+
+
+@pytest.fixture
+def langsmith_client(real_pieces, monkeypatch):
+    """Make --langsmith use a fake LangSmith client, and record the RunTrace of each turn."""
+    client = test_experiments.FakeLangSmith()
+    monkeypatch.setattr(experiments, "open_client", lambda: client)
+    traces = []
+    run_turn = chat.run_turn
+
+    def recorded_turn(*args, **kwargs):
+        """Keep the turn's RunTrace, then run it."""
+        traces.append(kwargs.get("run_trace"))
+        return run_turn(*args, **kwargs)
+
+    monkeypatch.setattr(chat, "run_turn", recorded_turn)
+    return client, traces
+
+
+def test_langsmith_records_the_run_as_an_experiment_on_the_dataset(
+    langsmith_client, tmp_path, capsys
+):
+    """The questions become a dataset, the run an experiment on it, each turn's checks feedback."""
+    client, traces = langsmith_client
+    assert run_evaluation.main(["--langsmith", _questions_file(tmp_path, [_item_dict()])]) == 0
+    assert list(client.datasets) == ["fitcoach-eval-questions"]
+    [project] = client.projects
+    assert project["name"].startswith("fitcoach-eval-")
+    assert project["reference_dataset_id"] == client.datasets["fitcoach-eval-questions"].id
+    assert project["metadata"]["scored"] is False
+    assert project["metadata"]["questions_file"] == "questions.json"
+    assert project["metadata"]["answer_model"] == config.DEFAULT_ANSWER_MODEL
+    # The turn ran with the experiment's tracer, and its feedback names its root run.
+    [trace] = traces
+    assert isinstance(trace, tracing.RunTrace)
+    assert {sent["run_id"] for sent in client.feedback} == {trace.run_id}
+    assert {sent["key"]: sent["score"] for sent in client.feedback} == {
+        "turn_kind": None,
+        "expected_found": 1.0,
+        "expected_cited": 1.0,
+        "unexpected_citations": 0.0,
+    }
+    # The tracer's own wait flushes the client too; the experiment is then marked ended.
+    assert client.flushed >= 1 and client.ended == [project["id"]]
+    out = capsys.readouterr().out
+    assert "LangSmith dataset fitcoach-eval-questions: 1 added, 0 changed, 0 removed." in out
+    assert f"LangSmith experiment: {project['name']}" in out
+    # The report and the results file are written as without --langsmith.
+    _, document = _results_file(tmp_path)
+    assert document["runs"][0]["expected_cited"] == ["1"]
+    assert len(list((tmp_path / "eval_runs").glob("run-*.md"))) == 1
+
+
+def test_langsmith_with_score_sends_the_scores_and_the_judge_s_reasons(
+    scoring, langsmith_client, tmp_path
+):
+    """With --score, each answer's DeepEval scores follow as feedback on the same root run."""
+    client, traces = langsmith_client
+    path = _questions_file(tmp_path, [_item_dict()])
+    assert run_evaluation.main(["--score", "--langsmith", path]) == 0
+    scores = {
+        sent["key"]: sent
+        for sent in client.feedback
+        if sent["key"] in ("faithfulness", "answer_relevancy")
+    }
+    assert {key: sent["score"] for key, sent in scores.items()} == {
+        "faithfulness": 1.0,
+        "answer_relevancy": 1.0,
+    }
+    assert {sent["run_id"] for sent in scores.values()} == {traces[0].run_id}
+    assert all(sent["comment"] for sent in scores.values())
+    assert client.projects[0]["metadata"]["scored"] is True
+
+
+def test_without_langsmith_nothing_is_sent_and_the_turn_has_no_tracer(
+    langsmith_client, tmp_path, monkeypatch
+):
+    """Without --langsmith no client is opened and every turn runs as before."""
+
+    def never():
+        """Fail the test if a LangSmith client is opened."""
+        raise AssertionError("no LangSmith client without --langsmith")
+
+    monkeypatch.setattr(experiments, "open_client", never)
+    _, traces = langsmith_client
+    assert run_evaluation.main([_questions_file(tmp_path, [_item_dict()])]) == 0
+    assert traces == [None]
+
+
+def test_langsmith_without_tracing_set_up_stops_before_any_question(real_pieces, tmp_path, capsys):
+    """--langsmith without T9.8's flag and key stops with exit 2, before any call or report."""
+    assert run_evaluation.main(["--langsmith", _questions_file(tmp_path, [_item_dict()])]) == 2
+    assert experiments.NOT_SET_UP in capsys.readouterr().err
+    assert real_pieces.calls == []
+    assert not (tmp_path / "eval_runs").exists()
+
+
+@pytest.mark.parametrize("failing", ["create_examples", "create_project"])
+def test_a_langsmith_failure_before_the_questions_costs_nothing(
+    langsmith_client, tmp_path, capsys, failing
+):
+    """A dataset or experiment LangSmith refuses stops the run before any question (exit 2)."""
+    client, traces = langsmith_client
+    client.fail_on = failing
+    assert run_evaluation.main(["--langsmith", _questions_file(tmp_path, [_item_dict()])]) == 2
+    err = capsys.readouterr().err
+    assert "Evaluation not run: LangSmith:" in err
+    assert test_experiments.SERVER_REPLY not in err
+    assert traces == []
+    assert not (tmp_path / "eval_runs").exists()
+
+
+def test_feedback_langsmith_refuses_is_reported_and_the_files_are_still_written(
+    langsmith_client, tmp_path, capsys
+):
+    """A refused feedback score exits 1 with a count; the report and results file are written."""
+    client, _ = langsmith_client
+    client.fail_on = "create_feedback"
+    assert run_evaluation.main(["--langsmith", _questions_file(tmp_path, [_item_dict()])]) == 1
+    assert "LangSmith: 4 feedback scores not sent." in capsys.readouterr().err
+    _results_file(tmp_path)
+    assert len(list((tmp_path / "eval_runs").glob("run-*.md"))) == 1
+
+
+def test_a_langsmith_failure_at_the_end_keeps_both_files(langsmith_client, tmp_path, capsys):
+    """The files are written before the last sends, so a failure there loses no paid answer."""
+    client, _ = langsmith_client
+    client.fail_on = "flush"
+    assert run_evaluation.main(["--langsmith", _questions_file(tmp_path, [_item_dict()])]) == 1
+    err = capsys.readouterr().err
+    assert "LangSmith: sending the experiment failed (LangSmithError)." in err
+    assert test_experiments.SERVER_REPLY not in err
+    _results_file(tmp_path)
+    assert len(list((tmp_path / "eval_runs").glob("run-*.md"))) == 1
+
+
+def test_a_ctrl_c_while_langsmith_sends_comes_after_both_files(langsmith_client, tmp_path):
+    """A Ctrl-C during the last sends stops the script only once both files are written."""
+    client, _ = langsmith_client
+
+    def interrupted(timeout=None):
+        """Stop as a Ctrl-C during the flush does."""
+        raise KeyboardInterrupt
+
+    client.flush = interrupted
+    with pytest.raises(KeyboardInterrupt):
+        run_evaluation.main(["--langsmith", _questions_file(tmp_path, [_item_dict()])])
+    _results_file(tmp_path)
+    assert len(list((tmp_path / "eval_runs").glob("run-*.md"))) == 1

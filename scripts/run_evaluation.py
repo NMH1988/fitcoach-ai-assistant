@@ -46,10 +46,22 @@ sources, an error) is not scored. Ctrl-C during the scoring, or a judge error ev
 would hit too (a rejected key, no credit), leaves the rest unscored, and both files are written.
 The scores go into the results file, per run and as each metric's mean with the judge's tokens
 and cost; the judge's reasons go into the report only, as they are model text.
+
+With `--langsmith` (T9.33) the run is also a LangSmith experiment (`src/experiments.py`): the
+questions file is uploaded as a dataset first (only what changed), every turn is traced into the
+experiment and linked to its question, and each turn's source checks and, with `--score`, its
+DeepEval scores (the judge's reason as comment) are sent as feedback, so runs can be compared in
+LangSmith. The experiment's runs are not masked: they hold the evaluation's own text only (the
+questions, the made-up profile, the chunks, the answers); the judge's calls stay in the app's
+masked project; a run's error keeps only its class name. It needs LangSmith tracing set up (the
+flag and the key, T9.8): without it the script stops before the first question. The report and
+the results file are written as without it, before the experiment's last sends, and
+`scripts/check_eval_baseline.py` stays the check.
 """
 
 import argparse
 import sys
+import uuid
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -61,7 +73,7 @@ from chromadb.errors import ChromaError
 from langchain_chroma import Chroma
 from langchain_core.language_models import BaseChatModel
 
-from src import chat, config, eval_results, guard, i18n, llm, observability, usage
+from src import chat, config, eval_results, experiments, guard, i18n, llm, observability, usage
 from src.eval_questions import EvalItem, QuestionsFileError, load_eval_items
 from src.rag import hybrid, store
 from src.rag.retriever import RetrievedChunk
@@ -82,6 +94,8 @@ class EvalRun:
     cost: TurnUsage
     # Which asking of this question and profile variant this is, from 1 to --repeat (T8.4).
     number: int = 1
+    # The turn's root run in the LangSmith experiment (--langsmith, T9.33); None without one.
+    run_id: uuid.UUID | None = None
 
 
 def planned_runs(items: Sequence[EvalItem], repeat: int) -> list[tuple[str, EvalItem, bool]]:
@@ -108,8 +122,11 @@ def evaluate(
     prices: Mapping[str, ModelPrice] | None,
     repeat: int = 1,
     language: i18n.Language = "en",
+    experiment: experiments.Experiment | None = None,
 ) -> list[EvalRun]:
     """Ask every question through the app's chat turn, in this answer language; return the runs."""
+    # With an experiment (--langsmith, T9.33) each turn is traced into it, linked to its question,
+    # and its source checks are sent as feedback right after it.
     runs = planned_runs(items, repeat)
     # One run may ask more questions than the app's per-minute limit allows.
     limiter = guard.RateLimiter(per_window=len(runs), per_session=len(runs))
@@ -119,6 +136,11 @@ def evaluate(
     for label, item, with_profile in runs:
         asked[item.id, with_profile] += 1
         seen: list[Sequence[RetrievedChunk]] = []
+        trace = (
+            experiment.trace(experiments.example_key(item, with_profile))
+            if experiment is not None
+            else None
+        )
         result = chat.run_turn(
             item.question,
             limiter,
@@ -131,20 +153,29 @@ def evaluate(
             on_chunks=seen.append,
             language=language,
             prices=lambda: prices,
+            run_trace=trace,
         )
         # Each search reports its newly labelled chunks, so together they are in [S#] order.
         chunks = tuple(chunk for found in seen for chunk in found)
-        done.append(
-            EvalRun(
-                label,
-                item,
-                with_profile,
-                result,
-                chunks,
-                usage.price_turn(result.usage, prices),
-                asked[item.id, with_profile],
-            )
+        run = EvalRun(
+            label,
+            item,
+            with_profile,
+            result,
+            chunks,
+            usage.price_turn(result.usage, prices),
+            asked[item.id, with_profile],
+            trace.run_id if trace is not None else None,
         )
+        if experiment is not None and run.run_id is not None:
+            met = expectation(run)
+            experiment.record(
+                run.run_id,
+                experiments.expectation_feedback(
+                    met.expected, met.found, met.cited, met.unexpected, result.kind
+                ),
+            )
+        done.append(run)
     return done
 
 
@@ -476,6 +507,31 @@ def index_counts(index: Chroma) -> dict[str, int]:
     return {"chunks": len(metadatas), "sources": len(sources)}
 
 
+def finish_experiment(
+    experiment: experiments.Experiment,
+    runs: Sequence[EvalRun],
+    scores: Sequence[Mapping[str, Any]] | None,
+) -> bool:
+    """Send the scores and wait for LangSmith; return False if a send failed or did not finish."""
+    # Called after the report and the results file are written. What it can see: a feedback score
+    # refused at once, a LangSmith error at the end, or runs and feedback still queued after
+    # config.EVAL_EXPERIMENT_FLUSH_SECONDS. A batch LangSmith's background thread sends and the
+    # server refuses only shows as LangSmith's own log line on stderr, so the exit code can be 0.
+    if scores is not None:
+        for run, run_scores in zip(runs, scores, strict=True):
+            if run.run_id is not None:
+                experiment.record(run.run_id, experiments.score_feedback(run_scores))
+    try:
+        experiment.finish()
+    except experiments.ExperimentError as exc:
+        print(exc, file=sys.stderr)
+        return False
+    if experiment.failed:
+        print(f"LangSmith: {experiment.failed} feedback scores not sent.", file=sys.stderr)
+        return False
+    return True
+
+
 def _prices() -> Mapping[str, ModelPrice] | None:
     """Return OpenRouter's public prices, or None when they cannot be read (costs then unknown)."""
     try:
@@ -500,6 +556,11 @@ def main(args: Sequence[str] | None = None) -> int:
         "--score",
         action="store_true",
         help="also score each answer with DeepEval, judged by config.EVAL_JUDGE_MODEL (T9.10)",
+    )
+    parser.add_argument(
+        "--langsmith",
+        action="store_true",
+        help="also record the run as a LangSmith experiment on the questions' dataset (T9.33)",
     )
     options = parser.parse_args(sys.argv[1:] if args is None else args)
     if options.repeat < 1:
@@ -527,6 +588,19 @@ def main(args: Sequence[str] | None = None) -> int:
             print(f"Evaluation not run: {exc}", file=sys.stderr)
             return 2
         scoring = eval_scoring
+    client, dataset = None, None
+    if options.langsmith:
+        # Before any question too: a run that cannot be recorded costs nothing.
+        try:
+            client = experiments.open_client()
+            dataset = experiments.sync_dataset(client, options.path, items)
+        except experiments.ExperimentError as exc:
+            print(f"Evaluation not run: {exc}", file=sys.stderr)
+            return 2
+        print(
+            f"LangSmith dataset {dataset.name}: {dataset.created} added, {dataset.updated} "
+            f"changed, {dataset.deleted} removed."
+        )
     started = datetime.now()
     # The commit of the code that runs: `src` is read from the project folder, which is not always
     # the folder the command was started in (T8.3's two wrong runs). Read now, as the modules are
@@ -556,6 +630,38 @@ def main(args: Sequence[str] | None = None) -> int:
     except config.MissingAPIKeyError:
         print(f"Evaluation not run: {config.MISSING_KEY_MESSAGE}", file=sys.stderr)
         return 1
+    experiment = None
+    if client is not None and dataset is not None:
+        name = experiments.experiment_name(
+            git_at_start.commit,
+            git_at_start.dirty,
+            usage.model_name(chat_model),
+            options.language,
+            started,
+        )
+        try:
+            experiment = experiments.start_experiment(
+                client,
+                dataset,
+                name=name,
+                # IDs, model names and counts only, like the results file.
+                metadata={
+                    "commit": git_at_start.commit,
+                    "dirty": git_at_start.dirty,
+                    "answer_model": usage.model_name(chat_model),
+                    "query_translation_model": usage.model_name(translation_model),
+                    "embedding_model": config.EMBEDDING_MODEL,
+                    "language": options.language,
+                    "questions_file": options.path.name,
+                    "repeat": options.repeat,
+                    "scored": bool(scoring),
+                },
+                repeat=options.repeat,
+            )
+        except experiments.ExperimentError as exc:
+            print(f"Evaluation not run: {exc}", file=sys.stderr)
+            return 2
+        print(f"LangSmith experiment: {name}")
     prices = _prices()
     runs = evaluate(
         items,
@@ -566,6 +672,7 @@ def main(args: Sequence[str] | None = None) -> int:
         prices=prices,
         repeat=options.repeat,
         language=options.language,
+        experiment=experiment,
     )
     print(f"Answer language: {options.language}")
     print("\n".join(summary_lines(runs)))
@@ -615,7 +722,11 @@ def main(args: Sequence[str] | None = None) -> int:
     print(f"Results file: {results}")
     if note := eval_results.change_note(git_at_start, git_at_end):
         print(note)
-    return 1 if failed or any(run.result.kind == "error" for run in runs) else 0
+    # After both files are written, so a slow LangSmith or a Ctrl-C while it sends loses no paid
+    # answer (code review round 1).
+    langsmith_failed = experiment is not None and not finish_experiment(experiment, runs, scores)
+    errors = any(run.result.kind == "error" for run in runs)
+    return 1 if failed or errors or langsmith_failed else 0
 
 
 if __name__ == "__main__":

@@ -50,7 +50,10 @@ The reviewer's five points, each with the ticket that answers it:
 
 ## Reviewer comments during Sprint 3
 
-- **2026-11-12, food choice** (in our own words; the owner's account of the comment): letting the gymer choose every food alone is weak; the coach should recommend foods to the gymer. Answered by **T9.34** (foods the coach suggests, logged by the client in one click; beyond the brief, owner's request), after a comparison of similar coaching apps the same day; a coach-built meal plan stays a Capstone idea (`docs/PRD.md`, "Moved to the Capstone").
+Comments the owner received on the Sprint 3 project before its deadline, in our words (the owner keeps the original), each with the ticket that answers it:
+
+1. **LangSmith is little used** (2026-11-12): the project traces to LangSmith (T9.8), but every trace is masked, so LangSmith shows only the shape of a turn, and the evaluation never reaches it. **T9.33** (the evaluation as LangSmith experiments, and the evaluation lifecycle documented in `docs/TESTING.md`).
+2. **A gymer chooses every food alone** (2026-11-12): letting the gymer choose every food is weak; the coach should recommend foods to the gymer. **T9.34** (foods the coach suggests, logged by the client in one click; beyond the brief, owner's request), after a comparison of similar coaching apps the same day; a coach-built meal plan stays a Capstone idea (`docs/PRD.md`, "Moved to the Capstone").
 
 ## Using this file
 
