@@ -21,6 +21,7 @@ Keep the entry short and record what the code does not say. `tests/test_docs_lay
 
 ---
 
+- [2026-11-12 · T9.34 Docs: the ticket's status set to done · NMH1988/fitcoach-ai-assistant#120 (refs NMH1988/fitcoach-ai-assistant#117)](progress/2026-11-12-T9.34-2.md)
 - [2026-11-11 · T1.16 Docs: diagrams of the app, the RAG search, the tool loop and the store's sharing · NMH1988/fitcoach-ai-assistant#115 (closes NMH1988/fitcoach-ai-assistant#114)](progress/2026-11-11-T1.16.md)
 - [2026-11-12 · T9.34 Foods the coach suggests to a client, logged by the client in one click · NMH1988/fitcoach-ai-assistant#119 (closes NMH1988/fitcoach-ai-assistant#117)](progress/2026-11-12-T9.34.md)
 - [2026-11-12 · T9.33 The evaluation as LangSmith experiments, and the agent's evaluation lifecycle documented · NMH1988/fitcoach-ai-assistant#118 (closes NMH1988/fitcoach-ai-assistant#116)](progress/2026-11-12-T9.33.md)
