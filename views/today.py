@@ -14,7 +14,7 @@ from src import account as accounts
 from src import config, diary, metrics, units
 from src.store import records
 from src.tools.food import food_names
-from views import account, header, my_data, tables
+from views import account, header, my_data, suggestions, tables
 from views.text import label_of, lang, t
 
 URL_PATH = "today"
@@ -270,6 +270,8 @@ def page() -> None:
             key=DAY_KEY,
         )
         names = _names()
+        # The foods the gymer's coach suggests, each logged in one click (T9.34).
+        suggestions.gymer_section(user, day, _write)
         _food_form(user, day, names)
         try:
             with accounts.open_store(account.store_path()) as conn:

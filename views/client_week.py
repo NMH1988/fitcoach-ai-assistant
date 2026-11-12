@@ -13,7 +13,15 @@ from src import account as accounts
 from src import dashboard
 from src.store import questions as store_questions
 from src.store.access import NotFound
-from views import account, client_targets, header, questions, week_view, weekly_review
+from views import (
+    account,
+    client_targets,
+    header,
+    questions,
+    suggestions,
+    week_view,
+    weekly_review,
+)
 from views.text import t
 
 URL_PATH = "client-week"
@@ -105,5 +113,7 @@ def page() -> None:
         week_view.show(week, st.session_state["units"])
         # The client's daily targets, set by the coach while nutrition is shared (T9.17).
         client_targets.coach_section(user, picked, week)
+        # The foods the coach suggests to the client, to log in one click (T9.34).
+        suggestions.coach_section(user, picked, week)
         # The week's review: start it, decide it, or read it (T9.16).
         weekly_review.coach_section(user, picked, monday, week, threads)

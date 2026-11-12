@@ -4,6 +4,7 @@ The chunk texts below are made up for the tests (copyright policy): they quote n
 """
 
 import copy
+import dataclasses
 import json
 from datetime import date
 
@@ -725,3 +726,13 @@ def test_the_prompt_asks_for_a_gap_as_a_change():
     """O15, round 5: the prompt says how to write a gap to the target."""
     text = config.REVIEW_PROMPT_PATH.read_text(encoding="utf-8")
     assert "Write a gap to the target as a change" in text
+
+
+def test_the_share_logged_from_suggestions_is_not_sent_to_the_model():
+    """T9.34: a week's suggested share stays on the page; the review's metrics leave it out."""
+    week = dataclasses.replace(
+        _week(), suggested=metrics.SuggestedShare(items=7, suggested_items=5, energy_share=0.4321)
+    )
+    sent = json.dumps(wr.aggregates(week, ALL))
+    assert "suggest" not in sent and "0.4321" not in sent
+    assert wr.aggregates(week, ALL) == METRICS

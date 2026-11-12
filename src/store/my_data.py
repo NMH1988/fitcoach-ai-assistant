@@ -4,11 +4,12 @@ The export holds the user's own rows in every table, the relationships and scope
 of, the reviews they may read (a gymer's approved reviews about them without the model's draft, a
 coach's own reviews of clients who still share nutrition and every other scope each review used,
 with the reviews' evidence and scopes), the questions to the coach and the answers under the
-approved ones among them (T9.25), the audit rows by or about them, and the user's own notification
-read mark (T9.29; never the other side's).
+approved ones among them (T9.25), the audit rows by or about them, the user's own notification
+read mark (T9.29; never the other side's) and the foods coaches suggested to them (T9.34).
 The delete removes the user's rows in every table, their relationships and scopes, the
 reviews about them and those they wrote as a coach (with their evidence, questions and answers),
-every question or answer the user wrote, the invitations and code attempts, the read mark, and the
+every question or answer the user wrote, the lists of suggested foods between the user and a coach
+or client (T9.34), the invitations and code attempts, the read mark, and the
 audit rows by or about them: the app is local and keeps no audit duty (the owner may change this).
 It runs in one transaction with foreign keys on, and no reference cascades, so a table this list
 forgets makes the delete fail instead of leaving rows behind. The review workflow's threads in its
@@ -144,6 +145,14 @@ _AUDIT = "SELECT * FROM audit_log WHERE actor_id = ? OR subject_id = ? ORDER BY 
 # The reader's own read mark (T9.29): never another user's, so the other side of a relationship
 # never learns whether or when a notification was read.
 _READ_MARKS = "SELECT * FROM notification_reads WHERE user_id = ? ORDER BY id"
+# The foods coaches suggested to the user as a client (T9.34), a former coach's hidden list too;
+# never the lists a coach wrote, which are their clients' data.
+_SUGGESTION_LISTS = "SELECT * FROM food_suggestion_lists WHERE client_id = ? ORDER BY id"
+_SUGGESTION_ITEMS = """
+SELECT item.* FROM food_suggestion_items AS item
+JOIN food_suggestion_lists AS list ON list.id = item.list_id
+WHERE list.client_id = ? ORDER BY item.id
+"""
 
 # The delete, children before parents. The threads under the reviews about or by the user go with
 # them, and every question or answer the user wrote (T9.25).
@@ -161,6 +170,12 @@ DELETE FROM ai_review_scopes
 WHERE review_id IN (SELECT id FROM ai_reviews WHERE client_id = ? OR coach_id = ?)
 """
 _DELETE_REVIEWS = "DELETE FROM ai_reviews WHERE client_id = ? OR coach_id = ?"
+# The suggested foods between the user and a coach or client, whichever side the user is (T9.34).
+_DELETE_SUGGESTION_ITEMS = """
+DELETE FROM food_suggestion_items
+WHERE list_id IN (SELECT id FROM food_suggestion_lists WHERE client_id = ? OR coach_id = ?)
+"""
+_DELETE_SUGGESTION_LISTS = "DELETE FROM food_suggestion_lists WHERE client_id = ? OR coach_id = ?"
 # The workflow threads of the reviews about the user or by them (T9.16), deleted with them.
 _THREADS = """
 SELECT thread_id FROM ai_reviews
@@ -240,6 +255,8 @@ def export_user_data(conn: sqlite3.Connection, user_id: str) -> str:
             ],
             "audit_log": [dict(r) for r in conn.execute(_AUDIT, both)],
             "notification_reads": [dict(r) for r in conn.execute(_READ_MARKS, one)],
+            "food_suggestion_lists": [dict(r) for r in conn.execute(_SUGGESTION_LISTS, one)],
+            "food_suggestion_items": [dict(r) for r in conn.execute(_SUGGESTION_ITEMS, one)],
         }
     return json.dumps(document, ensure_ascii=False, indent=2)
 
@@ -267,6 +284,8 @@ def delete_user_data(
         conn.execute(_DELETE_EVIDENCE, both)
         conn.execute(_DELETE_REVIEW_SCOPES, both)
         conn.execute(_DELETE_REVIEWS, both)
+        conn.execute(_DELETE_SUGGESTION_ITEMS, both)
+        conn.execute(_DELETE_SUGGESTION_LISTS, both)
         conn.execute(_DELETE_AUDIT, both)
         conn.execute(_DELETE_CONSENTS, both)
         conn.execute(_DELETE_RELATIONSHIPS, both)

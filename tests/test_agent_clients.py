@@ -16,7 +16,7 @@ from langchain_core.messages import AIMessage
 
 from src import chat, config, dashboard, guard, i18n
 from src.agent.memory import Conversation
-from src.store import db, questions, reviews, users
+from src.store import db, questions, records, reviews, suggestions, users
 from src.tools import coach_clients, registry
 from src.tools.coach_clients import LIST_TOOL, WEEK_TOOL, ClientRefs, CoachClients
 from tests import store_world as world
@@ -506,3 +506,43 @@ def test_the_german_language_part_names_the_client_week_page():
     text = chat.load_system_prompt(path)
     page = i18n.t("page.client_week", "de")
     assert f'"{i18n.t("page.client_week", "en")}" → „{page}“' in text
+
+
+def test_the_client_tools_send_no_suggested_food_or_share(relationships, store_conn, index_path):
+    """T9.34: a client's list and the share logged from it never reach the coach's model."""
+    suggestions.add_client_suggestions(
+        store_conn,
+        world.COACH_A,
+        world.SHARED,
+        [suggestions.SuggestedFood("lunch", 1, "CANARY-FOOD suggested", 66.6)],
+    )
+    [item] = suggestions.current_suggestions(store_conn, world.SHARED, world.SHARED)["items"]
+    records.add_meal_item(
+        store_conn,
+        world.SHARED,
+        consumed_on=TODAY,
+        meal="lunch",
+        fdc_id=1,
+        food_name="CANARY-FOOD suggested",
+        grams=66.6,
+        kcal=432.1,
+        protein_g=20.0,
+        carbohydrate_g=50.0,
+        fat_g=10.0,
+        fiber_g=None,
+        suggestion_item_id=item["id"],
+    )
+    # A whole coach turn that lists the clients and reads both weeks (criterion 8).
+    result, model = _turn(
+        index_path,
+        _clients(),
+        tool_reply((LIST_TOOL, {})),
+        tool_reply((WEEK_TOOL, {"client": "client-1"}), (WEEK_TOOL, {"client": "client-2"})),
+        AIMessage("Both clients logged this week."),
+        question="How did my clients eat this week?",
+    )
+    assert result.kind == "answer"
+    sent = "\n".join(str(message.content) for call in model.calls for message in call)
+    assert '"logged_days"' in sent  # the week's tool results were in the messages
+    for canary in ("CANARY-FOOD", "66.6", "suggested_items", "energy_share", "from_suggestion"):
+        assert canary not in sent, canary

@@ -395,5 +395,69 @@ BEGIN SELECT RAISE(ABORT, 'stored records are never changed in place'); END;
 PRAGMA user_version = 5;
 """
 
+# T9.34 (migration 6): the foods a coach suggests to a client. A list names its client and the
+# coach who wrote it, and a coach changes the suggestions by saving a new list (the newest is the
+# active one; an empty list clears them), so neither table is ever changed in place. A list goes
+# when either side deletes their data (my_data.delete_user_data(), owner's choice, 2026-11-12).
+# meal_items gains a flag for an item the gymer logged from the active list: a flag, not the
+# suggestion item's ID, as a list deleted with its coach's data would leave such a reference
+# pointing at nothing (owner's choice, 2026-11-12). audit_log is rebuilt again, as in _V4 and _V5,
+# with the new action `suggestions_set`.
+_V6 = """
+CREATE TABLE food_suggestion_lists (
+    id INTEGER PRIMARY KEY,
+    client_id TEXT NOT NULL REFERENCES users (id),
+    coach_id TEXT NOT NULL REFERENCES users (id),
+    created_at TEXT NOT NULL
+        CHECK (created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
+            AND date(created_at) IS substr(created_at, 1, 10)),
+    CHECK (client_id <> coach_id)
+) STRICT;
+CREATE INDEX food_suggestion_lists_client ON food_suggestion_lists (client_id);
+CREATE INDEX food_suggestion_lists_coach ON food_suggestion_lists (coach_id);
+CREATE TRIGGER food_suggestion_lists_never_changed BEFORE UPDATE ON food_suggestion_lists
+BEGIN SELECT RAISE(ABORT, 'stored records are never changed in place'); END;
+
+CREATE TABLE food_suggestion_items (
+    id INTEGER PRIMARY KEY,
+    list_id INTEGER NOT NULL REFERENCES food_suggestion_lists (id),
+    meal TEXT NOT NULL CHECK (meal IN ('breakfast', 'lunch', 'dinner', 'snack')),
+    fdc_id INTEGER NOT NULL CHECK (fdc_id > 0),
+    food_name TEXT NOT NULL CHECK (length(food_name) > 0),
+    grams REAL NOT NULL CHECK (grams > 0),
+    UNIQUE (list_id, meal, fdc_id)
+) STRICT;
+CREATE INDEX food_suggestion_items_list ON food_suggestion_items (list_id);
+CREATE TRIGGER food_suggestion_items_never_changed BEFORE UPDATE ON food_suggestion_items
+BEGIN SELECT RAISE(ABORT, 'stored records are never changed in place'); END;
+
+ALTER TABLE meal_items ADD COLUMN from_suggestion INTEGER NOT NULL DEFAULT 0
+    CHECK (from_suggestion IN (0, 1));
+
+CREATE TABLE audit_log_v6 (
+    id INTEGER PRIMARY KEY,
+    actor_id TEXT NOT NULL REFERENCES users (id),
+    subject_id TEXT REFERENCES users (id),
+    action TEXT NOT NULL
+        CHECK (action IN ('read', 'review_approved', 'review_edited', 'review_rejected',
+            'review_answered', 'target_set', 'suggestions_set')),
+    resource_type TEXT NOT NULL CHECK (length(resource_type) > 0),
+    resource_id INTEGER,
+    created_at TEXT NOT NULL
+        CHECK (created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*+00:00'
+            AND date(created_at) IS substr(created_at, 1, 10))
+) STRICT;
+INSERT INTO audit_log_v6 (id, actor_id, subject_id, action, resource_type, resource_id, created_at)
+SELECT id, actor_id, subject_id, action, resource_type, resource_id, created_at FROM audit_log;
+DROP TABLE audit_log;
+ALTER TABLE audit_log_v6 RENAME TO audit_log;
+CREATE INDEX audit_log_actor ON audit_log (actor_id);
+CREATE INDEX audit_log_subject ON audit_log (subject_id);
+CREATE TRIGGER audit_log_never_changed BEFORE UPDATE ON audit_log
+BEGIN SELECT RAISE(ABORT, 'stored records are never changed in place'); END;
+
+PRAGMA user_version = 6;
+"""
+
 # In order: MIGRATIONS[0] creates version 1, MIGRATIONS[1] takes it to version 2, and so on.
-MIGRATIONS: tuple[str, ...] = (_V1, _V2, _V3, _V4, _V5)
+MIGRATIONS: tuple[str, ...] = (_V1, _V2, _V3, _V4, _V5, _V6)

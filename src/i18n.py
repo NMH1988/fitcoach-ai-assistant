@@ -698,15 +698,17 @@ _EN: dict[str, str] = {
     ),
     "my_data.intro_gymer": (
         "Everything the app stores about you: your account and your records below; your coach "
-        "relationships, sharing choices, your questions to the coach with the answers, your "
-        "coach's reads of your data and your notification read mark (when you last marked your "
-        "notifications as read) are in the export."
+        "relationships, sharing choices, the foods your coaches suggested to you, your questions "
+        "to the coach with the answers, your coach's reads of your data and your notification "
+        "read mark (when you last marked your notifications as read) are in the export."
     ),
     "my_data.intro_coach": (
         "Everything the app stores about you: your account, the working preferences you saved in "
         "the chat, your clients, their reviews and the questions and answers under them once you "
         "have some, and your notification read mark (when you last marked your notifications as "
-        "read); they are in the export. Nothing else of your chats is stored."
+        "read); they are in the export. The foods you suggest to a client are stored as the "
+        "client's data: your export holds when you saved each list. Nothing else of your chats "
+        "is stored."
     ),
     "my_data.account": "**Account:** {name} · {role} · created {created}",
     "my_data.count": "{count} stored",
@@ -832,7 +834,8 @@ _EN: dict[str, str] = {
     "scope.body": "Body",
     # T9.16: what a weekly review sends, as the gymer agrees to it by ticking a scope.
     "scope_help.nutrition": (
-        "Food log, daily targets and the weekly reviews your coach approves. When your coach "
+        "Food log, daily targets, the foods your coach suggests (and how much you log from them "
+        "while you share) and the weekly reviews your coach approves. When your coach "
         "starts a weekly review, this week's figures (averages and totals, not your name or "
         "foods) go to an AI model through OpenRouter, which drafts the review"
     ),
@@ -896,9 +899,9 @@ _EN: dict[str, str] = {
     ),
     "notifications.intro_gymer": (
         "What changed with your coach: when you connected, when a coach approved a weekly review "
-        "about you or answered your question under one, and when a relationship ended. A "
-        "notification never shows the text of a review, a question or an answer. New ones appear "
-        "the next time a page loads."
+        "about you or answered your question under one, when your coach updated the foods they "
+        "suggest, and when a relationship ended. A notification never shows the text of a review, "
+        "a question or an answer, or a food. New ones appear the next time a page loads."
     ),
     "notifications.read_note": (
         "Mark all as read stores one mark with the time this list was loaded. Only you see it; "
@@ -923,6 +926,8 @@ _EN: dict[str, str] = {
     "notifications.question_answered": (
         "{name} answered your question under the weekly review for the week of {week}."
     ),
+    # T9.34: never a food or an amount.
+    "notifications.suggestions_updated": "{name} updated the foods they suggest to you.",
     # The dashboards (T9.15): the coach's client list and client week, the gymer's My week.
     "page.client_week": "Client week",
     "page.my_week": "My week",
@@ -978,6 +983,60 @@ _EN: dict[str, str] = {
     "client_week.no_clients": (
         "You have no active clients. Invite one on the Clients page, then open their week here."
     ),
+    # The foods a coach suggests to a client (T9.34): a list to choose from, never a meal plan.
+    "suggestions.heading": "Suggested by your coach",
+    "suggestions.gymer_intro": (
+        "Foods your coach suggests, to choose from. This is not a meal plan, and the foods "
+        "together are not a day's intake: you may eat other foods too. Log one with its "
+        "button; you can change the grams first, and the meal afterwards in the day's list."
+    ),
+    "suggestions.item": (
+        "{food}, {grams} g · {kcal} kcal, {protein} g protein, {carbs} g carbohydrate, {fat} g fat"
+    ),
+    "suggestions.item_no_kcal": "{food}, {grams} g",
+    "suggestions.grams": "Grams",
+    "suggestions.log": "Log",
+    "suggestions.logged": "Food added from your coach's suggestions.",
+    "suggestions.gone": (
+        "This food is no longer on your coach's list, so nothing was saved. The list is up to date."
+    ),
+    "suggestions.coach_heading": "Suggested foods",
+    "suggestions.coach_intro": (
+        "Suggest foods for this client to choose from. Each save replaces the list; an empty list "
+        "clears it. It is not a meal plan: the client may eat other foods, so the calorie floor "
+        "does not apply to the list's total, shown next to the client's target for information."
+    ),
+    "suggestions.not_shared": "Foods can be suggested only while the client shares nutrition.",
+    "suggestions.draft_empty": "No foods in the list.",
+    "suggestions.add_row": "Add to the list",
+    "suggestions.remove_pick": "Food to remove",
+    "suggestions.remove": "Remove from the list",
+    "suggestions.save": "Save the list",
+    "suggestions.saved": "The suggested foods were saved; the client sees them on Today.",
+    "suggestions.refused": ("The list was not saved: you cannot suggest foods to this client now."),
+    "suggestions.invalid": (
+        f"The list was not saved: give every food a meal and an amount within range, at most "
+        f"{config.MAX_SUGGESTED_FOODS} foods."
+    ),
+    "suggestions.twice": "A food is in one meal twice; remove one of them.",
+    "suggestions.full": f"The list holds at most {config.MAX_SUGGESTED_FOODS} foods.",
+    "suggestions.total": (
+        "List total: {kcal} kcal, {protein} g protein, {carbs} g carbohydrate, {fat} g fat."
+    ),
+    "suggestions.target": (
+        "The client's targets today: {kcal} kcal, {protein} g protein, {carbs} g carbohydrate, "
+        "{fat} g fat."
+    ),
+    "suggestions.no_target": "The client has no daily targets today.",
+    "suggestions.share": (
+        "In the week shown, the client logged {suggested} of {items} foods from a coach's "
+        "suggestions ({share} of the energy)."
+    ),
+    "suggestions.share_no_energy": (
+        "In the week shown, the client logged {suggested} of {items} foods from a coach's "
+        "suggestions."
+    ),
+    "suggestions.share_none": "The client logged no food in the week shown.",
     "my_week.intro": (
         "Your week: what you logged on Today and Workouts, and the weekly reviews a coach "
         "approved. This page only shows them; you log and change entries on those pages."
@@ -2008,7 +2067,8 @@ _DE: dict[str, str] = {
     ),
     "my_data.intro_gymer": (
         "Alles, was die App über Sie speichert: Ihr Konto und unten Ihre Einträge; Ihre "
-        "Coach-Beziehungen, Ihre Freigaben, Ihre Fragen an den Coach mit den Antworten, die "
+        "Coach-Beziehungen, Ihre Freigaben, die Lebensmittel, die Ihre Coachs Ihnen vorgeschlagen "
+        "haben, Ihre Fragen an den Coach mit den Antworten, die "
         "Zugriffe Ihres Coachs auf Ihre Daten und Ihre Lesemarkierung der Benachrichtigungen (wann "
         "Sie sie zuletzt als gelesen markiert haben) stehen im Export."
     ),
@@ -2016,8 +2076,10 @@ _DE: dict[str, str] = {
         "Alles, was die App über Sie speichert: Ihr Konto, die Arbeitsvorlieben, die Sie im Chat "
         "gespeichert haben, Ihre Kunden, deren Auswertungen und die Fragen und Antworten darunter, "
         "sobald Sie welche haben, und Ihre Lesemarkierung der Benachrichtigungen (wann Sie sie "
-        "zuletzt als gelesen markiert haben); sie stehen im Export. Sonst wird von Ihren Chats "
-        "nichts gespeichert."
+        "zuletzt als gelesen markiert haben); sie stehen im Export. Die Lebensmittel, die Sie "
+        "einem Klienten vorschlagen, werden als Daten des Klienten gespeichert: Ihr Export "
+        "enthält, wann Sie jede Liste gespeichert haben. Sonst wird von Ihren Chats nichts "
+        "gespeichert."
     ),
     "my_data.account": "**Konto:** {name} · {role} · angelegt am {created}",
     "my_data.count": "{count} gespeichert",
@@ -2157,7 +2219,9 @@ _DE: dict[str, str] = {
     "scope.training": "Training",
     "scope.body": "Körper",
     "scope_help.nutrition": (
-        "Ernährungstagebuch, Tagesziele und die Wochenberichte, die Ihr Coach freigibt. Wenn Ihr "
+        "Ernährungstagebuch, Tagesziele, die Lebensmittel, die Ihr Coach vorschlägt (und wie viel "
+        "Sie davon erfassen, solange Sie teilen), und die Wochenberichte, die Ihr Coach freigibt. "
+        "Wenn Ihr "
         "Coach einen Wochenbericht startet, gehen die Zahlen dieser Woche (Durchschnitte und "
         "Summen, nicht Ihr Name oder Ihre Lebensmittel) über OpenRouter an ein KI-Modell, das "
         "den Bericht entwirft"
@@ -2225,9 +2289,10 @@ _DE: dict[str, str] = {
     ),
     "notifications.intro_gymer": (
         "Was sich bei Ihrem Coach geändert hat: wann Sie sich verbunden haben, wann ein Coach "
-        "einen Wochenbericht über Sie freigegeben oder Ihre Frage dazu beantwortet hat und wann "
-        "eine Verbindung beendet wurde. Eine Benachrichtigung zeigt nie den Text eines Berichts, "
-        "einer Frage oder einer Antwort. Neue erscheinen, wenn eine Seite das nächste Mal lädt."
+        "einen Wochenbericht über Sie freigegeben oder Ihre Frage dazu beantwortet hat, wann Ihr "
+        "Coach die vorgeschlagenen Lebensmittel geändert hat und wann eine Verbindung beendet "
+        "wurde. Eine Benachrichtigung zeigt nie den Text eines Berichts, einer Frage oder einer "
+        "Antwort und kein Lebensmittel. Neue erscheinen, wenn eine Seite das nächste Mal lädt."
     ),
     "notifications.read_note": (
         "„Alle als gelesen markieren“ speichert eine Markierung mit der Zeit, zu der diese Liste "
@@ -2256,6 +2321,7 @@ _DE: dict[str, str] = {
     "notifications.question_answered": (
         "{name} hat Ihre Frage zum Wochenbericht für die Woche vom {week} beantwortet."
     ),
+    "notifications.suggestions_updated": "{name} hat die vorgeschlagenen Lebensmittel geändert.",
     # Die Übersichten (T9.15).
     "page.client_week": "Klientenwoche",
     "page.my_week": "Meine Woche",
@@ -2313,6 +2379,73 @@ _DE: dict[str, str] = {
         "Sie haben keine aktiven Klienten. Laden Sie auf der Seite Klienten jemanden ein und "
         "öffnen Sie dann hier seine Woche."
     ),
+    # Vom Coach vorgeschlagene Lebensmittel (T9.34): eine Auswahl, nie ein Ernährungsplan.
+    "suggestions.heading": "Von Ihrem Coach vorgeschlagen",
+    "suggestions.gymer_intro": (
+        "Lebensmittel, die Ihr Coach Ihnen zur Auswahl vorschlägt. Das ist kein Ernährungsplan, "
+        "und zusammen ergeben sie keine Tagesmenge: Sie können auch andere Lebensmittel essen. "
+        "Erfassen Sie eines mit seiner Schaltfläche; die Gramm können Sie vorher ändern, die "
+        "Mahlzeit danach in der Liste des Tages."
+    ),
+    "suggestions.item": (
+        "{food}, {grams} g · {kcal} kcal, {protein} g Protein, {carbs} g Kohlenhydrate, "
+        "{fat} g Fett"
+    ),
+    "suggestions.item_no_kcal": "{food}, {grams} g",
+    "suggestions.grams": "Gramm",
+    "suggestions.log": "Erfassen",
+    "suggestions.logged": "Lebensmittel aus den Vorschlägen Ihres Coachs hinzugefügt.",
+    "suggestions.gone": (
+        "Dieses Lebensmittel steht nicht mehr auf der Liste Ihres Coachs, daher wurde nichts "
+        "gespeichert. Die Liste ist aktuell."
+    ),
+    "suggestions.coach_heading": "Vorgeschlagene Lebensmittel",
+    "suggestions.coach_intro": (
+        "Schlagen Sie diesem Klienten Lebensmittel zur Auswahl vor. Jedes Speichern ersetzt die "
+        "Liste; eine leere Liste löscht die Vorschläge. Es ist kein Ernährungsplan: Der Klient "
+        "kann auch andere Lebensmittel essen, daher gilt die Kaloriengrenze nicht für die Summe "
+        "der Liste, die nur zur Information neben den Zielen des Klienten steht."
+    ),
+    "suggestions.not_shared": (
+        "Lebensmittel können nur vorgeschlagen werden, solange der Klient die Ernährung teilt."
+    ),
+    "suggestions.draft_empty": "Keine Lebensmittel in der Liste.",
+    "suggestions.add_row": "Zur Liste hinzufügen",
+    "suggestions.remove_pick": "Zu entfernendes Lebensmittel",
+    "suggestions.remove": "Aus der Liste entfernen",
+    "suggestions.save": "Liste speichern",
+    "suggestions.saved": (
+        "Die vorgeschlagenen Lebensmittel wurden gespeichert; der Klient sieht sie unter Heute."
+    ),
+    "suggestions.refused": (
+        "Die Liste wurde nicht gespeichert: Sie können diesem Klienten jetzt keine Lebensmittel "
+        "vorschlagen."
+    ),
+    "suggestions.invalid": (
+        f"Die Liste wurde nicht gespeichert: Geben Sie jedem Lebensmittel eine Mahlzeit und eine "
+        f"Menge im erlaubten Bereich, höchstens {config.MAX_SUGGESTED_FOODS} Lebensmittel."
+    ),
+    "suggestions.twice": (
+        "Ein Lebensmittel steht zweimal bei derselben Mahlzeit; entfernen Sie eines davon."
+    ),
+    "suggestions.full": f"Die Liste umfasst höchstens {config.MAX_SUGGESTED_FOODS} Lebensmittel.",
+    "suggestions.total": (
+        "Summe der Liste: {kcal} kcal, {protein} g Protein, {carbs} g Kohlenhydrate, {fat} g Fett."
+    ),
+    "suggestions.target": (
+        "Die heutigen Ziele des Klienten: {kcal} kcal, {protein} g Protein, {carbs} g "
+        "Kohlenhydrate, {fat} g Fett."
+    ),
+    "suggestions.no_target": "Der Klient hat heute keine Tagesziele.",
+    "suggestions.share": (
+        "In der gezeigten Woche hat der Klient {suggested} von {items} Lebensmitteln aus den "
+        "Vorschlägen eines Coachs erfasst ({share} der Energie)."
+    ),
+    "suggestions.share_no_energy": (
+        "In der gezeigten Woche hat der Klient {suggested} von {items} Lebensmitteln aus den "
+        "Vorschlägen eines Coachs erfasst."
+    ),
+    "suggestions.share_none": "Der Klient hat in der gezeigten Woche keine Lebensmittel erfasst.",
     "my_week.intro": (
         "Ihre Woche: was Sie unter Heute und Training erfasst haben, und die freigegebenen "
         "Wochenberichte. Diese Seite zeigt sie nur an; Einträge erfassen und ändern Sie auf jenen "

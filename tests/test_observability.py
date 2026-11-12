@@ -708,6 +708,8 @@ STORE_CANARY_TEXTS = (
     "2345.6",
     "571.9",
     "871.9",
+    # T9.34: a suggested food's name (the meal items' names are canaries too).
+    "CANARY-FOOD",
 )
 
 
@@ -722,6 +724,7 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
         questions,
         records,
         reviews,
+        suggestions,
         users,
         values,
     )
@@ -825,6 +828,32 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
         conn, "CANARY-COACH", "CANARY-GYM", kcal=2345.6, protein_g=160, carbs_g=250, fat_g=70,
         effective_from=date(2026, 10, 27),
     )  # fmt: skip
+    # T9.34: a coach's list of suggested foods, read by both sides, logged from, refused.
+    suggestions.add_client_suggestions(
+        conn, "CANARY-COACH", "CANARY-GYM",
+        [suggestions.SuggestedFood("lunch", 1, "CANARY-FOOD suggested", 87.3)],
+    )  # fmt: skip
+    suggestions.current_suggestions(conn, "CANARY-COACH", "CANARY-GYM")
+    [suggested] = suggestions.current_suggestions(conn, "CANARY-GYM", "CANARY-GYM")["items"]
+    records.add_meal_item(
+        conn, "CANARY-GYM", consumed_on=date(2026, 10, 27), meal="lunch", fdc_id=1,
+        food_name="CANARY-FOOD suggested", grams=87.3, kcal=571.9, protein_g=20,
+        carbohydrate_g=100, fat_g=10, fiber_g=None, suggestion_item_id=suggested["id"],
+    )  # fmt: skip
+    for refused_write in (
+        lambda: suggestions.add_client_suggestions(
+            conn, "other-gym", "CANARY-GYM",
+            [suggestions.SuggestedFood("lunch", 1, "CANARY-FOOD refused", 87.3)],
+        ),
+        lambda: suggestions.add_client_suggestions(
+            conn, "CANARY-COACH", "CANARY-GYM",
+            [suggestions.SuggestedFood("lunch", 1, "CANARY-FOOD too much", 2345.6)],
+        ),
+    ):  # fmt: skip
+        try:
+            refused_write()
+        except (access.NotFound, values.StoreValueError) as error:
+            errors.append(error)
     clients = coach_clients.CoachClients(
         coach_id="CANARY-COACH",
         open_store=lambda: contextlib.nullcontext(conn),
@@ -967,7 +996,7 @@ def test_no_record_or_error_holds_a_stored_value(store_conn, caplog):
     # Each kind of refusal happened, so their messages were checked.
     # T9.7: a gymer's preference is refused; T9.17: two targets; T9.25: three refused thread writes;
     # T9.30: one refused read of a client's question notifications.
-    assert len(errors) == 3 + 6 + 9 + 1 + 2 + 3 + 1
+    assert len(errors) == 3 + 6 + 9 + 1 + 2 + 3 + 1 + 2  # T9.34: two refused lists
     texts = [stream.getvalue(), caplog.text, *(str(e) for e in errors), *(repr(e) for e in errors)]
     # The two refused codes were logged, by reason only (T9.12).
     assert stream.getvalue().count('"event": "invite_refused"') == 2

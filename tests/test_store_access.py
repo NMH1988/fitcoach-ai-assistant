@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from src.store import access, invitations, questions, records, reviews, users
+from src.store import access, invitations, questions, records, reviews, suggestions, users
 from src.store.values import StoreValueError
 from tests import store_world as world
 
@@ -35,6 +35,8 @@ READS = {
     # default, so the matrix below checks its audit row (tests/test_store_question_notifications.py
     # checks the coach's own list and the sidebar's unaudited read).
     "list_question_events": (questions.list_question_events, "nutrition"),
+    # T9.34: the active list of suggested foods (a coach: the newest one they wrote for the client).
+    "current_suggestions": (suggestions.current_suggestions, "nutrition"),
 }
 # (actor, subject) pairs that must give NotFound for every read function.
 REFUSED = {
@@ -84,6 +86,9 @@ OWN_ONLY = {
     # matrix); a coach's read is audited only with audited=True, which only the Notifications page
     # passes, never the sidebar's count or the toasts (the middle way, owner's choice, 2026-11-08).
     "notifications.list_notifications",
+    # T9.34: whether an item is on the user's own active list; called by records.add_meal_item()
+    # inside its write transaction, for the user it writes for.
+    "suggestions.is_active_item",
 }
 WRITES = {
     # Each takes the user it writes for; the ones that change shared data check that it is the
@@ -146,7 +151,11 @@ INTERNALS = {
 # A coach's writes into a client's records (T9.17): each runs access.authorise_read() for the
 # scope the record belongs to inside its write transaction, so it is refused exactly where a read
 # is (REFUSED, a scope not shared, the coach's own ID), with no row and no audit row.
-COACH_WRITES = {"records.add_client_target": "nutrition"}
+COACH_WRITES = {
+    "records.add_client_target": "nutrition",
+    # T9.34: a coach's list of suggested foods for a client.
+    "suggestions.add_client_suggestions": "nutrition",
+}
 
 
 # The one read of another user's data that does not go through access.authorised_read() (T9.12):
@@ -663,17 +672,34 @@ COACH_WRITE_CALLS = {
         fat_g=65.0,
         effective_from=world.DAY,
     ),
+    "suggestions.add_client_suggestions": lambda conn, coach, client: (
+        suggestions.add_client_suggestions(
+            conn, coach, client, [suggestions.SuggestedFood("lunch", 1, "Oats", 80.0)]
+        )
+    ),
+}
+# The audit action each coach write leaves.
+COACH_WRITE_ACTIONS = {
+    "records.add_client_target": "target_set",
+    "suggestions.add_client_suggestions": "suggestions_set",
 }
 
 
 def _target_count(conn):
-    """Return the number of stored targets."""
-    return conn.execute("SELECT count(*) FROM nutrition_targets").fetchone()[0]
+    """Return the number of rows the coach writes add: targets, suggestion lists and items."""
+    return sum(
+        conn.execute(query).fetchone()[0]
+        for query in (
+            "SELECT count(*) FROM nutrition_targets",
+            "SELECT count(*) FROM food_suggestion_lists",
+            "SELECT count(*) FROM food_suggestion_items",
+        )
+    )
 
 
 def test_every_coach_write_has_a_call_here():
     """Each function of the coach-writes group is run by the tests below."""
-    assert set(COACH_WRITE_CALLS) == set(COACH_WRITES)
+    assert set(COACH_WRITE_CALLS) == set(COACH_WRITES) == set(COACH_WRITE_ACTIONS)
 
 
 @pytest.mark.parametrize("write", COACH_WRITES)
@@ -717,4 +743,4 @@ def test_a_coach_write_needs_its_scope_while_others_are_shared(store_conn, relat
     users.set_consent(store_conn, world.SHARED, relationships[world.SHARED], scope, True)
     COACH_WRITE_CALLS[write](store_conn, world.COACH_A, world.SHARED)  # allowed once shared again
     [row] = _audit_rows(store_conn)
-    assert row["action"] == "target_set"
+    assert row["action"] == COACH_WRITE_ACTIONS[write]
