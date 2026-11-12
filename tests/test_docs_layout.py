@@ -1,9 +1,14 @@
-"""The plan and the progress log agree with their files, and doc links resolve (T1.15)."""
+"""The plan and the progress log agree with their files, and doc links resolve (T1.15).
+
+Also: docs/DIAGRAMS.md has its four diagrams, with the numbers and models of src/config.py (T1.16).
+"""
 
 import re
 from pathlib import Path
 
 import pytest
+
+from src import chat, config
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
@@ -308,3 +313,105 @@ def test_a_broken_relative_link_is_caught(tmp_path):
         "missing.html",
         "missing-ref.md",
     ]
+
+
+# docs/DIAGRAMS.md (T1.16): four hand-drawn diagrams whose numbers and models follow config.
+
+DIAGRAMS = DOCS / "DIAGRAMS.md"
+DIAGRAM_SECTIONS = (
+    "## 1. The whole app",
+    "## 2. One knowledge base search (RAG)",
+    "## 3. The tool-calling loop (one chat turn)",
+    "## 4. The store and who may read what",
+)
+MERMAID_BLOCK = re.compile(r"^```mermaid\n.*?^```$", re.DOTALL | re.MULTILINE)
+
+
+def diagram_phrases() -> list[str]:
+    """Return the phrases the diagrams must hold, built from config and the source manifest."""
+    manifest = chat.manifest_by_id()
+    articles = chat.knowledge_base_summary(manifest).articles
+    rounds, top_k = config.MAX_TOOL_ROUNDS, config.RETRIEVAL_TOP_K
+    # Each value has fixed text on both sides (a model its label and the character after it), so
+    # neither a shorter name (openai/gpt-5 inside openai/gpt-5-mini) nor a longer drawn number
+    # (13 for 3) passes.
+    return [
+        f"at most {rounds} tool rounds + 1 answer call",
+        f"at most {rounds} rounds",
+        f"after {rounds} rounds",
+        f"at most {config.MAX_SEARCHES_PER_TURN} a turn",
+        f"query, 1-{config.SEARCH_QUERY_MAX_CHARS} characters",
+        f"<br/>{config.QUERY_REWRITES} rewrites + filters",
+        f"chunks of about {config.CHUNK_SIZE:,} characters",
+        f"top {top_k} each",
+        f"within distance {config.RETRIEVAL_MAX_DISTANCE}?",
+        f"score 1 / ({config.RRF_K} + rank), top {top_k}<br/>",
+        f"at most {config.MAX_CHUNKS_PER_SOURCE} chunks per article",
+        f"<br/>{articles} CC BY articles",
+        f"+ {len(manifest) - articles} correction notice",
+        f"chat and review: {config.DEFAULT_ANSWER_MODEL}<br/>",
+        f"chat and review: {config.REVIEW_MODEL}<br/>",
+        f"query translation: {config.QUERY_TRANSLATION_MODEL}<br/>",
+        f"query translation ({config.QUERY_TRANSLATION_MODEL})<br/>",
+        f'embeddings: {config.EMBEDDING_MODEL}"',
+        f'embed<br/>{config.EMBEDDING_MODEL}"',
+    ]
+
+
+def diagram_problems(text: str) -> list[str]:
+    """Return what docs/DIAGRAMS.md lacks: a section, its one Mermaid block, or a config phrase."""
+    problems = []
+    parts = re.split(r"^(?=## )", text, flags=re.MULTILINE)
+    for heading in DIAGRAM_SECTIONS:
+        part = next((p for p in parts if p.splitlines()[:1] == [heading]), None)
+        if part is None:
+            problems.append(f"no section {heading!r}")
+            continue
+        blocks = MERMAID_BLOCK.findall(part)
+        if len(blocks) != 1:
+            problems.append(f"{heading!r} has {len(blocks)} Mermaid blocks, not 1")
+    problems += [f"no {phrase!r}" for phrase in diagram_phrases() if phrase not in text]
+    return problems
+
+
+def test_the_diagrams_have_four_sections_and_follow_config():
+    """docs/DIAGRAMS.md has its four diagrams, with config's numbers and models (T1.16)."""
+    assert diagram_problems(DIAGRAMS.read_text(encoding="utf-8")) == []
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "expected"),
+    [
+        (f"distance {config.RETRIEVAL_MAX_DISTANCE}?", "distance 0.99?", "within distance"),
+        (f"at most {config.MAX_TOOL_ROUNDS} rounds", "at most 9 rounds", "rounds"),
+        (config.EMBEDDING_MODEL, "other/model", config.EMBEDDING_MODEL),
+        ("## 3. The tool-calling loop", "## 3. The loop", "no section"),
+        ("```mermaid", "```text", "0 Mermaid blocks"),
+    ],
+    ids=["distance", "rounds", "model", "section", "block"],
+)
+def test_a_diagram_out_of_step_is_caught(old, new, expected):
+    """A diagram whose number, model, section or block no longer matches is reported."""
+    text = DIAGRAMS.read_text(encoding="utf-8")
+    assert old in text, old
+    problems = diagram_problems(text.replace(old, new))
+    assert any(expected in problem for problem in problems), problems
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("DEFAULT_ANSWER_MODEL", "openai/gpt-5"),
+        ("REVIEW_MODEL", "openai/gpt-5"),
+        ("QUERY_TRANSLATION_MODEL", "openai/gpt-5"),
+        ("EMBEDDING_MODEL", "qwen/qwen3-embedding"),
+        ("QUERY_REWRITES", 5),
+        ("CHUNK_SIZE", 800),
+        ("MAX_SEARCHES_PER_TURN", 3),
+    ],
+)
+def test_a_config_change_the_diagrams_miss_is_caught(monkeypatch, name, value):
+    """Changing a model (even to a shorter name inside the drawn one) or a number is reported."""
+    monkeypatch.setattr(config, name, value)
+    problems = diagram_problems(DIAGRAMS.read_text(encoding="utf-8"))
+    assert any(str(value) in problem for problem in problems), problems
