@@ -21,7 +21,7 @@ Keep the entry short and record what the code does not say. `tests/test_docs_lay
 
 ---
 
-- [2026-11-12 · T9.33 The evaluation as LangSmith experiments, and the agent's evaluation lifecycle documented · PR to be opened (closes NMH1988/fitcoach-ai-assistant#116)](progress/2026-11-12-T9.33.md)
+- [2026-11-12 · T9.33 The evaluation as LangSmith experiments, and the agent's evaluation lifecycle documented · NMH1988/fitcoach-ai-assistant#118 (closes NMH1988/fitcoach-ai-assistant#116)](progress/2026-11-12-T9.33.md)
 - [2026-11-11 · T1.15 Docs: split PROGRESS and IMPLEMENTATION_PLAN into an index and one file per entry · NMH1988/fitcoach-ai-assistant#113 (closes NMH1988/fitcoach-ai-assistant#112)](progress/2026-11-11-T1.15.md)
 - [2026-11-10 · T9.32 The README links the presentation video · NMH1988/fitcoach-ai-assistant#111 (closes NMH1988/fitcoach-ai-assistant#110)](progress/2026-11-10-T9.32.md)
 - [2026-11-10 · T1.14 Docs: the repo's own code stays all rights reserved (copyright notice) · NMH1988/fitcoach-ai-assistant#107 (closes NMH1988/fitcoach-ai-assistant#105)](progress/2026-11-10-T1.14.md)
