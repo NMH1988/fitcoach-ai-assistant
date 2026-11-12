@@ -156,7 +156,7 @@ Deadline: **2026-11-02** (Sprint 2, already submitted by the owner, 2026-10-28).
 | [T9.28](tickets/T9.28.md) | NMH1988/fitcoach-ai-assistant#72 | A presentation video of the app with offline narration (extra; beyond the brief, owner's request, 2026-11-06) | M | T9.27 | 11-18 (or after 11-23, owner's choice) | done |
 | [T9.31](tickets/T9.31.md) | NMH1988/fitcoach-ai-assistant#108 | Docs: Medium 3 and Hard 5 claimed in part only (owner's request after a check against the full Sprint 3 brief) | S | T9.9, T9.11 | 11-10 | done |
 | [T9.32](tickets/T9.32.md) | NMH1988/fitcoach-ai-assistant#110 | The README links the presentation video (extra; beyond the brief, owner's request, 2026-11-10) | S | T9.28, the owner's upload | 11-10 | done |
-| [T9.34](tickets/T9.34.md) | NMH1988/fitcoach-ai-assistant#117 | Foods the coach suggests to a client, logged by the client in one click (extra; beyond the brief, owner's request after a reviewer's comment, 2026-11-12; cut first if time runs short) | M | T9.13, T9.15, T9.17 | before T9.11b | in progress |
+| [T9.34](tickets/T9.34.md) | NMH1988/fitcoach-ai-assistant#117 | Foods the coach suggests to a client, logged by the client in one click (extra; beyond the brief, owner's request after a reviewer's comment, 2026-11-12; cut first if time runs short) | M | T9.13, T9.15, T9.17 | before T9.11b | in review |
 | **Last** | | | | | | |
 | [T6.2](tickets/T6.2.md) | #20 | README, final checks and transfer to the course repo | S | all, O6 | 11-01 | done |
 
