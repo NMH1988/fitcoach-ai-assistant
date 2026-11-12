@@ -383,6 +383,10 @@ DASHBOARD_CHART_HEIGHT_PX = 240
 FOLLOW_UP_MIN_LOGGED_DAYS = 4
 TARGET_INPUT_MAX_KCAL = 10000
 TARGET_INPUT_MAX_GRAMS = 1000
+# The foods a coach suggests to a client (T9.34): at most this many items in one list, each with
+# grams in the food log's range (FOOD_MIN_GRAMS to FOOD_MAX_GRAMS) and a food at most once per
+# meal slot; the store checks them all (owner's choice, 2026-11-12).
+MAX_SUGGESTED_FOODS = 20
 # In-app notifications (T9.29, D23): the Notifications page lists at most this many, newest first,
 # and at most NOTIFICATIONS_MAX_TOASTS show as toasts in one run (the rest as one "and N more"
 # toast). A scope granted within NOTIFICATIONS_SAME_EVENT_SECONDS after a code was accepted counts

@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from src import config
-from src.store import invitations, my_data, notifications, reviews, users
+from src.store import invitations, my_data, notifications, reviews, suggestions, users
 from src.store.access import NotFound
 from src.store.values import StoreValueError, utc_text
 from tests.store_world import no_threads
@@ -409,3 +409,44 @@ def test_a_coach_s_deletion_takes_the_gymer_s_notifications_about_them(people, m
     assert {name for _, name, *_ in _seen(people, GYM)} == {"Coach Ola"}
     assert all(user != COACH for user, _ in _marks(people))
     assert len(_unread(people, GYM)) == 1
+
+
+# --- T9.34: the gymer is told of each list of suggested foods ------------------------------------
+
+
+def _suggest(conn, coach: str, client: str, name: str = "CANARY-FOOD oats") -> int:
+    """Save a made-up one-food list as the coach; return its ID."""
+    item = suggestions.SuggestedFood("lunch", 1, name, 123.0)
+    return suggestions.add_client_suggestions(conn, coach, client, [item])
+
+
+def test_a_gymer_is_told_of_each_list_and_the_coach_of_none(people):
+    """Each saved list is one notification with the coach's name; no food or amount in it."""
+    rel = users.start_relationship(people, COACH, GYM)
+    users.set_consent(people, GYM, rel, "nutrition", True)
+    _suggest(people, COACH, GYM)
+    _suggest(people, COACH, GYM)
+    told = [row for row in _seen(people, GYM) if row[0] == "suggestions_updated"]
+    assert told == [("suggestions_updated", "Coach Nia", (), None)] * 2
+    assert all(kind != "suggestions_updated" for kind, *_ in _seen(people, COACH))
+    for found in notifications.list_notifications(people, GYM):
+        assert "CANARY-FOOD" not in repr(found) and "123" not in repr(found)
+
+
+def test_a_former_coach_s_list_stays_told_and_nobody_else_is_told(people):
+    """After the end the notification keeps the coach's name; another gymer sees nothing of it."""
+    rel = users.start_relationship(people, COACH, GYM)
+    users.set_consent(people, GYM, rel, "nutrition", True)
+    _suggest(people, COACH, GYM)
+    users.end_relationship(people, GYM, rel)
+    assert ("suggestions_updated", "Coach Nia", (), None) in _seen(people, GYM)
+    assert all(kind != "suggestions_updated" for kind, *_ in _seen(people, OTHER_GYM))
+
+
+def test_a_coach_s_deletion_takes_the_list_s_notification_with_it(people):
+    """The list goes with the coach's data (owner's choice), and so does its notification."""
+    rel = users.start_relationship(people, COACH, GYM)
+    users.set_consent(people, GYM, rel, "nutrition", True)
+    _suggest(people, COACH, GYM)
+    my_data.delete_user_data(people, COACH, no_threads)
+    assert all(kind != "suggestions_updated" for kind, *_ in _seen(people, GYM))

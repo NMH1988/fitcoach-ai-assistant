@@ -986,6 +986,11 @@ def test_a_notification_s_time_is_shown_in_berlin(stamp, shown):
          "Bo hat eine Frage zum Wochenbericht für die Woche vom 2026-10-05 gestellt."),
         (_notification("question_answered", week="2026-10-05"), "gymer", "de",
          "Bo hat Ihre Frage zum Wochenbericht für die Woche vom 2026-10-05 beantwortet."),
+        # T9.34: the coach's name only, never a food or an amount.
+        (_notification("suggestions_updated"), "gymer", "en",
+         "Bo updated the foods they suggest to you."),
+        (_notification("suggestions_updated"), "gymer", "de",
+         "Bo hat die vorgeschlagenen Lebensmittel geändert."),
     ],
 )  # fmt: skip
 def test_each_kind_reads_as_its_sentence(notification, role, language, text):

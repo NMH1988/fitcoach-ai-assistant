@@ -286,3 +286,33 @@ def volume_by_day(sessions: Iterable[dict], start: date) -> tuple[tuple[date, fl
         if day in by_day:
             by_day[day] = (by_day[day] or 0.0) + session_volume(session)
     return tuple(by_day.items())
+
+
+@dataclass(frozen=True)
+class SuggestedShare:
+    """How much of a week's logged food the gymer logged from their coach's suggestions (T9.34)."""
+
+    items: int
+    suggested_items: int
+    # The suggested items' share of the week's energy, 0 to 1; None with no energy logged.
+    energy_share: float | None
+
+
+def suggested_share(meals: Iterable[dict], start: date, since: str | None = None) -> SuggestedShare:
+    """Return the share of the week's logged items and energy that came from the suggestions."""
+    # With `since` (a relationship's UTC start), an item counts as from a suggestion only if it
+    # was logged from then on: the flag names no coach, so an earlier coach's list never shows
+    # in a new coach's share (compliance run 1 of T9.34, owner's choice, 2026-11-12).
+    days = {day.isoformat() for day in week_days(start)}
+    week = [meal for meal in meals if meal["consumed_on"] in days]
+    from_list = [
+        meal
+        for meal in week
+        if meal.get("from_suggestion") and (since is None or meal["recorded_at"] >= since)
+    ]
+    energy = sum(meal["kcal"] for meal in week)
+    return SuggestedShare(
+        items=len(week),
+        suggested_items=len(from_list),
+        energy_share=None if energy <= 0 else sum(meal["kcal"] for meal in from_list) / energy,
+    )

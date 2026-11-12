@@ -48,6 +48,10 @@ The reviewer's five points, each with the ticket that answers it:
 4. **One article can fill all six retrieved places** (q2, q3, q10), so expected second sources (#12 for q5, #8 for q10) never reach the top six. Suggested: a per-source cap in the fused list, or MMR. **T8.3**.
 5. **Evaluation is manual** and not part of the development loop: both scripts need the key and the index, results are pasted into `docs/TESTING.md` by hand, and CI runs no evaluation. Suggested: machine-readable results, a committed baseline, a manually dispatched workflow that fails below it, and an offline retrieval suite in ordinary CI. **T8.4**, **T8.5**, **T8.6**; the Ragas or DeepEval report is **T9.10**.
 
+## Reviewer comments during Sprint 3
+
+- **2026-11-12, food choice** (in our own words; the owner's account of the comment): letting the gymer choose every food alone is weak; the coach should recommend foods to the gymer. Answered by **T9.34** (foods the coach suggests, logged by the client in one click; beyond the brief, owner's request), after a comparison of similar coaching apps the same day; a coach-built meal plan stays a Capstone idea (`docs/PRD.md`, "Moved to the Capstone").
+
 ## Using this file
 
 - At the start of every ticket, name the Sprint 3 requirement, optional task or evaluation item (by the numbers above) or the review point it serves, or "none", together with the Sprint 2 item from `docs/BRIEF.md`; write "beyond the brief (owner's request)" only when neither brief covers the work. The PR description's Brief section, the plan's **Serves** line and the PROGRESS **Brief:** line carry the same numbers.
