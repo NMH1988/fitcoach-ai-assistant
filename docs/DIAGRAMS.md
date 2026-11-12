@@ -147,7 +147,7 @@ flowchart TB
 | Scope | What it shares |
 |---|---|
 | body | weights, profile entries |
-| nutrition | the food log, targets, the coach's reviews |
+| nutrition | the food log, targets, the coach's reviews, the coach's suggested foods |
 | training | workouts |
 | (never) | preferences |
 
