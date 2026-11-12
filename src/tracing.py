@@ -27,7 +27,9 @@ import hashlib
 import os
 import re
 import threading
+import uuid
 from collections.abc import Mapping
+from dataclasses import dataclass
 from functools import cache
 from typing import Any
 
@@ -249,6 +251,16 @@ def _mask_record(value: Mapping) -> dict:
     return masked
 
 
+def mask_error_only(data: Any) -> Any:
+    """Return a run's error as its class name only; leave every other payload as it is (T9.33)."""
+    # The evaluation experiments' anonymizer (src/experiments.py): their runs are not masked, but
+    # an error is repr(exc) and a traceback, which may quote a provider's reply and the machine's
+    # paths, so it keeps its class name as in mask() (code review round 1 of T9.33).
+    if isinstance(data, Mapping) and set(data) == {"error"} and isinstance(data["error"], str):
+        return {"error": _error_class(data["error"])}
+    return data
+
+
 def mask(data: Any) -> Any:
     """Return a run's inputs, outputs, metadata or error with its data masked (the anonymizer)."""
     # LangSmith hands an error to the anonymizer as {"error": <repr and traceback>}.
@@ -317,3 +329,15 @@ def configure_tracing() -> bool:
 def run_metadata(turn_id: str) -> dict[str, str]:
     """Return the metadata every run of a turn carries: its turn_id, as on its log lines."""
     return {"turn_id": turn_id} if turn_id else {}
+
+
+@dataclass(frozen=True)
+class RunTrace:
+    """Where an evaluation turn's runs go instead: an experiment's tracer and the root run's ID."""
+
+    # Built only by src/experiments.py for `scripts/run_evaluation.py --langsmith` (T9.33): the
+    # tracer sends the turn's runs, unmasked, to the experiment's own project, and LangChain then
+    # adds no tracer of its own, so they do not also go to the app's masked project. The app
+    # never passes one.
+    callbacks: tuple[Any, ...]
+    run_id: uuid.UUID
