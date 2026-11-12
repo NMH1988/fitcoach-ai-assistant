@@ -88,6 +88,7 @@ Deadline: **2026-11-02** (Sprint 2, already submitted by the owner, 2026-10-28).
 | [T1.13](tickets/T1.13.md) | NMH1988/fitcoach-ai-assistant#104 | Docs: record the Dependabot bumps of 2026-11-09 in the dependency table (owner's request after merging them) | S | - | 11-09 | done |
 | [T1.14](tickets/T1.14.md) | NMH1988/fitcoach-ai-assistant#105 | Docs: the repo's own code stays all rights reserved (copyright notice) (owner's request) | S | T1.13 (order only) | 11-09 | done |
 | [T1.15](tickets/T1.15.md) | NMH1988/fitcoach-ai-assistant#112 | Docs: split PROGRESS and IMPLEMENTATION_PLAN into an index and one file per entry (owner's request) | M | - (before T9.11b) | 11-11 | done |
+| [T1.16](tickets/T1.16.md) | NMH1988/fitcoach-ai-assistant#114 | Docs: diagrams of the app, the RAG search, the tool loop and the store's sharing (owner's request) | S | - | 11-11 | done |
 | [T3.2](tickets/T3.2.md) | #8 | Query translation and structured filters | M | T3.1, O7 | 10-26 | done |
 | [T3.3](tickets/T3.3.md) | #9 | Hybrid search (BM25 + RRF) | M | T3.2 | 10-27 | done |
 | [T3.4](tickets/T3.4.md) | #10 | Prompt injection hardening | S | T3.1 | 10-27 | done |
@@ -185,6 +186,7 @@ Deadline: **2026-11-02** (Sprint 2, already submitted by the owner, 2026-10-28).
 - [T1.13 Docs: record the Dependabot bumps of 2026-11-09 in the dependency table (S)](tickets/T1.13.md)
 - [T1.14 Docs: the repo's own code stays all rights reserved (copyright notice) (S)](tickets/T1.14.md)
 - [T1.15 Docs: split PROGRESS and IMPLEMENTATION_PLAN into an index and one file per entry (M)](tickets/T1.15.md)
+- [T1.16 Docs: diagrams of the app, the RAG search, the tool loop and the store's sharing (S)](tickets/T1.16.md)
 
 ## Epic 2: Knowledge base
 

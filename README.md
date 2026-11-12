@@ -90,7 +90,7 @@ What the user does, and what the app and its AI do in each.
 
 ## How it works
 
-Six parts, two of them AI (the chat agent and the weekly review, both built with LangGraph; [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), sections 1, 2, 16 and 17):
+Six parts, two of them AI (the chat agent and the weekly review, both built with LangGraph; [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), sections 1, 2, 16 and 17; drawn in [`docs/DIAGRAMS.md`](docs/DIAGRAMS.md): the whole app, one search, the tool-calling loop and the store's sharing rule):
 
 1. **Input guard** (`src/guard.py`, `src/guardrails.py`): cleans the text and rejects empty, too long or prompt-injection input and high-risk requests before any API call.
 2. **The chat agent** (`src/agent/`): a ReAct loop. The chat model gets the question, after the conversation's latest earlier questions and answers (T9.4) and, for a coach, the approved preferences, and calls the search, a tool, both, or answers; a food or calculator question searches nothing. A reply with nothing to rest on (no passage found, no tool run) is not shown: the app says the sources do not cover the question. Each call is checked against its schema before it runs, at most 4 rounds and 2 searches a turn.
@@ -111,7 +111,7 @@ The knowledge base is 20 open-access sports nutrition articles (ISSN position st
 | Core 2: core functionality | "What it does" and "Use cases" above; [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) sections 2, 16 and 17 |
 | Core 3: a UI for every function | pages per role (section 16), [`docs/UI_DESIGN.md`](docs/UI_DESIGN.md) |
 | Core 4: tools, error handling, real-world use | section 10 (every error path with the test that shows it), sections 16 and 17 |
-| Core 5: documentation | this README, [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/TESTING.md`](docs/TESTING.md) |
+| Core 5: documentation | this README, [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/DIAGRAMS.md`](docs/DIAGRAMS.md), [`docs/TESTING.md`](docs/TESTING.md) |
 | Optional tasks | Medium 1 (token cost), 2 (memory), 4 (authentication and personalisation), 8 (guard against misuse); Hard 1 (agentic RAG), 2 (LangSmith observability), 3 (DeepEval report). In part only, not counted for maximum points: Medium 3 (a tool calling an external API) and Hard 5 (an external data source), as the USDA FoodData Central API is a fallback inside the existing food tool, asked only when the table has no match, not a tool of its own, and is checked by mocked tests only until the owner's USDA key allows a live check |
 | Agent types, function calling | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) section 17 |
 | Reflection: problems, improvements, prompt engineering vs RAG vs agent | [`docs/TESTING.md`](docs/TESTING.md), "Known problems and suggested improvements (Sprint 3, T9.11)" and "When prompt engineering, RAG or an agent fits (T9.11)" |
@@ -204,6 +204,7 @@ These are not needed to run the app:
 | [`docs/BRIEF_SPRINT3.md`](docs/BRIEF_SPRINT3.md) | Summary of the Sprint 3 course brief and of the review of Sprint 2 |
 | [`docs/PRD.md`](docs/PRD.md) | What we build: features, guardrails, acceptance criteria |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Technical design and decisions; how the agents work (section 17) |
+| [`docs/DIAGRAMS.md`](docs/DIAGRAMS.md) | Diagrams: the whole app, one knowledge base search, the tool-calling loop, the store and who may read what |
 | [`docs/UI_DESIGN.md`](docs/UI_DESIGN.md) | Layout, tabs, language and themes |
 | [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) | Tickets, order and status: the index, one file per ticket with its acceptance criteria in [`docs/tickets/`](docs/tickets/) |
 | [`docs/TESTING.md`](docs/TESTING.md) | Test strategy, evaluation results, known problems and live checks |
