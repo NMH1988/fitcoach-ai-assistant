@@ -78,6 +78,11 @@ TRACING_ON_VALUES = frozenset({"1", "true", "yes", "on"})
 # The EU region (owner's choice, 2026-11-06): the LangSmith account is created there (O10).
 LANGSMITH_ENDPOINT = "https://eu.api.smith.langchain.com"
 LANGSMITH_PROJECT = "fitcoach-ai-assistant"
+# Unmasked traces in demo mode only (T9.35, owner's request, 2026-11-13, to show a reviewer what a
+# trace holds): on only with tracing on, demo mode on (synthetic users, no [auth]) and this flag;
+# the runs go to a project of their own, which the owner deletes after the demo.
+TRACING_DEMO_UNMASKED_FLAG_NAME = "FITCOACH_TRACING_DEMO_UNMASKED"
+LANGSMITH_DEMO_PROJECT = "fitcoach-ai-assistant-demo"
 # What a masked value or key becomes in a trace.
 TRACE_MASK = "[masked]"
 TRACE_MASKED_KEY = "[masked key {number}]"
@@ -1215,4 +1220,16 @@ def tracing_requested() -> bool:
     value = _secret(TRACING_FLAG_NAME)
     if value is None:
         value = os.environ.get(TRACING_FLAG_NAME, "")
+    return str(value).strip().lower() in TRACING_ON_VALUES
+
+
+def tracing_demo_unmasked() -> bool:
+    """Return True if traces go unmasked: tracing and the demo flag on, in demo mode (T9.35)."""
+    # Demo mode has synthetic users only and is never on with [auth]; a signed-in user's runs are
+    # therefore always masked, whatever the flag says.
+    if not tracing_requested() or not demo_mode():
+        return False
+    value = _secret(TRACING_DEMO_UNMASKED_FLAG_NAME)
+    if value is None:
+        value = os.environ.get(TRACING_DEMO_UNMASKED_FLAG_NAME, "")
     return str(value).strip().lower() in TRACING_ON_VALUES
