@@ -968,3 +968,182 @@ def test_the_bypass_scan_catches(source):
 def test_the_bypass_scan_passes_plain_text(source):
     """Plain words pass; a comment or string naming a scanned name (e.g. with_retry) fails."""
     assert bypasses(source) == []
+
+
+# --- Unmasked traces in demo mode only (T9.35) ----------------------------------------------------
+
+
+def _demo_setup(monkeypatch, *, tracing_on=True, demo=True, flag="true", key=FAKE_LANGSMITH_KEY):
+    """Set the demo gate's four conditions as given, with fake clients on a fake session."""
+    session = RecordingSession()
+    # Not the machine's secrets.toml, which may hold the owner's real key and flags.
+    monkeypatch.setattr(config.st, "secrets", {})
+    monkeypatch.setattr(config, "tracing_requested", lambda: tracing_on)
+    monkeypatch.setattr(config, "demo_mode", lambda: demo)
+    monkeypatch.delenv(config.TRACING_DEMO_UNMASKED_FLAG_NAME, raising=False)
+    monkeypatch.delenv(config.LANGSMITH_API_KEY_NAME, raising=False)
+    if flag is not None:
+        monkeypatch.setenv(config.TRACING_DEMO_UNMASKED_FLAG_NAME, flag)
+    if key is not None:
+        monkeypatch.setenv(config.LANGSMITH_API_KEY_NAME, key)
+    build, build_demo = tracing.build_client, tracing.build_demo_client
+    monkeypatch.setattr(
+        tracing, "build_client", lambda key: build(key, session=session, batch=False)
+    )
+    monkeypatch.setattr(
+        tracing, "build_demo_client", lambda key: build_demo(key, session=session, batch=False)
+    )
+    return session
+
+
+@pytest.fixture
+def demo_traced(monkeypatch):
+    """Turn the demo-only unmasked tracing on with the fake session; return the session."""
+    session = _demo_setup(monkeypatch)
+    assert tracing.configure_tracing()
+    yield session
+    monkeypatch.setattr(config, "tracing_requested", lambda: False)
+    tracing.configure_tracing()
+
+
+@pytest.mark.parametrize(
+    ("tracing_on", "demo", "flag", "key", "unmasked"),
+    [
+        (True, True, "true", FAKE_LANGSMITH_KEY, True),
+        (True, True, " 1 ", FAKE_LANGSMITH_KEY, True),
+        (True, True, None, FAKE_LANGSMITH_KEY, False),
+        (True, True, "false", FAKE_LANGSMITH_KEY, False),
+        (True, True, "maybe", FAKE_LANGSMITH_KEY, False),
+        (True, False, "true", FAKE_LANGSMITH_KEY, False),
+        (False, True, "true", FAKE_LANGSMITH_KEY, False),
+        (True, True, "true", None, False),
+    ],
+)
+def test_traces_are_unmasked_only_with_all_four_conditions(
+    monkeypatch, tracing_on, demo, flag, key, unmasked
+):
+    """Tracing, the key, the demo flag and demo mode must all hold; else masked or no tracing."""
+    _demo_setup(monkeypatch, tracing_on=tracing_on, demo=demo, flag=flag, key=key)
+    on = tracing.configure_tracing()
+    assert on is (tracing_on and key is not None)
+    assert tracing.demo_gate_open() is unmasked
+    if on:
+        client = langsmith.run_trees.get_cached_client()
+        assert client._anonymizer is (tracing._masked_unless_demo if unmasked else tracing.mask)
+    monkeypatch.setattr(config, "tracing_requested", lambda: False)
+    tracing.configure_tracing()
+
+
+def test_the_demo_flag_is_off_by_default(monkeypatch):
+    """With demo mode on but the flag unset, traces stay masked."""
+    _demo_setup(monkeypatch, flag=None)
+    assert not config.tracing_demo_unmasked()
+
+
+def test_with_auth_configured_the_demo_flag_is_no_use(monkeypatch):
+    """[auth] set means demo mode is off (real users), so the flag cannot unmask anything."""
+    monkeypatch.setattr(config.st, "secrets", {config.AUTH_SECTION: {"cookie_secret": "x" * 40}})
+    monkeypatch.setattr(config, "tracing_requested", lambda: True)
+    monkeypatch.setenv(config.TRACING_DEMO_UNMASKED_FLAG_NAME, "true")
+    monkeypatch.setenv(config.DEMO_MODE_NAME, "true")
+    assert config.auth_configured()
+    assert not config.demo_mode()
+    assert not config.tracing_demo_unmasked()
+
+
+def test_a_demo_turn_sends_the_question_the_answer_and_the_tools_to_the_demo_project(
+    index, demo_traced
+):
+    """With the gate open the payloads hold the canaries, in the demo project, with the turn_id."""
+    result = obs.CANARY_ENDINGS["answer with tools"](index)
+    runs = demo_traced.runs()
+    assert runs
+    searched = _searched(runs)
+    assert "CANARY-Q" in searched
+    assert "CANARY-A" in searched
+    assert "CANARY-FOOD" in searched
+    assert {run.get("session_name") for run in runs} == {config.LANGSMITH_DEMO_PROJECT}
+    client = langsmith.run_trees.get_cached_client()
+    assert client.api_url == config.LANGSMITH_ENDPOINT
+    turn_ids = {meta.get("turn_id") for meta in _metadata(runs)}
+    assert result.turn_id in turn_ids and None not in turn_ids
+    assert FAKE_LANGSMITH_KEY not in searched
+
+
+def test_a_demo_trace_never_holds_the_key(index, demo_traced):
+    """Unmasked or not, neither LangSmith's key nor the model's key is in a payload."""
+    obs.CANARY_ENDINGS["answer"](index)
+    searched = _searched(demo_traced.runs())
+    assert FAKE_LANGSMITH_KEY not in searched
+    assert obs.CANARY_KEY not in searched
+
+
+def test_the_gate_fails_closed_when_demo_mode_stops_being_true(index, demo_traced, monkeypatch):
+    """With the client installed, a demo mode that turns off masks the next payload."""
+    monkeypatch.setattr(config, "demo_mode", lambda: False)
+    assert not tracing.demo_gate_open()
+    obs.CANARY_ENDINGS["answer"](index)
+    searched = _searched(demo_traced.runs())
+    for canary in obs.CANARY_TEXTS:
+        assert canary not in searched, canary
+
+
+def test_the_gate_fails_closed_when_the_check_raises(monkeypatch, demo_traced):
+    """An error while reading demo mode (e.g. a broken secrets file) masks the payload."""
+
+    def broken() -> bool:
+        """Fail as an unreadable secrets file might."""
+        raise RuntimeError("secrets unreadable")
+
+    monkeypatch.setattr(config, "demo_mode", broken)
+    assert tracing.demo_gate_open() is False
+    assert tracing._masked_unless_demo({"question": "CANARY-Q"}) == {"question": config.TRACE_MASK}
+
+
+def test_turning_tracing_off_closes_the_gate_at_once(demo_traced, monkeypatch):
+    """After tracing is turned off, a thread still on through the demo client sends masked."""
+    assert tracing.demo_gate_open()
+    monkeypatch.setattr(config, "tracing_requested", lambda: False)
+    assert tracing.configure_tracing() is False
+    assert not tracing.demo_gate_open()
+    assert tracing._masked_unless_demo({"question": "CANARY-Q"}) == {"question": config.TRACE_MASK}
+
+
+def test_leaving_the_demo_installs_the_masked_client_again(monkeypatch, demo_traced):
+    """Demo mode off with tracing still on: the next run installs the masked client again."""
+    monkeypatch.setattr(config, "demo_mode", lambda: False)
+    assert tracing.configure_tracing()
+    assert langsmith.run_trees.get_cached_client()._anonymizer is tracing.mask
+    assert not tracing.demo_gate_open()
+
+
+def test_a_demo_trace_s_error_keeps_only_its_class_name(demo_traced):
+    """With the gate open an error is still reduced to its class name, as in T9.33's experiments."""
+    error = {"error": "RuntimeError('CANARY-ERR provider reply')\nTraceback (most recent call)"}
+    assert tracing._masked_unless_demo(error) == {"error": "RuntimeError"}
+    assert tracing._masked_unless_demo({"question": "CANARY-Q"}) == {"question": "CANARY-Q"}
+
+
+def test_a_demo_coach_turn_sends_the_client_tools_results_unmasked(
+    relationships, index_path, demo_traced
+):
+    """A coach's turn in demo mode shows its question, tool arguments and results, and answer."""
+    clients = clients_tests._clients()
+    result, _ = clients_tests._turn(
+        index_path,
+        clients,
+        tool_reply((coach_clients.LIST_TOOL, {})),
+        tool_reply((coach_clients.WEEK_TOOL, {"client": "client-1"})),
+        AIMessage("client-1 logged one day."),
+        question="How did my clients do?",
+    )
+    assert result.kind == "answer"
+    runs = demo_traced.runs()
+    assert {run.get("session_name") for run in runs} == {config.LANGSMITH_DEMO_PROJECT}
+    searched = _searched(runs)
+    assert "How did my clients do?" in searched
+    assert "client-1 logged one day." in searched
+    # A tool argument, and a value only the week tool's result holds (the logged food's energy).
+    assert '"args": {"client": "client-1"}' in searched
+    assert "571.5" in searched
+    assert FAKE_LANGSMITH_KEY not in searched

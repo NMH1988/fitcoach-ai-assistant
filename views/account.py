@@ -17,7 +17,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from src import account, chat, config, demo, guard, i18n
+from src import account, chat, config, demo, guard, i18n, tracing
 from src.store import users
 from views import header, resources
 from views.text import label_of, t
@@ -172,6 +172,13 @@ def _demo_names() -> dict[str, str]:
     return {user.id: user.display_name for user in demo.DEMO_USERS}
 
 
+def _demo_notes() -> None:
+    """Show the demo note and, while traces go unmasked (T9.35), the warning to use no real data."""
+    st.caption(f":material/science: {t('account.demo_note')}")
+    if tracing.demo_gate_open():
+        st.caption(f":material/warning: {t('account.demo_trace_note')}")
+
+
 def _demo_picker() -> None:
     """Show the sidebar's demo user picker: a synthetic user, or none (back to the start page)."""
     names = _demo_names()
@@ -182,7 +189,7 @@ def _demo_picker() -> None:
         key=DEMO_KEY,
         on_change=clear_session,
     )
-    st.caption(f":material/science: {t('account.demo_note')}")
+    _demo_notes()
 
 
 def _start_demo_picker() -> None:
@@ -197,7 +204,7 @@ def _start_demo_picker() -> None:
         key=START_DEMO_KEY,
         on_change=pick_demo_user_from_start,
     )
-    st.caption(f":material/science: {t('account.demo_note')}")
+    _demo_notes()
 
 
 def _signed_in(user: dict) -> None:

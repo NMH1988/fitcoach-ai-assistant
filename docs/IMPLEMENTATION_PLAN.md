@@ -159,6 +159,7 @@ Deadline: **2026-11-02** (Sprint 2, already submitted by the owner, 2026-10-28).
 | [T9.32](tickets/T9.32.md) | NMH1988/fitcoach-ai-assistant#110 | The README links the presentation video (extra; beyond the brief, owner's request, 2026-11-10) | S | T9.28, the owner's upload | 11-10 | done |
 | [T9.33](tickets/T9.33.md) | NMH1988/fitcoach-ai-assistant#116 | The evaluation as LangSmith experiments, and the agent's evaluation lifecycle documented (extra; owner's request after a reviewer's comment, 2026-11-12) | M | T9.8, T9.10, T8.4, O10 | before T9.11b | in review |
 | [T9.34](tickets/T9.34.md) | NMH1988/fitcoach-ai-assistant#117 | Foods the coach suggests to a client, logged by the client in one click (extra; beyond the brief, owner's request after a reviewer's comment, 2026-11-12; cut first if time runs short) | M | T9.13, T9.15, T9.17 | before T9.11b | done |
+| [T9.35](tickets/T9.35.md) | NMH1988/fitcoach-ai-assistant#121 | Unmasked LangSmith traces in demo mode only, for the reviewer's demo (extra; owner's request, 2026-11-13) | S | T9.8, T9.5 | before T9.11b | in progress |
 | **Last** | | | | | | |
 | [T6.2](tickets/T6.2.md) | #20 | README, final checks and transfer to the course repo | S | all, O6 | 11-01 | done |
 
@@ -302,3 +303,4 @@ Made by the owner while reviewing the T9.15 dashboard mockups on a Claude Design
 - [T9.32 The README links the presentation video (S, extra)](tickets/T9.32.md)
 - [T9.33 The evaluation as LangSmith experiments, and the agent's evaluation lifecycle documented (M, extra)](tickets/T9.33.md)
 - [T9.34 Foods the coach suggests to a client, logged by the client in one click (M, extra)](tickets/T9.34.md)
+- [T9.35 Unmasked LangSmith traces in demo mode only, for the reviewer's demo (S, extra)](tickets/T9.35.md)
