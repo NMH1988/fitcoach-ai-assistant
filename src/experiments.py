@@ -20,7 +20,9 @@ quote a provider's reply and the machine's paths. The unmasked client is built h
 `tracing.configure_tracing()` says tracing is on (the flag and the key, T9.8), and is never
 installed as LangSmith's global client: the app's own
 runs, and every run the script does not pass a `RunTrace` for (the judge's calls among them), go
-through the masked one. LangSmith sends datasets and feedback as they are, with no anonymizer.
+through the masked one (with T9.35's demo flag and demo mode also set, through the demo client:
+unmasked, into the demo project). LangSmith sends datasets and feedback as they are, with no
+anonymizer.
 """
 
 import uuid

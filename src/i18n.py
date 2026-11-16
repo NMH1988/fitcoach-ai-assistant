@@ -635,6 +635,10 @@ _EN: dict[str, str] = {
     "account.demo_note": (
         "Demo mode: made-up users on a temporary database that is deleted when the app stops."
     ),
+    "account.demo_trace_note": (
+        "Tracing is on without masking (demo only): what you type here is sent to LangSmith and "
+        "can be read there. Enter made-up data only."
+    ),
     "account.store_unavailable": (
         "Your saved data cannot be opened right now, so nothing is read or saved. Try again "
         "later, or restart the app."
@@ -1993,6 +1997,10 @@ _DE: dict[str, str] = {
     "account.demo_note": (
         "Demo-Modus: erfundene Nutzer in einer temporären Datenbank, die beim Beenden der App "
         "gelöscht wird."
+    ),
+    "account.demo_trace_note": (
+        "Das Tracing läuft ohne Maskierung (nur Demo): Was Sie hier eingeben, wird an LangSmith "
+        "gesendet und ist dort lesbar. Geben Sie nur erfundene Daten ein."
     ),
     "account.store_unavailable": (
         "Ihre gespeicherten Daten können gerade nicht geöffnet werden, daher wird nichts gelesen "

@@ -8,7 +8,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 from streamlit.util import calc_hash
 
-from src import config, demo
+from src import config, demo, i18n, tracing
 from src.store import db, records
 from src.store import my_data as stored_data
 from tests.store_world import no_threads
@@ -232,11 +232,13 @@ def demo_store_is_fresh(monkeypatch):
     resources.demo_store.clear()
 
 
-def start_demo(monkeypatch, *, auth=False) -> AppTest:
-    """Run app.py with DEMO_MODE on (and an [auth] section if asked)."""
+def start_demo(monkeypatch, *, auth=False, language=None) -> AppTest:
+    """Run app.py with DEMO_MODE on (and an [auth] section or a language if asked)."""
     monkeypatch.setattr("streamlit.user", FakeUser())
     at = AppTest.from_file(str(APP))
     at.secrets["DEMO_MODE"] = True
+    if language is not None:
+        at.session_state[i18n.SESSION_KEY] = language
     if auth:
         at.secrets["auth"] = dict(AUTH)
         at.secrets["account"] = {"user_key_secret": SECRET}
@@ -252,6 +254,33 @@ def test_demo_mode_offers_the_synthetic_users(monkeypatch, demo_store_is_fresh):
     assert picker.value is None
     assert not [item for item in at.button if item.label == "Sign in with Google"]
     assert "Demo mode" in texts(at)
+
+
+@pytest.mark.parametrize("language", ["en", "de"])
+def test_the_demo_warns_while_traces_go_unmasked(monkeypatch, demo_store_is_fresh, language):
+    """With the demo gate open (T9.35) the start page warns, in the chosen language."""
+    monkeypatch.setattr(tracing, "demo_gate_open", lambda: True)
+    page = texts(start_demo(monkeypatch, language=language))
+    assert i18n.TEXT[language]["account.demo_trace_note"] in page
+
+
+@pytest.mark.parametrize("language", ["en", "de"])
+def test_the_demo_does_not_warn_while_traces_are_masked(monkeypatch, demo_store_is_fresh, language):
+    """With the gate closed (the default) the warning is not on the page; the demo note is."""
+    monkeypatch.setattr(tracing, "demo_gate_open", lambda: False)
+    page = texts(start_demo(monkeypatch, language=language))
+    assert i18n.TEXT[language]["account.demo_trace_note"] not in page
+    assert i18n.TEXT[language]["account.demo_note"] in page
+
+
+def test_the_picked_demo_user_still_sees_the_warning_in_the_sidebar(
+    monkeypatch, demo_store_is_fresh
+):
+    """After a demo user is picked, the sidebar keeps the warning (T9.35)."""
+    monkeypatch.setattr(tracing, "demo_gate_open", lambda: True)
+    at = start_demo(monkeypatch)
+    at.selectbox(key="demo_user_start").set_value(demo.COACH.id).run(timeout=30)
+    assert i18n.TEXT["en"]["account.demo_trace_note"] in texts(at)
 
 
 def test_picking_a_demo_gymer_loads_their_profile_from_the_demo_database(

@@ -53,7 +53,9 @@ For a reviewer or a clone with no Google client: set `DEMO_MODE = true` in `.str
 
 ## Tracing with LangSmith (T9.8, D19)
 
-Off unless `FITCOACH_TRACING` and `LANGSMITH_API_KEY` are both set (secrets or environment); LangSmith's own `LANGSMITH_TRACING` flag is ignored. The account is in the EU region (`config.LANGSMITH_ENDPOINT`; the owner creates it, O10). A trace holds metadata only (`docs/SECURITY.md`, the LangSmith row). A public deployment leaves both unset until the owner has decided on LangSmith as a processor (a data processing agreement, the transfer to a US company even with EU storage) and the privacy notice names it.
+Off unless `FITCOACH_TRACING` and `LANGSMITH_API_KEY` are both set (secrets or environment); LangSmith's own `LANGSMITH_TRACING` flag is ignored. The account is in the EU region (`config.LANGSMITH_ENDPOINT`; the owner creates it, O10). A trace holds metadata only, except in T9.35's demo mode below (`docs/SECURITY.md`, the LangSmith row). A public deployment leaves both unset until the owner has decided on LangSmith as a processor (a data processing agreement, the transfer to a US company even with EU storage) and the privacy notice names it.
+
+`FITCOACH_TRACING_DEMO_UNMASKED` (T9.35) is for a local demo with made-up users only: it works only with `DEMO_MODE` and never with `[auth]`, and a public deployment never sets it.
 
 ## Deploy steps (Streamlit Community Cloud, first time)
 
