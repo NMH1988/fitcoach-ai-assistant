@@ -78,11 +78,13 @@ Before copying:
 
 Copying (keeps the full history):
 1. Clone the course repository and check that it is empty, or note what the course put there (e.g. its own README) so nothing of theirs is overwritten without asking.
-2. From the personal repo: `git remote add course <course repo URL>` and `git push course main` (add `--force` only if the course repo is empty apart from a placeholder and the course allows it). If the course repo already has commits of its own, merge instead, as in "Updating the course repository later" below.
+2. From the personal repo: `git remote add course <course repo URL>` and `git push course main` (add `--force` only if the course repo is empty apart from a placeholder and the course allows it). If the course repo already has commits of its own, merge instead, as in "Updating the course repository later" below; the first merge into a new course repo needs `--allow-unrelated-histories` (the two histories share no commit), the later updates do not.
 3. In the course repo: check that the README renders and CI runs. If the reviewers work through pull requests, disable or delete `.github/workflows/pr-checks.yml` there: it fails any PR that does not close an issue, and the course repo may have no issues. `.github/workflows/eval.yml` (T8.6) comes along too: it runs only when someone with write access starts it, and the course repository has no `OPENROUTER_API_KEY_EVAL` secret (never add one there), so a started run stops at the index build with the missing-key message and spends nothing.
 4. Update the repo links in `docs/BRIEF.md` and this file if the reviewers should only see the course repo. The links to the personal repo in the `#<n>` notes of `README.md`, `docs/IMPLEMENTATION_PLAN.md` and `docs/PROGRESS.md` stay: the numbers only make sense there.
 
 Done on 2026-10-22 (T6.2): the course repository is https://github.com/TuringCollegeSubmissions/mnguye-AE.AFA.updated0209.2.5. It held the course's first commit with its task description (`125.md`), which is kept, so the copy is a merge of that commit (fc25447) and this repo's `main` at 8bcdc74, not a force push; the course repo's `main` is then 8a27496. The reviewers read the files only (O6), so `pr-checks.yml` stays.
+
+Done on 2026-11-16 (T9.11b, Sprint 3): the course repository is https://github.com/TuringCollegeSubmissions/mnguye-AE.AFA.updated0209.3.6 (private, the course's). It held the course's first commit with its task description (`135.md`), which is kept, so the copy is again a merge, of that commit (0c3c9ed) and this repo's `main` at 8b53c17, after the whole-repo compliance run on 8b53c17 (`docs/SECURITY.md`, "Compliance reviews"); the course repo's `main` is then 1ee22dd, which differs from 8b53c17 only by `135.md`, and CI passed on it (lint, test, security). The README renders. As for Sprint 2, the reviewers are taken to read the files only, so `pr-checks.yml` stays. Dependabot's configuration travels with the files, so Dependabot opens its bump PRs in the course repository too; they are not merged there (bumps reach it through this repo's `main`). Later updates follow the steps below.
 
 Updating the course repository later (allowed before the deadline):
 1. Merge the change into this repo's `main` first, through its PR as usual.
@@ -98,7 +100,7 @@ Updating the course repository later (allowed before the deadline):
    git switch main
    ```
    It merges `origin/main`, not the local `main`, which may not have the PR merged on GitHub yet.
-   Never merge `course/main` into this repo's `main`: the course's own commit (`125.md`) would land in the personal repo.
+   Never merge `course/main` into this repo's `main`: the course's own commit (its task file, `125.md` for Sprint 2, `135.md` for Sprint 3) would land in the personal repo.
 4. Check that CI passes on the course repo's new `main`.
 
 ## After each deploy
