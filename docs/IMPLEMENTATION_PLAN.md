@@ -143,7 +143,7 @@ Deadline: **2026-11-02** (Sprint 2, already submitted by the owner, 2026-10-28).
 | [T9.16](tickets/T9.16.md) | #116 | Weekly review with the coach's approval | L | T9.3, T9.15, T9.19, O15 | 11-09 | done |
 | [T9.11a](tickets/T9.11a.md) | NMH1988/fitcoach-ai-assistant#75 | The app's title, intro and chat texts name training principles (split from T9.11, owner's choice, 2026-11-06) | S | T9.20 | 11-15 | done |
 | [T9.11](tickets/T9.11.md) | #106 (NMH1988/fitcoach-ai-assistant#14) | Sprint 3 documentation and reflection | M | the P0 tickets, T9.11a, T9.27 (dropped if T9.27 is cut) | 11-17 (was 11-16; after T9.27) | done |
-| [T9.11b](tickets/T9.11b.md) | NMH1988/fitcoach-ai-assistant#99 | Copy the repo into the Sprint 3 course repository (split from T9.11, owner's choice, 2026-11-09) | S | T9.11, the course repository's URL | before 11-23 | todo |
+| [T9.11b](tickets/T9.11b.md) | NMH1988/fitcoach-ai-assistant#99 | Copy the repo into the Sprint 3 course repository (split from T9.11, owner's choice, 2026-11-09) | S | T9.11, the course repository's URL | before 11-23 | done |
 | **Epic 9: should, P1 and extras** | | | | | | |
 | [T9.17](tickets/T9.17.md) | #117 | Coach assistant: client tools, a follow-up flag, coach-set targets (should; raised from P1 by T9.24) | M | T9.16, O15 | 11-10 (right after P0, T9.24; the dates after it were not moved) | done |
 | [T9.8](tickets/T9.8.md) | #103 (NMH1988/fitcoach-ai-assistant#11) | LangSmith tracing with personal data masked (should) | M | T9.2, T8.2, O10 | 11-10 | done |
