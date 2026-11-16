@@ -30,7 +30,7 @@ dependencies = [
     "langsmith==0.14.12",
     # Used directly by src/llm.py (its error classes); its retry policy is what the tests pin.
     "openai==3.46.0",
-    "pydantic==2.14.1",
+    "pydantic==2.14.3",
     "rank-bm25==0.2.2",
     "rapidfuzz==3.14.6",
     # Not used by our code: it comes with streamlit and reportlab. Pinned like the rest, so an
