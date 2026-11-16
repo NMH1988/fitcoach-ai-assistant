@@ -21,6 +21,7 @@ Keep the entry short and record what the code does not say. `tests/test_docs_lay
 
 ---
 
+- [2026-11-16 · T9.33 Docs: the ticket's status set to done, except the owner's live check · NMH1988/fitcoach-ai-assistant#128 (refs NMH1988/fitcoach-ai-assistant#116)](progress/2026-11-16-T9.33.md)
 - [2026-11-13 · T9.35 Unmasked LangSmith traces in demo mode only, for the reviewer's demo · NMH1988/fitcoach-ai-assistant#122 (closes NMH1988/fitcoach-ai-assistant#121)](progress/2026-11-13-T9.35.md)
 - [2026-11-12 · T9.34 Docs: the ticket's status set to done · NMH1988/fitcoach-ai-assistant#120 (refs NMH1988/fitcoach-ai-assistant#117)](progress/2026-11-12-T9.34-2.md)
 - [2026-11-11 · T1.16 Docs: diagrams of the app, the RAG search, the tool loop and the store's sharing · NMH1988/fitcoach-ai-assistant#115 (closes NMH1988/fitcoach-ai-assistant#114)](progress/2026-11-11-T1.16.md)
