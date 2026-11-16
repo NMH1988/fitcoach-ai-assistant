@@ -1030,8 +1030,7 @@ def test_traces_are_unmasked_only_with_all_four_conditions(
     if on:
         client = langsmith.run_trees.get_cached_client()
         assert client._anonymizer is (tracing._masked_unless_demo if unmasked else tracing.mask)
-    monkeypatch.setattr(config, "tracing_requested", lambda: False)
-    tracing.configure_tracing()
+    # No cleanup here: the autouse `tracing_is_off` fixture turns tracing off and closes the gate.
 
 
 def test_the_demo_flag_is_off_by_default(monkeypatch):
