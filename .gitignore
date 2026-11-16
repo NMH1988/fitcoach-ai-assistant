@@ -39,6 +39,13 @@ chroma/
 # Generated exports
 *.pdf
 
+# Local Claude files, never committed (T9.11b's compliance runs): the desktop app's dev-server
+# config, the local settings (permission rules with absolute paths) and the session worktrees.
+# The rest of .claude/ (agents, rules, skills) is tracked.
+.claude/launch.json
+.claude/settings.local.json
+.claude/worktrees/
+
 # Tool caches
 .coverage
 .pytest_cache/
