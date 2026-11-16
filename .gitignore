@@ -39,8 +39,8 @@ chroma/
 # Generated exports
 *.pdf
 
-# Local editor and preview settings: the Claude desktop app's dev-server config (owner's machine
-# only; the question from T9.11b's compliance run); the rest of .claude/ is tracked
+# The Claude desktop app's dev-server config (owner's machine only; the question from T9.11b's
+# compliance run); only this file is listed here, the rest of .claude/ is tracked
 .claude/launch.json
 
 # Tool caches
