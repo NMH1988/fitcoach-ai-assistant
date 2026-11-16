@@ -84,7 +84,7 @@ Copying (keeps the full history):
 
 Done on 2026-10-22 (T6.2): the course repository is https://github.com/TuringCollegeSubmissions/mnguye-AE.AFA.updated0209.2.5. It held the course's first commit with its task description (`125.md`), which is kept, so the copy is a merge of that commit (fc25447) and this repo's `main` at 8bcdc74, not a force push; the course repo's `main` is then 8a27496. The reviewers read the files only (O6), so `pr-checks.yml` stays.
 
-Done on 2026-11-16 (T9.11b, Sprint 3): the course repository is https://github.com/TuringCollegeSubmissions/mnguye-AE.AFA.updated0209.3.6 (private, the course's). It held the course's first commit with its task description (`135.md`), which is kept, so the copy is again a merge, of that commit (0c3c9ed) and this repo's `main` at 8b53c17, after the whole-repo compliance run on 8b53c17 (`docs/SECURITY.md`, "Compliance reviews"); the course repo's `main` is then 1ee22dd, which differs from 8b53c17 only by `135.md`, and CI passed on it (lint, test, security). The README renders. As for Sprint 2, the reviewers are taken to read the files only, so `pr-checks.yml` stays. Dependabot's configuration travels with the files, so Dependabot opened five bump PRs in the course repository too; the owner had them closed unmerged (bumps reach it through this repo's `main`), and, as GitHub has no switch for version updates and the owner has write access there, not admin, a commit in the course repository only (3b7fb33, 2026-11-16) removed `.github/dependabot.yml` there; this repo keeps it. Since then the course repo's `main` differs from this repo's `main` by `135.md` and the missing `.github/dependabot.yml`. Later updates follow the steps below.
+Done on 2026-11-16 (T9.11b, Sprint 3): the course repository is https://github.com/TuringCollegeSubmissions/mnguye-AE.AFA.updated0209.3.6 (private, the course's). It held the course's first commit with its task description (`135.md`), which is kept, so the copy is again a merge, of that commit (0c3c9ed) and this repo's `main` at 8b53c17, after the whole-repo compliance run on 8b53c17 (`docs/SECURITY.md`, "Compliance reviews"); the course repo's `main` is then 1ee22dd, which differs from 8b53c17 only by `135.md`, and CI passed on it (lint, test, security). The README renders. As for Sprint 2, the reviewers are taken to read the files only, so `pr-checks.yml` stays. Dependabot's configuration travels with the files, so Dependabot opened five bump PRs in the course repository too; the owner had them closed unmerged (bumps reach it through this repo's `main`), and, as GitHub has no switch for version updates and the owner has write access there, not admin, a commit in the course repository only (3b7fb33, 2026-11-16) removed `.github/dependabot.yml` there; this repo keeps it. Since then, right after each update, the course repo's `main` differs from this repo's `main` by `135.md` and the missing `.github/dependabot.yml`. Later updates follow the steps below.
 
 Updating the course repository later (allowed before the deadline):
 1. Merge the change into this repo's `main` first, through its PR as usual.
@@ -95,13 +95,17 @@ Updating the course repository later (allowed before the deadline):
    git fetch course
    git switch --detach course/main
    git merge origin/main -m "T<x.y> Update from NMH1988/fitcoach-ai-assistant"
+   # Sprint 3 only: if the merge stops on a modify/delete conflict for .github/dependabot.yml
+   # (this repo changed the file the course repo removed), keep it removed, then go on:
+   #   git rm .github/dependabot.yml
+   #   git commit --no-edit
+   git diff --stat origin/main HEAD    # must show only the course's task file (and, for Sprint 3, the removed .github/dependabot.yml)
    git log --oneline -1 HEAD^2    # must be the merged PR's commit on main
    git push course HEAD:main
    git switch main
    ```
-   It merges `origin/main`, not the local `main`, which may not have the PR merged on GitHub yet.
+   It merges `origin/main`, not the local `main`, which may not have the PR merged on GitHub yet. While this repo leaves `.github/dependabot.yml` unchanged, the merge keeps it removed in the course repo with no conflict.
    Never merge `course/main` into this repo's `main`: the course's own commit (its task file, `125.md` for Sprint 2, `135.md` for Sprint 3) would land in the personal repo.
-   After the merge, `git diff --stat origin/main HEAD` shows only the course's task file and, for Sprint 3, the removed `.github/dependabot.yml`. The merge keeps the removal as long as this repo leaves `.github/dependabot.yml` unchanged; if a change to it conflicts there, keep it removed (`git rm .github/dependabot.yml`, then `git commit`).
 4. Check that CI passes on the course repo's new `main`.
 
 ## After each deploy
