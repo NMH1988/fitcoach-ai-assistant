@@ -21,6 +21,7 @@ Keep the entry short and record what the code does not say. `tests/test_docs_lay
 
 ---
 
+- [2026-11-16 · T9.11b Follow-up: Dependabot removed from the course repository · NMH1988/fitcoach-ai-assistant#131 (refs NMH1988/fitcoach-ai-assistant#99)](progress/2026-11-16-T9.11b-3.md)
 - [2026-11-16 · T9.11b Follow-up: the local Claude files gitignored · NMH1988/fitcoach-ai-assistant#130 (refs NMH1988/fitcoach-ai-assistant#99)](progress/2026-11-16-T9.11b-2.md)
 - [2026-11-16 · T9.11b Copy the repo into the Sprint 3 course repository · NMH1988/fitcoach-ai-assistant#129 (closes NMH1988/fitcoach-ai-assistant#99)](progress/2026-11-16-T9.11b.md)
 - [2026-11-16 · T9.33 Docs: the ticket's status set to done, except the owner's live check · NMH1988/fitcoach-ai-assistant#128 (refs NMH1988/fitcoach-ai-assistant#116)](progress/2026-11-16-T9.33.md)
