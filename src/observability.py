@@ -82,6 +82,11 @@ ALLOWED_FIELDS = frozenset(
         "cost_usd",
         "duration_ms",
         "searches",
+        # The versions of the prompts a turn or a weekly review ran with (T10.4): IDs, a hash of
+        # the owner's prompt text, never the text (tracing.PROMPT_VERSION_KEYS).
+        "prompt_answer",
+        "prompt_query",
+        "prompt_review",
         # The weekly review (T9.16): how many drafts were asked for, and the failed checks' codes.
         "attempts",
         "checks",

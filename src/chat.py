@@ -15,6 +15,7 @@ that language's part of the owner's prompt to the end of the system prompt, and 
 types picks it (T7.2).
 """
 
+import hashlib
 import logging
 import os
 import re
@@ -163,6 +164,10 @@ class TurnResult:
     # the assistant (T10.1): the answer is still shown, with a line saying the question and answer
     # are not remembered.
     not_remembered: bool = False
+    # The versions of the prompts the turn was set up with, by their trace and log keys
+    # (tracing.PROMPT_ANSWER_KEY, PROMPT_QUERY_KEY), set by run_turn() (T10.4); empty when the
+    # prompts could not be read (a missing file, or a bug), and for a hand-made result.
+    prompts: Mapping[str, str] = field(default_factory=dict)
 
 
 # A citation is one bracket holding labels or ranges: [S1], [S1, S3], [S2; S4], [S1 and S2],
@@ -220,6 +225,23 @@ def knowledge_base_summary(manifest: Mapping[str, Source]) -> KnowledgeBaseSumma
         reviews=sum(source.evidence_tier == 2 for source in articles),
         licenses=tuple(sorted({source.license for source in articles})),
     )
+
+
+def prompt_version(text: str) -> str:
+    """Return a prompt's version: the start of the SHA-256 hex digest of its exact text (T10.4)."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[: config.PROMPT_VERSION_LENGTH]
+
+
+@dataclass(frozen=True)
+class Prompt:
+    """A prompt's text as the model receives it; its version is worked out from that text."""
+
+    text: str
+
+    @property
+    def version(self) -> str:
+        """Return the version of this exact text, so the two can never disagree (T10.4)."""
+        return prompt_version(self.text)
 
 
 def load_system_prompt(path: Path | None = None) -> str:
@@ -654,6 +676,9 @@ def _log_turn(
             "cost_usd": _cost_text(result, prices),
             "duration_ms": round(seconds * 1000),
             "searches": trace.searches,
+            # Which prompts the turn ran with (T10.4): versions, never their text.
+            tracing.PROMPT_ANSWER_KEY: result.prompts.get(tracing.PROMPT_ANSWER_KEY),
+            tracing.PROMPT_QUERY_KEY: result.prompts.get(tracing.PROMPT_QUERY_KEY),
         },
     )
 
@@ -710,6 +735,18 @@ def run_turn(
     from src.agent import search  # The search tool builds on this module's helpers.
 
     search_log = search.SearchLog()
+    from src.agent import graph  # The graph builds its nodes from this module's helpers.
+
+    # The prompts are read once, here, so the run's metadata carries the versions of the very text
+    # the turn sends (T10.4). A missing one is kept and raised by the prepare node, after the guard,
+    # so a rejected input still gets the guard's message as before. Any other error (a bug) is kept
+    # and raised there too, so outcome() maps it to its fixed message and run_turn() never raises.
+    prompts: graph.TurnPrompts | Exception
+    try:
+        prompts = graph.load_turn_prompts(language, coach=coach is not None)
+    except Exception as exc:
+        prompts = exc
+    versions = prompts.versions() if isinstance(prompts, graph.TurnPrompts) else {}
 
     def keep_chunks(chunks: Sequence[RetrievedChunk]) -> None:
         """Keep a search's new chunks for the log line, then pass them to the caller's callback."""
@@ -725,8 +762,6 @@ def run_turn(
 
     def graph_turn() -> TurnResult:
         """Run the turn's graph: the guard first, the index and the models only if it passes."""
-        from src.agent import graph  # The graph builds its nodes from this module's helpers.
-
         # Each factory runs at most once a turn; the prepare node calls them in order (T9.2).
         context = graph.TurnContext(
             chat_model=cache(chat_model),
@@ -755,6 +790,7 @@ def run_turn(
             search_log=search_log,
             turn_id=turn_id,
             coach=coach,
+            prompts=prompts,
         )
 
         def turn_graph(history: list[BaseMessage]) -> Mapping[str, Any]:
@@ -762,12 +798,12 @@ def run_turn(
             return graph.chat_graph().invoke(
                 {"text": text, "history": history},
                 context=context,
-                config=graph.run_config(turn_id, run_trace),
+                config=graph.run_config(turn_id, run_trace, versions),
             )
 
         if conversation is None:
             return turn_graph([])["result"]
-        return conversation.run(turn_graph, turn_id)
+        return conversation.run(turn_graph, turn_id, versions)
 
     def failed(message: str, code: str, *, index_not_ready: bool = False) -> TurnResult:
         """Return an error result with the steps run and the tokens spent before the error."""
@@ -815,7 +851,7 @@ def run_turn(
             return failed(config.TURN_ERROR_MESSAGE, "turn.error")
         return replace(result, steps=tuple(steps), usage=tuple(recorder.calls))
 
-    result = replace(outcome(), turn_id=turn_id)
+    result = replace(outcome(), turn_id=turn_id, prompts=versions)
     trace.searches = len(search_log.searches)
     try:
         _log_turn(result, language, trace, time.monotonic() - started, prices)

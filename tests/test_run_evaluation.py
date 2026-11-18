@@ -609,6 +609,54 @@ def test_main_writes_the_results_file_next_to_the_report(real_pieces, tmp_path, 
     assert document["runs"][0]["cost_usd"] is None
 
 
+# --- The prompts' versions (T10.4) ----------------------------------------------------------------
+
+
+def test_the_results_file_records_the_prompt_versions_the_turns_ran_with(real_pieces, tmp_path):
+    """The file names the answer and rewrite prompts' versions, the same each turn sent."""
+    item = {"id": "q1", "question": QUESTION, "expected_sources": ["1"], "good_answer": "x"}
+    assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 0
+    _, document = _results_file(tmp_path)
+    system = real_pieces.calls[0][0].content
+    assert document["prompts"] == {
+        "prompt_answer": chat.prompt_version(system),
+        "prompt_query": chat.prompt_version("Test prompt."),
+    }
+    assert document["prompts_changed_during_run"] is False
+
+
+def test_a_prompt_edited_during_the_run_is_flagged_and_noted(
+    real_pieces, tmp_path, monkeypatch, capsys
+):
+    """A turn that ran with another answer prompt than the start's sets the flag and a note."""
+    item = {"id": "q1", "question": QUESTION, "expected_sources": [], "good_answer": "x"}
+    run_turn = chat.run_turn
+
+    def edited_first(*args, **kwargs):
+        """Edit the answer prompt before the turn reads it, as an owner could mid-run."""
+        config.ANSWER_PROMPT_PATH.write_text("Edited prompt.", encoding="utf-8")
+        return run_turn(*args, **kwargs)
+
+    monkeypatch.setattr(chat, "run_turn", edited_first)
+    assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 0
+    _, document = _results_file(tmp_path)
+    assert document["prompts"]["prompt_answer"] != chat.prompt_version(
+        real_pieces.calls[0][0].content
+    )
+    assert document["prompts_changed_during_run"] is True
+    assert "Note: a prompt changed during the run" in capsys.readouterr().out
+
+
+def test_a_missing_prompt_stops_the_run_before_any_question(real_pieces, tmp_path, capsys):
+    """Without the answer prompt the run stops at the start with its message (exit 1)."""
+    config.ANSWER_PROMPT_PATH.unlink()
+    item = {"id": "q1", "question": QUESTION, "expected_sources": [], "good_answer": "x"}
+    assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 1
+    assert config.PROMPT_MISSING_MESSAGE in capsys.readouterr().err
+    assert real_pieces.calls == []
+    assert not (tmp_path / "eval_runs").exists()
+
+
 def test_the_results_file_records_the_index_the_run_used(real_pieces, tmp_path):
     """The file holds the index's chunk and source counts, so a fresh build is noted (T8.6)."""
     item = {"id": "q1", "question": QUESTION, "expected_sources": ["1"], "good_answer": "x"}
@@ -1080,6 +1128,8 @@ def test_langsmith_records_the_run_as_an_experiment_on_the_dataset(
     assert project["metadata"]["scored"] is False
     assert project["metadata"]["questions_file"] == "questions.json"
     assert project["metadata"]["answer_model"] == config.DEFAULT_ANSWER_MODEL
+    # The prompts' versions as the run started (T10.4), the same as in the results file.
+    versions = {key: project["metadata"][key] for key in ("prompt_answer", "prompt_query")}
     # The turn ran with the experiment's tracer, and its feedback names its root run.
     [trace] = traces
     assert isinstance(trace, tracing.RunTrace)
@@ -1098,6 +1148,7 @@ def test_langsmith_records_the_run_as_an_experiment_on_the_dataset(
     # The report and the results file are written as without --langsmith.
     _, document = _results_file(tmp_path)
     assert document["runs"][0]["expected_cited"] == ["1"]
+    assert document["prompts"] == versions
     assert len(list((tmp_path / "eval_runs").glob("run-*.md"))) == 1
 
 

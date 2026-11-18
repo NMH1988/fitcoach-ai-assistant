@@ -211,11 +211,12 @@ class Conversation:
         )
         self.thread_id = str(uuid.uuid4())
 
-    def config(self, turn_id: str = "") -> RunnableConfig:
+    def config(self, turn_id: str = "", prompts: Mapping[str, str] | None = None) -> RunnableConfig:
         """Return the run config of the current thread; with the turn's ID as metadata (T9.8)."""
+        # A turn's prompt versions too (T10.4): this graph's run is the root of the turn's trace.
         run: RunnableConfig = {"configurable": {"thread_id": self.thread_id}}
         if turn_id:
-            run["metadata"] = tracing.run_metadata(turn_id)
+            run["metadata"] = tracing.run_metadata(turn_id, prompts)
         return run
 
     def messages(self) -> list[AnyMessage]:
@@ -254,7 +255,10 @@ class Conversation:
         return outcome
 
     def run(
-        self, run_turn: Callable[[list[AnyMessage]], Mapping[str, Any]], turn_id: str = ""
+        self,
+        run_turn: Callable[[list[AnyMessage]], Mapping[str, Any]],
+        turn_id: str = "",
+        prompts: Mapping[str, str] | None = None,
     ) -> TurnResult:
         """Run one turn on the current thread and return its result."""
         # run_turn() passes its turn's ID; a run without one still gets an ID for its trace.
@@ -267,7 +271,7 @@ class Conversation:
         # LangGraph's default durability saves in the background, but the run waits for those
         # saves before invoke() returns, so the next turn sees this one. "sync" is not used: the
         # turn's graph inherits it and, having no checkpointer, fails on it (langgraph 1.2.17).
-        self.graph.invoke({"messages": []}, self.config(turn_id), context=context)
+        self.graph.invoke({"messages": []}, self.config(turn_id, prompts), context=context)
         if context.errors:
             # run_turn() maps it to a fixed message, as for a turn without a conversation.
             raise context.errors[0]
