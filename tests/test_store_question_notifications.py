@@ -53,6 +53,7 @@ def _approved(conn, coach, client, week=WEEK, scopes=("nutrition", "training")) 
         data_quality={},
         draft={"observations": ["CANARY-REVIEW-TEXT"]},
         model_version="m",
+        prompt_version="0123456789ab",
         scopes=scopes,
     )
     reviews.decide_review(conn, coach, review, "approve")

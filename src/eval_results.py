@@ -93,6 +93,14 @@ class GitState:
     changes: str | None = None
 
 
+def prompts_changed_during_run(
+    start: Mapping[str, str], turns: Sequence[Mapping[str, str]]
+) -> bool:
+    """Return True if any turn ran with other prompt versions than those read at the start."""
+    # A turn whose prompt could not be read has no versions, which counts as a change too (T10.4).
+    return any(dict(turn) != dict(start) for turn in turns)
+
+
 def cost_text(cost: Decimal | None) -> str | None:
     """Return a cost as plain decimal text (no exponent), or None when the price was unknown."""
     return None if cost is None else format(cost, "f")
@@ -246,6 +254,8 @@ def results_document(
     questions_file: str,
     scores: Mapping | None = None,
     index: Mapping[str, int] | None = None,
+    prompts: Mapping[str, str] | None = None,
+    prompts_changed: bool | None = None,
 ) -> dict:
     """Return the whole results file: the run's details, then every run's record."""
     # `commit` and `dirty` are read when the run starts, as the modules are loaded then; the
@@ -254,6 +264,8 @@ def results_document(
     # `scores` (T9.10) is there only for a scored run (--score); fields were only added, so the
     # schema version stays 1. `index` (T8.6) holds the index's chunk and source counts, so a run on
     # another index (a fresh build) is noted by the check; fields were only added again.
+    # `prompts` (T10.4) holds the versions of the prompts read when the run starts, by their trace
+    # keys, and `prompts_changed_during_run` whether a turn ran with others; added fields again.
     document = {
         "schema_version": config.EVAL_RESULTS_SCHEMA_VERSION,
         "commit": git.commit,
@@ -262,6 +274,8 @@ def results_document(
         "dirty_at_end": git_at_end.dirty,
         "changed_during_run": changed_during_run(git, git_at_end),
         "models": dict(models),
+        "prompts": dict(prompts) if prompts is not None else None,
+        "prompts_changed_during_run": prompts_changed,
         "language": language,
         "repeat": repeat,
         "date": started.astimezone().isoformat(timespec="seconds"),

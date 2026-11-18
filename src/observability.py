@@ -50,6 +50,9 @@ EVENTS = frozenset(
         # The chat's food tool asked the USDA FoodData Central API (T9.9): the outcome's code and
         # the tool status only; never the food's name or the key.
         "food_api",
+        # The chat's memory did not keep an answer that reads like an instruction (T10.1): the
+        # turn's ID only; never the question, the answer or the pattern that matched.
+        "memory_answer_dropped",
         LOG_FAILED_EVENT,
     }
 )
@@ -82,6 +85,11 @@ ALLOWED_FIELDS = frozenset(
         "cost_usd",
         "duration_ms",
         "searches",
+        # The versions of the prompts a turn or a weekly review ran with (T10.4): IDs, a hash of
+        # the owner's prompt text, never the text (tracing.PROMPT_VERSION_KEYS).
+        "prompt_answer",
+        "prompt_query",
+        "prompt_review",
         # The weekly review (T9.16): how many drafts were asked for, and the failed checks' codes.
         "attempts",
         "checks",

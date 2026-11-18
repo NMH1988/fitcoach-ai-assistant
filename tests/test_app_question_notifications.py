@@ -35,6 +35,7 @@ def _approved(conn, coach: str, client: str) -> int:
         data_quality={},
         draft={"observations": ["CANARY-REVIEW-TEXT"]},
         model_version="m",
+        prompt_version="0123456789ab",
     )
     reviews.decide_review(conn, coach, review, "approve")
     return review

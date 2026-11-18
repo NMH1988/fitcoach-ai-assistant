@@ -249,6 +249,51 @@ def test_prepare_opens_the_index_then_the_translator_then_the_answer_model():
     assert steps == [Step.PLAN]
 
 
+def test_prepare_sends_the_prompts_it_is_given_and_reads_no_file(tmp_path, monkeypatch):
+    """With the turn's prompts in the context the files are not read again (T10.4)."""
+    for name in ("ANSWER_PROMPT_PATH", "QUERY_TRANSLATION_PROMPT_PATH"):
+        monkeypatch.setattr(config, name, tmp_path / "missing.md")
+    prompts = graph.TurnPrompts(chat.Prompt("Read before the run."), chat.Prompt("Rewrite."))
+    context = _context(open_index=lambda: None, translation_model=lambda: None, prompts=prompts)
+    update = graph.prepare({"question": QUESTION}, _runtime(context))
+    assert update["system_prompt"] == "Read before the run."
+    assert update["translation_prompt"] == "Rewrite."
+    assert update["messages"][0].content == "Read before the run."
+
+
+def test_prepare_raises_the_prompt_error_kept_before_the_run():
+    """A prompt that could not be read before the run is reported here, before anything opens."""
+    opened = []
+    kept = chat.PromptMissingError(config.PROMPT_MISSING_MESSAGE, "prompt.answer_missing")
+    context = _context(open_index=lambda: opened.append("index"), prompts=kept)
+    with pytest.raises(chat.PromptMissingError) as raised:
+        graph.prepare({"question": QUESTION}, _runtime(context))
+    assert raised.value.code == "prompt.answer_missing"
+    assert opened == []
+
+
+def test_the_turn_prompts_join_the_language_and_coach_parts_as_sent():
+    """The answer prompt is the owner's text, the language part, then a coach's part (T9.7)."""
+    guest = graph.load_turn_prompts("en", coach=False)
+    coach = graph.load_turn_prompts("en", coach=True)
+    assert guest.answer.text.startswith("Test system prompt.\n\nTest language part")
+    assert coach.answer.text.startswith(guest.answer.text + "\n\n")
+    assert guest.answer.version != coach.answer.version
+    assert guest.translation.text == "Test query translation prompt."
+    assert guest.versions() == {
+        "prompt_answer": chat.prompt_version(guest.answer.text),
+        "prompt_query": chat.prompt_version(guest.translation.text),
+    }
+
+
+def test_the_run_config_carries_the_turn_id_and_the_prompt_versions():
+    """The versions go on the run's metadata next to the turn_id (T10.4)."""
+    versions = graph.load_turn_prompts("en", coach=False).versions()
+    run = graph.run_config("turn-1", None, versions)
+    assert run["metadata"] == {"turn_id": "turn-1", **versions}
+    assert graph.run_config("turn-1")["metadata"] == {"turn_id": "turn-1"}
+
+
 def test_prepare_sends_the_question_alone_and_waits_for_a_basis():
     """The request holds the system prompt and <user_input> only: no <sources>, no <profile>."""
     context = _context(open_index=lambda: None, translation_model=lambda: None)

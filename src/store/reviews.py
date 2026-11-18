@@ -44,8 +44,8 @@ class ReviewExists(ValueError):
 _INSERT_REVIEW = """
 INSERT INTO ai_reviews (
     client_id, coach_id, period_start, metrics, data_quality, draft,
-    status, edited_by_coach, model_version, created_at, thread_id
-) VALUES (?, ?, ?, ?, ?, ?, 'PENDING_REVIEW', 0, ?, ?, ?)
+    status, edited_by_coach, model_version, prompt_version, created_at, thread_id
+) VALUES (?, ?, ?, ?, ?, ?, 'PENDING_REVIEW', 0, ?, ?, ?, ?)
 """
 _INSERT_REF = "INSERT INTO ai_evidence_refs (review_id, source_id, chunk_id) VALUES (?, ?, ?)"
 _INSERT_SCOPE = "INSERT INTO ai_review_scopes (review_id, scope) VALUES (?, ?)"
@@ -215,11 +215,13 @@ def save_review(
     data_quality: Mapping,
     draft: Mapping,
     model_version: str,
+    prompt_version: str,
     evidence_refs: Sequence[tuple[str, str]] = (),
     scopes: Sequence[str] = ("nutrition",),
     thread_id: str | None = None,
 ) -> int:
     """Save a drafted review as PENDING_REVIEW with its evidence and scopes; return its ID."""
+    # prompt_version: the version of the review prompt that drafted it (T10.4), beside the model.
     used = _ordered_scopes(scopes)
     week = values.date_text(period_start, "period_start")
     row = (
@@ -228,6 +230,7 @@ def save_review(
         _json_text(data_quality, "data_quality"),
         _json_text(draft, "draft"),
         values.text(model_version, "model_version"),
+        values.prompt_version(prompt_version),
         values.utc_text(),
         None if thread_id is None else values.text(thread_id, "thread_id"),
     )

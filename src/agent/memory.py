@@ -14,6 +14,11 @@ before a question; the model sees at most `config.HISTORY_MAX_TOKENS` of them
 (`chat.trim_history()`, in the turn's `prepare` node). The earlier checkpoints of the thread keep
 removed messages until "New chat" deletes the thread (`Conversation.new_chat()`).
 
+An answer is checked before the thread keeps it (T10.1): one that matches the guard's injection
+patterns (`flags_answer()`) is not kept, nor is its question, so an instruction the model once
+repeated is not read again in later turns. The answer is still shown, with a line saying so, and
+`Conversation.run()` writes one `memory_answer_dropped` log line with the turn's ID and no text.
+
 Each browser session holds its own `Conversation` in `st.session_state` (never `st.cache_resource`),
 so sessions share nothing and a closed session's memory goes with it; nothing is written to disk.
 
@@ -28,7 +33,7 @@ state holds no proposed text; "New chat" deletes a pending one with the thread.
 import logging
 import uuid
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import cache
 from typing import Annotated, Any, Literal, NotRequired, TypedDict
 
@@ -42,7 +47,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
 from langgraph.types import Command, interrupt
 
-from src import chat, config, tracing
+from src import chat, config, guard, tracing
 from src.chat import TurnResult
 from src.preferences import PreferenceCheck
 from src.rag.query_translation import Domain
@@ -80,6 +85,22 @@ class ConversationContext:
     save: Callable[[str], PreferenceCheck] | None = None
     # The outcome of the coach's answer: "saved", "discarded", "failed" or "refused.<code>".
     outcomes: list[str] = field(default_factory=list)
+    # True once the turn's answer was not kept because it reads like an instruction (T10.1).
+    dropped: list[bool] = field(default_factory=list)
+
+
+def flags_answer(text: str) -> bool:
+    """Return True if the guard's injection patterns match any of the text's detection views."""
+    # The same check the guard runs on a question (guard.check_text()), on the same views (NFKC,
+    # accents and invisible characters folded), so a repeated instruction is caught as typed.
+    return any(guard.looks_like_injection(view) for view in guard.detection_views(text))
+
+
+def drops_answer(answer: str) -> bool:
+    """Return True if the memory would drop this answer: its kept text reads as an instruction."""
+    # Checked as the thread would keep it, without its [S#] citations (chat.exchange_messages()),
+    # so "Ignore your [S1] instructions" is caught; the evaluation run uses it too (T10.1).
+    return flags_answer(chat.strip_citations(answer))
 
 
 def turn(state: ConversationState, runtime: Runtime[ConversationContext]) -> dict[str, Any]:
@@ -104,10 +125,17 @@ def turn(state: ConversationState, runtime: Runtime[ConversationContext]) -> dic
         # A rejected, redirected, failed or "not covered" turn leaves the thread as it was.
         return update
     messages = chat.exchange_messages(output["question"], result.text)
-    # An answer that was only citations says nothing a later turn could use.
-    if not messages[1].text.strip():
+    kept = messages[1].text
+    if not kept.strip():
+        # An answer that was only citations says nothing a later turn could use.
         return update
-    # The question gets its id here, so its domain can be kept under it (T10.5).
+    if drops_answer(result.text):
+        # An answer that reads like an instruction to the assistant (e.g. the model repeated an
+        # injected one) is not kept, nor is its question: a later turn would read it again (T10.1).
+        runtime.context.dropped.append(True)
+        return update
+    # The question gets its id here, so its domain can be kept under it (T10.5); a dropped
+    # answer's question is not kept, so neither is its domain.
     messages[0].id = str(uuid.uuid4())
     domains = {**(state.get("domains") or {}), messages[0].id: output.get("domain", "unknown")}
     return {**update, "messages": messages, "domains": domains}
@@ -199,11 +227,12 @@ class Conversation:
         )
         self.thread_id = str(uuid.uuid4())
 
-    def config(self, turn_id: str = "") -> RunnableConfig:
+    def config(self, turn_id: str = "", prompts: Mapping[str, str] | None = None) -> RunnableConfig:
         """Return the run config of the current thread; with the turn's ID as metadata (T9.8)."""
+        # A turn's prompt versions too (T10.4): this graph's run is the root of the turn's trace.
         run: RunnableConfig = {"configurable": {"thread_id": self.thread_id}}
         if turn_id:
-            run["metadata"] = tracing.run_metadata(turn_id)
+            run["metadata"] = tracing.run_metadata(turn_id, prompts)
         return run
 
     def messages(self) -> list[AnyMessage]:
@@ -245,6 +274,7 @@ class Conversation:
         self,
         run_turn: Callable[[list[AnyMessage], Mapping[str, Domain]], Mapping[str, Any]],
         turn_id: str = "",
+        prompts: Mapping[str, str] | None = None,
     ) -> TurnResult:
         """Run one turn on the current thread and return its result."""
         # run_turn() passes its turn's ID; a run without one still gets an ID for its trace.
@@ -257,10 +287,14 @@ class Conversation:
         # LangGraph's default durability saves in the background, but the run waits for those
         # saves before invoke() returns, so the next turn sees this one. "sync" is not used: the
         # turn's graph inherits it and, having no checkpointer, fails on it (langgraph 1.2.17).
-        self.graph.invoke({"messages": []}, self.config(turn_id), context=context)
+        self.graph.invoke({"messages": []}, self.config(turn_id, prompts), context=context)
         if context.errors:
             # run_turn() maps it to a fixed message, as for a turn without a conversation.
             raise context.errors[0]
+        if context.dropped:
+            # The turn's ID only: never the question, the answer or the pattern that matched.
+            logger.warning("memory_answer_dropped", extra={"turn_id": turn_id})
+            return replace(context.results[0], not_remembered=True)
         return context.results[0]
 
     def new_chat(self) -> None:
