@@ -21,7 +21,7 @@ Keep the entry short and record what the code does not say. `tests/test_docs_lay
 
 ---
 
-- [2026-11-18 · T10.3 Structured output: one schema, no dead fields, field descriptions in the models · PR not yet opened (closes NMH1988/fitcoach-ai-assistant#135)](progress/2026-11-18-T10.3.md)
+- [2026-11-18 · T10.3 Structured output: one schema, no dead fields, field descriptions in the models · NMH1988/fitcoach-ai-assistant#145 (closes NMH1988/fitcoach-ai-assistant#135)](progress/2026-11-18-T10.3.md)
 - [2026-11-18 · Plan Epic 10: the Sprint 3 review follow-ups (T10.1-T10.9) · NMH1988/fitcoach-ai-assistant#143 (closes NMH1988/fitcoach-ai-assistant#142)](progress/2026-11-18-plan-epic-10.md)
 - [2026-11-16 · T9.11b Follow-up: Dependabot removed from the course repository · NMH1988/fitcoach-ai-assistant#131 (refs NMH1988/fitcoach-ai-assistant#99)](progress/2026-11-16-T9.11b-3.md)
 - [2026-11-16 · T9.11b Follow-up: the local Claude files gitignored · NMH1988/fitcoach-ai-assistant#130 (refs NMH1988/fitcoach-ai-assistant#99)](progress/2026-11-16-T9.11b-2.md)
