@@ -648,7 +648,19 @@ Sprint 3 review point 5. The `plan` node makes the query plan of the user's ques
   - a nutrition-only turn is not checked, so a meal plan by weekday stays, and so would a schedule in an answer to a question the plan reads as nutrition alone;
   - the plan reads the question without the history: a first question misread as training loses the nutrition tools for that turn (the answer then says "not covered" or misses the point); a follow-up misread as training after a nutrition, both or unknown turn keeps them (owner's choice, 2026-11-18); a follow-up read as unknown is checked;
   - every turn now pays one query translation call, a turn that does not search (a food lookup, a calculation) included, and a follow-up that searches pays one more than before (its first search is translated again).
-- **The owner's runs (O13), to do:** the nutrition and the training baselines against `data/eval_baseline.json` and `data/eval_baseline_training.json` (`python -m scripts.check_eval_baseline`), and the training questions' input tokens before (`main` before T10.5) and after, from the evaluation report's totals. Record the date, the commit, the models and the numbers here.
+- **The owner's runs (O13, 2026-11-18):** `python -m scripts.run_evaluation --repeat 3` from the T10.5 worktree, the config's models (`openai/gpt-5-mini` for the answer, `openai/gpt-5-nano` for the plan and the rewrites, `qwen/qwen3-embedding-8b` for the searches), the index of 2,304 chunks from 31 sources.
+  - **Nutrition** (`data/eval_questions.json`, 51 runs, started at f53ef6e; the head moved to 74928c7 during the run, a docs-only commit, so the code measured is the same): 0 errors, 916,402 tokens, $0.0981; against `data/eval_baseline.json` (`python -m scripts.check_eval_baseline`, exit 0): found 0.8039 (baseline 0.8235, lowest allowed 0.7635), cited 0.8039 (baseline 0.8039, lowest allowed 0.7439). Answer calls: round 1 102,925 input tokens, 85% cached; later rounds 128,570, 86% cached (T10.6's run: 102,925 and 128,398), as nutrition questions keep every tool.
+  - **Training** (`data/eval_questions_training.json`, 30 runs, `--baseline data/eval_baseline_training.json`, exit 0): found 0.8070 (baseline 0.7719, lowest allowed 0.6619), cited 0.7544 (baseline 0.7719, lowest allowed 0.6619). No answer was replaced by the program check and none called a tool (27 answered runs with no tool, t8's three at the injury guard, as before); t7's program request got the principles and the fixed sentence from the prompt.
+  - **Training input tokens, before and after** (before: the same file and command in a worktree of `main` at ccfc860, the commit before T10.5, the same index):
+
+    | | before (ccfc860) | after (74928c7) | change |
+    |---|---|---|---|
+    | answer calls, round 1: input tokens | 66,181 (92% cached) | 58,765 (78% cached) | -11.2% |
+    | answer calls, later rounds: input tokens | 79,028 (82% cached) | 72,288 (80% cached) | -8.5% |
+    | all tokens of the run | 563,716 | 493,932 | -12.4% |
+    | cost of the run | $0.0620 | $0.0631 | +1.8% |
+
+    **Reading:** a training question now sends four tool schemas fewer with every answer call, so the answer calls' input fell by about a tenth, and the run's tokens by an eighth although each turn now pays the plan call. The cost did not fall: a smaller share of round 1's input came from the provider's cache (78% against 92%), likely as the training turns' prompt start (the system prompt and a shorter tool list) differs from the one the nutrition questions had just cached, and the plan call adds a little; the cache is the provider's choice (T10.6), so the share varies between runs. Criterion 5 asks for fewer tokens, which holds; the cost is recorded as measured.
 
 ## Live checks
 
