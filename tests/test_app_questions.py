@@ -49,6 +49,7 @@ def _review(conn, coach, client, monday, scopes=("nutrition",)) -> int:
         data_quality={},
         draft={"observations": [f"Draft of {monday.isoformat()}."]},
         model_version="test-model",
+        prompt_version="0123456789ab",
         scopes=scopes,
     )
     reviews.decide_review(conn, coach, found, "approve")

@@ -122,3 +122,15 @@ def choice(value: object, field: str, allowed: tuple[str, ...]) -> str:
     if value not in allowed:
         raise StoreValueError(field, "is not one of the allowed values")
     return value
+
+
+def prompt_version(value: object, field: str = "prompt_version") -> str:
+    """Return the value if it is a prompt's version: hex characters of a SHA-256 (T10.4)."""
+    # Never config.PROMPT_VERSION_UNKNOWN: that marks only the rows written before migration 7.
+    if (
+        not isinstance(value, str)
+        or len(value) != config.PROMPT_VERSION_LENGTH
+        or any(char not in "0123456789abcdef" for char in value)
+    ):
+        raise StoreValueError(field, "is not a prompt version")
+    return value

@@ -74,6 +74,7 @@ from langchain_chroma import Chroma
 from langchain_core.language_models import BaseChatModel
 
 from src import chat, config, eval_results, experiments, guard, i18n, llm, observability, usage
+from src.agent import graph
 from src.eval_questions import EvalItem, QuestionsFileError, load_eval_items
 from src.rag import hybrid, store
 from src.rag.retriever import RetrievedChunk
@@ -608,6 +609,9 @@ def main(args: Sequence[str] | None = None) -> int:
     # code that ran (T9.21).
     git_at_start = eval_results.git_state(config.PROJECT_ROOT)
     try:
+        # The versions of the prompts as the run starts (T10.4), read the way each turn reads
+        # them (a guest's chat in this language); a missing prompt stops the run here too.
+        prompts = graph.load_turn_prompts(options.language, coach=False).versions()
         # Built and opened before the first question, so a missing key or index stops the run.
         index = store.open_index()
         counts = index_counts(index)
@@ -621,7 +625,7 @@ def main(args: Sequence[str] | None = None) -> int:
             if scoring
             else None
         )
-    except store.IndexNotReadyError as exc:
+    except (store.IndexNotReadyError, chat.PromptMissingError) as exc:
         print(f"Evaluation not run: {exc}", file=sys.stderr)
         return 1
     except config.SecretsFileError:
@@ -651,6 +655,9 @@ def main(args: Sequence[str] | None = None) -> int:
                     "answer_model": usage.model_name(chat_model),
                     "query_translation_model": usage.model_name(translation_model),
                     "embedding_model": config.EMBEDDING_MODEL,
+                    # The prompts' versions as the run starts (T10.4); each turn's own are on
+                    # its trace.
+                    **prompts,
                     "language": options.language,
                     "questions_file": options.path.name,
                     "repeat": options.repeat,
@@ -700,6 +707,9 @@ def main(args: Sequence[str] | None = None) -> int:
     report = write_report(runs, started, config.EVAL_RUNS_DIR, options.language, scores)
     print(f"Full report: {report}")
     git_at_end = eval_results.git_state(config.PROJECT_ROOT)
+    prompts_changed = eval_results.prompts_changed_during_run(
+        prompts, [run.result.prompts for run in runs]
+    )
     results = eval_results.write_results(
         eval_results.results_document(
             run_records(runs, scores),
@@ -716,12 +726,19 @@ def main(args: Sequence[str] | None = None) -> int:
             questions_file=options.path.name,
             scores=score_summary,
             index=counts,
+            prompts=prompts,
+            prompts_changed=prompts_changed,
         ),
         report.with_suffix(".json"),
     )
     print(f"Results file: {results}")
     if note := eval_results.change_note(git_at_start, git_at_end):
         print(note)
+    if prompts_changed:
+        print(
+            "Note: a prompt changed during the run: some turns ran with other prompt versions "
+            "than the results file records (see each turn's trace)."
+        )
     # After both files are written, so a slow LangSmith or a Ctrl-C while it sends loses no paid
     # answer (code review round 1).
     langsmith_failed = experiment is not None and not finish_experiment(experiment, runs, scores)

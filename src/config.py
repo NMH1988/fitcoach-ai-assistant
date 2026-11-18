@@ -437,6 +437,15 @@ ANSWER_LANGUAGE_PROMPT_PATHS = {
 # preference and how to use <memories>. Joined after the language part in a coach's chat only, so a
 # guest's prompt never names the tool.
 ANSWER_COACH_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "answer_coach.md"
+# A prompt's version (T10.4): the first PROMPT_VERSION_LENGTH hex characters of the SHA-256 of the
+# exact text the model receives, so a trace, a log line, a stored review and an evaluation's results
+# say which prompt produced them. A hash of the content, not a number kept by hand: no edit to a
+# prompt can leave it unchanged, and it needs no release step. Migration 7's CHECK on
+# ai_reviews.prompt_version fixes it at 12 (a shipped migration is never edited), so a new length
+# needs a new migration (tests/test_store_db.py checks the two agree).
+PROMPT_VERSION_LENGTH = 12
+# The version stored for a weekly review written before migration 7 recorded one.
+PROMPT_VERSION_UNKNOWN = "unknown"
 
 # Query translation (T3.2; docs/ARCHITECTURE.md section 5): one QUERY_TRANSLATION_MODEL call
 # rewrites the question and picks optional filters. Its system prompt is written by the owner (O7).

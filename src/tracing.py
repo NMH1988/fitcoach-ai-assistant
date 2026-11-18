@@ -15,9 +15,10 @@ too), becomes one placeholder, so neither its keys nor its length show) and repl
 number, boolean and empty value with `config.TRACE_MASK`, except what is listed below: token counts
 and the turn's counters and flow flags, the node and model names LangGraph and LangChain add, the
 app's tool names, statuses, kinds and codes (not a guardrail's code, which names a health topic,
-nor a review's failed checks), `turn_id` (a run's ID, which ties a trace to its log lines), and
-each message's constant LangChain class path, so LangSmith shows a model call's roles. An error
-keeps only its exception's class name. A tool call's arguments are masked whole, keys included. The
+nor a review's failed checks), `turn_id` (a run's ID, which ties a trace to its log lines), the
+prompts' versions (a hash of the owner's prompt text, T10.4), and each message's constant
+LangChain class path, so LangSmith shows a model call's roles. An error keeps only its exception's
+class name. A tool call's arguments are masked whole, keys included. The
 run's name (a node, a model class), its tags and its timing are not data and are sent as LangSmith
 makes them. The question, rewrites, answer, chunk text, profile values, memories, logged values,
 review text, tool arguments and results, and the stored user IDs are masked (AC-33).
@@ -87,6 +88,14 @@ _IDENTIFIER_KEYS = frozenset(
 # The length bounds in these patterns are format checks (an ID, a node path, a model name, a code
 # the app writes), not limits of the app: a longer value is not one of these, so it is masked.
 _IDENTIFIER = re.compile(r"[A-Za-z0-9_./:|-]{1,200}")
+# The prompts' versions on a run's metadata and a log line (T10.4): kept only when the value is a
+# version, the hex characters of `chat.prompt_version()`, never under the identifier rule above,
+# which would keep a short word.
+PROMPT_ANSWER_KEY = "prompt_answer"
+PROMPT_QUERY_KEY = "prompt_query"
+PROMPT_REVIEW_KEY = "prompt_review"
+PROMPT_VERSION_KEYS = frozenset({PROMPT_ANSWER_KEY, PROMPT_QUERY_KEY, PROMPT_REVIEW_KEY})
+_PROMPT_VERSION = re.compile(rf"[0-9a-f]{{{config.PROMPT_VERSION_LENGTH}}}")
 # Codes the app writes itself (a turn's code, a review's outcome). A review's failed checks
 # (`errors`, e.g. diagnosis, calorie_floor) hint at a client's health, so they are masked and stay
 # in the local log only (owner's choice, 2026-11-06, compliance run on T9.8).
@@ -204,6 +213,8 @@ def _kept(key: str | None, value: str | int | float) -> bool:
         return value in _MESSAGE_CLASS_PATH
     if key in _IDENTIFIER_KEYS:
         return _IDENTIFIER.fullmatch(value) is not None
+    if key in PROMPT_VERSION_KEYS:
+        return _PROMPT_VERSION.fullmatch(value) is not None
     if key in _CODE_KEYS:
         return _CODE.fullmatch(value) is not None and not value.startswith(_MASKED_CODE_PREFIX)
     allowed = {"type": _TYPES, "status": _STATUSES, "kind": _KINDS, "name": tool_names()}
@@ -375,9 +386,15 @@ def configure_tracing() -> bool:
         return True
 
 
-def run_metadata(turn_id: str) -> dict[str, str]:
-    """Return the metadata every run of a turn carries: its turn_id, as on its log lines."""
-    return {"turn_id": turn_id} if turn_id else {}
+def run_metadata(turn_id: str, prompts: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Return the metadata every run of a turn carries: its turn_id and its prompts' versions."""
+    # The versions (T10.4) are those of the text the run sends, worked out by its caller from the
+    # prompts it read once; a run that sends no prompt (a coach's decision on a review) has none.
+    # Only the prompt version keys are taken, so no other value can ride along under this call.
+    if not turn_id:
+        return {}
+    versions = {key: value for key, value in (prompts or {}).items() if key in PROMPT_VERSION_KEYS}
+    return {"turn_id": turn_id, **versions}
 
 
 @dataclass(frozen=True)
