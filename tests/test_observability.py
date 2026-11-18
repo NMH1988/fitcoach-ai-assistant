@@ -267,6 +267,8 @@ CANARY_TEXTS = (
     *(c.page_content for c in CHUNKS),
 )
 CANARY_ANSWER = "CANARY-A spread it over four meals [S1]."
+# A question on both domains (T10.5): its answer is checked for a written program.
+PROGRAM_TOPICS = ("protein", config.TRAINING_TOPIC)
 
 
 @pytest.fixture(autouse=True)
@@ -381,7 +383,9 @@ def _paused_conversation() -> Conversation:
     """Return a conversation with a canary proposal waiting, paused without a logged turn."""
     conversation = Conversation()
     result = TurnResult("memory", "x", code="memory.proposed")
-    conversation.run(lambda _history: {"result": result, "proposal": "CANARY-PREF waiting"})
+    conversation.run(
+        lambda _history, _domains: {"result": result, "proposal": "CANARY-PREF waiting"}
+    )
     return conversation
 
 
@@ -394,6 +398,12 @@ def _rewrites_translator() -> ScriptedTranslator:
 
 
 _USAGE = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
+
+
+def _program_translator() -> ScriptedTranslator:
+    """Return a translator whose plan names both domains, so the answer is checked (T10.5)."""
+    plan = plan_json(["CANARY-REWRITE protein", "protein per meal", "weekly sets"], PROGRAM_TOPICS)
+    return ScriptedTranslator(plans=[plan])
 
 
 def _answer_model(reply: AIMessage | None = None) -> ScriptedChatModel:
@@ -546,6 +556,14 @@ CANARY_ENDINGS = {
         index,
         _failing_model(RuntimeError(f"CANARY-ERR {CANARY_KEY} 87.3 kg 181.7 cm age 37")),
     ),
+    # T10.5: an answer to a question on both domains that reads as a written program is replaced;
+    # its log line holds the code, never the answer.
+    "program blocked": lambda index: _canary_turn(
+        "CANARY-Q protein and weekly sets for 87.3 kg?",
+        index,
+        _answer_model(AIMessage("CANARY-A Day 1: CANARY squats. Day 2: CANARY bench [S1].")),
+        _program_translator(),
+    ),
 }
 
 
@@ -626,6 +644,18 @@ def test_a_food_api_search_logs_its_code_not_the_food(index, ending, level, code
     [line] = [line for line in _lines(stream) if line["event"] == "food_api"]
     assert (line["level"], line["code"], line["turn_id"]) == (level, code, result.turn_id)
     assert "CANARYOIL" not in stream.getvalue() and CANARY_FOOD_API_KEY not in stream.getvalue()
+
+
+def test_a_blocked_program_logs_its_code_and_the_turn_id_only(index):
+    """T10.5: one program_blocked line with the fixed message's code; the answer is replaced."""
+    stream = io.StringIO()
+    observability.configure_logging(stream=stream)
+    result = CANARY_ENDINGS["program blocked"](index)
+    assert (result.kind, result.code) == ("guardrail", "answer.program")
+    [line] = [line for line in _lines(stream) if line["event"] == "program_blocked"]
+    assert set(line) == {"ts", "level", "logger", "event", "turn_id", "code"}
+    assert (line["code"], line["turn_id"]) == ("answer.program", result.turn_id)
+    assert "squats" not in stream.getvalue()
 
 
 def test_the_injury_guardrail_logs_its_category_not_the_question(index):

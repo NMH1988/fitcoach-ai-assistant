@@ -109,7 +109,7 @@ def test_a_question_sent_to_the_locked_input_runs_no_turn(monkeypatch):
     model = _model(monkeypatch, AIMessage("Hello again."))
     # A proposal waits while the input on the page is still open, as before the lock is drawn.
     result = TurnResult("memory", "x", code="memory.proposed")
-    at.session_state["conversation"].run(lambda _h: {"result": result, "proposal": CANARY})
+    at.session_state["conversation"].run(lambda _h, _d: {"result": result, "proposal": CANARY})
     _ask(at, "How much protein per meal?")
     assert model.calls == []
     assert at.session_state["conversation"].pending() == CANARY

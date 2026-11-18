@@ -53,6 +53,9 @@ TDEE_TOOL = "calculate_tdee"
 MACRO_TOOL = "calculate_macro_targets"
 FOOD_TOOL = "lookup_food_nutrition"
 MEAL_PLAN_TOOL = "evaluate_meal_plan"
+# Every tool here answers a nutrition question, so a training-only conversation is offered none of
+# them (T10.5). No tool is training-only.
+NUTRITION_TOOLS = frozenset({TDEE_TOOL, MACRO_TOOL, FOOD_TOOL, MEAL_PLAN_TOOL})
 
 # What the model reads about each tool. The profile is never an argument.
 TDEE_DESCRIPTION = (

@@ -166,7 +166,7 @@ Deadline: **2026-11-02** (Sprint 2, already submitted by the owner, 2026-10-28).
 | [T10.2](tickets/T10.2.md) | NMH1988/fitcoach-ai-assistant#134 | Weekly review: kcal figures as numeric fields, checked against the calorie floor by arithmetic | M | O18 (the field descriptions) | tbd (owner) | todo |
 | [T10.3](tickets/T10.3.md) | NMH1988/fitcoach-ai-assistant#135 | Structured output: one schema, no dead fields, field descriptions in the models | M | O18 | tbd (owner) | done |
 | [T10.4](tickets/T10.4.md) | NMH1988/fitcoach-ai-assistant#136 | Prompt versions on traces, log lines, stored reviews and evaluation results | M | - | tbd (owner) | todo |
-| [T10.5](tickets/T10.5.md) | NMH1988/fitcoach-ai-assistant#137 | Tools offered by the question's domain, and the program check on the chat's answer (changes the owner's decision of 2026-10-29) | M | T10.3, O18 (if a line is wanted) | tbd (owner) | todo |
+| [T10.5](tickets/T10.5.md) | NMH1988/fitcoach-ai-assistant#137 | Tools offered by the question's domain, and the program check on the chat's answer (changes the owner's decision of 2026-10-29) | M | T10.3, O18 (if a line is wanted) | tbd (owner) | in progress |
 | [T10.6](tickets/T10.6.md) | NMH1988/fitcoach-ai-assistant#138 | Prompt caching: the cached share per turn in Details, and a system prompt that stays the same within a turn | S | - | tbd (owner) | done |
 | [T10.7](tickets/T10.7.md) | NMH1988/fitcoach-ai-assistant#139 | The chat turn's dependencies as one `TurnDeps` object, same behaviour | S | - | tbd (owner) | todo |
 | [T10.8](tickets/T10.8.md) | NMH1988/fitcoach-ai-assistant#140 | Split `config` and `i18n` into packages by concern, same behaviour | L | T10.7 (order only) | tbd (owner) | todo |

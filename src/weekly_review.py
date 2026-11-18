@@ -26,7 +26,7 @@ from typing import Literal
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from src import config, dashboard
+from src import config, dashboard, guardrails
 from src.chat import sources_block
 from src.prompt_data import escape_prompt_data
 from src.rag.retriever import RetrievedChunk, chunk_key
@@ -406,11 +406,6 @@ def _texts(item: Mapping) -> list[str]:
     ]
 
 
-def _matches_any(patterns: Sequence[str], texts: Iterable[str]) -> bool:
-    """Return True if any pattern is found in any text, without case."""
-    return any(re.search(pattern, text, re.I) for pattern in patterns for text in texts)
-
-
 def _number_values(token: str) -> set[float]:
     """Return the values a written number may have: "2,210.5", "2.210,5", "1,6" and "1.6"."""
     found: set[float] = set()
@@ -565,9 +560,9 @@ def _training_checks(item: Mapping, cited: Sequence[RetrievedChunk]) -> list[str
     # The source's range is checked against its chunk; the other fields must hold no program and
     # no number of sets or volume for this client.
     own = [item[f] for f in ("text", "direction", "population") if isinstance(item.get(f), str)]
-    if _matches_any(config.REVIEW_PROGRAM_PATTERNS, own):
+    if guardrails.matches_any(config.REVIEW_PROGRAM_PATTERNS, own):
         errors.append("program")
-    if _matches_any(config.REVIEW_CLIENT_VOLUME_PATTERNS, own):
+    if guardrails.matches_any(config.REVIEW_CLIENT_VOLUME_PATTERNS, own):
         errors.append("client_volume")
     return errors
 
@@ -585,7 +580,7 @@ def _safety_checks(review: Mapping, chunks: Sequence[RetrievedChunk]) -> list[st
     by_label = label_numbers(chunks)
     errors: list[str] = []
     for item in _items(review):
-        if _matches_any(config.REVIEW_DIAGNOSIS_PATTERNS, _texts(item)):
+        if guardrails.matches_any(config.REVIEW_DIAGNOSIS_PATTERNS, _texts(item)):
             errors.append("diagnosis")
     # A hypothesis that cites a source gets the floor check too: its figure comes from the source,
     # not the client's week, and may read as advice (security-reviewer, 2026-11-06); one without a

@@ -312,7 +312,7 @@ def test_langgraphs_own_signals_pass_through_the_turn_node():
     """An interrupt() pause (T9.7) is not caught as a failed turn: it reaches the graph."""
     from langgraph.errors import GraphInterrupt
 
-    def pause(history):
+    def pause(history, domains):
         """Raise the signal interrupt() raises."""
         raise GraphInterrupt(())
 
@@ -480,6 +480,71 @@ def test_the_cap_never_cuts_between_a_question_and_its_answer(index, monkeypatch
     stored = conversation.messages()
     assert [type(message) for message in stored] == [HumanMessage, AIMessage]
     assert "Question 2" in stored[0].content
+
+
+# --- The domains of the kept turns (T10.5) -------------------------------------------------------
+
+
+def _domains(conversation: Conversation) -> dict:
+    """Return the domains the thread keeps, by question id."""
+    return conversation.graph.get_state(conversation.config()).values.get("domains", {})
+
+
+def test_an_answered_turn_keeps_its_domain_under_its_questions_id(index):
+    """The thread keeps the domain beside the question; the next turn offers tools by it."""
+    conversation = Conversation()
+    nutrition = ScriptedTranslator(topics=("energy_balance",))
+    _ask(
+        conversation,
+        index,
+        OATS_QUESTION,
+        tool_reply((FOOD_TOOL, OATS)),
+        AIMessage("304 kcal."),
+        translator=nutrition,
+    )
+    question = conversation.messages()[0]
+    assert _domains(conversation) == {question.id: "nutrition"}
+    # A follow-up read as training on its own keeps the nutrition tools (owner's choice).
+    training = ScriptedTranslator(topics=(config.TRAINING_TOPIC,))
+    _, model = _ask(
+        conversation, index, "And on training days?", AIMessage("x"), translator=training
+    )
+    bound = {tool["function"]["name"] for tool in model.call_kwargs[0]["tools"]}
+    assert {FOOD_TOOL, TDEE_TOOL, MACRO_TOOL} <= bound
+
+
+def test_the_domains_go_with_the_questions_the_cap_removes(index, monkeypatch):
+    """forget drops the domain of every question it deletes; only the kept ones remain."""
+    monkeypatch.setattr(config, "HISTORY_MAX_MESSAGES", 4)
+    conversation = Conversation()
+    _three_turns(conversation, index)
+    kept = [message.id for message in conversation.messages() if isinstance(message, HumanMessage)]
+    assert set(_domains(conversation)) == set(kept)
+    assert len(kept) == 2
+
+
+def test_an_unanswered_turn_keeps_no_domain(index):
+    """A "not covered" or replaced turn leaves the thread, domains included, as it was."""
+    conversation = Conversation()
+    _ask(conversation, index, "Offside rule?", AIMessage("Offside is..."))
+    assert _domains(conversation) == {}
+
+
+def test_an_answer_replaced_as_a_program_is_not_kept(index):
+    """The fixed sentence stands in for a schedule, and the thread keeps neither (T10.5)."""
+    conversation = Conversation()
+    both = ScriptedTranslator(topics=("protein", config.TRAINING_TOPIC))
+    result, _ = _ask(
+        conversation,
+        index,
+        QUESTION,
+        tool_reply((FOOD_TOOL, OATS)),
+        AIMessage("Monday: squats. Thursday: bench press."),
+        translator=both,
+    )
+    assert (result.kind, result.code) == ("guardrail", "answer.program")
+    assert conversation.messages() == []
+    assert "squats" not in _remembered(conversation)
 
 
 @pytest.mark.parametrize(

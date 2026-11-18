@@ -23,7 +23,7 @@ from src.agent import graph, search
 from src.agent.graph import TurnContext
 from src.agent.search import SearchLog
 from src.chat import Step, TurnResult
-from src.rag import store
+from src.rag import query_translation, store
 from src.tools import coach_clients, registry
 from src.tools.registry import FOOD_TOOL, MEAL_PLAN_TOOL, TDEE_TOOL
 from tests.fakes import (
@@ -32,6 +32,7 @@ from tests.fakes import (
     ScriptedTranslator,
     build_fixture_index,
     open_fixture_index,
+    plan_json,
     search_reply,
     tool_reply,
     write_food_table,
@@ -73,7 +74,7 @@ def _context(model=None, *, steps=None, texts=None, runs=None, **extra) -> TurnC
     model = model or ScriptedChatModel()
     return TurnContext(
         chat_model=lambda: model,
-        tools=lambda: registry.build_tools(PROFILE),
+        tools=extra.pop("tools", lambda: registry.build_tools(PROFILE)),
         on_step=(steps if steps is not None else []).append,
         on_text=texts.append if texts is not None else None,
         on_tool_run=runs.append if runs is not None else None,
@@ -96,12 +97,13 @@ def _request() -> list:
 
 
 def test_the_graph_has_the_turns_nodes():
-    """Guard, prepare, the agent, the ToolNode, end_round and finish; no fixed retrieval (T9.3)."""
+    """Guard, prepare, plan, the agent, the ToolNode, end_round and finish (T9.3, T10.5)."""
     nodes = set(graph.chat_graph().get_graph().nodes)
     assert nodes == {
         "__start__",
         "guard",
         "prepare",
+        "plan",
         "agent",
         "tools",
         "end_round",
@@ -133,7 +135,8 @@ def test_the_edges_put_the_guard_first_and_loop_the_agent_and_tools():
         ("__start__", "guard"),
         ("guard", "prepare"),
         ("guard", "__end__"),
-        ("prepare", "agent"),
+        ("prepare", "plan"),
+        ("plan", "agent"),
         ("agent", "tools"),
         ("agent", "finish"),
         ("tools", "end_round"),
@@ -440,29 +443,289 @@ def test_finish_says_not_covered_when_there_is_no_answer():
     )
 
 
+# --- The plan and the domain (T10.5) ------------------------------------------------------------
+
+TRAINING = "How many sets per muscle group per week?"
+NUTRITION_TOOL_NAMES = {registry.TDEE_TOOL, registry.MACRO_TOOL, FOOD_TOOL, MEAL_PLAN_TOOL}
+
+
+def _plan(*topics: str) -> str:
+    """Return a plan reply with these topics and rewrites of QUESTION."""
+    return plan_json([f"{QUESTION} rewrite {n}" for n in (1, 2, 3)], topics)
+
+
+@pytest.mark.parametrize(
+    ("topics", "domain"),
+    [
+        ((config.TRAINING_TOPIC,), "training"),
+        (("protein", "nutrient_timing"), "nutrition"),
+        (("protein", config.TRAINING_TOPIC), "both"),
+        ((), "unknown"),
+    ],
+)
+def test_the_domain_is_read_from_the_plans_topics(topics, domain):
+    """resistance_training alone is training, nutrition topics alone nutrition, no topic unknown."""
+    plan = query_translation.QueryPlan.model_validate_json(_plan(*topics))
+    assert query_translation.domain_of(plan) == domain
+
+
+def test_no_usable_plan_is_unknown():
+    """A reply that could not be used gives no plan, and an unknown domain."""
+    assert query_translation.domain_of(None) == "unknown"
+
+
+def _plan_state(*plans, earlier=(), first_question=True) -> tuple[dict, ScriptedTranslator]:
+    """Run the plan node with a translator scripted with these replies; return its update."""
+    translator = ScriptedTranslator(plans=list(plans))
+    context = _context(translation_model=lambda: translator)
+    state = {
+        "question": QUESTION,
+        "translation_prompt": "Test query translation prompt.",
+        "earlier_domains": earlier,
+        "first_question": first_question,
+    }
+    return graph.plan(state, _runtime(context)), translator
+
+
+@pytest.mark.parametrize(
+    ("topics", "domain", "training_only", "check_program"),
+    [
+        ((config.TRAINING_TOPIC,), "training", True, True),
+        (("protein",), "nutrition", False, False),
+        (("protein", config.TRAINING_TOPIC), "both", False, True),
+        ((), "unknown", False, True),
+    ],
+)
+def test_the_plan_node_works_out_the_domain_before_the_agent(
+    topics, domain, training_only, check_program
+):
+    """One translation call of the question; the domain decides the tools and the check."""
+    update, translator = _plan_state(_plan(*topics))
+    assert len(translator.calls) == 1
+    assert QUESTION in translator.calls[0][-1].text
+    assert (update["domain"], update["training_only"], update["check_program"]) == (
+        domain,
+        training_only,
+        check_program,
+    )
+
+
+def test_a_plan_that_cannot_be_used_is_unknown_and_checked():
+    """A reply off the schema gives no plan: every tool, and the answer is checked."""
+    update, _ = _plan_state("not json")
+    assert (update["domain"], update["training_only"], update["check_program"]) == (
+        "unknown",
+        False,
+        True,
+    )
+    assert update["turn_plan"] == search.TurnPlan(None)
+
+
+@pytest.mark.parametrize(
+    ("earlier", "training_only"),
+    [
+        ((), True),
+        (("training", "training"), True),
+        (("nutrition",), False),
+        (("both",), False),
+        (("training", "unknown"), False),
+    ],
+)
+def test_the_nutrition_tools_are_cut_only_in_a_training_only_conversation(earlier, training_only):
+    """A training question after a nutrition, both or unknown turn keeps every tool."""
+    update, _ = _plan_state(_plan(config.TRAINING_TOPIC), earlier=earlier)
+    assert update["training_only"] is training_only
+
+
+def test_only_a_first_questions_plan_goes_to_the_search():
+    """A follow-up's plan is not reused: its question may not stand on its own."""
+    first, _ = _plan_state(_plan("protein"))
+    follow_up, _ = _plan_state(_plan("protein"), first_question=False)
+    assert first["turn_plan"].plan.topics == ("protein",)
+    assert follow_up["turn_plan"] is None
+
+
+def test_prepare_reads_the_earlier_turns_domains_by_their_question_ids():
+    """The domains of the questions the model sees, in order; a question with none is unknown."""
+    history = [
+        HumanMessage("Earlier one", id="q1"),
+        AIMessage("Answer one."),
+        HumanMessage("Earlier two", id="q2"),
+        AIMessage("Answer two."),
+    ]
+    context = _context(
+        open_index=lambda: None,
+        translation_model=lambda: ScriptedTranslator(),
+    )
+    state = {"question": QUESTION, "history": history, "history_domains": {"q1": "nutrition"}}
+    update = graph.prepare(state, _runtime(context))
+    assert update["earlier_domains"] == ("nutrition", "unknown")
+    assert update["first_question"] is False
+    assert graph.prepare({"question": QUESTION}, _runtime(context))["first_question"] is True
+
+
+def _bound_names(model: ScriptedChatModel, call: int = 0) -> set[str]:
+    """Return the names of the tools the model was bound with in a call."""
+    return {tool["function"]["name"] for tool in model.call_kwargs[call]["tools"]}
+
+
+def test_a_training_question_is_not_offered_the_nutrition_tools(index):
+    """The search (and nothing of nutrition) is bound for a training-only conversation."""
+    translator = ScriptedTranslator(topics=(config.TRAINING_TOPIC,))
+    _, model = _graph_turn(index, AIMessage(ANSWER), text=TRAINING, translator=translator)
+    names = _bound_names(model)
+    assert search.SEARCH_TOOL in names
+    assert not names & NUTRITION_TOOL_NAMES
+
+
+def test_a_coachs_training_question_keeps_the_client_and_memory_tools(index):
+    """The coach's client tools and remember_preference hold both domains, so they stay."""
+    coach = preferences.CoachMemory("coach-1", ("Alex Example",), ())
+    clients = coach_clients.build_tools(lambda: [], lambda client: None)
+    translator = ScriptedTranslator(topics=(config.TRAINING_TOPIC,))
+    _, model = _graph_turn(
+        index,
+        AIMessage(ANSWER),
+        text=TRAINING,
+        translator=translator,
+        coach=coach,
+        tools=lambda: {**registry.build_tools(PROFILE), **clients},
+    )
+    names = _bound_names(model)
+    assert {coach_clients.LIST_TOOL, coach_clients.WEEK_TOOL, preferences.PREFERENCE_TOOL} <= names
+    assert not names & NUTRITION_TOOL_NAMES
+
+
+@pytest.mark.parametrize("topics", [("protein",), ("protein", config.TRAINING_TOPIC), ()])
+def test_every_other_question_is_offered_every_tool(index, topics):
+    """Nutrition, both and unknown: every tool as before T10.5 (no tool is training-only)."""
+    _, model = _graph_turn(index, AIMessage(ANSWER), translator=ScriptedTranslator(topics=topics))
+    assert NUTRITION_TOOL_NAMES | {search.SEARCH_TOOL} <= _bound_names(model)
+
+
+def test_a_training_follow_up_after_a_nutrition_turn_keeps_every_tool(index):
+    """A follow-up misread as training after a nutrition turn is offered the nutrition tools."""
+    history = [HumanMessage("My macro targets?", id="q1"), AIMessage("About 160 g protein.")]
+    _, model = _graph_turn(
+        index,
+        AIMessage(ANSWER),
+        text="And if I train 5 times a week?",
+        translator=ScriptedTranslator(topics=(config.TRAINING_TOPIC,)),
+        history=history,
+        history_domains={"q1": "nutrition"},
+    )
+    assert NUTRITION_TOOL_NAMES <= _bound_names(model)
+
+
+def test_a_nutrition_tool_called_in_a_training_conversation_is_refused(index):
+    """A tool that was not offered is refused like an unknown one, whatever the model writes."""
+    output, _ = _graph_turn(
+        index,
+        tool_reply((TDEE_TOOL, {})),
+        AIMessage(ANSWER),
+        text=TRAINING,
+        translator=ScriptedTranslator(topics=(config.TRAINING_TOPIC,)),
+        search_first=False,
+    )
+    # Refused as an unknown tool: no name the model wrote is kept (registry.run_tool_call()).
+    [run] = output["result"].tool_runs
+    assert (run.name, run.status) == (None, "invalid")
+
+
+def test_a_first_questions_first_search_reuses_the_plan(index):
+    """One translation call for a turn with one search: the search uses the turn's plan."""
+    translator = ScriptedTranslator()
+    _graph_turn(index, AIMessage(ANSWER), translator=translator)
+    assert len(translator.calls) == 1
+
+
+def test_a_follow_ups_search_translates_the_agents_query(index):
+    """On a follow-up the plan is not reused: the search translates the agent's own query."""
+    translator = ScriptedTranslator()
+    history = [HumanMessage("Earlier question", id="q1"), AIMessage("Earlier answer.")]
+    _graph_turn(index, AIMessage(ANSWER), translator=translator, history=history)
+    assert len(translator.calls) == 2
+
+
+def test_a_second_search_translates_its_own_query(index):
+    """Only the first search reuses the plan; the second is translated as before."""
+    translator = ScriptedTranslator()
+    two = tool_reply(
+        (search.SEARCH_TOOL, {"query": QUESTION}), (search.SEARCH_TOOL, {"query": "creatine"})
+    )
+    _graph_turn(index, two, AIMessage(ANSWER), translator=translator, search_first=False)
+    assert len(translator.calls) == 2
+
+
+@pytest.mark.parametrize(
+    ("topics", "streamed"),
+    [(("protein",), True), (("protein", config.TRAINING_TOPIC), False), ((), False)],
+    ids=["nutrition", "both", "unknown"],
+)
+def test_only_a_nutrition_answer_streams(index, topics, streamed):
+    """A checked answer is shown only once it has passed the program check."""
+    texts = []
+    output, _ = _graph_turn(
+        index,
+        AIMessage(ANSWER),
+        translator=ScriptedTranslator(topics=topics),
+        texts=texts,
+    )
+    assert output["result"].text == ANSWER
+    assert bool(texts) is streamed
+
+
+def test_a_training_answer_that_reads_as_a_program_is_replaced(index):
+    """Through the whole graph: the schedule is never streamed, and the fixed sentence stands."""
+    texts = []
+    output, _ = _graph_turn(
+        index,
+        AIMessage("Day 1: squats [S1].\nDay 2: bench press [S1]."),
+        translator=ScriptedTranslator(topics=("protein", config.TRAINING_TOPIC)),
+        texts=texts,
+    )
+    result = output["result"]
+    assert (result.kind, result.code) == ("guardrail", graph.PROGRAM_CODE)
+    assert result.text == config.NO_PROGRAM_SENTENCE["en"]
+    assert texts == []
+
+
 # --- The compiled graph ------------------------------------------------------------------------
 
 
-def _graph_turn(index, *replies, text=QUESTION, search_first=True, history=None, **extra):
+def _graph_turn(
+    index,
+    *replies,
+    text=QUESTION,
+    search_first=True,
+    history=None,
+    translator=None,
+    history_domains=None,
+    **extra,
+):
     """Invoke the compiled chat graph once with a scripted model; return its output and model."""
     model = ScriptedChatModel(replies=list(replies), search_first=search_first)
+    translator = translator or ScriptedTranslator()
     context = _context(
         model,
         open_index=lambda: index,
-        translation_model=lambda: ScriptedTranslator(),
+        translation_model=lambda: translator,
         search_log=SearchLog(),
         **extra,
     )
     turn = {"text": text, **({"history": history} if history is not None else {})}
+    if history_domains is not None:
+        turn["history_domains"] = history_domains
     output = graph.chat_graph().invoke(turn, context=context, config=graph.run_config())
     return output, model
 
 
 def test_the_caller_gets_only_the_result_and_the_question(index):
-    """The messages, chunks, plan and tool runs stay private: the result and the question only."""
+    """The messages, chunks, plan and tool runs stay private: the result, question and domain."""
     output, _ = _graph_turn(index, tool_reply((TDEE_TOOL, {})), AIMessage(ANSWER))
-    # The question the guard accepted, which the conversation keeps (T9.4).
-    assert set(output) == {"result", "question"}
+    # The question the guard accepted, which the conversation keeps (T9.4), and its domain (T10.5).
+    assert set(output) == {"result", "question", "domain"}
+    assert output["domain"] == "unknown"
     assert output["question"] == QUESTION
     assert output["result"].kind == "answer"
     assert [run.name for run in output["result"].tool_runs] == [TDEE_TOOL]

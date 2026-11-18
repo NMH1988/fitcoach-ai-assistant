@@ -105,7 +105,7 @@ def _turn(
 
 
 def test_a_turn_records_every_call_in_order(index):
-    """Each model round, and the search's rewrite and query embedding, recorded in call order."""
+    """The plan, each model round and the search's query embedding, recorded in call order."""
     model = ScriptedChatModel(
         replies=[
             _with_usage(search_reply(QUESTION), 500, 20),
@@ -116,9 +116,10 @@ def test_a_turn_records_every_call_in_order(index):
     )
     result = _turn(index, model)
     assert result.kind == "answer"
+    # The plan comes first and the first search reuses it, so the turn has one rewrite (T10.5).
     assert result.usage == (
-        _answer_round(1, 500, 20),
         REWRITE_ROW,
+        _answer_round(1, 500, 20),
         SEARCH_ROW,
         _answer_round(2, 2000, 150),
         _answer_round(3, 2600, 400),
@@ -151,17 +152,17 @@ def test_a_cut_off_answer_is_counted(index):
 
 
 def test_a_hidden_reply_with_no_source_is_counted(index):
-    """A reply with no search and no tool is not shown, but its model call is counted."""
+    """A reply with no search and no tool is not shown, but its model call and plan are counted."""
     model = ScriptedChatModel(
         replies=[_with_usage(AIMessage("Offside is..."), 800, 50)], search_first=False
     )
     result = _turn(index, model, OFF_TOPIC)
     assert result.kind == "no_sources"
-    assert result.usage == (_answer_round(1, 800, 50),)
+    assert result.usage == (REWRITE_ROW, _answer_round(1, 800, 50))
 
 
 def test_an_off_topic_search_that_finds_nothing_keeps_its_usage(index):
-    """Nothing found: no further call, but the search call, rewrite and embedding are counted."""
+    """Nothing found: no further call, but the plan, the search call and embedding are counted."""
     plan = plan_json(["offside rule", "football offside law", "offside position"])
     model = ScriptedChatModel(
         replies=[_with_usage(search_reply(OFF_TOPIC), 700, 20)], search_first=False
@@ -169,7 +170,7 @@ def test_an_off_topic_search_that_finds_nothing_keeps_its_usage(index):
     result = _turn(index, model, OFF_TOPIC, plans=(plan,))
     assert (result.kind, result.text) == ("no_sources", config.NO_SOURCES_MESSAGE)
     assert len(model.calls) == 1
-    assert result.usage == (_answer_round(1, 700, 20), REWRITE_ROW, SEARCH_ROW)
+    assert result.usage == (REWRITE_ROW, _answer_round(1, 700, 20), SEARCH_ROW)
 
 
 @pytest.mark.parametrize(

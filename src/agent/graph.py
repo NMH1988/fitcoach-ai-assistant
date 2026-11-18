@@ -1,8 +1,12 @@
 """One chat turn as a LangGraph `StateGraph` (T9.2, D9), with agentic retrieval (T9.3, D10).
 
-guard -> prepare -> agent <-> tools -> end_round -> finish. The guard runs first and a rejected
-input goes straight to the end, so it opens no index and calls no model (security-privacy.md,
-"Guards"). The agent node and a `ToolNode` loop for at most `MAX_TOOL_ROUNDS` rounds; the
+guard -> prepare -> plan -> agent <-> tools -> end_round -> finish. The guard runs first and a
+rejected input goes straight to the end, so it opens no index and calls no model
+(security-privacy.md, "Guards"). The plan node makes the query plan of the user's question on every
+turn and reads the question's domain from its topics (T10.5): a training-only conversation is not
+offered the nutrition tools, and every answer but a nutrition one is checked for a written program
+in `finish()` and is not streamed, so a program the check catches is never shown. The agent node
+and a `ToolNode` loop for at most `MAX_TOOL_ROUNDS` rounds; the
 `ToolNode` runs each call within the per-round limits, a knowledge base search through
 `search.run_search()` and every other call through `registry.run_tool_call()` (validated
 arguments, fixed messages). The agent decides whether to search: a food or calculator question
@@ -38,7 +42,7 @@ from typing import Annotated, Any, NotRequired, TypedDict
 
 from langchain_chroma import Chroma
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, AnyMessage
+from langchain_core.messages import AIMessage, AnyMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import StructuredTool
 from langchain_core.tools.base import ToolCall
@@ -50,12 +54,13 @@ from langgraph.prebuilt.tool_node import ToolCallRequest
 from langgraph.runtime import Runtime
 from langgraph.types import Command
 
-from src import chat, config, guard, i18n, llm, preferences, tracing, usage
+from src import chat, config, guard, guardrails, i18n, llm, preferences, tracing, usage
 from src.agent import search
-from src.agent.search import SearchLog
+from src.agent.search import SearchLog, TurnPlan
 from src.chat import Step, TurnResult
-from src.rag import hybrid
+from src.rag import hybrid, query_translation
 from src.rag.hybrid import KeywordIndex
+from src.rag.query_translation import Domain
 from src.rag.retriever import RetrievedChunk
 from src.rag.sources import Source
 from src.tools import coach_clients, registry
@@ -64,10 +69,12 @@ from src.usage import UsageRecorder
 
 logger = logging.getLogger(__name__)
 
-# The most supersteps a turn can take: guard and prepare, then one agent call more than there are
-# tool rounds, a tools and an end_round step per round, and finish. A graph that loops past it is
-# a bug, which the turn's catch-all reports (T1.8).
-MAX_STEPS = 3 * config.MAX_TOOL_ROUNDS + 4
+# The most supersteps a turn can take: guard, prepare and plan, then one agent call more than there
+# are tool rounds, a tools and an end_round step per round, and finish. A graph that loops past it
+# is a bug, which the turn's catch-all reports (T1.8).
+MAX_STEPS = 3 * config.MAX_TOOL_ROUNDS + 5
+# The fixed message's key when finish() replaces an answer that reads as a program (T10.5).
+PROGRAM_CODE = "answer.program"
 
 
 class TurnInput(TypedDict):
@@ -78,6 +85,9 @@ class TurnInput(TypedDict):
     # The earlier questions and answers of the conversation (T9.4); the model gets the latest that
     # fit config.HISTORY_MAX_TOKENS. Empty or left out for a turn on its own (the evaluation run).
     history: NotRequired[list[AnyMessage]]
+    # The domain of each earlier answered turn, by its question message's id (T10.5); a question
+    # with none counts as "unknown", which keeps every tool.
+    history_domains: NotRequired[Mapping[str, Domain]]
 
 
 class TurnOutput(TypedDict):
@@ -89,6 +99,9 @@ class TurnOutput(TypedDict):
     # A coach's preference that passed the checks (T9.7): the conversation graph pauses for the
     # coach's answer once the turn is over. Never written by the turn.
     proposal: NotRequired[str]
+    # The question's domain (T10.5), once the plan node ran: the conversation keeps it with an
+    # answered turn, for the turns after it.
+    domain: NotRequired[Domain]
 
 
 class LoopInput(TypedDict):
@@ -115,6 +128,18 @@ class TurnState(TurnInput, TurnOutput, LoopInput, LoopOutput, total=False):
     system_prompt: str
     # The query translation prompt, read before any API call and used by every search.
     translation_prompt: str
+    # The domains of the earlier turns the model sees (T10.5), and whether there are none.
+    earlier_domains: tuple[Domain, ...]
+    first_question: bool
+    # The plan of the user's question, for the first search, only on a conversation's first
+    # question (T10.5); None on a follow-up, whose searches translate the agent's query.
+    turn_plan: TurnPlan | None
+    # True only when this question and every earlier turn the model sees are training: the
+    # nutrition tools are then not offered (T10.5).
+    training_only: bool
+    # True unless the question is about nutrition alone: the answer is then checked for a written
+    # program in finish() and not streamed (T10.5). Left out in the answer loop alone.
+    check_program: bool
     # Tool rounds done so far.
     rounds: int
     # True when a round's searches found nothing and nothing else gave the answer a basis (AC-2).
@@ -188,9 +213,20 @@ def _has_basis(runs: Sequence[ToolRun], log: SearchLog | None) -> bool:
     )
 
 
-def _tools(context: TurnContext) -> list[StructuredTool]:
+def _turn_tools(context: TurnContext, training_only: bool) -> dict[str, StructuredTool]:
+    """Return the turn's own tools, without the nutrition ones in a training-only conversation."""
+    # The registry runs a call only through this mapping, so a tool that was not offered is
+    # refused like an unknown one, whatever name the model writes (T10.5).
+    return {
+        name: tool
+        for name, tool in context.tools().items()
+        if not (training_only and name in registry.NUTRITION_TOOLS)
+    }
+
+
+def _tools(context: TurnContext, training_only: bool = False) -> list[StructuredTool]:
     """Return the tools the model is given: the turn's own, and the search for a whole turn."""
-    tools = list(context.tools().values())
+    tools = list(_turn_tools(context, training_only).values())
     if context.search_log is not None:
         tools.append(search.search_tool_definition())
     if context.coach is not None:
@@ -260,15 +296,48 @@ def prepare(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
     context.on_step(Step.PLAN)
     system = chat.answer_system_prompt(system_prompt, language_part, coach_part)
     memories = context.coach.preferences if context.coach is not None else ()
+    history = chat.trim_history(state.get("history") or [])
+    # The domains of the earlier turns the model sees (T10.5); a question kept with none is
+    # "unknown", which keeps every tool.
+    domains = state.get("history_domains") or {}
+    earlier: tuple[Domain, ...] = tuple(
+        domains.get(message.id or "", "unknown")
+        for message in history
+        if isinstance(message, HumanMessage)
+    )
     return {
         "system_prompt": system,
         "translation_prompt": translation_prompt,
         # The conversation's latest questions and answers (T9.4), then the user's own question; the
         # chunks come in a search's tool message (T9.3).
-        "messages": chat.build_messages(
-            state["question"], system, chat.trim_history(state.get("history") or []), memories
-        ),
+        "messages": chat.build_messages(state["question"], system, history, memories),
         "tools_only": True,
+        "earlier_domains": earlier,
+        "first_question": not history,
+    }
+
+
+def plan(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
+    """Make the plan of the user's question and read its domain, before any tool is bound."""
+    # One query translation call on every turn (T10.5, D10): the agent still decides whether to
+    # search. The question goes only inside <user_input>; a reply that cannot be used gives no
+    # plan, and the domain is then "unknown": every tool, and the program check.
+    context = runtime.context
+    if context.translation_model is None:
+        raise RuntimeError("The plan needs the turn's translation model.")
+    model = context.translation_model()
+    made = query_translation.translate(
+        state["question"], model, state["translation_prompt"], context.recorder
+    )
+    domain = query_translation.domain_of(made)
+    earlier = state.get("earlier_domains", ())
+    return {
+        "domain": domain,
+        # A follow-up misread as training after a nutrition (or unknown) turn keeps its tools.
+        "training_only": domain == "training" and all(d == "training" for d in earlier),
+        "check_program": domain != "nutrition",
+        # Only the plan of a first question goes to the search; a follow-up may not stand alone.
+        "turn_plan": TurnPlan(made) if state.get("first_question") else None,
     }
 
 
@@ -286,12 +355,14 @@ def agent(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
     chat_model = context.chat_model()
     # Only the tools are bound (never the model or max_tokens; security-privacy.md). After the
     # last round the model must answer from the results it has.
-    bound = chat_model.bind_tools(_tools(context), tool_choice="none" if last else None)
+    tools = _tools(context, state.get("training_only", False))
+    bound = chat_model.bind_tools(tools, tool_choice="none" if last else None)
     record = None
     if context.recorder is not None:
         step = config.USAGE_STEP_ANSWER.format(round=round_number + 1)
         record = partial(context.recorder.add_chat, step, usage.model_name(chat_model))
-    on_text = None if hidden else context.on_text
+    # An answer finish() checks for a program is shown only once it has passed (T10.5).
+    on_text = None if hidden or state.get("check_program", False) else context.on_text
     try:
         reply = chat.stream_reply(bound, state["messages"], on_text, record)
     except llm.ReplyCutOffError:
@@ -353,14 +424,20 @@ def run_checked_call(request: ToolCallRequest, execute: Callable[..., Any]) -> C
         message, run = registry.refused_call(call["id"] or "", refusal)
     elif call["name"] == search.SEARCH_TOOL and context.search_log is not None:
         # A search that runs is no tool run: it goes into the turn's SearchLog (T9.3).
-        message, run = search.run_search(context, call, request.state["translation_prompt"])
+        message, run = search.run_search(
+            context,
+            call,
+            request.state["translation_prompt"],
+            request.state.get("turn_plan"),
+        )
     elif call["name"] == preferences.PREFERENCE_TOOL and context.coach is not None:
         # A proposal is no tool run either: it waits for the coach's answer (T9.7). For a guest the
         # name is unknown, as the tool is not theirs (registry.run_tool_call() refuses it).
         message = preferences.propose(context.coach, context.proposals, call, context.turn_id)
         run = None
     else:
-        message, run = registry.run_tool_call(context.tools(), call)
+        tools = _turn_tools(context, request.state.get("training_only", False))
+        message, run = registry.run_tool_call(tools, call)
     if run is None:
         return Command(update={"messages": [message]})
     # Each run is reported as it ends, so a turn that fails later still logs it (T8.2).
@@ -442,6 +519,21 @@ def finish(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
             code="answer.no_sources",
         )
         return {"result": result, **pending}
+    if state.get("check_program", False) and guardrails.reads_as_program_schedule(answer):
+        # A day-by-day or weekday schedule is a program, which the app never writes (PRD feature
+        # 26). The fixed sentence stands in for it, shown in the chosen language by its code, and
+        # the conversation does not keep the turn (T10.5). The log line holds no text.
+        logger.warning(
+            "program_blocked", extra={"turn_id": runtime.context.turn_id, "code": PROGRAM_CODE}
+        )
+        result = TurnResult(
+            "guardrail",
+            config.NO_PROGRAM_SENTENCE["en"],
+            searches=searches,
+            tool_runs=runs,
+            code=PROGRAM_CODE,
+        )
+        return {"result": result, **pending}
     manifest = runtime.context.manifest or {}
     cards = chat.source_cards(log.chunks, chat.cited_labels(answer, len(log.chunks)), manifest)
     result = TurnResult(
@@ -495,10 +587,12 @@ def chat_graph() -> CompiledStateGraph:
     )
     builder.add_node("guard", guard_node)
     builder.add_node("prepare", prepare)
+    builder.add_node("plan", plan)
     builder.add_node("finish", finish)
     builder.add_edge(START, "guard")
     builder.add_conditional_edges("guard", after_guard, ["prepare", END])
-    builder.add_edge("prepare", "agent")
+    builder.add_edge("prepare", "plan")
+    builder.add_edge("plan", "agent")
     _add_answer_loop(builder, "finish")
     builder.add_edge("finish", END)
     # Never checkpointed, even inside the conversation graph that has a checkpointer (T9.4): the
