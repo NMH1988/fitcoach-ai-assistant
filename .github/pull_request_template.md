@@ -2,7 +2,7 @@ Closes #
 
 ## Brief
 <!-- Read docs/BRIEF.md and docs/BRIEF_SPRINT3.md first. Name each item by its number there, or write "none". -->
-- Sprint 3 (`docs/BRIEF_SPRINT3.md`): <core n | Easy, Medium or Hard n | evaluation item | Sprint 2 review point n> | none
+- Sprint 3 (`docs/BRIEF_SPRINT3.md`): <core n | Easy, Medium or Hard n | evaluation item | Sprint 2 review point n | Sprint 3 review point n> | none
 - Sprint 2 (`docs/BRIEF.md`): <core n | Easy, Medium or Hard n | evaluation item> | none
 - Or, when neither brief covers it: beyond the brief (owner's request)
 - [ ] Checked against both briefs, `docs/PRD.md` and the copyright policy: no contradiction, and no change to what the product does that the owner has not approved
