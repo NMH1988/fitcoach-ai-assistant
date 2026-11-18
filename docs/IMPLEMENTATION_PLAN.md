@@ -162,7 +162,7 @@ Deadline: **2026-11-02** (Sprint 2, already submitted by the owner, 2026-10-28).
 | [T9.34](tickets/T9.34.md) | NMH1988/fitcoach-ai-assistant#117 | Foods the coach suggests to a client, logged by the client in one click (extra; beyond the brief, owner's request after a reviewer's comment, 2026-11-12; cut first if time runs short) | M | T9.13, T9.15, T9.17 | before T9.11b | done |
 | [T9.35](tickets/T9.35.md) | NMH1988/fitcoach-ai-assistant#121 | Unmasked LangSmith traces in demo mode only, for the reviewer's demo (extra; owner's request, 2026-11-13) | S | T9.8, T9.5 | before T9.11b | done |
 | **Epic 10: Sprint 3 review follow-ups** | | | | | | |
-| [T10.1](tickets/T10.1.md) | NMH1988/fitcoach-ai-assistant#133 | Answers checked for injected instructions before the chat's memory keeps them, and a measured miss rate | M | - | tbd (owner) | in progress, open: the owner's O13 checks of criteria 4 and 6 |
+| [T10.1](tickets/T10.1.md) | NMH1988/fitcoach-ai-assistant#133 | Answers checked for injected instructions before the chat's memory keeps them, and a measured miss rate | M | - | tbd (owner) | done, except the owner's O13 checks of criteria 4 and 6 (owner's decision, 2026-11-18) |
 | [T10.2](tickets/T10.2.md) | NMH1988/fitcoach-ai-assistant#134 | Weekly review: kcal figures as numeric fields, checked against the calorie floor by arithmetic | M | O18 (the field descriptions) | tbd (owner) | todo |
 | [T10.3](tickets/T10.3.md) | NMH1988/fitcoach-ai-assistant#135 | Structured output: one schema, no dead fields, field descriptions in the models | M | O18 | tbd (owner) | done |
 | [T10.4](tickets/T10.4.md) | NMH1988/fitcoach-ai-assistant#136 | Prompt versions on traces, log lines, stored reviews and evaluation results | M | - | tbd (owner) | todo |
