@@ -6,6 +6,7 @@ itself, node by node with fake models, and the compiled graph with a spy on the 
 """
 
 import dataclasses
+import json
 import re
 import threading
 import time
@@ -442,7 +443,7 @@ def test_finish_says_not_covered_when_there_is_no_answer():
 # --- The compiled graph ------------------------------------------------------------------------
 
 
-def _graph_turn(index, *replies, text=QUESTION, search_first=True, **extra):
+def _graph_turn(index, *replies, text=QUESTION, search_first=True, history=None, **extra):
     """Invoke the compiled chat graph once with a scripted model; return its output and model."""
     model = ScriptedChatModel(replies=list(replies), search_first=search_first)
     context = _context(
@@ -452,7 +453,8 @@ def _graph_turn(index, *replies, text=QUESTION, search_first=True, **extra):
         search_log=SearchLog(),
         **extra,
     )
-    output = graph.chat_graph().invoke({"text": text}, context=context, config=graph.run_config())
+    turn = {"text": text, **({"history": history} if history is not None else {})}
+    output = graph.chat_graph().invoke(turn, context=context, config=graph.run_config())
     return output, model
 
 
@@ -498,6 +500,44 @@ def test_the_longest_turn_takes_max_steps(index):
     )
     assert len(updates) == graph.MAX_STEPS
     assert list(updates[-1]) == ["finish"]
+
+
+def _longest_turn(index, **extra) -> ScriptedChatModel:
+    """Run a turn with a search, the other tool rounds and the answer; return its model."""
+    rounds = [search_reply(QUESTION)] + [tool_reply((TDEE_TOOL, {}))] * (config.MAX_TOOL_ROUNDS - 1)
+    _, model = _graph_turn(index, *rounds, AIMessage(ANSWER), search_first=False, **extra)
+    return model
+
+
+def _assert_same_prefix(model: ScriptedChatModel) -> None:
+    """Assert that every answer call sent the first call's system message and tools, byte-equal."""
+    assert len(model.calls) == config.MAX_TOOL_ROUNDS + 1
+    system = [call[0] for call in model.calls]
+    assert all(isinstance(message, SystemMessage) for message in system)
+    assert {message.content for message in system} == {system[0].content}
+    tools = [json.dumps(kwargs["tools"]) for kwargs in model.call_kwargs]
+    assert set(tools) == {tools[0]}
+    # The same start of the request, so the provider's prompt cache can serve it (T10.6).
+    assert [call[1:2] for call in model.calls] == [model.calls[0][1:2]] * len(model.calls)
+
+
+def test_every_answer_call_of_a_turn_sends_the_same_system_prompt_and_tools(index):
+    """Up to MAX_TOOL_ROUNDS + 1 calls, one system message and one tool list (T10.6)."""
+    # The context builds the tools anew on every call, so the order cannot depend on a cache.
+    _assert_same_prefix(_longest_turn(index))
+
+
+def test_a_coachs_turn_keeps_its_system_prompt_and_tools_the_same_too(index):
+    """A coach's part, <memories> and a history change nothing between a turn's calls (T10.6)."""
+    coach = preferences.CoachMemory("coach-1", ("Alex Example",), ("Prefers short answers.",))
+    history = [HumanMessage("Earlier question"), AIMessage("Earlier answer.")]
+    model = _longest_turn(index, history=history, coach=coach, language="de")
+    _assert_same_prefix(model)
+    assert preferences.PREFERENCE_TOOL in json.dumps(model.call_kwargs[0]["tools"])
+    # The history and the question with <memories> follow the system message in every call.
+    first = model.calls[0]
+    assert [call[:4] for call in model.calls] == [first[:4]] * len(model.calls)
+    assert "<memories>" in first[3].text
 
 
 def test_tool_runs_are_reported_in_the_order_of_their_messages(index):
