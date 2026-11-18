@@ -1040,7 +1040,7 @@ def langsmith_client(real_pieces, monkeypatch):
 
     def recorded_turn(*args, **kwargs):
         """Keep the turn's RunTrace, then run it."""
-        traces.append(kwargs.get("run_trace"))
+        traces.append(kwargs["deps"].run_trace)
         return run_turn(*args, **kwargs)
 
     monkeypatch.setattr(chat, "run_turn", recorded_turn)

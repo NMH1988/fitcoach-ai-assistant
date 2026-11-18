@@ -1,5 +1,6 @@
 """Shared pytest fixtures."""
 
+import functools
 import logging
 import os
 import uuid
@@ -128,6 +129,8 @@ def turn_codes_are_keys(monkeypatch, request):
     run_turn = chat.run_turn
     expects_turn_error = request.node.get_closest_marker("turn_error") is not None
 
+    # Wrapped, so inspect.signature(chat.run_turn) still reads run_turn()'s own parameters (T10.7).
+    @functools.wraps(run_turn)
     def checked(*args, **kwargs):
         """Run the turn; unless the model answered, its message must fill in both languages."""
         result = run_turn(*args, **kwargs)

@@ -27,6 +27,7 @@ from tests.fakes import (
     ScriptedChatModel,
     ScriptedTranslator,
     build_fixture_index,
+    chat_turn,
     chunk,
     open_fixture_index,
 )
@@ -101,7 +102,7 @@ def _block(content: str, tag: str) -> str:
 
 def _turn(index, model: ScriptedChatModel) -> chat.TurnResult:
     """Run one chat turn on the index with the model."""
-    return chat.run_turn(
+    return chat_turn(
         QUESTION,
         guard.RateLimiter(),
         open_index=lambda: index,

@@ -23,6 +23,7 @@ from tests.fakes import (
     ScriptedChatModel,
     ScriptedTranslator,
     build_fixture_index,
+    chat_turn,
     chunk,
     open_fixture_index,
     plan_json,
@@ -282,7 +283,7 @@ def test_a_whole_turn_with_two_searches_cites_from_both(index):
     """Through run_turn(): two searches in one round; a label the second gave is its own card."""
     both = tool_reply((SEARCH_TOOL, {"query": QUESTION}), (SEARCH_TOOL, {"query": BOTH_TOPICS}))
     model = ScriptedChatModel(replies=[both, AIMessage("A [S1]; B [S4].")], search_first=False)
-    result = chat.run_turn(
+    result = chat_turn(
         "Protein per meal, and creatine?",
         guard.RateLimiter(),
         open_index=lambda: index,

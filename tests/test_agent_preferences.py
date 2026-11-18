@@ -23,6 +23,7 @@ from tests.fakes import (
     ScriptedChatModel,
     ScriptedTranslator,
     build_fixture_index,
+    chat_turn,
     open_fixture_index,
     search_reply,
     tool_reply,
@@ -80,7 +81,7 @@ def _ask(conversation, index, *replies, coach=None, question="Please keep answer
     # A last reply with no basis: after a round of proposals alone the model is asked once more
     # (owner's choice, 2026-11-03); a turn that needs it no longer takes it from the script.
     model = ScriptedChatModel(replies=[*replies, AIMessage("Noted.")], search_first=False)
-    result = chat.run_turn(
+    result = chat_turn(
         question,
         guard.RateLimiter(),
         open_index=lambda: index,
@@ -520,7 +521,7 @@ def test_a_missing_or_empty_coach_part_stops_the_turn_before_any_call(coach_stor
     else:
         config.ANSWER_COACH_PROMPT_PATH.write_text(content, encoding="utf-8")
     opened = []
-    result = chat.run_turn(
+    result = chat_turn(
         "Please keep answers short.",
         guard.RateLimiter(),
         open_index=lambda: opened.append("index"),
