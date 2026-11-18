@@ -642,7 +642,7 @@ Sprint 3 review point 5. The `plan` node makes the query plan of the user's ques
 - **Known limits** (owner's choice, 2026-11-06: a wording the patterns get wrong is recorded here, not patched with another pattern):
   - a list of exercises each with its own sets and reps ("Squat: 3 x 8") is not caught; the prompt forbids it;
   - a weekday schedule without a colon ("Monday - squats", a Markdown table) is not caught;
-  - a cited "day 2 of the study" on a checked turn is caught and replaced, a false alarm;
+  - any "day" or "Tag" directly followed by a number on a checked turn is caught and replaced, a false alarm when it is no schedule (a cited "day 2 of the study", a German dose text such as "pro Tag 5 g");
   - in a coach's chat, an answer that reports a client's logged week by weekday ("**Monday**: 2,100 kcal", from `get_client_week`, whose days are dates) on a question that is not about nutrition alone (an unknown or a training one, such as "What did Alex train this week?") is caught and replaced, a false alarm;
   - a weekday list of meals in an answer to a question the plan reads as both or unknown (a follow-up such as "does that fit my lifting days?" after a meal question) is caught and replaced by the workout sentence, a false alarm that answers a meal question with a sentence about workouts;
   - a nutrition-only turn is not checked, so a meal plan by weekday stays, and so would a schedule in an answer to a question the plan reads as nutrition alone;
