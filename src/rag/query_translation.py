@@ -3,16 +3,16 @@
 The question goes only inside <user_input> in the user message, escaped like the answer step's
 (`src/prompt_data.py`, T3.4), and the messages are built directly, never from a prompt template;
 the system prompt is the owner's (O7). The rewrites are used for the search and shown in the app,
-never sent to the answer model. The same call says whether a tool could answer and whether the
-user's numbers are needed (T3.5), so an off-topic question costs no answer call and the profile
-goes only to an answer that needs it.
+never sent to the answer model. The reply's shape and each field's meaning are given once, in
+`QueryPlan` (its docstring and field descriptions go to the model in the JSON schema), not in the
+prompt.
 """
 
 from typing import Any, Literal
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src import config, llm
 from src.prompt_data import escape_prompt_data
@@ -23,28 +23,45 @@ EvidenceTier = Literal[config.EVIDENCE_TIERS]
 
 
 class QueryPlan(BaseModel):
-    """Search queries for one question, optional filters, and whether tools or the profile help."""
+    """Search queries and optional filters for one question."""
 
+    # The docstring and each field's description reach the model as the JSON schema's
+    # descriptions: their wording is the owner's (O18), so change it only with the owner.
     model_config = ConfigDict(frozen=True)
 
     # The schema is sent with strict: true, so it keeps to keywords OpenAI's strict mode lists
-    # (minItems, maxItems, minimum, maximum, enum): string lengths are checked below instead, and
-    # no field has a default (every field is required; "no filter" is an empty list or null).
+    # (minItems, maxItems, minimum, maximum, enum, description): string lengths are checked below
+    # instead, and no field has a default (every field is required; "no filter" is an empty list
+    # or null).
     queries: tuple[str, ...] = Field(
-        min_length=config.QUERY_REWRITES, max_length=config.QUERY_REWRITES
+        min_length=config.QUERY_REWRITES,
+        max_length=config.QUERY_REWRITES,
+        description=(
+            f"Exactly {config.QUERY_REWRITES} search queries in English that preserve the user's "
+            "original meaning, each from a slightly different search angle."
+        ),
     )
-    topics: tuple[Topic, ...] = Field(max_length=len(config.TOPICS))
+    topics: tuple[Topic, ...] = Field(
+        max_length=len(config.TOPICS),
+        description=(
+            "Every topic that clearly applies to what the user actually asks to learn; an empty "
+            "list if none clearly applies."
+        ),
+    )
     min_year: int | None = Field(
-        ge=config.QUERY_MIN_YEAR_RANGE[0], le=config.QUERY_MIN_YEAR_RANGE[1]
+        ge=config.QUERY_MIN_YEAR_RANGE[0],
+        le=config.QUERY_MIN_YEAR_RANGE[1],
+        description=(
+            "A year only when the user explicitly provides a year or year boundary; otherwise "
+            "null. Never guess a year."
+        ),
     )
-    evidence_tier: EvidenceTier | None
-    # T3.5. needs_tool: a profile calculation (energy needs, daily targets, a day's meal plan check)
-    # or a food lookup could answer. needs_profile: the answer needs the user's own numbers. Since
-    # T9.3 the agent decides on tools and no <profile> block is sent, so the turn reads neither;
-    # they stay required until the owner drops them from the prompt (O7).
-    # Strict, so a reply such as "yes" or 1 makes the plan unusable rather than a guess.
-    needs_tool: StrictBool
-    needs_profile: StrictBool
+    evidence_tier: EvidenceTier | None = Field(
+        description=(
+            "1 only when the user explicitly asks for an ISSN position stand; 2 only when the user "
+            "explicitly asks for a review, systematic review, or meta-analysis; otherwise null."
+        )
+    )
 
     @field_validator("queries")
     @classmethod

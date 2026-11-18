@@ -134,12 +134,7 @@ def load_questions(suite: dict[str, Any]) -> list[Question]:
     questions = []
     for item in suite["questions"]:
         plan = item["plan"]
-        # The two flags are required by the schema but read by no search step (T9.3).
-        parsed = (
-            None
-            if plan is None
-            else QueryPlan.model_validate({"needs_tool": False, "needs_profile": False, **plan})
-        )
+        parsed = None if plan is None else QueryPlan.model_validate(plan)
         questions.append(
             Question(
                 item["id"],
