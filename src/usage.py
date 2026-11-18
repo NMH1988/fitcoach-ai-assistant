@@ -12,6 +12,7 @@ without a usable price makes its calls "price unknown".
 
 import http.client
 import json
+import re
 import threading
 import time
 import urllib.error
@@ -25,6 +26,12 @@ from langchain_core.messages.ai import UsageMetadata
 
 from src import config, i18n
 from src.i18n import Language
+
+# A call of the answer step is named with its round ("Answer, round 2"); the Details table reads
+# the round back, and the evaluation picks the answer calls by it.
+ANSWER_STEP = re.compile(
+    re.escape(config.USAGE_STEP_ANSWER).replace(re.escape("{round}"), r"(\d+)")
+)
 
 
 @dataclass(frozen=True)
@@ -44,6 +51,11 @@ class CallUsage:
     def tokens(self) -> int:
         """Return the call's input and output tokens together."""
         return self.input_tokens + self.output_tokens
+
+    @property
+    def cached_input(self) -> int:
+        """Return the cached input tokens, never more than the input they are part of."""
+        return min(self.cached_tokens, self.input_tokens)
 
 
 def model_name(client: Any) -> str:
@@ -220,21 +232,45 @@ def call_cost(call: CallUsage, prices: Mapping[str, ModelPrice] | None) -> Decim
     price = prices.get(call.model) if prices else None
     if price is None:
         return None
-    cached = min(call.cached_tokens, call.input_tokens)
-    cache_price = price.prompt if price.cache_read is None else price.cache_read
+    cached = call.cached_input
     return (
         (call.input_tokens - cached) * price.prompt
-        + cached * cache_price
+        + cached * _cache_price(price)
         + call.output_tokens * price.completion
     )
 
 
+def _cache_price(price: ModelPrice) -> Decimal:
+    """Return the price of a cached input token: the cache price, or the input price without one."""
+    return price.prompt if price.cache_read is None else price.cache_read
+
+
+def call_saving(call: CallUsage, prices: Mapping[str, ModelPrice] | None) -> Decimal | None:
+    """Return what a call's cached input saved against the input price; None if no price."""
+    # A call with no cached input saved nothing, whatever its price (e.g. an embedding call).
+    if call.cached_input == 0:
+        return Decimal(0)
+    price = prices.get(call.model) if prices else None
+    if price is None:
+        return None
+    # A cache price above the input price would be a cost, not a saving: shown as none.
+    return max(call.cached_input * (price.prompt - _cache_price(price)), Decimal(0))
+
+
+def _known_sum(values: Sequence[Decimal | None]) -> Decimal | None:
+    """Return the sum of the values, or None if any of them is unknown."""
+    if any(value is None for value in values):
+        return None
+    return sum(values, Decimal(0))
+
+
 @dataclass(frozen=True)
 class TurnUsage:
-    """A turn's calls with the cost of each (None where the price is unknown)."""
+    """A turn's calls with the cost of each and what its cached input saved (None: unknown)."""
 
     calls: tuple[CallUsage, ...] = ()
     costs: tuple[Decimal | None, ...] = ()
+    savings: tuple[Decimal | None, ...] = ()
 
     @property
     def tokens(self) -> int:
@@ -244,14 +280,47 @@ class TurnUsage:
     @property
     def cost(self) -> Decimal | None:
         """Return the turn's cost, or None if any call's price is unknown."""
-        if any(cost is None for cost in self.costs):
+        return _known_sum(self.costs)
+
+    @property
+    def input_tokens(self) -> int:
+        """Return the turn's input tokens over all its calls."""
+        return sum(call.input_tokens for call in self.calls)
+
+    @property
+    def cached_tokens(self) -> int:
+        """Return how many of the turn's input tokens the provider's prompt cache served."""
+        return sum(call.cached_input for call in self.calls)
+
+    @property
+    def saved(self) -> Decimal | None:
+        """Return what the cached input saved at the prices used, or None if one is unknown."""
+        # A TurnUsage built without its savings (not through price_turn()) has not priced them.
+        if len(self.savings) != len(self.calls):
             return None
-        return sum(self.costs, Decimal(0))
+        return _known_sum(self.savings)
 
 
 def price_turn(calls: Sequence[CallUsage], prices: Mapping[str, ModelPrice] | None) -> TurnUsage:
-    """Return the turn's calls with the cost of each."""
-    return TurnUsage(tuple(calls), tuple(call_cost(call, prices) for call in calls))
+    """Return the turn's calls with the cost of each and what each one's cached input saved."""
+    return TurnUsage(
+        tuple(calls),
+        tuple(call_cost(call, prices) for call in calls),
+        tuple(call_saving(call, prices) for call in calls),
+    )
+
+
+def answer_calls(calls: Iterable[CallUsage]) -> list[CallUsage]:
+    """Return the calls of the answer step (each round), leaving out the rewrite and search."""
+    return [call for call in calls if ANSWER_STEP.fullmatch(call.step)]
+
+
+def cached_percent(cached: int, total: int) -> str:
+    """Return the cached share of the input as a whole percent: "49", "<1" for a sliver, "0"."""
+    if total <= 0 or cached <= 0:
+        return "0"
+    share = round(Decimal(100) * min(cached, total) / total)
+    return "<1" if share == 0 else str(share)
 
 
 @dataclass(frozen=True)

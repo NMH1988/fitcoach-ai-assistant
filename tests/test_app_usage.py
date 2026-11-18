@@ -5,7 +5,7 @@ from decimal import Decimal
 import pytest
 from langchain_core.messages import AIMessage
 
-from src import chat, config, llm, usage
+from src import chat, config, i18n, llm, usage
 from src.rag import store
 from src.usage import ModelPrice, PriceCache, PriceError
 from tests.fakes import FailsAfterFirstCall, ScriptedChatModel, ScriptedTranslator, _open_index
@@ -216,6 +216,59 @@ def test_details_lists_each_call_with_its_tokens_and_cost(monkeypatch, prices, i
     [note] = [c.value for c in tab.caption if c.value.startswith("Costs are priced")]
     assert "Reasoning is shown as OpenRouter reports it and is not priced again" in note
     assert "include the model's reasoning" not in note
+
+
+def _cache_captions(tab) -> list[str]:
+    """Return the cache lines (with the cache icon) drawn in the Details tab."""
+    return [c.value for c in tab.caption if c.value.startswith(":material/cached:")]
+
+
+def _use_cached_answer(monkeypatch) -> None:
+    """Answer with 1,000 of the round's 2,000 input tokens cached, priced with a cache price."""
+    answer_price = ModelPrice(Decimal("0.000001"), Decimal("0.00001"), Decimal("0.0000001"))
+    prices = {**PRICES, config.DEFAULT_ANSWER_MODEL: answer_price}
+    monkeypatch.setattr(usage, "PRICES", PriceCache(lambda: prices))
+    cached = {**ANSWER_USAGE, "input_token_details": {"cache_read": 1000}}
+    model = ScriptedChatModel(replies=[AIMessage(ANSWER, usage_metadata=cached)])
+    _use_model(monkeypatch, model, ScriptedTranslator(usage=REWRITE_USAGE))
+
+
+@pytest.mark.parametrize(
+    ("lang", "line"),
+    [
+        (
+            "en",
+            r"Cached input: 1,000 of 2,900 input tokens (34%), which saved \$0.0009 at "
+            "today's prices.",
+        ),
+        (
+            "de",
+            r"Eingabe aus Cache: 1.000 von 2.900 Eingabe-Token (34 %), eine Ersparnis von "
+            r"0,0009 \$ zu den heutigen Preisen.",
+        ),
+    ],
+)
+def test_details_shows_the_cached_share_below_the_table(monkeypatch, lang, line):
+    """Below the calls, the turn's cached input over its input and the saving (T10.6)."""
+    _use_cached_answer(monkeypatch)
+    at = _start()
+    if lang == "de":
+        at = at.segmented_control(key=i18n.SESSION_KEY).set_value("de").run(timeout=30)
+    tab = _details_tab(_ask(at, QUESTION))
+    # 900 rewrite + 2,000 answer input tokens; 1,000 x (0.000001 - 0.0000001) saved.
+    assert _cache_captions(tab) == [f":material/cached: {line}"]
+    # Right below the table: the tab's elements go table, cache line, "This answer".
+    elements = list(tab)
+    [table] = [number for number, element in enumerate(elements) if element in tab.dataframe]
+    assert elements[table + 1].value == f":material/cached: {line}"
+
+
+def test_details_says_when_no_input_was_cached(monkeypatch, prices):
+    """A turn whose calls reported no cached input says so (T10.6)."""
+    _use(monkeypatch, ANSWER)
+    tab = _details_tab(_ask(_start(), QUESTION))
+    expected = f":material/cached: {i18n.t('usage.cached_none', 'en')}"
+    assert _cache_captions(tab) == [expected]
 
 
 def test_the_answer_stays_in_the_history_whatever_the_price_read_does(monkeypatch):
