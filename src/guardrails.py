@@ -6,9 +6,14 @@ pregnancy, pain and injuries (T9.19a, AC-39), medical conditions and medication,
 disordered eating are redirected to a professional. The owner's system prompt holds the same
 rules as the second line of defence. The patterns cover English and German (T7.4) and catch
 common phrasings, not all of them (docs/SECURITY.md).
+
+The checks on the model's own text share one matcher, `matches_any()`: the weekly review's
+validation (T9.16) and, since T10.5, the chat answer's program check
+(`reads_as_program_schedule()`, run by `src/agent/graph.py` after the answer is written).
 """
 
 import re
+from collections.abc import Iterable, Sequence
 from enum import StrEnum
 
 from src import config
@@ -752,3 +757,18 @@ def find_concern(text: str) -> Concern | None:
     if _below_floor(folded):
         return Concern.DISORDERED_EATING
     return None
+
+
+def matches_any(patterns: Sequence[str], texts: Iterable[str]) -> bool:
+    """Return True if any pattern is found in any text, without case."""
+    return any(re.search(pattern, text, re.I) for pattern in patterns for text in texts)
+
+
+def reads_as_program_schedule(answer: str) -> bool:
+    """Return True if the answer holds a day-by-day or weekday schedule (a written program)."""
+    # Markdown emphasis is removed first, so "**Monday**:" reads as "Monday:" (owner's choice,
+    # 2026-11-18): a normalisation, not another pattern. A list of exercises each with its own
+    # sets and reps is not caught here: the patterns that would catch it also catch a cited
+    # protocol, so the answer prompt alone forbids it (docs/TESTING.md, known limits).
+    plain = re.sub(r"[*_]", "", answer)
+    return matches_any(config.PROGRAM_SCHEDULE_PATTERNS, (plain,))

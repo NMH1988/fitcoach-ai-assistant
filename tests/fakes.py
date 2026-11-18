@@ -210,9 +210,11 @@ class ScriptedTranslator(BaseChatModel):
     """A query translation model that replies with scripted JSON plans (or raises) and records."""
 
     # With no plan left it returns three rewrites that repeat the question, with no filter, so the
-    # search finds what the question alone finds.
+    # search finds what the question alone finds, and with `topics` (none by default, so the turn's
+    # domain is "unknown", T10.5).
 
     plans: list[str | Exception] = Field(default_factory=list)
+    topics: tuple[str, ...] = ()
     calls: list[list[BaseMessage]] = Field(default_factory=list)
     structured_kwargs: list[dict[str, Any]] = Field(default_factory=list)
     model_name: str = config.QUERY_TRANSLATION_MODEL
@@ -240,7 +242,7 @@ class ScriptedTranslator(BaseChatModel):
                 plan = self.plans.pop(0)
             else:
                 question = question_in(messages)
-                plan = plan_json([f"{question} rewrite {n}" for n in (1, 2, 3)])
+                plan = plan_json([f"{question} rewrite {n}" for n in (1, 2, 3)], self.topics)
             if isinstance(plan, Exception):
                 raise plan
             raw = AIMessage(plan, usage_metadata=self.usage)

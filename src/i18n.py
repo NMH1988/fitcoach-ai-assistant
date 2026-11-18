@@ -552,6 +552,8 @@ _EN: dict[str, str] = {
         "help too."
     ),
     "answer.no_sources": config.NO_SOURCES_MESSAGE,
+    # An answer that read as a written program, replaced in code (T10.5).
+    "answer.program": config.NO_PROGRAM_SENTENCE["en"],
     "llm.error": "Something went wrong while calling the model service. Please try again.",
     "llm.invalid_key": (
         "The OpenRouter API key was rejected. Check the key in .streamlit/secrets.toml or the "
@@ -1892,6 +1894,7 @@ _DE: dict[str, str] = {
         "Ärztin oder einem Arzt oder einer Ernährungsfachkraft; auch Beratungsstellen für "
         "Essstörungen können helfen."
     ),
+    "answer.program": config.NO_PROGRAM_SENTENCE["de"],
     "answer.no_sources": (
         "Unsere Quellen decken diese Frage nicht ab, daher gibt es keine Antwort aus der "
         "Forschung. Versuchen Sie eine Frage zu Protein, Kohlenhydraten, Fett, Energiebilanz, "

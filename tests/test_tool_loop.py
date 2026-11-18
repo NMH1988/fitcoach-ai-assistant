@@ -341,6 +341,8 @@ def test_text_before_tool_calls_is_cleared_from_the_screen(index):
         on_text=shown.append,
         # Replies are shown once the answer has a basis: here the passages found.
         search_first=True,
+        # A nutrition question, whose answer streams (T10.5).
+        translator=ScriptedTranslator(topics=("protein",)),
     )
     # The last clearing: the search round before it clears too, with nothing shown yet.
     cleared = len(shown) - 1 - shown[::-1].index("")
@@ -362,6 +364,8 @@ def test_with_no_source_a_tool_can_still_answer(index):
         AIMessage(answer),
         question=FOOD_QUESTION,
         on_text=shown.append,
+        # A nutrition question, whose answer streams (T10.5).
+        translator=ScriptedTranslator(topics=("energy_balance",)),
     )
     assert (result.kind, result.text, result.sources) == ("answer", answer, ())
     assert [run.status for run in result.tool_runs] == ["found"]
@@ -495,7 +499,7 @@ def test_an_energy_result_still_names_some_profile_values(index):
 
 
 def test_a_food_question_makes_no_search_and_sends_no_passages(index):
-    """Like q14: the model calls the food lookup only; no rewrite, no embedding, no <sources>."""
+    """Like q14: the model calls the food lookup only; the plan, but no embedding, no <sources>."""
     answer = "The app's food lookup gives 304 kcal for 80 g of rolled oats."
     translator = ScriptedTranslator()
     result, model = _turn(
@@ -508,8 +512,10 @@ def test_a_food_question_makes_no_search_and_sends_no_passages(index):
     assert (result.kind, result.text, result.sources) == ("answer", answer, ())
     assert [(run.name, run.status) for run in result.tool_runs] == [(FOOD_TOOL, "found")]
     assert result.searches == ()
-    assert translator.calls == []
-    assert [call.step for call in result.usage if not call.step.startswith("Answer")] == []
+    # One query translation call, the turn's plan (T10.5); no search, so nothing is embedded.
+    assert len(translator.calls) == 1
+    steps = {call.step for call in result.usage if not call.step.startswith("Answer")}
+    assert steps <= {config.USAGE_STEP_REWRITE}
     assert "<sources>" not in _all_text(model) and "[S1]" not in _all_text(model)
     assert Step.SEARCH not in result.steps
 

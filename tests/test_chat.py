@@ -463,9 +463,9 @@ def test_a_translation_error_ends_the_turn_before_the_search(index, monkeypatch)
     result = _turn(QUESTION, index, model, translator=translator)
     assert result.kind == "error"
     assert result.text == llm.RateLimitedError.user_message
-    # The translation runs inside the search the model asked for.
-    assert result.steps == (Step.CHECK, Step.PLAN, Step.SEARCH)
-    assert spy.embedded == [] and len(model.calls) == 1
+    # The plan is made before the first answer call, on every turn (T10.5).
+    assert result.steps == (Step.CHECK, Step.PLAN)
+    assert spy.embedded == [] and model.calls == []
     assert result.searches is None
 
 
@@ -1335,7 +1335,8 @@ def test_the_answer_is_reported_as_it_streams_in(index):
         guard.RateLimiter(),
         open_index=lambda: index,
         chat_model=lambda: _model(answer),
-        translation_model=ScriptedTranslator,
+        # A nutrition question: its answer is not checked for a program, so it streams (T10.5).
+        translation_model=lambda: ScriptedTranslator(topics=("protein",)),
         on_text=seen.append,
     )
     assert result.text == answer
@@ -1409,7 +1410,8 @@ def test_an_image_never_reaches_the_screen_while_streaming(index):
     """No update of the streaming text contains an image, even once its syntax is complete."""
     seen = []
     model = _model("Eat oats ![x](https://evil.example/?q=1) daily [S1].")
-    result = _turn(QUESTION, index, model, on_text=seen.append)
+    translator = ScriptedTranslator(topics=("protein",))
+    result = _turn(QUESTION, index, model, translator=translator, on_text=seen.append)
     assert seen
     assert not any("](https://evil" in text for text in seen)
     assert result.text == "Eat oats x daily [S1]."
@@ -1421,7 +1423,8 @@ def test_an_error_mid_stream_ends_the_turn_with_its_message(index):
     model.error = llm.ServiceUnavailableError(503)
     model.fail_after_chunks = 2
     seen = []
-    result = _turn(QUESTION, index, model, on_text=seen.append)
+    translator = ScriptedTranslator(topics=("protein",))
+    result = _turn(QUESTION, index, model, translator=translator, on_text=seen.append)
     assert seen == ["Spread ", "Spread protein "]
     assert result.kind == "error"
     assert result.text == llm.ServiceUnavailableError.user_message
@@ -1821,7 +1824,8 @@ FAILURE_POINTS = [
     (_fail_opening_the_index, UNTIL_INDEX),
     (_fail_building_the_answer_model, UNTIL_INDEX),
     (_fail_building_the_translation_model, UNTIL_INDEX),
-    (_fail_in_query_translation, UNTIL_SEARCH),
+    # The plan is made before the first answer call (T10.5).
+    (_fail_in_query_translation, UNTIL_PLAN),
     (_fail_in_retrieval, UNTIL_SEARCH),
     (_fail_in_the_answer, UNTIL_ANSWER),
     # The tools are built for the first model call.
@@ -2418,7 +2422,8 @@ def test_a_turn_built_from_turn_deps_reports_through_its_callbacks(index):
         guard.RateLimiter(),
         deps=chat.TurnDeps(
             chat_model=lambda: model,
-            translation_model=ScriptedTranslator,
+            # A nutrition question: its answer is not checked for a program, so it streams (T10.5).
+            translation_model=lambda: ScriptedTranslator(topics=("protein",)),
             open_index=lambda: index,
         ),
         callbacks=chat.TurnCallbacks(

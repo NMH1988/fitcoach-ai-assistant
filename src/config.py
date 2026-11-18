@@ -952,14 +952,22 @@ REVIEW_DIAGNOSIS_PATTERNS: tuple[str, ...] = (
     r"\bsyndrom\b",
     r"st[öo]rung\b",
 )
-# A program: sets and reps per exercise, a day-by-day plan (English and German).
+# A written schedule: "Day 1" or "Tag 1", and a weekday followed by a colon (English and German).
+# The chat's answer is checked with these two alone (T10.5, guardrails.reads_as_program_schedule()):
+# the review's other program patterns also match a cited protocol ("3 x 10 [S2]"), the redirect to
+# a coach ("an individual training program") and "Trainingsplan" in a refusal.
+PROGRAM_SCHEDULE_PATTERNS: tuple[str, ...] = (
+    r"\b(?:day|tag)\s*\d+\b",
+    r"\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|montag|dienstag|mittwoch|"
+    r"donnerstag|freitag|samstag|sonntag)\s*:",
+)
+# A program in a review's training recommendation: sets and reps per exercise, a day-by-day plan
+# (English and German).
 REVIEW_PROGRAM_PATTERNS: tuple[str, ...] = (
     r"\b\d+\s*[x×]\s*\d+",
     r"\b\d+\s*sets?\s+of\s+\d+",
     r"\b\d+\s*(?:reps?|repetitions|wiederholungen|wdh)\b",
-    r"\b(?:day|tag)\s*\d+\b",
-    r"\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|montag|dienstag|mittwoch|"
-    r"donnerstag|freitag|samstag|sonntag)\s*:",
+    *PROGRAM_SCHEDULE_PATTERNS,
     r"\b(?:training|workout)\s*(?:plan|program|programme|split)\b",
     r"\btrainingsplan",
 )

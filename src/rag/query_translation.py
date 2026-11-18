@@ -20,6 +20,9 @@ from src.usage import UsageRecorder, model_name
 
 Topic = Literal[config.TOPICS]
 EvidenceTier = Literal[config.EVIDENCE_TIERS]
+# What a question is about, read from its plan's topics (T10.5): the chat turn offers its tools
+# and checks its answer by it. "unknown": no topic, or no usable plan.
+Domain = Literal["nutrition", "training", "both", "unknown"]
 
 
 class QueryPlan(BaseModel):
@@ -112,6 +115,17 @@ def translate(
     if reply.get("parsing_error") is not None or not isinstance(plan, QueryPlan):
         return None
     return plan
+
+
+def domain_of(plan: QueryPlan | None) -> Domain:
+    """Return the question's domain from the plan's topics; "unknown" with no topic or no plan."""
+    if plan is None or not plan.topics:
+        return "unknown"
+    training = config.TRAINING_TOPIC in plan.topics
+    nutrition = any(topic != config.TRAINING_TOPIC for topic in plan.topics)
+    if training and nutrition:
+        return "both"
+    return "training" if training else "nutrition"
 
 
 def build_filter(plan: QueryPlan | None) -> dict[str, Any] | None:

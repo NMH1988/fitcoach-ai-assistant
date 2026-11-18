@@ -31,6 +31,9 @@ EVENTS = frozenset(
         "turn_error",
         "llm_error",
         "guard_rejected",
+        # The chat's answer read as a written program and was replaced (T10.5); its only field is
+        # the fixed message's code, never the answer.
+        "program_blocked",
         "tool_failed",
         # The store could not be opened or used (T9.5); its only field is the error's class name.
         "store_unavailable",

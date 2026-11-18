@@ -21,6 +21,7 @@ Keep the entry short and record what the code does not say. `tests/test_docs_lay
 
 ---
 
+- [2026-11-18 · T10.5 Tools offered by the question's domain, and the program check on the chat's answer · NMH1988/fitcoach-ai-assistant#150 (closes NMH1988/fitcoach-ai-assistant#137)](progress/2026-11-18-T10.5.md)
 - [2026-11-18 · T10.7 The chat turn's dependencies as one `TurnDeps` object, same behaviour · NMH1988/fitcoach-ai-assistant#149 (closes NMH1988/fitcoach-ai-assistant#139)](progress/2026-11-18-T10.7.md)
 - [2026-11-18 · T10.2 Weekly review: kcal figures as numeric fields, checked against the calorie floor by arithmetic · NMH1988/fitcoach-ai-assistant#146 (closes NMH1988/fitcoach-ai-assistant#134)](progress/2026-11-18-T10.2.md)
 - [2026-11-18 · T10.1 Answers checked for injected instructions before the chat's memory keeps them, and a measured miss rate · NMH1988/fitcoach-ai-assistant#147 (closes NMH1988/fitcoach-ai-assistant#133)](progress/2026-11-18-T10.1.md)

@@ -288,7 +288,10 @@ def test_a_whole_turn_with_two_searches_cites_from_both(index):
         guard.RateLimiter(),
         open_index=lambda: index,
         chat_model=lambda: model,
-        translation_model=ScriptedTranslator,
+        # The turn's plan, which the first search reuses (T10.5): rewrites of its own query.
+        translation_model=lambda: ScriptedTranslator(
+            plans=[plan_json([f"{QUESTION} rewrite {n}" for n in (1, 2, 3)])]
+        ),
     )
     assert result.kind == "answer"
     assert len(result.searches) == 2

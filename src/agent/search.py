@@ -92,13 +92,13 @@ class SearchLog:
     started: int = 0
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
 
-    def reserve(self) -> bool:
-        """Count a search about to run; return False when the turn's cap is already reached."""
+    def reserve(self) -> int | None:
+        """Count a search about to run; return its number (1 first), or None past the cap."""
         with self._lock:
             if self.started >= config.MAX_SEARCHES_PER_TURN:
-                return False
+                return None
             self.started += 1
-            return True
+            return self.started
 
     def label(self, found: Sequence[RetrievedChunk]) -> tuple[list[int], list[RetrievedChunk]]:
         """Return each found chunk's [S#] number and the chunks new to this turn, labelling them."""
@@ -120,12 +120,27 @@ class SearchLog:
             self.searches.append(details)
 
 
+@dataclass(frozen=True)
+class TurnPlan:
+    """The plan the turn made of the user's question before the agent ran (T10.5)."""
+
+    # None when the model's reply was unusable: the search then runs unfiltered, as before.
+    plan: query_translation.QueryPlan | None
+
+
 def run_search(
-    context: TurnContext, call: ToolCall, translation_prompt: str
+    context: TurnContext,
+    call: ToolCall,
+    translation_prompt: str,
+    turn_plan: TurnPlan | None = None,
 ) -> tuple[ToolMessage, ToolRun | None]:
     """Run one search call: check the query, rewrite it, search; return the <sources> message."""
     # A refused call (too many searches, a bad query) is a refused run, like any tool's; a search
     # that ran is no run: it is in the turn's SearchLog, and the Details tab shows it (AC-3).
+    # turn_plan: the plan of the user's question, given only on a conversation's first question;
+    # the turn's first search uses it instead of translating the agent's query again (T10.5). A
+    # follow-up's question may not stand on its own, so its searches translate the agent's query,
+    # which the agent writes with the history in view.
     log, open_index, translation_model = (
         context.search_log,
         context.open_index,
@@ -139,11 +154,15 @@ def run_search(
     except ValidationError:
         return registry.refused_call(call["id"] or "", config.INVALID_SEARCH_QUERY_MESSAGE)
     # Reserved before anything is spent: a refused query takes no place.
-    if not log.reserve():
+    number = log.reserve()
+    if number is None:
         return registry.refused_call(call["id"] or "", config.TOO_MANY_SEARCHES_MESSAGE)
-    plan = query_translation.translate(
-        query, translation_model(), translation_prompt, context.recorder
-    )
+    if turn_plan is not None and number == 1:
+        plan = turn_plan.plan
+    else:
+        plan = query_translation.translate(
+            query, translation_model(), translation_prompt, context.recorder
+        )
     with llm.mapped_errors():
         found, details = chat.find_chunks(
             query,

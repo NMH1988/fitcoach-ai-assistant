@@ -94,6 +94,7 @@ sequenceDiagram
     actor U as User
     participant UI as Streamlit
     participant G as guard
+    participant P as plan
     participant A as agent (chat model)
     participant T as tools (ToolNode)
     rect rgb(13, 17, 23)
@@ -102,7 +103,9 @@ sequenceDiagram
     alt rejected: too long, injection, guardrail, rate limit
         G-->>UI: fixed message, no API call
     else accepted
-        G->>A: system prompt, recent history, question in #lt;user_input#gt;
+        G->>P: question in #lt;user_input#gt;
+        Note over P: query plan (openai/gpt-5-nano):<br/>its topics give the domain
+        P->>A: system prompt, recent history, question,<br/>the tools of the conversation's domain
         loop until a reply has no tool calls, at most 4 rounds
             A->>T: tool calls (name + JSON arguments)
             Note over T: round limits, then each call's<br/>arguments checked against its schema,<br/>calls run one at a time
@@ -111,6 +114,9 @@ sequenceDiagram
         opt after 4 rounds
             A->>A: one last call with tools off
         end
+        opt any domain but nutrition alone
+            Note over A: no streaming; a day-by-day or weekday<br/>schedule is replaced by the fixed sentence
+        end
         A-->>UI: answer with [S#] citations, shown only with a basis
     end
     UI-->>U: answer, sources, tool results, tokens and cost
@@ -118,6 +124,7 @@ sequenceDiagram
 ```
 
 - A basis is a search that found a close chunk, or a tool result; without one the user gets the fixed "not covered" message.
+- The plan (T10.5) reads the question's domain from its topics. A conversation whose questions the model still sees are all training is not offered the four nutrition tools; any other keeps every tool. Every answer but a nutrition one is checked for a written schedule before it is shown.
 - A coach's `remember_preference` writes nothing: the turn ends with the proposal, then the conversation graph pauses (`interrupt()`) until the coach saves it (edited or not) or discards it.
 
 ## 4. The store and who may read what

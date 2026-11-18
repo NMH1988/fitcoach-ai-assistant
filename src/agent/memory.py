@@ -6,8 +6,11 @@ which is never checkpointed, on the thread's messages; when the turn is answered
 the question as the model got it (inside <user_input>) and the answer without its [S#] citations
 (owner's choices, 2026-10-30). The turn's raw text, its tool calls and results and its <sources>
 never reach the checkpointer, so a rejected message, a profile value and a chunk are not in memory.
-`forget` deletes the oldest messages beyond `config.HISTORY_MAX_MESSAGES` with `RemoveMessage`,
-cutting only before a question; the model sees at most `config.HISTORY_MAX_TOKENS` of them
+Beside each kept question the thread keeps the turn's domain (nutrition, training, both or unknown,
+T10.5), by the question's message id, so a later turn offers its tools by the whole conversation the
+model sees, not by a short follow-up read on its own. `forget` deletes the oldest messages beyond
+`config.HISTORY_MAX_MESSAGES` with `RemoveMessage`, and their domains with them, cutting only
+before a question; the model sees at most `config.HISTORY_MAX_TOKENS` of them
 (`chat.trim_history()`, in the turn's `prepare` node). The earlier checkpoints of the thread keep
 removed messages until "New chat" deletes the thread (`Conversation.new_chat()`).
 
@@ -47,6 +50,7 @@ from langgraph.types import Command, interrupt
 from src import chat, config, guard, tracing
 from src.chat import TurnResult
 from src.preferences import PreferenceCheck
+from src.rag.query_translation import Domain
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +61,8 @@ class ConversationState(TypedDict):
     """The thread: the answered turns' questions and answers, oldest first."""
 
     messages: Annotated[list[AnyMessage], add_messages]
+    # The domain of each kept question, by its message id (T10.5): replaced whole on each update.
+    domains: NotRequired[dict[str, Domain]]
     # The latest turn's proposed preference while it waits for the coach (T9.7), then
     # config.ANSWERED_PROPOSAL; None after a turn that proposed nothing.
     proposal: NotRequired[str | None]
@@ -68,8 +74,9 @@ class ConversationState(TypedDict):
 class ConversationContext:
     """What one turn of the conversation runs, and where its result goes (never into state)."""
 
-    # Runs the chat turn's graph on the thread's messages and returns its output (TurnOutput).
-    turn: Callable[[list[AnyMessage]], Mapping[str, Any]]
+    # Runs the chat turn's graph on the thread's messages and their questions' domains (T10.5), and
+    # returns its output (TurnOutput).
+    turn: Callable[[list[AnyMessage], Mapping[str, Domain]], Mapping[str, Any]]
     # The turn's result: its tool runs hold tool results, so it stays out of the checkpointer.
     results: list[TurnResult] = field(default_factory=list)
     # An error the turn raised, raised again by Conversation.run() once the run is over.
@@ -99,7 +106,7 @@ def drops_answer(answer: str) -> bool:
 def turn(state: ConversationState, runtime: Runtime[ConversationContext]) -> dict[str, Any]:
     """Run the chat turn on the thread; keep its question and answer only if it was answered."""
     try:
-        output = runtime.context.turn(list(state["messages"]))
+        output = runtime.context.turn(list(state["messages"]), dict(state.get("domains") or {}))
     except GraphBubbleUp:
         # LangGraph's own signals (an interrupt() pause, T9.7) must reach the graph unchanged.
         raise
@@ -127,7 +134,11 @@ def turn(state: ConversationState, runtime: Runtime[ConversationContext]) -> dic
         # injected one) is not kept, nor is its question: a later turn would read it again (T10.1).
         runtime.context.dropped.append(True)
         return update
-    return {**update, "messages": messages}
+    # The question gets its id here, so its domain can be kept under it (T10.5); a dropped
+    # answer's question is not kept, so neither is its domain.
+    messages[0].id = str(uuid.uuid4())
+    domains = {**(state.get("domains") or {}), messages[0].id: output.get("domain", "unknown")}
+    return {**update, "messages": messages, "domains": domains}
 
 
 def after_turn(state: ConversationState) -> str:
@@ -159,7 +170,7 @@ def approve(state: ConversationState, runtime: Runtime[ConversationContext]) -> 
     return {"proposal": config.ANSWERED_PROPOSAL, "awaiting": False}
 
 
-def _no_turn(_: list[AnyMessage]) -> Mapping[str, Any]:
+def _no_turn(_: list[AnyMessage], __: Mapping[str, Domain]) -> Mapping[str, Any]:
     """Stand for the turn while the graph resumes from `approve`, which never runs a turn."""
     raise RuntimeError("A resumed conversation runs no turn.")
 
@@ -175,10 +186,15 @@ def first_kept(messages: Sequence[AnyMessage], cap: int) -> int:
 
 
 def forget(state: ConversationState) -> dict[str, Any]:
-    """Delete the thread's oldest messages beyond config.HISTORY_MAX_MESSAGES (what is stored)."""
+    """Delete the thread's oldest messages beyond config.HISTORY_MAX_MESSAGES, and their domains."""
     messages = state["messages"]
-    old = messages[: first_kept(messages, config.HISTORY_MAX_MESSAGES)]
-    return {"messages": [RemoveMessage(id=message.id) for message in old]} if old else {}
+    start = first_kept(messages, config.HISTORY_MAX_MESSAGES)
+    old = messages[:start]
+    if not old:
+        return {}
+    kept = {message.id for message in messages[start:]}
+    domains = {key: value for key, value in (state.get("domains") or {}).items() if key in kept}
+    return {"messages": [RemoveMessage(id=message.id) for message in old], "domains": domains}
 
 
 @cache
@@ -256,7 +272,7 @@ class Conversation:
 
     def run(
         self,
-        run_turn: Callable[[list[AnyMessage]], Mapping[str, Any]],
+        run_turn: Callable[[list[AnyMessage], Mapping[str, Domain]], Mapping[str, Any]],
         turn_id: str = "",
         prompts: Mapping[str, str] | None = None,
     ) -> TurnResult:

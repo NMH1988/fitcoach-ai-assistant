@@ -47,7 +47,7 @@ from src import config, guard, i18n, llm, preferences, profile, tracing, usage
 from src.prompt_data import escape_prompt_data
 from src.rag import hybrid, query_translation
 from src.rag.hybrid import KeywordIndex
-from src.rag.query_translation import QueryPlan
+from src.rag.query_translation import Domain, QueryPlan
 from src.rag.retriever import RetrievedChunk, embed_queries
 from src.rag.sources import ManifestError, Source, license_url_for, load_manifest
 from src.rag.store import IndexNotReadyError
@@ -812,16 +812,19 @@ def run_turn(
             prompts=prompts,
         )
 
-        def turn_graph(history: list[BaseMessage]) -> Mapping[str, Any]:
+        def turn_graph(
+            history: list[BaseMessage], domains: Mapping[str, Domain] | None = None
+        ) -> Mapping[str, Any]:
             """Run the turn's graph after these earlier messages and return its output."""
+            # domains: each earlier question's domain, by its message id (T10.5).
             return graph.chat_graph().invoke(
-                {"text": text, "history": history},
+                {"text": text, "history": history, "history_domains": domains or {}},
                 context=context,
                 config=graph.run_config(turn_id, deps.run_trace, versions),
             )
 
         if conversation is None:
-            return turn_graph([])["result"]
+            return turn_graph([], {})["result"]
         return conversation.run(turn_graph, turn_id, versions)
 
     def failed(message: str, code: str, *, index_not_ready: bool = False) -> TurnResult:

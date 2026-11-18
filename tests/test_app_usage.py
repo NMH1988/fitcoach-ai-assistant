@@ -40,6 +40,9 @@ ANSWER_USAGE = {
 }
 # 1,200 + 2,500 tokens; 900 x 0.0000001 + 300 x 0.000001 + 2000 x 0.000001 + 500 x 0.00001.
 TURN_LINE = r"3,700 tokens · \$0.0074"
+# A follow-up translates its search's query again, as its own question may not stand alone, so
+# it pays one rewrite more than a first question, whose search reuses the turn's plan (T10.5).
+FOLLOW_UP_LINE = r"4,900 tokens · \$0.0078"
 
 
 @pytest.fixture
@@ -91,8 +94,8 @@ def test_the_cost_stays_with_each_answer_in_the_history(monkeypatch, prices):
     _use(monkeypatch, ANSWER, ANSWER)
     at = _ask(_ask(_start(), QUESTION), "And protein per day?")
     at.run(timeout=30)
-    for turn in (0, 1):
-        assert _usage_captions(_assistant(at, turn)) == [f":material/data_usage: {TURN_LINE}"]
+    for turn, line in ((0, TURN_LINE), (1, FOLLOW_UP_LINE)):
+        assert _usage_captions(_assistant(at, turn)) == [f":material/data_usage: {line}"]
 
 
 def test_prices_are_read_once_per_turn_not_on_reruns(monkeypatch, prices):
@@ -119,7 +122,7 @@ def test_a_failed_price_read_is_tried_again_on_the_next_turn(monkeypatch):
     _use(monkeypatch, ANSWER, ANSWER)
     at = _ask(_ask(_start(), QUESTION), "And protein per day?")
     assert _usage_captions(_assistant(at, 0))[0].endswith("price unknown")
-    assert _usage_captions(_assistant(at, 1)) == [f":material/data_usage: {TURN_LINE}"]
+    assert _usage_captions(_assistant(at, 1)) == [f":material/data_usage: {FOLLOW_UP_LINE}"]
 
 
 def test_a_rejected_question_shows_no_usage_and_reads_no_prices(monkeypatch, prices):
@@ -151,8 +154,8 @@ def test_the_sidebar_card_shows_the_answer_and_the_session_totals(monkeypatch, p
     ]
     at = _ask(at, "And protein per day?")
     assert _usage_captions(_card(at)) == [
-        f":material/data_usage: This answer: {TURN_LINE}",
-        r":material/data_usage: Session: 7,400 tokens · \$0.0148",
+        f":material/data_usage: This answer: {FOLLOW_UP_LINE}",
+        r":material/data_usage: Session: 8,600 tokens · \$0.0152",
     ]
 
 
@@ -180,7 +183,7 @@ def test_the_session_total_says_when_some_prices_were_unknown(monkeypatch):
     _use(monkeypatch, ANSWER, ANSWER)
     at = _ask(_ask(_start(), QUESTION), "And protein per day?")
     assert _usage_captions(_card(at))[-1] == (
-        r":material/data_usage: Session: 7,400 tokens · \$0.0074 + price unknown"
+        r":material/data_usage: Session: 8,600 tokens · \$0.0078 + price unknown"
     )
 
 
