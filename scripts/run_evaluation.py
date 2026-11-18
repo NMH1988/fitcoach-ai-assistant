@@ -74,6 +74,7 @@ from langchain_chroma import Chroma
 from langchain_core.language_models import BaseChatModel
 
 from src import chat, config, eval_results, experiments, guard, i18n, llm, observability, usage
+from src.agent import memory
 from src.eval_questions import EvalItem, QuestionsFileError, load_eval_items
 from src.rag import hybrid, store
 from src.rag.retriever import RetrievedChunk
@@ -284,12 +285,22 @@ def summary_lines(runs: Sequence[EvalRun]) -> list[str]:
             lines.append(f"  cited: {_cited(result)}")
             lines.append(f"  tools: {_tools(result)}")
             lines.append(f"  {expectation_line(run)}")
+            if not_remembered(run):
+                lines.append("  memory check: flagged, the chat would not remember it (T10.1)")
     session = usage.session_usage(run.cost for run in runs)
     errors = sum(run.result.kind == "error" for run in runs)
+    flagged = sum(not_remembered(run) for run in runs)
     lines.append(
-        f"{len(runs)} runs, {errors} ended with an error · {usage.format_session(session)}"
+        f"{len(runs)} runs, {errors} ended with an error, {flagged} answers flagged by the memory "
+        f"check · {usage.format_session(session)}"
     )
     return lines
+
+
+def not_remembered(run: EvalRun) -> bool:
+    """Return True if the chat's memory check would drop this run's answer (T10.1)."""
+    # The evaluation asks each question with no conversation, so the memory's own check runs here.
+    return run.result.kind == "answer" and memory.drops_answer(run.result.text)
 
 
 def score_runs(runs: Sequence[EvalRun], judge: Any) -> list[dict[str, Any]]:

@@ -47,6 +47,9 @@ EVENTS = frozenset(
         # The chat's food tool asked the USDA FoodData Central API (T9.9): the outcome's code and
         # the tool status only; never the food's name or the key.
         "food_api",
+        # The chat's memory did not keep an answer that reads like an instruction (T10.1): the
+        # turn's ID only; never the question, the answer or the pattern that matched.
+        "memory_answer_dropped",
         LOG_FAILED_EVENT,
     }
 )

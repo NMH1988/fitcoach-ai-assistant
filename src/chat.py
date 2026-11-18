@@ -159,6 +159,10 @@ class TurnResult:
     # The turn's ID (a UUID4), set by run_turn() and written on every log line of the turn, so the
     # lines can be matched (T8.2; T9.8 puts it on the trace too). Empty for a hand-made result.
     turn_id: str = ""
+    # True when the chat's memory did not keep this answer because it reads like an instruction to
+    # the assistant (T10.1): the answer is still shown, with a line saying the question and answer
+    # are not remembered.
+    not_remembered: bool = False
 
 
 # A citation is one bracket holding labels or ranges: [S1], [S1, S3], [S2; S4], [S1 and S2],
