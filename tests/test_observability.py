@@ -685,6 +685,9 @@ def test_a_dropped_answer_logs_one_line_with_the_turn_id_only(index):
     assert set(line) == {"ts", "level", "logger", "event", "turn_id"}
     assert (line["level"], line["turn_id"]) == ("WARNING", result.turn_id)
     assert "previous instructions" not in stream.getvalue()
+    # The dropped turn keeps T10.4's prompt versions, on its result and its turn line.
+    [turn] = [line for line in _lines(stream) if line["event"] == "turn"]
+    assert turn["prompt_answer"] and result.prompts
 
 
 def test_a_clean_answer_in_a_conversation_logs_no_dropped_line(index):
