@@ -27,6 +27,7 @@ from tests.fakes import (
     ScriptedChatModel,
     ScriptedTranslator,
     build_fixture_index,
+    chat_turn,
     open_fixture_index,
     tool_reply,
     write_food_table,
@@ -85,7 +86,7 @@ def _ask(
     """Run one turn of the conversation with a model scripted with these replies."""
     model = ScriptedChatModel(replies=list(replies), search_first=search_first)
     translator = translator or ScriptedTranslator()
-    result = chat.run_turn(
+    result = chat_turn(
         question,
         limiter or guard.RateLimiter(),
         open_index=lambda: index,
@@ -275,7 +276,7 @@ def test_a_turn_that_is_not_answered_is_not_kept(index, replies):
     conversation = Conversation()
     if replies is None:
         model = ScriptedChatModel(error=llm.LLMError(diagnostic="test"))
-        result = chat.run_turn(
+        result = chat_turn(
             QUESTION,
             guard.RateLimiter(),
             open_index=lambda: index,
@@ -295,7 +296,7 @@ def test_a_failed_turns_error_text_is_not_remembered(index):
     """An unexpected error ends the turn as before, and its text reaches no checkpoint."""
     conversation = Conversation()
     model = ScriptedChatModel(error=RuntimeError("CANARY-ERROR 87.3 How much protein"))
-    result = chat.run_turn(
+    result = chat_turn(
         QUESTION,
         guard.RateLimiter(),
         open_index=lambda: index,

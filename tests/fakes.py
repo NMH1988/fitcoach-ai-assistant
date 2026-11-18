@@ -3,7 +3,10 @@
 Also `pdf_text()`, which reads a PDF's text back for the summary PDF tests (T5.2).
 """
 
+import annotationlib
 import csv
+import dataclasses
+import inspect
 import io
 import json
 import re
@@ -23,7 +26,7 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import Field
 from pypdf import PdfReader
 
-from src import config, llm
+from src import chat, config, guard, llm
 from src.profile import UserProfile
 from src.rag import store
 from src.tools.food import TABLE_COLUMNS, Food
@@ -424,3 +427,32 @@ def pdf_text(data: bytes) -> str:
     """Return a PDF's text, page by page, with each run of whitespace made one space."""
     reader = PdfReader(io.BytesIO(data))
     return " ".join(" ".join(page.extract_text().split()) for page in reader.pages)
+
+
+def chat_turn(text: str, limiter: guard.RateLimiter, **parts: Any) -> chat.TurnResult:
+    """Run chat.run_turn(), sorting the keyword arguments into its deps, callbacks and the rest."""
+    # The one way the tests build a turn's TurnDeps and TurnCallbacks (T10.7). A name that is a
+    # field of neither goes to run_turn() as it is (language, user, conversation), so an unknown
+    # one fails there. No callback given passes None, the default.
+    deps = {name: parts.pop(name) for name in _TURN_DEPS if name in parts}
+    callbacks = {name: parts.pop(name) for name in _TURN_CALLBACKS if name in parts}
+    return chat.run_turn(
+        text,
+        limiter,
+        deps=chat.TurnDeps(**deps),
+        callbacks=chat.TurnCallbacks(**callbacks) if callbacks else None,
+        **parts,
+    )
+
+
+_TURN_DEPS = tuple(item.name for item in dataclasses.fields(chat.TurnDeps))
+_TURN_CALLBACKS = tuple(item.name for item in dataclasses.fields(chat.TurnCallbacks))
+# chat_turn() sorts by name, so a name in two of the groups would silently go to the first: the
+# dataclasses' fields and run_turn()'s own parameters must stay apart (code review round 1).
+_RUN_TURN_PARAMETERS = tuple(
+    inspect.signature(chat.run_turn, annotation_format=annotationlib.Format.FORWARDREF).parameters
+)
+assert not set(_TURN_DEPS) & set(_TURN_CALLBACKS), "a name is both a dep and a callback"
+assert not set(_TURN_DEPS + _TURN_CALLBACKS) & set(_RUN_TURN_PARAMETERS), (
+    "a TurnDeps or TurnCallbacks field shares its name with a run_turn() parameter"
+)
