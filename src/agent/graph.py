@@ -148,30 +148,85 @@ class TurnContext:
     # preferences for <memories>. None for a guest, who is not offered remember_preference.
     coach: preferences.CoachMemory | None = None
     proposals: preferences.Proposals = field(default_factory=preferences.Proposals)
+    # The turn's prompts, read by run_turn() before the graph runs so the run's metadata carries
+    # their versions (T10.4), or the error reading them raised (a PromptMissingError, or a bug),
+    # which the prepare node raises after the guard. None: the prepare node reads them itself (a
+    # graph run without run_turn()).
+    prompts: TurnPrompts | Exception | None = None
 
 
-def run_config(turn_id: str = "", trace: tracing.RunTrace | None = None) -> RunnableConfig:
+def run_config(
+    turn_id: str = "",
+    trace: tracing.RunTrace | None = None,
+    prompts: Mapping[str, str] | None = None,
+) -> RunnableConfig:
     """Return the config every turn runs with: the step limit, one tool call at a time, turn_id."""
     # ToolNode runs a round's calls in worker threads; one at a time keeps them in order, as before.
     # LangGraph counts the input as a step too, so the limit is one more than the node steps. The
-    # turn_id goes on every run of the turn as metadata, so a trace matches its log lines (T9.8).
+    # turn_id goes on every run of the turn as metadata, so a trace matches its log lines (T9.8),
+    # with the versions of the turn's prompts (`TurnPrompts.versions()`, T10.4).
     # `trace` is an evaluation experiment's (T9.33): its tracer and the root run's ID, so the
     # script can attach the run's scores to it. The app never passes one.
     run: RunnableConfig = {"recursion_limit": MAX_STEPS + 1, "max_concurrency": 1}
     if turn_id:
-        run["metadata"] = tracing.run_metadata(turn_id)
+        run["metadata"] = tracing.run_metadata(turn_id, prompts)
     if trace is not None:
         run["callbacks"] = list(trace.callbacks)
         run["run_id"] = trace.run_id
     return run
 
 
-def load_prompt(path: Path, message: str, code: str) -> str:
-    """Return a prompt file's text; raise PromptMissingError with message if it is unusable."""
+def load_prompt(path: Path, message: str, code: str) -> chat.Prompt:
+    """Return a prompt file's text with its version; raise PromptMissingError if it is unusable."""
     try:
-        return chat.load_system_prompt(path)
+        return chat.Prompt(chat.load_system_prompt(path))
     except OSError, ValueError:
         raise chat.PromptMissingError(message, code) from None
+
+
+@dataclass(frozen=True)
+class TurnPrompts:
+    """The two system prompts a chat turn sends, read once before the turn runs (T10.4)."""
+
+    # The owner's answer prompt with the language part, then a coach's part, joined as the model
+    # receives it, so its version names that exact text.
+    answer: chat.Prompt
+    translation: chat.Prompt
+
+    def versions(self) -> dict[str, str]:
+        """Return the prompts' versions by their trace and log keys."""
+        return {
+            tracing.PROMPT_ANSWER_KEY: self.answer.version,
+            tracing.PROMPT_QUERY_KEY: self.translation.version,
+        }
+
+
+def load_turn_prompts(language: i18n.Language, *, coach: bool) -> TurnPrompts:
+    """Read a turn's prompt files; raise PromptMissingError for the first that is unusable."""
+    # In the order the prepare node read them before T10.4, so the same file is reported first.
+    answer = load_prompt(
+        config.ANSWER_PROMPT_PATH, config.PROMPT_MISSING_MESSAGE, "prompt.answer_missing"
+    )
+    translation = load_prompt(
+        config.QUERY_TRANSLATION_PROMPT_PATH,
+        config.QUERY_PROMPT_MISSING_MESSAGE,
+        "prompt.query_missing",
+    )
+    language_part = load_prompt(
+        config.ANSWER_LANGUAGE_PROMPT_PATHS[language],
+        config.LANGUAGE_PROMPT_MISSING_MESSAGE,
+        "prompt.language_missing",
+    )
+    coach_part = None
+    if coach:
+        # Only a coach's chat names remember_preference and <memories> (T9.7, O8).
+        coach_part = load_prompt(
+            config.ANSWER_COACH_PROMPT_PATH,
+            config.COACH_PROMPT_MISSING_MESSAGE,
+            "prompt.coach_missing",
+        ).text
+    system = chat.answer_system_prompt(answer.text, language_part.text, coach_part)
+    return TurnPrompts(answer=chat.Prompt(system), translation=translation)
 
 
 def _last_reply(messages: Sequence[AnyMessage]) -> AIMessage:
@@ -229,28 +284,14 @@ def guard_node(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any
 def prepare(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
     """Read the prompts, open the index and the clients, and build the request's messages."""
     context = runtime.context
-    # Read before any API call, so a missing or empty prompt file costs nothing.
-    system_prompt = load_prompt(
-        config.ANSWER_PROMPT_PATH, config.PROMPT_MISSING_MESSAGE, "prompt.answer_missing"
-    )
-    translation_prompt = load_prompt(
-        config.QUERY_TRANSLATION_PROMPT_PATH,
-        config.QUERY_PROMPT_MISSING_MESSAGE,
-        "prompt.query_missing",
-    )
-    language_part = load_prompt(
-        config.ANSWER_LANGUAGE_PROMPT_PATHS[context.language],
-        config.LANGUAGE_PROMPT_MISSING_MESSAGE,
-        "prompt.language_missing",
-    )
-    coach_part = None
-    if context.coach is not None:
-        # Only a coach's chat names remember_preference and <memories> (T9.7, O8).
-        coach_part = load_prompt(
-            config.ANSWER_COACH_PROMPT_PATH,
-            config.COACH_PROMPT_MISSING_MESSAGE,
-            "prompt.coach_missing",
-        )
+    # Before any API call, so a missing or empty prompt file costs nothing. run_turn() read them
+    # before the graph ran (T10.4); they are never read again here, so the versions on the run's
+    # metadata name the text this turn sends.
+    prompts = context.prompts
+    if isinstance(prompts, Exception):
+        raise prompts
+    if prompts is None:
+        prompts = load_turn_prompts(context.language, coach=context.coach is not None)
     # The index is opened first: a missing index is reported even when the key is missing. All
     # three are opened before the first model call, as before T9.3, so a turn that would search
     # meets a missing index or key before it spends anything.
@@ -258,11 +299,11 @@ def prepare(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
     context.translation_model()
     context.chat_model()
     context.on_step(Step.PLAN)
-    system = chat.answer_system_prompt(system_prompt, language_part, coach_part)
+    system = prompts.answer.text
     memories = context.coach.preferences if context.coach is not None else ()
     return {
         "system_prompt": system,
-        "translation_prompt": translation_prompt,
+        "translation_prompt": prompts.translation.text,
         # The conversation's latest questions and answers (T9.4), then the user's own question; the
         # chunks come in a search's tool message (T9.3).
         "messages": chat.build_messages(

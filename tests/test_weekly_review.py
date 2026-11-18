@@ -642,7 +642,7 @@ def test_the_owner_s_review_prompt_names_its_blocks():
     """O15: the owner's prompt file loads and names every block the review's message holds."""
     text = graph.load_prompt(
         config.REVIEW_PROMPT_PATH, config.REVIEW_PROMPT_MISSING_MESSAGE, "prompt.review_missing"
-    )
+    ).text
     for block in (*config.REVIEW_PROMPT_BLOCKS, "<validation_errors>"):
         assert block in text, block
     # The calorie floor the prompt states is the one the code enforces.

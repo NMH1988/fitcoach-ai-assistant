@@ -46,7 +46,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
 from langgraph.types import Command, interrupt
 
-from src import account, config, dashboard, llm, metrics, tracing
+from src import account, chat, config, dashboard, llm, metrics, tracing
 from src import weekly_review as wr
 from src.agent import review_threads
 from src.rag import hybrid
@@ -125,7 +125,11 @@ class ReviewContext:
     )
     open_index: Callable[[], Chroma] | None = None
     keyword_index: Callable[[Chroma], KeywordIndex] = hybrid.build_keyword_index
-    prompt: str = ""
+    # The owner's review prompt as read once for this run; the model gets its text, and its version
+    # goes on the run's trace, its log line and the stored review (T10.4). Only a decision may go
+    # without one (it sends no prompt): start_review() refuses a context that has none, so no
+    # review is stored under the version of an empty text.
+    prompt: chat.Prompt | None = None
     # The day the run counts as today (Europe/Berlin); None for the real day. Tests set it.
     today: date | None = None
 
@@ -223,8 +227,11 @@ def retrieve(state: ReviewState, runtime: Runtime[ReviewContext]) -> dict[str, A
 
 def draft(state: ReviewState, runtime: Runtime[ReviewContext]) -> dict[str, Any]:
     """Ask the model for the review with structured output; an unusable reply fails the schema."""
+    prompt = runtime.context.prompt
+    if prompt is None:
+        raise ValueError("A review is drafted only with its prompt.")
     messages = wr.build_messages(
-        runtime.context.prompt,
+        prompt.text,
         state["metrics"],
         chunks_of(state),
         state["language"],
@@ -290,6 +297,8 @@ def save(state: ReviewState, runtime: Runtime[ReviewContext]) -> dict[str, Any]:
                 data_quality=state["data_quality"],
                 draft=stored,
                 model_version=version,
+                # The prompt it was drafted with (draft refuses a context without one).
+                prompt_version=runtime.context.prompt.version,
                 evidence_refs=wr.evidence_refs(stored, chunks_of(state)),
                 scopes=state["scopes"],
                 thread_id=state["thread_id"],
@@ -422,15 +431,22 @@ def mermaid() -> str:
     return _builder().compile().get_graph().draw_mermaid()
 
 
-def _run_config(thread_id: str, coach_id: str, client_id: str, turn_id: str) -> RunnableConfig:
+def _run_config(
+    thread_id: str,
+    coach_id: str,
+    client_id: str,
+    turn_id: str,
+    prompts: Mapping[str, str] | None = None,
+) -> RunnableConfig:
     """Return a run's config: its thread, the IDs and turn_id as metadata, the step limit."""
-    # The turn_id ties the run's trace to its log line (T9.8); a trace masks the users' IDs.
+    # The turn_id ties the run's trace to its log line (T9.8); a trace masks the users' IDs. A run
+    # carries the version of the prompt it was set up with too (T10.4); a decision sends no prompt.
     return {
         "configurable": {"thread_id": thread_id},
         "metadata": {
             review_threads.COACH_KEY: coach_id,
             review_threads.CLIENT_KEY: client_id,
-            **tracing.run_metadata(turn_id),
+            **tracing.run_metadata(turn_id, prompts),
         },
         "recursion_limit": config.REVIEW_MAX_STEPS,
     }
@@ -465,10 +481,16 @@ def start_review(
     context: ReviewContext, coach_id: str, client_id: str, monday: date, language: str
 ) -> RunResult:
     """Run a new review up to the coach's decision; a run that ends keeps no thread."""
+    if context.prompt is None:
+        # A caller's bug, refused before anything runs: a run sends the owner's prompt (T10.4).
+        raise ValueError("A review run needs its prompt.")
     thread_id = review_threads.new_thread_id()
     # Each run and each decision has an ID of its own, on its log lines and its trace (T9.8).
     turn_id = str(uuid.uuid4())
-    run = _run_config(thread_id, coach_id, client_id, turn_id)
+    # The version of the prompt the run is set up with, on its trace and log line, whether or not
+    # it reaches the draft (T10.4).
+    prompts = {tracing.PROMPT_REVIEW_KEY: context.prompt.version}
+    run = _run_config(thread_id, coach_id, client_id, turn_id, prompts)
     start: ReviewState = {
         "coach_id": coach_id,
         "client_id": client_id,
@@ -493,12 +515,15 @@ def start_review(
         result = _result(values)
         if result.outcome != "pending":
             review_threads.delete_threads(saver, [thread_id])
-        _log(result, values, turn_id)
+        _log(result, values, turn_id, context.prompt.version)
     return result
 
 
-def _log(result: RunResult, values: Mapping, turn_id: str) -> None:
+def _log(
+    result: RunResult, values: Mapping, turn_id: str, prompt_version: str | None = None
+) -> None:
     """Write one line per run or decision: its ID, the outcome, counts and codes, never a value."""
+    # A run names the version of the prompt it was set up with (T10.4); a decision's line has None.
     logger.info(
         "weekly_review",
         extra={
@@ -507,6 +532,7 @@ def _log(result: RunResult, values: Mapping, turn_id: str) -> None:
             "attempts": values.get("attempts", 0),
             "chunks": len(values.get("chunks", ())),
             "checks": list(result.errors),
+            tracing.PROMPT_REVIEW_KEY: prompt_version,
         },
     )
 
