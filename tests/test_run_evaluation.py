@@ -8,6 +8,7 @@ import json
 import re
 import sys
 from decimal import Decimal
+from types import SimpleNamespace
 
 import httpx2
 import openai
@@ -20,7 +21,7 @@ from src import chat, config, eval_results, experiments, llm, tracing, usage
 from src.eval_questions import EvalItem
 from src.rag import store
 from src.tools.registry import MACRO_TOOL
-from src.usage import ModelPrice
+from src.usage import CallUsage, ModelPrice
 from tests import test_experiments
 from tests.fakes import (
     CHUNKS,
@@ -227,7 +228,72 @@ def test_each_run_shows_its_tokens_and_cost_and_the_total(index):
     lines = run_evaluation.summary_lines(runs)
     # 1,100 answer + 110 rewrite tokens: $0.0012 + $0.00012 per run.
     assert lines[0] == "q1 run 1: answer · 1,210 tokens · $0.0013"
-    assert lines[-1] == "2 runs, 0 ended with an error · 2,420 tokens · $0.0026"
+    assert lines[-2] == "2 runs, 0 ended with an error · 2,420 tokens · $0.0026"
+    # The first asking's answer calls only (round 1 is the search, which the fake reports no tokens
+    # for), not the rewrite's 100 input tokens (T10.6).
+    assert lines[-1] == "answer calls, later rounds: 1,000 input tokens, 0 of them cached (0%)"
+
+
+def test_the_summary_gives_the_cached_share_of_the_answer_calls(index):
+    """The answer rounds' cached input over their input, over each question's first run (T10.6)."""
+    calls = {
+        "input_tokens": 3000,
+        "output_tokens": 100,
+        "total_tokens": 3100,
+        "input_token_details": {"cache_read": 2048},
+    }
+    model = ScriptedChatModel(replies=[AIMessage(ANSWER, usage_metadata=calls)] * 2)
+    translator = ScriptedTranslator(
+        usage={"input_tokens": 900, "output_tokens": 10, "total_tokens": 910}
+    )
+    runs = _evaluate([_item("q1", QUESTION)], index, model, translator, repeat=2)
+    # The first asking only (the repeat sends the same request again): 2,048 of 3,000 input
+    # tokens, 68%; the rewrite's 900 are left out.
+    line = "answer calls, later rounds: 3,000 input tokens, 2,048 of them cached (68%)"
+    assert run_evaluation.cache_lines(runs) == [line]
+    assert run_evaluation.summary_lines(runs)[-1] == line
+
+
+def test_the_cache_lines_give_round_1_apart_from_the_later_rounds():
+    """Round 1 shares only the static prompt with other turns, so it gets its own line."""
+    answer = config.USAGE_STEP_ANSWER
+    calls = [
+        CallUsage(config.USAGE_STEP_REWRITE, config.QUERY_TRANSLATION_MODEL, 900, cached_tokens=9),
+        CallUsage(answer.format(round=1), config.DEFAULT_ANSWER_MODEL, 4000, cached_tokens=3584),
+        CallUsage(answer.format(round=2), config.DEFAULT_ANSWER_MODEL, 4500, cached_tokens=4096),
+        CallUsage(answer.format(round=1), config.DEFAULT_ANSWER_MODEL, 4000, cached_tokens=0),
+    ]
+    first = SimpleNamespace(item=SimpleNamespace(id="q1"), cost=usage.price_turn(calls, None))
+    expected = [
+        "answer calls, round 1: 8,000 input tokens, 3,584 of them cached (45%)",
+        "answer calls, later rounds: 4,500 input tokens, 4,096 of them cached (91%)",
+    ]
+    assert run_evaluation.cache_lines([first]) == expected
+    # A later run of the same question (a repeat, or its no-profile variant) is left out.
+    again = SimpleNamespace(item=SimpleNamespace(id="q1"), cost=usage.price_turn(calls, None))
+    assert run_evaluation.cache_lines([first, again]) == expected
+
+
+def test_a_questions_no_profile_variant_is_left_out_of_the_cache_lines(index):
+    """The profile is never in the messages, so the no-profile variant repeats round 1 too."""
+    calls = {
+        "input_tokens": 3000,
+        "output_tokens": 100,
+        "total_tokens": 3100,
+        "input_token_details": {"cache_read": 1024},
+    }
+    model = ScriptedChatModel(replies=[AIMessage(ANSWER, usage_metadata=calls)] * 2)
+    runs = _evaluate([_item("q13", TARGETS, profile=PROFILE)], index, model)
+    assert [run.label for run in runs] == ["q13", "q13 (no profile)"]
+    assert run_evaluation.cache_lines(runs) == [
+        "answer calls, later rounds: 3,000 input tokens, 1,024 of them cached (34%)"
+    ]
+
+
+def test_a_run_set_with_no_answer_call_has_no_cache_line(index):
+    """A guardrail question calls no model, so the summary gives no cache line."""
+    [run] = _evaluate([_item("q15", STEROIDS)], index, ScriptedChatModel(), ScriptedTranslator())
+    assert run_evaluation.cache_lines([run]) == []
 
 
 @pytest.fixture

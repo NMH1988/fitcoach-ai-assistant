@@ -355,6 +355,64 @@ def test_the_usage_rows_list_each_call_with_its_tokens_and_cost():
     assert columns[6][1] == usage.format_cost(None, "en")
 
 
+def _cached_turn(prices) -> usage.TurnUsage:
+    """Return a priced turn of a rewrite and an answer round with 6,656 of its input cached."""
+    calls = [
+        usage.CallUsage(config.USAGE_STEP_REWRITE, "m/a", 3292, 175),
+        usage.CallUsage(config.USAGE_STEP_ANSWER.format(round=1), "m/b", 10166, 488, 6656),
+    ]
+    return usage.price_turn(calls, prices)
+
+
+# Input 0.000001, cached input 0.0000001 dollars a token: 6,656 x 0.0000009 = $0.0059904.
+CACHE_PRICES = {
+    "m/a": usage.ModelPrice(Decimal("0.0000001"), Decimal("0.000001")),
+    "m/b": usage.ModelPrice(Decimal("0.000001"), Decimal("0.00001"), Decimal("0.0000001")),
+}
+
+
+@pytest.mark.parametrize(
+    ("lang", "expected"),
+    [
+        (
+            "en",
+            r"Cached input: 6,656 of 13,458 input tokens (49%), which saved \$0.0060 at "
+            "today's prices.",
+        ),
+        (
+            "de",
+            r"Eingabe aus Cache: 6.656 von 13.458 Eingabe-Token (49 %), eine Ersparnis von "
+            r"0,0060 \$ zu den heutigen Preisen.",
+        ),
+    ],
+)
+def test_the_cache_line_gives_the_cached_share_and_the_saving(lang, expected):
+    """The turn's cached input over all its input, and the saving, in each language (T10.6)."""
+    assert tables.cache_line(_cached_turn(CACHE_PRICES), lang) == expected
+
+
+@pytest.mark.parametrize("lang", ["en", "de"])
+def test_the_cache_line_says_when_the_saving_is_not_known(lang):
+    """Without a price the share is still shown, and the saving is said to be unknown."""
+    line = tables.cache_line(_cached_turn(None), lang)
+    assert line == i18n.t(
+        "usage.cached_unpriced",
+        lang,
+        cached=i18n.number(6656, lang),
+        total=i18n.number(13458, lang),
+        percent=i18n.percent(49, lang),
+    )
+    assert "$" not in line
+
+
+@pytest.mark.parametrize("lang", ["en", "de"])
+def test_the_cache_line_says_when_nothing_was_cached(lang):
+    """A turn with no cached input says so instead of showing 0%."""
+    calls = [usage.CallUsage(config.USAGE_STEP_ANSWER.format(round=1), "m/b", 2000, 400)]
+    turn = usage.price_turn(calls, CACHE_PRICES)
+    assert tables.cache_line(turn, lang) == i18n.t("usage.cached_none", lang)
+
+
 def test_distinct_filters_lists_each_filter_of_the_searches_once():
     """Topics, years and tiers of several searches come back once each, in order (T9.3)."""
     searches = [
