@@ -51,7 +51,7 @@ WHERE relationship.coach_id = ? OR relationship.client_id = ? ORDER BY consent.i
 # and every other scope each review used (owner's choices, 2026-10-27; T9.16).
 _APPROVED_ABOUT = """
 SELECT id, client_id, coach_id, period_start, metrics, data_quality, NULL AS draft, final, status,
-    edited_by_coach, model_version, created_at, reviewed_by, reviewed_at
+    edited_by_coach, model_version, prompt_version, created_at, reviewed_by, reviewed_at
 FROM ai_reviews WHERE client_id = ? AND status = 'APPROVED' ORDER BY id
 """
 _WRITTEN_FOR_SHARED = """

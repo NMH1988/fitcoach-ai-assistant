@@ -293,6 +293,7 @@ def test_a_gymer_reads_an_approved_review_s_sections_and_label(monkeypatch):
             data_quality={},
             draft={**json.loads(GOOD), "language": "en", "sources": {}},
             model_version=config.REVIEW_MODEL,
+            prompt_version="0123456789ab",
         )
         reviews.decide_review(conn, "coach-kai", found, "approve")
     at = open_page(start(monkeypatch, user=signed_in()), navigation.MY_WEEK)
@@ -566,6 +567,7 @@ def test_a_gymer_reads_an_approved_review_s_kcal_fields(monkeypatch, language, l
             data_quality={},
             draft=draft,
             model_version=config.REVIEW_MODEL,
+            prompt_version="0123456789ab",
         )
         reviews.decide_review(conn, "coach-kai", found, "approve")
     at = open_page(start(monkeypatch, user=signed_in(), language=language), navigation.MY_WEEK)

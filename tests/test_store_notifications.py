@@ -82,6 +82,7 @@ def _review(conn, coach: str, client: str, monday: date, decision: str | None) -
         data_quality={"logged_days": 3},
         draft={"observations": ["CANARY-REVIEW-TEXT"]},
         model_version="test-model",
+        prompt_version="0123456789ab",
     )
     if decision is not None:
         reviews.decide_review(conn, coach, found, decision)

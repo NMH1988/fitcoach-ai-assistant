@@ -550,6 +550,53 @@ def test_metadata_keeps_the_turn_and_node_and_masks_the_users_ids():
     assert [masked[k] for k in ("coach_id", "client_id", "thread_id")] == [config.TRACE_MASK] * 3
 
 
+VERSION = "0123456789ab"
+
+
+@pytest.mark.parametrize("key", sorted(tracing.PROMPT_VERSION_KEYS))
+def test_a_prompt_version_survives_the_mask(key):
+    """Twelve lowercase hex characters under a prompt version key are kept (T10.4)."""
+    assert tracing.mask({key: VERSION}) == {key: VERSION}
+
+
+@pytest.mark.parametrize("key", sorted(tracing.PROMPT_VERSION_KEYS))
+@pytest.mark.parametrize(
+    "value",
+    [
+        "protein",
+        "CANARY",
+        "0123456789AB",
+        "0123456789abc",
+        "0123456789a",
+        "0123456789ag",
+        " 0123456789ab",
+        "0b5c1a2e-0d86",
+        123456789012,
+        True,
+        None,
+        [VERSION, "protein"],
+        {"text": VERSION},
+    ],
+)
+def test_any_other_value_under_a_prompt_version_key_is_masked(key, value):
+    """A word, the wrong length or case, a number or a record is masked (no identifier rule)."""
+    masked = tracing.mask({key: value})
+    if isinstance(value, list):
+        # A list keeps its key's rule item by item: the version stays, the word goes.
+        assert masked == {key: [VERSION, config.TRACE_MASK]}
+    else:
+        assert masked == {key: config.TRACE_MASK}
+
+
+def test_the_run_metadata_takes_only_the_prompt_version_keys():
+    """Any other key passed with the versions is left out, so nothing rides along under it."""
+    metadata = tracing.run_metadata(
+        "turn-1", {"prompt_answer": VERSION, "question": "CANARY Q", "prompt_review": VERSION}
+    )
+    assert metadata == {"turn_id": "turn-1", "prompt_answer": VERSION, "prompt_review": VERSION}
+    assert tracing.run_metadata("", {"prompt_answer": VERSION}) == {}
+
+
 @pytest.mark.parametrize(
     ("error", "kept"),
     [
@@ -709,6 +756,10 @@ def test_a_weekly_review_and_its_decision_are_masked_and_carry_their_turn_id(sto
     assert len(ids) == 2 and ids[0] != ids[1]
     assert {meta.get("turn_id") for meta in _metadata(start_runs)} == {ids[0]}
     assert {meta.get("turn_id") for meta in _metadata(decide_runs)} == {ids[1]}
+    # The run that drafts carries its prompt's version on every run; a decision sends no prompt.
+    version = context.prompt.version
+    assert {meta.get("prompt_review") for meta in _metadata(start_runs)} == {version}
+    assert {meta.get("prompt_review") for meta in _metadata(decide_runs)} == {None}
     searched = _searched(start_runs + decide_runs)
     for canary in REVIEW_CANARIES:
         assert canary not in searched, canary
@@ -752,6 +803,28 @@ def test_each_run_of_a_turn_carries_the_turn_id_of_its_log_line(index, traced):
     assert line["turn_id"] == result.turn_id
     assert len(runs) > 6
     assert all(meta.get("turn_id") == result.turn_id for meta in _metadata(runs))
+
+
+@pytest.mark.parametrize("with_conversation", [False, True])
+def test_every_run_of_a_turn_carries_its_prompt_versions(index, traced, with_conversation):
+    """The turn's prompt versions are on every run, the conversation's root run included."""
+    stream = io.StringIO()
+    observability.configure_logging(stream=stream)
+    conversation = Conversation() if with_conversation else None
+    result = obs._canary_turn(
+        obs.CANARY_QUESTION,
+        index,
+        obs._answer_model(),
+        conversation=conversation,
+    )
+    [line] = [json.loads(x) for x in stream.getvalue().splitlines() if '"event": "turn"' in x]
+    versions = dict(result.prompts)
+    assert set(versions) == {"prompt_answer", "prompt_query"}
+    assert {key: line[key] for key in versions} == versions
+    runs = traced.runs()
+    assert runs
+    for meta in _metadata(runs):
+        assert {key: meta.get(key) for key in versions} == versions
 
 
 def test_the_evaluation_judge_s_calls_are_masked_and_carry_the_scored_turn_s_id(traced):

@@ -31,9 +31,40 @@ def _save(conn, coach=world.COACH_A, client=world.SHARED, week=WEEK, **extra):
         data_quality={"logged_days": 3},
         draft=DRAFT,
         model_version="openai/gpt-5-mini",
+        prompt_version="0123456789ab",
         evidence_refs=[("12", "12-3"), ("8", "8-1")],
         **extra,
     )
+
+
+def test_a_saved_review_keeps_the_version_of_its_prompt(store_conn, relationships):
+    """save_review() stores the prompt version beside the model's (T10.4)."""
+    review_id = _save(store_conn)
+    row = store_conn.execute(
+        "SELECT model_version, prompt_version FROM ai_reviews WHERE id = ?", (review_id,)
+    ).fetchone()
+    assert tuple(row) == ("openai/gpt-5-mini", "0123456789ab")
+
+
+@pytest.mark.parametrize(
+    "bad", ["", "unknown", "protein", "0123456789AB", "0123456789abc", None, 123456789012]
+)
+def test_a_review_without_a_real_prompt_version_is_refused(store_conn, relationships, bad):
+    """Anything but 12 lowercase hex characters fails, naming the field and never the value."""
+    with pytest.raises(values.StoreValueError) as raised:
+        reviews.save_review(
+            store_conn,
+            world.COACH_A,
+            world.SHARED,
+            period_start=WEEK,
+            metrics=METRICS,
+            data_quality={},
+            draft=DRAFT,
+            model_version="m",
+            prompt_version=bad,
+        )
+    assert str(raised.value) == "prompt_version is not a prompt version"
+    assert store_conn.execute("SELECT COUNT(*) FROM ai_reviews").fetchone()[0] == 0
 
 
 def _audit_rows(conn):
@@ -215,6 +246,7 @@ def test_review_fields_must_be_json_mappings(store_conn, relationships, bad):
             data_quality={},
             draft={},
             model_version="m",
+            prompt_version="0123456789ab",
         )
 
 
@@ -229,6 +261,7 @@ def _save_metrics(conn, metrics):
         data_quality={},
         draft={},
         model_version="m",
+        prompt_version="0123456789ab",
     )
 
 
@@ -246,6 +279,7 @@ def test_a_review_with_a_lone_surrogate_is_a_store_value_error(store_conn, relat
             data_quality={},
             draft=bad,
             model_version="m",
+            prompt_version="0123456789ab",
         )
     else:
         review_id = _save(store_conn)
@@ -353,6 +387,7 @@ def test_a_draft_from_before_the_kcal_fields_loads_shows_and_is_decided(
         data_quality={"logged_days": 3},
         draft=OLD_DRAFT,
         model_version="openai/gpt-5-mini",
+        prompt_version="0123456789ab",
         evidence_refs=[],
     )
     [stored] = reviews.list_reviews(store_conn, world.COACH_A, world.SHARED)

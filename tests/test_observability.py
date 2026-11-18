@@ -820,7 +820,7 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
     review = reviews.save_review(
         conn, "CANARY-COACH", "CANARY-GYM", period_start=date(2026, 10, 19),
         metrics={"avg_kcal": 2345.6}, data_quality={}, draft={"text": "CANARY-DRAFT"},
-        model_version="m", evidence_refs=[("12", "12-3")],
+        model_version="m", prompt_version="0123456789ab", evidence_refs=[("12", "12-3")],
     )  # fmt: skip
     reviews.decide_review(conn, "CANARY-COACH", review, "edit", {"text": "CANARY-EDIT 87.3"})
     # T9.17: a coach's target for the client, and the coach's client tools, which read the week.
@@ -903,6 +903,7 @@ def _store_scenario(conn, codes: list[str]) -> list[Exception]:
             data_quality={},
             draft={},
             model_version="m",
+            prompt_version="0123456789ab",
         ),  # fmt: skip
         lambda: records.delete_record(conn, "other-gym", "preferences", 1),
         lambda: records.add_workout_session(
@@ -1014,6 +1015,7 @@ def _approved_review(conn, coach: str, client: str) -> int:
     found = reviews.save_review(
         conn, coach, client, period_start=date(2026, 10, 19), metrics={"logged_days": 3},
         data_quality={}, draft={"observations": ["x"]}, model_version="m",
+        prompt_version="0123456789ab",
     )  # fmt: skip
     reviews.decide_review(conn, coach, found, "approve")
     return found
@@ -1209,7 +1211,7 @@ def test_a_review_s_kcal_fields_are_in_no_log_line(store_conn, monkeypatch):
         return review.ReviewContext(
             store_path=config.STORE_PATH,
             chat_model=lambda: fake,
-            prompt="STAND-IN REVIEW PROMPT (tests only).",
+            prompt=chat.Prompt("STAND-IN REVIEW PROMPT (tests only)."),
             today=date(2026, 11, 5),
         )
 
