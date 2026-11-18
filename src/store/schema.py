@@ -459,5 +459,22 @@ BEGIN SELECT RAISE(ABORT, 'stored records are never changed in place'); END;
 PRAGMA user_version = 6;
 """
 
+# T10.4 (migration 7): the version of the review prompt that drafted each weekly review, beside its
+# model_version, so a stored review says which prompt produced it (the first 12 hex characters of
+# the SHA-256 of the prompt's text, `chat.prompt_version()`). A column added, not the table built
+# again: other tables refer to ai_reviews. A review written before has no known version and gets
+# 'unknown' (config.PROMPT_VERSION_UNKNOWN); a trigger refuses that value for a new row, so every
+# review written from now on names its prompt.
+_V7 = """
+ALTER TABLE ai_reviews ADD COLUMN prompt_version TEXT NOT NULL DEFAULT 'unknown'
+    CHECK (prompt_version = 'unknown'
+        OR (length(prompt_version) = 12 AND prompt_version NOT GLOB '*[^0-9a-f]*'));
+CREATE TRIGGER ai_reviews_prompt_version_known BEFORE INSERT ON ai_reviews
+WHEN NEW.prompt_version = 'unknown'
+BEGIN SELECT RAISE(ABORT, 'a new review names its prompt version'); END;
+
+PRAGMA user_version = 7;
+"""
+
 # In order: MIGRATIONS[0] creates version 1, MIGRATIONS[1] takes it to version 2, and so on.
-MIGRATIONS: tuple[str, ...] = (_V1, _V2, _V3, _V4, _V5, _V6)
+MIGRATIONS: tuple[str, ...] = (_V1, _V2, _V3, _V4, _V5, _V6, _V7)

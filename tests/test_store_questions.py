@@ -37,6 +37,7 @@ def _review(conn, coach, client, week, scopes=("nutrition",), decision="approve"
         data_quality={},
         draft={"observations": ["x"]},
         model_version="m",
+        prompt_version="0123456789ab",
         scopes=scopes,
     )
     if decision is not None:

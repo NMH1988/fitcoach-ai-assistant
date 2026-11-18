@@ -35,6 +35,7 @@ def _review(conn, client: str, monday: date, decision: str | None = None) -> int
         data_quality={"logged_days": 1},
         draft={"observations": ["Made-up observation."]},
         model_version="test-model",
+        prompt_version="0123456789ab",
     )
     if decision is not None:
         reviews.decide_review(conn, world.COACH_A, found, decision)

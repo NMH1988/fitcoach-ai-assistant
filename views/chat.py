@@ -129,6 +129,9 @@ def show_result(result: turns.TurnResult, turn: int) -> None:
     else:
         # Model output as Markdown, never with unsafe_allow_html (docs/SECURITY.md).
         st.markdown(fixed_text(result))
+        if result.not_remembered:
+            # The chat's memory did not keep it (T10.1); the answer already read stays shown.
+            st.caption(t("ask.not_remembered"))
         if result.sources:
             with st.expander(
                 t("sources.count", count=len(result.sources)), icon=":material/menu_book:"

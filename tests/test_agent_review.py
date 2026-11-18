@@ -15,7 +15,7 @@ import httpx2
 import openai
 import pytest
 
-from src import account, config, llm, observability
+from src import account, chat, config, llm, observability
 from src.agent import review, review_threads
 from src.rag.retriever import RetrievedChunk, chunk_key
 from src.rag.store import IndexNotReadyError
@@ -74,7 +74,7 @@ def _context(model=None, **changes) -> review.ReviewContext:
         "store_path": config.STORE_PATH,
         "chat_model": lambda: fake,
         "open_index": None,
-        "prompt": PROMPT,
+        "prompt": chat.Prompt(PROMPT),
         "today": TODAY,
         **changes,
     }
@@ -112,6 +112,14 @@ def _pending(conn) -> dict:
     return row
 
 
+def test_a_run_without_its_prompt_is_refused_before_anything_runs(store_conn, relationships):
+    """A start context with no prompt is a caller's bug: no model call, review or thread (T10.4)."""
+    model = _model(_draft())
+    with pytest.raises(ValueError, match="needs its prompt"):
+        _start(_context(model, prompt=None))
+    assert model.calls == [] and _stored(store_conn) == [] and _threads() == set()
+
+
 def test_a_run_saves_a_pending_review_and_waits_for_the_coach(store_conn, relationships):
     """The draft is saved as PENDING_REVIEW with its scopes and thread before the pause (AC-28)."""
     model = _model(_draft())
@@ -120,6 +128,9 @@ def test_a_run_saves_a_pending_review_and_waits_for_the_coach(store_conn, relati
     [row] = _stored(store_conn)
     assert (row["id"], row["status"], row["final"]) == (result.review_id, "PENDING_REVIEW", None)
     assert row["model_version"] == config.REVIEW_MODEL
+    # The version of the prompt the model received (T10.4).
+    assert row["prompt_version"] == chat.prompt_version(model.calls[0][0].content)
+    assert row["prompt_version"] == chat.prompt_version(PROMPT)
     draft = json.loads(row["draft"])
     assert draft["language"] == "en" and draft["observations"][0]["text"].startswith("The client")
     assert _pending(store_conn)["scopes"] == ["nutrition", "training", "body"]
@@ -189,6 +200,7 @@ def test_a_question_to_the_coach_never_reaches_the_review_s_model(store_conn, re
         data_quality={},
         draft={"observations": ["x"]},
         model_version="m",
+        prompt_version="0123456789ab",
     )
     reviews.decide_review(store_conn, world.COACH_A, earlier, "approve")
     questions.ask_question(store_conn, world.SHARED, earlier, "CANARY-QUESTION carbs at 87.3 kg?")
@@ -379,6 +391,9 @@ def test_the_run_and_decision_log_lines_hold_no_values(store_conn, relationships
         ("weekly_review", "approved"),
     ]
     assert lines[0]["attempts"] == 2 and lines[0]["checks"] == []
+    # The run that drafted names its prompt's version; the decision sent no prompt (T10.4).
+    assert lines[0]["prompt_review"] == chat.prompt_version(PROMPT)
+    assert lines[1]["prompt_review"] is None
     for secret in (world.SHARED, world.COACH_A, "logged 1 of 7", str(world.WEIGHT), "disorder"):
         assert secret not in text
 

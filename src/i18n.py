@@ -383,6 +383,11 @@ _EN: dict[str, str] = {
         "Start a new conversation. The assistant forgets this one, and the summary and the session "
         "cost start again."
     ),
+    # Under an answer the chat's memory did not keep (T10.1).
+    "ask.not_remembered": (
+        "This question and answer will not be remembered in this chat: the answer contains text "
+        "that reads like an instruction to the assistant."
+    ),
     # The coach's long-term memory (T9.7): the proposal card under the answer, and what follows.
     "memory.remember": "Remember: “{text}”?",
     "memory.note": (
@@ -1684,6 +1689,10 @@ _DE: dict[str, str] = {
     "ask.new_chat_help": (
         "Ein neues Gespräch beginnen. Der Assistent vergisst dieses, und die Zusammenfassung und "
         "die Kosten der Sitzung beginnen neu."
+    ),
+    "ask.not_remembered": (
+        "Diese Frage und Antwort werden in diesem Chat nicht gemerkt: Die Antwort enthält Text, "
+        "der wie eine Anweisung an den Assistenten klingt."
     ),
     "memory.remember": "Merken: „{text}“?",
     "memory.note": (

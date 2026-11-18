@@ -26,6 +26,7 @@ def full_world(store_conn):
         "data_quality": {},
         "draft": {"observations": ["x"]},
         "model_version": "m",
+        "prompt_version": "0123456789ab",
         "evidence_refs": [("12", "12-3")],
     }
     approved = reviews.save_review(store_conn, world.COACH_A, world.SHARED, **review_args)
@@ -123,6 +124,7 @@ def test_a_gymers_export_holds_a_rejection_but_not_the_rejected_review(full_worl
         data_quality={},
         draft={"observations": ["CANARY-REJECTED"]},
         model_version="m",
+        prompt_version="0123456789ab",
     )
     reviews.decide_review(full_world, world.COACH_A, rejected, "reject")
     text = my_data.export_user_data(full_world, world.SHARED)
@@ -152,6 +154,8 @@ def test_a_gymers_export_holds_all_their_rows_as_json(full_world):
     assert len(document["coach_clients"]) == 1 and len(document["consents"]) == 3
     assert [r["status"] for r in document["ai_reviews"]] == ["APPROVED"]
     assert document["ai_reviews"][0]["final"] == {"observations": ["x"]}
+    # The version of the prompt that drafted it (T10.4).
+    assert document["ai_reviews"][0]["prompt_version"] == "0123456789ab"
     assert len(document["ai_evidence_refs"]) == 1
     # The coach's read of the meals and the approval of the review, both about this gymer.
     assert [r["action"] for r in document["audit_log"]] == [
@@ -179,6 +183,7 @@ def test_a_coachs_export_holds_their_relationships_reviews_and_invitations(full_
     assert document["user"]["role"] == "coach"
     assert len(document["coach_clients"]) == 3
     assert [r["status"] for r in document["ai_reviews"]] == ["APPROVED", "PENDING_REVIEW"]
+    assert {r["prompt_version"] for r in document["ai_reviews"]} == {"0123456789ab"}  # T10.4
     assert len(document["invitations"]) == 1
     assert {r["actor_id"] for r in document["audit_log"]} == {world.COACH_A}
     assert document["meal_items"] == []
