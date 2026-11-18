@@ -348,3 +348,58 @@ def test_an_edited_draft_never_reaches_the_gymer(store_conn, relationships):
     assert review["draft"] is None and review["final"] == {"text": "coach's text"}
     export = my_data.export_user_data(store_conn, world.SHARED)
     assert "CANARY-DRAFT" not in export and "coach's text" in export
+
+
+# A draft as T9.16 stored it, before T10.2 added the kcal fields to a recommendation.
+OLD_DRAFT = {
+    "observations": [{"text": "The client logged 3 of 7 days.", "evidence": []}],
+    "hypotheses": [],
+    "recommendations": [
+        {
+            "kind": "nutrition",
+            "text": "Log every day next week.",
+            "evidence": [],
+            "model_suggestion": True,
+            "direction": None,
+            "source_range": None,
+            "population": None,
+        }
+    ],
+    "language": "en",
+    "model": "openai/gpt-5-mini",
+}
+
+
+@pytest.mark.parametrize("decision", ["approve", "edit"])
+def test_a_draft_from_before_the_kcal_fields_loads_shows_and_is_decided(
+    store_conn, relationships, decision
+):
+    """T10.2: an old draft loads as stored, is shown, passes the edit's checks and is decided."""
+    from src import weekly_review as wr
+    from views import tables
+
+    review_id = reviews.save_review(
+        store_conn,
+        world.COACH_A,
+        world.SHARED,
+        period_start=WEEK,
+        metrics=METRICS,
+        data_quality={"logged_days": 3},
+        draft=OLD_DRAFT,
+        model_version="openai/gpt-5-mini",
+        prompt_version="0123456789ab",
+        evidence_refs=[],
+    )
+    [stored] = reviews.list_reviews(store_conn, world.COACH_A, world.SHARED)
+    assert stored["draft"] == OLD_DRAFT
+    shown = dict(tables.review_sections(stored["draft"], "en"))
+    assert "Log every day next week." in shown["Recommendations"]
+    final = None
+    if decision == "edit":
+        final = {**wr.without_language(stored["draft"]), "language": "en"}
+        final["observations"] = [{"text": "One day logged.", "evidence": []}]
+        assert wr.check_edit(wr.without_language(final), []) == []
+    reviews.decide_review(store_conn, world.COACH_A, review_id, decision, final)
+    [seen] = reviews.list_reviews(store_conn, world.SHARED, world.SHARED)
+    assert seen["status"] == "APPROVED"
+    assert seen["final"] == (OLD_DRAFT if decision == "approve" else final)

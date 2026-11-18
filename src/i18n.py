@@ -1187,6 +1187,15 @@ _EN: dict[str, str] = {
     "review.direction": "Direction",
     "review.source_range": "Range in the source",
     "review.population": "Studied in",
+    # A recommendation's kcal fields (T10.2): shown beside its text, and in the edit form.
+    # "Proposed", so the client does not read the figure as their current target (compliance
+    # run 1 of T10.2's PR; owner's choice, 2026-11-18).
+    "review.target_kcal": "Proposed target",
+    "review.kcal_change": "Proposed change",
+    "review.kcal_per_day": "{value} kcal a day",
+    "review.target_kcal_input": "Daily target (kcal)",
+    "review.kcal_change_input": "Change to the current target (kcal a day)",
+    "review.kcal_input_help": "Leave empty for none. A change is negative for a reduction.",
     "review.sources": "Sources",
     "review.source_line": "[S{number}] {title} ({year})",
     "review.outcome.pending": "The draft is ready below for your decision.",
@@ -1203,6 +1212,10 @@ _EN: dict[str, str] = {
         "try again."
     ),
     "review.outcome.edit_invalid": "Your edit was not saved: {checks}",
+    "review.outcome.approve_invalid": (
+        "The draft was not approved: checked against the client's target today, {checks} Edit "
+        "the figure or reject the draft."
+    ),
     "review.outcome.approved": "Approved: the client can now read the review.",
     "review.outcome.edited": "Your edited review was approved: the client can now read it.",
     "review.outcome.rejected": "Rejected: the client will not see this draft.",
@@ -1220,12 +1233,17 @@ _EN: dict[str, str] = {
     "review.check.schema": "a section is empty or too long, or Observations has no text.",
     "review.check.calorie_floor": (
         "a recommendation, or a possible reason that cites a source, names a kcal figure below "
-        f"{config.CALORIE_FLOOR_KCAL} kcal a day; put the client's current intake in an "
+        f"{config.CALORIE_FLOOR_KCAL} kcal a day, or a recommendation's daily target, or the "
+        f"current target plus its change, is below {config.CALORIE_FLOOR_KCAL} kcal a day; put "
+        "the client's current intake in an "
         "observation and describe only the direction of the change, or write a change as "
         "'reduce intake by 300 kcal' or 'a 300 kcal deficit'."
     ),
     "review.check.observation_evidence": (
         "an observation cites a source; observations come from the week's figures only."
+    ),
+    "review.check.kcal_change_no_target": (
+        "a recommendation changes the kcal target, but the client has no current target."
     ),
     "review.check.diagnosis": "a text names a medical condition or a diagnosis.",
     "review.check.training_uncited": "a training recommendation does not cite a training source.",
@@ -2620,6 +2638,12 @@ _DE: dict[str, str] = {
     "review.direction": "Richtung",
     "review.source_range": "Bereich in der Quelle",
     "review.population": "Untersucht bei",
+    "review.target_kcal": "Vorgeschlagenes Ziel",
+    "review.kcal_change": "Vorgeschlagene Änderung",
+    "review.kcal_per_day": "{value} kcal pro Tag",
+    "review.target_kcal_input": "Tagesziel (kcal)",
+    "review.kcal_change_input": "Änderung des aktuellen Ziels (kcal pro Tag)",
+    "review.kcal_input_help": "Leer lassen, wenn keine. Eine Senkung ist negativ.",
     "review.sources": "Quellen",
     "review.source_line": "[S{number}] {title} ({year})",
     "review.outcome.pending": "Der Entwurf steht unten zu Ihrer Entscheidung bereit.",
@@ -2636,6 +2660,10 @@ _DE: dict[str, str] = {
         "kein Bericht gespeichert. Sie können es erneut versuchen."
     ),
     "review.outcome.edit_invalid": "Ihre Bearbeitung wurde nicht gespeichert: {checks}",
+    "review.outcome.approve_invalid": (
+        "Der Entwurf wurde nicht freigegeben: geprüft am heutigen Ziel des Klienten, {checks} "
+        "Ändern Sie die Zahl oder verwerfen Sie den Entwurf."
+    ),
     "review.outcome.approved": "Freigegeben: Der Klient kann den Bericht jetzt lesen.",
     "review.outcome.edited": (
         "Ihr bearbeiteter Bericht wurde freigegeben: Der Klient kann ihn jetzt lesen."
@@ -2658,12 +2686,17 @@ _DE: dict[str, str] = {
     ),
     "review.check.calorie_floor": (
         "eine Empfehlung oder ein möglicher Grund mit Quelle nennt eine kcal-Zahl unter "
-        f"{config.CALORIE_FLOOR_KCAL} kcal pro Tag; nennen Sie die aktuelle Zufuhr des Klienten in "
+        f"{config.CALORIE_FLOOR_KCAL} kcal pro Tag, oder das Tagesziel einer Empfehlung oder das "
+        f"aktuelle Ziel plus ihre Änderung liegt unter {config.CALORIE_FLOOR_KCAL} kcal pro Tag; "
+        "nennen Sie die aktuelle Zufuhr des Klienten in "
         "einer Beobachtung und beschreiben Sie nur die Richtung der Änderung, oder schreiben Sie "
         "eine Änderung als 'die Zufuhr um 300 kcal senken' oder '300 kcal weniger'."
     ),
     "review.check.observation_evidence": (
         "eine Beobachtung zitiert eine Quelle; Beobachtungen stammen nur aus den Zahlen der Woche."
+    ),
+    "review.check.kcal_change_no_target": (
+        "eine Empfehlung ändert das kcal-Ziel, aber es gibt kein aktuelles Ziel."
     ),
     "review.check.diagnosis": "ein Text nennt eine Erkrankung oder eine Diagnose.",
     "review.check.training_uncited": "eine Trainingsempfehlung zitiert keine Trainingsquelle.",
