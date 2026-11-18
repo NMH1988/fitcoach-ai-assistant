@@ -14,6 +14,9 @@ No model, network or store call here, so all of it is unit-tested; the workflow 
   range (found in a cited chunk) and the population; the numbers quoted match the metrics or a
   cited chunk; a nutrition recommendation without a citation is labelled as the model's
   suggestion. `check_edit()` runs the safety checks on the coach's edit.
+- The calorie floor is checked by arithmetic on a recommendation's two kcal fields (`target_kcal`,
+  and the client's current target plus `kcal_change`), and on its texts by the patterns in config,
+  which stay as the fallback for a figure written only in prose.
 
 Each failed check is a code; the workflow sends the codes' fixed texts back to the model once.
 """
@@ -33,6 +36,9 @@ from src.rag.retriever import RetrievedChunk, chunk_key
 
 Kind = Literal["nutrition", "training"]
 NUTRIENTS = ("kcal", "protein_g", "carbohydrate_g", "fat_g")
+# A recommendation's kcal figures as numbers (T10.2): a proposed daily intake, and a change to the
+# client's current target (negative for a deficit).
+KCAL_FIELDS = ("target_kcal", "kcal_change")
 _LABEL = re.compile(r"\[?\bS(\d+)\b\]?")
 _DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\.\d{1,2}\.\d{4}\b")
 _NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
@@ -79,10 +85,15 @@ ERROR_TEXTS: dict[str, str] = {
     ),
     "calorie_floor": (
         "A recommendation, or a hypothesis that cites a source, names a kcal figure below "
-        f"{config.CALORIE_FLOOR_KCAL} kcal a day; "
-        "put the client's current intake in an observation and describe only the direction of "
-        'the change, or write a change as "reduce intake by 300 kcal" or "a 300 kcal '
+        f"{config.CALORIE_FLOOR_KCAL} kcal a day, or a recommendation's target_kcal, or the "
+        f"client's current target plus its kcal_change, is below {config.CALORIE_FLOOR_KCAL} kcal "
+        "a day; put the client's current intake in an observation and describe only the "
+        'direction of the change, or write a change as "reduce intake by 300 kcal" or "a 300 kcal '
         'deficit".'
+    ),
+    "kcal_change_no_target": (
+        "A recommendation sets kcal_change, but <metrics> has no current target to change; set "
+        "kcal_change to null."
     ),
     "diagnosis": "A text names a medical condition or diagnosis.",
     "training_uncited": "A training recommendation does not cite a resistance training source.",
@@ -137,12 +148,54 @@ class Recommendation(BaseModel):
     direction: str | None
     source_range: str | None
     population: str | None
+    # The kcal figures as numbers, so the floor is checked by arithmetic, not read out of the text.
+    # The descriptions reach the model in the schema (wording approved by the owner, O18); the
+    # ranges are checked by the validator below, as the rest of the schema keeps its limits there.
+    target_kcal: int | None = Field(
+        description=(
+            "A daily energy intake in kcal that this recommendation proposes for the client, or "
+            f"null when it proposes none. Never below {config.CALORIE_FLOOR_KCAL} kcal per day. "
+            "Use only a number from <metrics> or from a source this recommendation cites."
+        )
+    )
+    kcal_change: int | None = Field(
+        description=(
+            "A change in kcal per day to the client's current target (target.kcal in <metrics>): "
+            "negative to reduce, positive to raise; null when the recommendation proposes no "
+            "change in kcal. Use only a number from <metrics>, such as average_minus_target, or "
+            "from a source this recommendation cites."
+        )
+    )
 
     @field_validator("text")
     @classmethod
     def _text_is_short_and_not_blank(cls, text: str) -> str:
         """Strip the text and refuse a blank one or one over REVIEW_TEXT_MAX_CHARS."""
         return _checked_text(text, config.REVIEW_TEXT_MAX_CHARS)
+
+    @field_validator("target_kcal", "kcal_change", mode="before")
+    @classmethod
+    def _kcal_is_whole(cls, value: object) -> object:
+        """Refuse anything but a whole number or None: pydantic would read True or "1800" as one."""
+        if value is None:
+            return value
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            raise ValueError("A kcal field is not a whole number.")
+        if isinstance(value, float) and not value.is_integer():
+            raise ValueError("A kcal field is not a whole number.")
+        return value
+
+    @field_validator("target_kcal")
+    @classmethod
+    def _target_in_range(cls, value: int | None) -> int | None:
+        """Refuse a target outside REVIEW_TARGET_KCAL_RANGE."""
+        return _in_range(value, config.REVIEW_TARGET_KCAL_RANGE)
+
+    @field_validator("kcal_change")
+    @classmethod
+    def _change_in_range(cls, value: int | None) -> int | None:
+        """Refuse a change outside REVIEW_KCAL_CHANGE_RANGE."""
+        return _in_range(value, config.REVIEW_KCAL_CHANGE_RANGE)
 
     @field_validator("direction", "source_range", "population")
     @classmethod
@@ -169,6 +222,13 @@ def _checked_text(text: str, limit: int) -> str:
     if not cleaned or len(cleaned) > limit:
         raise ValueError("A text is blank or too long.")
     return cleaned
+
+
+def _in_range(value: int | None, limits: tuple[int, int]) -> int | None:
+    """Return the value if it is None or within the limits, ends included; else ValueError."""
+    if value is not None and not limits[0] <= value <= limits[1]:
+        raise ValueError("A kcal field is out of its range.")
+    return value
 
 
 def _rounded(value: float | None) -> float | None:
@@ -527,9 +587,53 @@ def _topics(chunk: RetrievedChunk) -> tuple[str, ...]:
     return tuple(topics)
 
 
-def _safety_checks(review: Mapping, chunks: Sequence[RetrievedChunk]) -> list[str]:
+def with_kcal_fields(review: object) -> object:
+    """Return the review with None for each kcal field a recommendation lacks; else unchanged."""
+    # A draft stored before T10.2 has no kcal fields, and the schema needs both; a missing field
+    # says what null says: no figure. Anything that is not a review is left for the schema to fail.
+    if not isinstance(review, Mapping):
+        return review
+    if not isinstance(review.get("recommendations"), list | tuple):
+        return review
+    blank = dict.fromkeys(KCAL_FIELDS)
+    found = [
+        {**blank, **item} if isinstance(item, Mapping) else item
+        for item in review["recommendations"]
+    ]
+    return {**review, "recommendations": found}
+
+
+def current_target_kcal(metrics: Mapping) -> float | None:
+    """Return the client's current kcal target from the metrics, or None when there is none."""
+    nutrition = metrics.get("nutrition")
+    target = nutrition.get("target") if isinstance(nutrition, Mapping) else None
+    kcal = target.get("kcal") if isinstance(target, Mapping) else None
+    return float(kcal) if isinstance(kcal, int | float) and not isinstance(kcal, bool) else None
+
+
+def _kcal_field_checks(item: Mapping, target: float | None) -> list[str]:
+    """Return the failed floor checks of a recommendation's kcal fields, by plain arithmetic."""
+    errors = []
+    floor = config.CALORIE_FLOOR_KCAL
+    proposed = item.get("target_kcal")
+    if proposed is not None and proposed < floor:
+        errors.append("calorie_floor")
+    change = item.get("kcal_change")
+    if change is not None:
+        # A change with nothing to change is failed, not skipped, so the coach sees it.
+        if target is None:
+            errors.append("kcal_change_no_target")
+        elif target + change < floor:
+            errors.append("calorie_floor")
+    return errors
+
+
+def _safety_checks(
+    review: Mapping, chunks: Sequence[RetrievedChunk], metrics: Mapping
+) -> list[str]:
     """Return the failed checks a coach's edit must pass too: floor, diagnosis, training."""
     by_label = label_numbers(chunks)
+    target = current_target_kcal(metrics)
     errors: list[str] = []
     for item in _items(review):
         if _matches_any(config.REVIEW_DIAGNOSIS_PATTERNS, _texts(item)):
@@ -542,6 +646,9 @@ def _safety_checks(review: Mapping, chunks: Sequence[RetrievedChunk]) -> list[st
         if any(_kcal_below_floor(text) for text in _texts(item)):
             errors.append("calorie_floor")
     for item in review.get("recommendations", ()):
+        # The fields are checked on every kind of recommendation: a training one has no business
+        # with a kcal figure, and failing safe costs nothing.
+        errors.extend(_kcal_field_checks(item, target))
         if any(_kcal_below_floor(text) for text in _texts(item)):
             errors.append("calorie_floor")
         if item.get("kind") == "training":
@@ -552,6 +659,7 @@ def _safety_checks(review: Mapping, chunks: Sequence[RetrievedChunk]) -> list[st
 
 def validate(review: Mapping, chunks: Sequence[RetrievedChunk], metrics: Mapping) -> list[str]:
     """Return the codes of every failed check of a draft (empty when it passes), each once."""
+    review = with_kcal_fields(review)
     try:
         WeeklyReview.model_validate(review)
     except ValueError:
@@ -578,17 +686,51 @@ def validate(review: Mapping, chunks: Sequence[RetrievedChunk], metrics: Mapping
             errors.append("suggestion_label")
         if item.get("kind") == "training" and item["model_suggestion"]:
             errors.append("training_uncited")
-    errors.extend(_safety_checks(review, chunks))
+        # The kcal fields follow the texts' number rule, on every kind: otherwise a field would
+        # carry a figure the text may not.
+        labels = item.get("evidence", ())
+        cited = _chunk_values(by_label[label] for label in labels if label in by_label)
+        for field in KCAL_FIELDS:
+            value = item.get(field)
+            if value is not None and abs(float(value)) not in allowed | cited:
+                errors.append("number")
+    errors.extend(_safety_checks(review, chunks, metrics))
     return list(dict.fromkeys(errors))
 
 
-def check_edit(edited: Mapping, chunks: Sequence[RetrievedChunk]) -> list[str]:
+def check_edit(
+    edited: Mapping, chunks: Sequence[RetrievedChunk], metrics: Mapping | None = None
+) -> list[str]:
     """Return the failed checks of the coach's edit: schema, floor, diagnosis, training (AC-35)."""
+    # The metrics' target is the client's current one, read when the edit is checked
+    # (src/agent/review.py), as that is the target a kcal_change applies to. No metrics means no
+    # target, so a kcal_change then fails closed with kcal_change_no_target.
+    edited = with_kcal_fields(edited)
     try:
         WeeklyReview.model_validate(edited)
     except ValueError:
         return ["schema"]
-    return list(dict.fromkeys(_safety_checks(edited, chunks)))
+    return list(dict.fromkeys(_safety_checks(edited, chunks, metrics or {})))
+
+
+def sets_kcal_change(review: object) -> bool:
+    """Return True if any recommendation of a review dict sets a kcal_change."""
+    found = review.get("recommendations") if isinstance(review, Mapping) else None
+    return isinstance(found, list | tuple) and any(
+        isinstance(item, Mapping) and item.get("kcal_change") is not None for item in found
+    )
+
+
+def check_approval(draft: Mapping, metrics: Mapping) -> list[str]:
+    """Return the failed floor checks of a draft's kcal fields against the client's target now."""
+    # The draft passed every check against the week's target; on Approve, a kcal_change is added
+    # to the target in force when the coach decides, as on an edit (owner's choice, 2026-11-18).
+    target = current_target_kcal(metrics)
+    errors: list[str] = []
+    for item in with_kcal_fields(draft).get("recommendations", ()):
+        if isinstance(item, Mapping):
+            errors.extend(_kcal_field_checks(item, target))
+    return list(dict.fromkeys(errors))
 
 
 def as_draft(review: WeeklyReview, language: str) -> dict:

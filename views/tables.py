@@ -589,12 +589,49 @@ def _recommendation_lines(item: dict, lang: Language) -> list[str]:
     if item.get("model_suggestion"):
         line += f" *({one_line(i18n.t('review.suggestion', lang))})*"
     lines = [f"- {line}"]
+    kcal = review_kcal_line(item, lang)
+    if kcal is not None:
+        label, value = kcal
+        lines.append(f"    - {one_line(label)}: {one_line(value)}")
     for field in ("direction", "source_range", "population"):
         value = item.get(field)
         if isinstance(value, str) and value.strip():
             label = one_line(i18n.t(f"review.{field}", lang))
             lines.append(f"    - {label}: {one_line(value)}")
     return lines
+
+
+def review_kcal_value(item: dict, field: str) -> int | None:
+    """Return a recommendation's stored kcal field as a whole number, or None (absent or null)."""
+    # A whole float (1800.0) is accepted by the schema and the checks, so it is shown as 1800 too.
+    value = item.get(field)
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return value if isinstance(value, int) else None
+
+
+def _signed(value: int, lang: Language) -> str:
+    """Show a kcal change with its sign: +300, -300 or 0, in the language's style."""
+    sign = "+" if value > 0 else "-" if value < 0 else ""
+    return f"{sign}{i18n.number(abs(value), lang)}"
+
+
+def review_kcal_line(item: dict, lang: Language) -> tuple[str, str] | None:
+    """Return a recommendation's kcal fields as (label, value): ("Target", "1,800 kcal (-300)")."""
+    # A draft stored before T10.2 has neither field, and shows no line.
+    target = review_kcal_value(item, "target_kcal")
+    change = review_kcal_value(item, "kcal_change")
+    if target is not None:
+        value = f"{i18n.number(target, lang)} kcal"
+        if change is not None:
+            value += f" ({_signed(change, lang)})"
+        return i18n.t("review.target_kcal", lang), value
+    if change is not None:
+        value = i18n.t("review.kcal_per_day", lang, value=_signed(change, lang))
+        return i18n.t("review.kcal_change", lang), value
+    return None
 
 
 def review_sections(review: dict, lang: Language) -> list[tuple[str, str]]:

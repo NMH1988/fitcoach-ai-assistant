@@ -902,6 +902,12 @@ REVIEW_MAX_CHUNKS = 6
 REVIEW_MAX_ITEMS = 6
 REVIEW_TEXT_MAX_CHARS = 600
 REVIEW_FIELD_MAX_CHARS = 200
+# The values a recommendation's kcal fields may take, ends included (the coach's edit form too).
+# A value outside them fails the schema; inside them, the calorie floor is checked by arithmetic,
+# so the lower ends sit well below CALORIE_FLOOR_KCAL on purpose: a low target gets the floor's
+# own retry text, not the schema's.
+REVIEW_TARGET_KCAL_RANGE = (1, TARGET_INPUT_MAX_KCAL)
+REVIEW_KCAL_CHANGE_RANGE = (-2000, 2000)
 # Questions to the coach under an approved review (T9.25, PRD feature 27): the longest question or
 # answer (within STORE_TEXT_MAX_CHARS), and the most questions a gymer asks under one review, one
 # at a time (each waits for the coach's answer; owner's choice, 2026-11-06).

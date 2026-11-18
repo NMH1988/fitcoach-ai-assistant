@@ -18,7 +18,7 @@ from tests.fakes import ScriptedTranslator
 from tests.test_app_account import PROFILE, USER_ID, signed_in, start, store_account
 from tests.test_app_dashboards import ALEX, BO, MONDAY, _gymer_with_week, _pair
 from tests.test_app_sharing import open_page, page_text
-from views import client_week, navigation, resources
+from views import client_week, navigation, resources, tables
 from views import weekly_review as view
 
 pytestmark = pytest.mark.usefixtures("no_env_key")
@@ -33,6 +33,9 @@ NUTRITION = {
     "direction": None,
     "source_range": None,
     "population": None,
+    # Strict mode sends every field, so a real reply always holds both (T10.2).
+    "target_kcal": None,
+    "kcal_change": None,
 }
 GOOD = json.dumps(
     {
@@ -360,3 +363,210 @@ def test_a_store_that_fails_on_a_decision_shows_its_fixed_message(monkeypatch, c
     assert any("cannot be opened right now" in item.value for item in at.error)
     [row] = _stored()
     assert row["status"] == "PENDING_REVIEW"
+
+
+# T10.2: a recommendation's kcal fields, shown, edited and checked by arithmetic.
+
+# The floor is always an allowed number, so the model's draft passes the number check with it.
+WITH_TARGET = json.dumps(
+    {**json.loads(GOOD), "recommendations": [{**NUTRITION, "target_kcal": 1200}]}
+)
+UI = {
+    "en": {
+        "draft": "Draft weekly review",
+        "edit": "Edit",
+        "save": "Approve my edit",
+        # The page's Markdown source: a value is escaped (tables.one_line), its label apart.
+        "target": f"Target: {tables.one_line('1,200 kcal')}",
+        "change_label": "Change to the current target (kcal a day)",
+        "refused": "Your edit was not saved: a recommendation, or a possible reason",
+    },
+    "de": {
+        "draft": "Wochenbericht entwerfen",
+        "edit": "Bearbeiten",
+        "save": "Meine Bearbeitung freigeben",
+        "target": f"Ziel: {tables.one_line('1.200 kcal')}",
+        "change_label": "Änderung des aktuellen Ziels (kcal pro Tag)",
+        "refused": "Ihre Bearbeitung wurde nicht gespeichert: eine Empfehlung oder ein möglicher",
+    },
+}
+
+
+def _set_alex_target(kcal: float) -> None:
+    """Have the canary coach set Alex's daily target from today, after the draft."""
+    from src.store import records
+
+    with db.connect() as conn:
+        records.add_client_target(
+            conn,
+            USER_ID,
+            ALEX,
+            kcal=kcal,
+            protein_g=150.0,
+            carbs_g=150.0,
+            fat_g=50.0,
+            effective_from=TODAY,
+        )
+
+
+def _kcal_key(field: str) -> str:
+    """Return the edit form's widget key of the first recommendation's kcal field."""
+    [row] = _stored()
+    return f"weekly_review_edit_{row['id']}_recommendations_0_{field}"
+
+
+def _open_edit(at: AppTest, language: str) -> AppTest:
+    """Open the edit form of the waiting draft."""
+    _button(at, UI[language]["edit"]).click()
+    return at.run(timeout=30)
+
+
+def _approve_edit(at: AppTest, language: str) -> AppTest:
+    """Submit the edit form."""
+    [submit] = [item for item in at.button if item.label == UI[language]["save"]]
+    submit.click()
+    return at.run(timeout=30)
+
+
+@pytest.mark.parametrize("language", ["en", "de"])
+def test_the_coach_sees_a_recommendation_s_kcal_target_beside_its_text(
+    monkeypatch, coach_world, language
+):
+    """The draft's target_kcal is shown under its recommendation, in the page's language."""
+    at = _drafted(monkeypatch, WITH_TARGET, language=language)
+    assert UI[language]["target"] in page_text(at)
+
+
+@pytest.mark.parametrize("language", ["en", "de"])
+def test_an_edit_s_kcal_change_below_the_floor_is_refused(monkeypatch, coach_world, language):
+    """-600 from the 1,500 kcal target set after the draft fails; the review keeps waiting."""
+    at = _open_edit(_drafted(monkeypatch, GOOD, language=language), language)
+    box = at.number_input(key=_kcal_key("kcal_change"))
+    assert box.label == UI[language]["change_label"] and box.value is None
+    _set_alex_target(1500.0)
+    box.set_value(-600)
+    at = _approve_edit(at, language)
+    assert UI[language]["refused"] in page_text(at)
+    [row] = _stored()
+    assert row["status"] == "PENDING_REVIEW"
+    # The form stays open with the coach's figure, so it can be fixed.
+    assert at.number_input(key=_kcal_key("kcal_change")).value == -600
+
+
+def test_an_edit_changes_the_kcal_fields(monkeypatch, coach_world):
+    """The coach changes the target and sets a change that passes; the client reads them."""
+    # AppTest cannot send an empty number box (a browser sends None); clearing is tested on
+    # edited_text() below.
+    at = _open_edit(_drafted(monkeypatch, WITH_TARGET), "en")
+    assert at.number_input(key=_kcal_key("target_kcal")).value == 1200
+    _set_alex_target(1800.0)
+    at.number_input(key=_kcal_key("target_kcal")).set_value(1500)
+    at.number_input(key=_kcal_key("kcal_change")).set_value(-300)
+    at = _approve_edit(at, "en")
+    assert "Your edited review was approved: the client can now read it." in page_text(at)
+    with db.connect() as conn:
+        [seen] = reviews.list_reviews(conn, ALEX, ALEX)
+    recommendation = seen["final"]["recommendations"][0]
+    assert (recommendation["target_kcal"], recommendation["kcal_change"]) == (1500, -300)
+
+
+def test_the_edited_text_takes_the_kcal_fields_and_a_cleared_box_as_none():
+    """edited_text(): a number replaces the field, a cleared box (None) empties it."""
+    draft = json.loads(WITH_TARGET)
+    found = view.edited_text(
+        draft,
+        {
+            ("recommendations", 0, "target_kcal"): None,
+            ("recommendations", 0, "kcal_change"): -300.0,
+        },
+    )
+    recommendation = found["recommendations"][0]
+    assert (recommendation["target_kcal"], recommendation["kcal_change"]) == (None, -300)
+    assert isinstance(recommendation["kcal_change"], int)
+
+
+@pytest.mark.parametrize(
+    ("language", "approve", "message"),
+    [
+        ("en", "Approve", "The draft was not approved: checked against the client's target"),
+        ("de", "Freigeben", "Der Entwurf wurde nicht freigegeben: geprüft am heutigen Ziel"),
+    ],
+)
+def test_approve_refuses_a_draft_change_below_the_floor_of_today_s_target(
+    monkeypatch, coach_world, language, approve, message
+):
+    """-600 passes against the week's 2,500 kcal; after a new 1,500 target, Approve is refused."""
+    from src.rag.retriever import RetrievedChunk
+    from src.store import records
+
+    chunk = RetrievedChunk(
+        "Made-up text: a deficit of about 600 kcal a day was used in these studies.",
+        {
+            "source_id": "3",
+            "chunk_index": 1,
+            "title": "Made-up energy review",
+            "year": 2020,
+            "evidence_tier": 2,
+            "topics": ["energy_balance"],
+        },
+        0.3,
+    )
+    monkeypatch.setattr(review, "_search", lambda context, topics: [chunk])
+    with db.connect() as conn:
+        records.add_client_target(
+            conn,
+            USER_ID,
+            ALEX,
+            kcal=2500.0,
+            protein_g=150.0,
+            carbs_g=250.0,
+            fat_g=70.0,
+            effective_from=MONDAY,
+        )
+    change = {
+        **NUTRITION,
+        "text": "Consider a 600 kcal deficit [S1].",
+        "evidence": ["S1"],
+        "model_suggestion": False,
+        "kcal_change": -600,
+    }
+    reply = json.dumps({**json.loads(GOOD), "recommendations": [change]})
+    at = _drafted(monkeypatch, reply, language=language)
+    [row] = _stored()
+    assert row["status"] == "PENDING_REVIEW"
+    _set_alex_target(1500.0)
+    _button(at, approve).click()
+    at.run(timeout=30)
+    assert any(message in item.value for item in at.main.warning)
+    [row] = _stored()
+    assert row["status"] == "PENDING_REVIEW"
+
+
+@pytest.mark.parametrize(
+    ("language", "line"),
+    [
+        ("en", f"Target: {tables.one_line('1,800 kcal (-300)')}"),
+        ("de", f"Ziel: {tables.one_line('1.800 kcal (-300)')}"),
+    ],
+)
+def test_a_gymer_reads_an_approved_review_s_kcal_fields(monkeypatch, language, line):
+    """My week shows the approved review's target and change beside its recommendation."""
+    store_account("gymer", profile=PROFILE)
+    item = {**NUTRITION, "target_kcal": 1800, "kcal_change": -300}
+    draft = {**json.loads(GOOD), "recommendations": [item], "language": language, "sources": {}}
+    with db.connect() as conn:
+        users.create_user(conn, "coach-kai", "coach", "Coach Kai")
+        _pair(conn, "coach-kai", USER_ID, ("nutrition",))
+        found = reviews.save_review(
+            conn,
+            "coach-kai",
+            USER_ID,
+            period_start=MONDAY,
+            metrics={},
+            data_quality={},
+            draft=draft,
+            model_version=config.REVIEW_MODEL,
+        )
+        reviews.decide_review(conn, "coach-kai", found, "approve")
+    at = open_page(start(monkeypatch, user=signed_in(), language=language), navigation.MY_WEEK)
+    assert line in page_text(at)
