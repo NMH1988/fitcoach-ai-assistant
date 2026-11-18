@@ -74,6 +74,7 @@ from langchain_chroma import Chroma
 from langchain_core.language_models import BaseChatModel
 
 from src import chat, config, eval_results, experiments, guard, i18n, llm, observability, usage
+from src.agent import graph
 from src.eval_questions import EvalItem, QuestionsFileError, load_eval_items
 from src.rag import hybrid, store
 from src.rag.retriever import RetrievedChunk
@@ -289,6 +290,37 @@ def summary_lines(runs: Sequence[EvalRun]) -> list[str]:
     lines.append(
         f"{len(runs)} runs, {errors} ended with an error · {usage.format_session(session)}"
     )
+    lines += cache_lines(runs)
+    return lines
+
+
+def cache_lines(runs: Sequence[EvalRun]) -> list[str]:
+    """Return how much of the answer calls' input the prompt cache served: round 1, then later."""
+    # Whether the provider's cache absorbs the long static system prompt (T10.6, the owner's run).
+    # Only each question's first run counts: a repeat (--repeat) sends its round 1 again word for
+    # word, and so does a question's "(no profile)" variant, as the profile is never in the messages
+    # (the tools read it, T9.3). In a question's first run, round 1 shares only the system prompt
+    # and the tools with the questions before it; later rounds also repeat the turn's own messages.
+    seen: set[str] = set()
+    firsts = []
+    for run in runs:
+        if run.item.id not in seen:
+            seen.add(run.item.id)
+            firsts.append(run)
+    calls = usage.answer_calls(call for run in firsts for call in run.cost.calls)
+    rounds = [usage.ANSWER_STEP.fullmatch(call.step)[1] for call in calls]
+    first = [call for call, number in zip(calls, rounds, strict=True) if number == "1"]
+    later = [call for call, number in zip(calls, rounds, strict=True) if number != "1"]
+    lines = []
+    for name, group in (("round 1", first), ("later rounds", later)):
+        if group:
+            total = sum(call.input_tokens for call in group)
+            cached = sum(call.cached_input for call in group)
+            percent = usage.cached_percent(cached, total)
+            lines.append(
+                f"answer calls, {name}: {total:,} input tokens, {cached:,} of them cached "
+                f"({percent}%)"
+            )
     return lines
 
 
@@ -608,6 +640,9 @@ def main(args: Sequence[str] | None = None) -> int:
     # code that ran (T9.21).
     git_at_start = eval_results.git_state(config.PROJECT_ROOT)
     try:
+        # The versions of the prompts as the run starts (T10.4), read the way each turn reads
+        # them (a guest's chat in this language); a missing prompt stops the run here too.
+        prompts = graph.load_turn_prompts(options.language, coach=False).versions()
         # Built and opened before the first question, so a missing key or index stops the run.
         index = store.open_index()
         counts = index_counts(index)
@@ -621,7 +656,7 @@ def main(args: Sequence[str] | None = None) -> int:
             if scoring
             else None
         )
-    except store.IndexNotReadyError as exc:
+    except (store.IndexNotReadyError, chat.PromptMissingError) as exc:
         print(f"Evaluation not run: {exc}", file=sys.stderr)
         return 1
     except config.SecretsFileError:
@@ -651,6 +686,9 @@ def main(args: Sequence[str] | None = None) -> int:
                     "answer_model": usage.model_name(chat_model),
                     "query_translation_model": usage.model_name(translation_model),
                     "embedding_model": config.EMBEDDING_MODEL,
+                    # The prompts' versions as the run starts (T10.4); each turn's own are on
+                    # its trace.
+                    **prompts,
                     "language": options.language,
                     "questions_file": options.path.name,
                     "repeat": options.repeat,
@@ -700,6 +738,9 @@ def main(args: Sequence[str] | None = None) -> int:
     report = write_report(runs, started, config.EVAL_RUNS_DIR, options.language, scores)
     print(f"Full report: {report}")
     git_at_end = eval_results.git_state(config.PROJECT_ROOT)
+    prompts_changed = eval_results.prompts_changed_during_run(
+        prompts, [run.result.prompts for run in runs]
+    )
     results = eval_results.write_results(
         eval_results.results_document(
             run_records(runs, scores),
@@ -716,12 +757,19 @@ def main(args: Sequence[str] | None = None) -> int:
             questions_file=options.path.name,
             scores=score_summary,
             index=counts,
+            prompts=prompts,
+            prompts_changed=prompts_changed,
         ),
         report.with_suffix(".json"),
     )
     print(f"Results file: {results}")
     if note := eval_results.change_note(git_at_start, git_at_end):
         print(note)
+    if prompts_changed:
+        print(
+            "Note: a prompt changed during the run: some turns ran with other prompt versions "
+            "than the results file records (see each turn's trace)."
+        )
     # After both files are written, so a slow LangSmith or a Ctrl-C while it sends loses no paid
     # answer (code review round 1).
     langsmith_failed = experiment is not None and not finish_experiment(experiment, runs, scores)

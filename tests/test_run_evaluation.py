@@ -8,6 +8,7 @@ import json
 import re
 import sys
 from decimal import Decimal
+from types import SimpleNamespace
 
 import httpx2
 import openai
@@ -20,7 +21,7 @@ from src import chat, config, eval_results, experiments, llm, tracing, usage
 from src.eval_questions import EvalItem
 from src.rag import store
 from src.tools.registry import MACRO_TOOL
-from src.usage import ModelPrice
+from src.usage import CallUsage, ModelPrice
 from tests import test_experiments
 from tests.fakes import (
     CHUNKS,
@@ -227,7 +228,72 @@ def test_each_run_shows_its_tokens_and_cost_and_the_total(index):
     lines = run_evaluation.summary_lines(runs)
     # 1,100 answer + 110 rewrite tokens: $0.0012 + $0.00012 per run.
     assert lines[0] == "q1 run 1: answer · 1,210 tokens · $0.0013"
-    assert lines[-1] == "2 runs, 0 ended with an error · 2,420 tokens · $0.0026"
+    assert lines[-2] == "2 runs, 0 ended with an error · 2,420 tokens · $0.0026"
+    # The first asking's answer calls only (round 1 is the search, which the fake reports no tokens
+    # for), not the rewrite's 100 input tokens (T10.6).
+    assert lines[-1] == "answer calls, later rounds: 1,000 input tokens, 0 of them cached (0%)"
+
+
+def test_the_summary_gives_the_cached_share_of_the_answer_calls(index):
+    """The answer rounds' cached input over their input, over each question's first run (T10.6)."""
+    calls = {
+        "input_tokens": 3000,
+        "output_tokens": 100,
+        "total_tokens": 3100,
+        "input_token_details": {"cache_read": 2048},
+    }
+    model = ScriptedChatModel(replies=[AIMessage(ANSWER, usage_metadata=calls)] * 2)
+    translator = ScriptedTranslator(
+        usage={"input_tokens": 900, "output_tokens": 10, "total_tokens": 910}
+    )
+    runs = _evaluate([_item("q1", QUESTION)], index, model, translator, repeat=2)
+    # The first asking only (the repeat sends the same request again): 2,048 of 3,000 input
+    # tokens, 68%; the rewrite's 900 are left out.
+    line = "answer calls, later rounds: 3,000 input tokens, 2,048 of them cached (68%)"
+    assert run_evaluation.cache_lines(runs) == [line]
+    assert run_evaluation.summary_lines(runs)[-1] == line
+
+
+def test_the_cache_lines_give_round_1_apart_from_the_later_rounds():
+    """Round 1 shares only the static prompt with other turns, so it gets its own line."""
+    answer = config.USAGE_STEP_ANSWER
+    calls = [
+        CallUsage(config.USAGE_STEP_REWRITE, config.QUERY_TRANSLATION_MODEL, 900, cached_tokens=9),
+        CallUsage(answer.format(round=1), config.DEFAULT_ANSWER_MODEL, 4000, cached_tokens=3584),
+        CallUsage(answer.format(round=2), config.DEFAULT_ANSWER_MODEL, 4500, cached_tokens=4096),
+        CallUsage(answer.format(round=1), config.DEFAULT_ANSWER_MODEL, 4000, cached_tokens=0),
+    ]
+    first = SimpleNamespace(item=SimpleNamespace(id="q1"), cost=usage.price_turn(calls, None))
+    expected = [
+        "answer calls, round 1: 8,000 input tokens, 3,584 of them cached (45%)",
+        "answer calls, later rounds: 4,500 input tokens, 4,096 of them cached (91%)",
+    ]
+    assert run_evaluation.cache_lines([first]) == expected
+    # A later run of the same question (a repeat, or its no-profile variant) is left out.
+    again = SimpleNamespace(item=SimpleNamespace(id="q1"), cost=usage.price_turn(calls, None))
+    assert run_evaluation.cache_lines([first, again]) == expected
+
+
+def test_a_questions_no_profile_variant_is_left_out_of_the_cache_lines(index):
+    """The profile is never in the messages, so the no-profile variant repeats round 1 too."""
+    calls = {
+        "input_tokens": 3000,
+        "output_tokens": 100,
+        "total_tokens": 3100,
+        "input_token_details": {"cache_read": 1024},
+    }
+    model = ScriptedChatModel(replies=[AIMessage(ANSWER, usage_metadata=calls)] * 2)
+    runs = _evaluate([_item("q13", TARGETS, profile=PROFILE)], index, model)
+    assert [run.label for run in runs] == ["q13", "q13 (no profile)"]
+    assert run_evaluation.cache_lines(runs) == [
+        "answer calls, later rounds: 3,000 input tokens, 1,024 of them cached (34%)"
+    ]
+
+
+def test_a_run_set_with_no_answer_call_has_no_cache_line(index):
+    """A guardrail question calls no model, so the summary gives no cache line."""
+    [run] = _evaluate([_item("q15", STEROIDS)], index, ScriptedChatModel(), ScriptedTranslator())
+    assert run_evaluation.cache_lines([run]) == []
 
 
 @pytest.fixture
@@ -521,6 +587,54 @@ def test_main_writes_the_results_file_next_to_the_report(real_pieces, tmp_path, 
     assert document["runs"][0]["tokens"] == 1100
     # The prices could not be read, so the cost is unknown, not 0.
     assert document["runs"][0]["cost_usd"] is None
+
+
+# --- The prompts' versions (T10.4) ----------------------------------------------------------------
+
+
+def test_the_results_file_records_the_prompt_versions_the_turns_ran_with(real_pieces, tmp_path):
+    """The file names the answer and rewrite prompts' versions, the same each turn sent."""
+    item = {"id": "q1", "question": QUESTION, "expected_sources": ["1"], "good_answer": "x"}
+    assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 0
+    _, document = _results_file(tmp_path)
+    system = real_pieces.calls[0][0].content
+    assert document["prompts"] == {
+        "prompt_answer": chat.prompt_version(system),
+        "prompt_query": chat.prompt_version("Test prompt."),
+    }
+    assert document["prompts_changed_during_run"] is False
+
+
+def test_a_prompt_edited_during_the_run_is_flagged_and_noted(
+    real_pieces, tmp_path, monkeypatch, capsys
+):
+    """A turn that ran with another answer prompt than the start's sets the flag and a note."""
+    item = {"id": "q1", "question": QUESTION, "expected_sources": [], "good_answer": "x"}
+    run_turn = chat.run_turn
+
+    def edited_first(*args, **kwargs):
+        """Edit the answer prompt before the turn reads it, as an owner could mid-run."""
+        config.ANSWER_PROMPT_PATH.write_text("Edited prompt.", encoding="utf-8")
+        return run_turn(*args, **kwargs)
+
+    monkeypatch.setattr(chat, "run_turn", edited_first)
+    assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 0
+    _, document = _results_file(tmp_path)
+    assert document["prompts"]["prompt_answer"] != chat.prompt_version(
+        real_pieces.calls[0][0].content
+    )
+    assert document["prompts_changed_during_run"] is True
+    assert "Note: a prompt changed during the run" in capsys.readouterr().out
+
+
+def test_a_missing_prompt_stops_the_run_before_any_question(real_pieces, tmp_path, capsys):
+    """Without the answer prompt the run stops at the start with its message (exit 1)."""
+    config.ANSWER_PROMPT_PATH.unlink()
+    item = {"id": "q1", "question": QUESTION, "expected_sources": [], "good_answer": "x"}
+    assert run_evaluation.main([_questions_file(tmp_path, [item])]) == 1
+    assert config.PROMPT_MISSING_MESSAGE in capsys.readouterr().err
+    assert real_pieces.calls == []
+    assert not (tmp_path / "eval_runs").exists()
 
 
 def test_the_results_file_records_the_index_the_run_used(real_pieces, tmp_path):
@@ -994,6 +1108,8 @@ def test_langsmith_records_the_run_as_an_experiment_on_the_dataset(
     assert project["metadata"]["scored"] is False
     assert project["metadata"]["questions_file"] == "questions.json"
     assert project["metadata"]["answer_model"] == config.DEFAULT_ANSWER_MODEL
+    # The prompts' versions as the run started (T10.4), the same as in the results file.
+    versions = {key: project["metadata"][key] for key in ("prompt_answer", "prompt_query")}
     # The turn ran with the experiment's tracer, and its feedback names its root run.
     [trace] = traces
     assert isinstance(trace, tracing.RunTrace)
@@ -1012,6 +1128,7 @@ def test_langsmith_records_the_run_as_an_experiment_on_the_dataset(
     # The report and the results file are written as without --langsmith.
     _, document = _results_file(tmp_path)
     assert document["runs"][0]["expected_cited"] == ["1"]
+    assert document["prompts"] == versions
     assert len(list((tmp_path / "eval_runs").glob("run-*.md"))) == 1
 
 

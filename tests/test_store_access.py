@@ -145,6 +145,7 @@ INTERNALS = {
         for name in ("choice", "date_text", "in_range", "is_row_id", "is_utf8", "number")
     ),
     *(f"values.{name}" for name in ("text", "user_id", "utc_text", "whole_number")),
+    "values.prompt_version",
 }
 
 

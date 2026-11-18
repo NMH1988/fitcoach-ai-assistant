@@ -86,6 +86,28 @@ def test_the_document_names_the_code_the_models_the_language_the_repeat_and_the_
     assert document["date"].startswith("2026-10-27T09:30:15")
     assert document["questions_file"] == "eval_questions.json"
     assert document["runs"] == [_record().as_dict()]
+    # No prompt versions given: unknown, not left out (T10.4).
+    assert (document["prompts"], document["prompts_changed_during_run"]) == (None, None)
+
+
+def test_the_document_records_the_prompt_versions_and_whether_they_changed():
+    """The versions read as the run starts, and the flag, are written as given (T10.4)."""
+    versions = {"prompt_answer": "0123456789ab", "prompt_query": "ba9876543210"}
+    document = _document([_record()], prompts=versions, prompts_changed=False)
+    assert document["prompts"] == versions
+    assert document["prompts_changed_during_run"] is False
+
+
+def test_a_turn_with_other_or_no_prompt_versions_counts_as_a_change():
+    """Any turn whose versions differ from the start's, an empty one included, is a change."""
+    start = {"prompt_answer": "0123456789ab", "prompt_query": "ba9876543210"}
+    same = dict(start)
+    other = {**start, "prompt_answer": "fedcba987654"}
+    changed = eval_results.prompts_changed_during_run
+    assert changed(start, [same, same]) is False
+    assert changed(start, [same, other]) is True
+    assert changed(start, [same, {}]) is True
+    assert changed(start, []) is False
 
 
 def test_the_document_is_plain_json_that_reads_back_the_same(tmp_path):

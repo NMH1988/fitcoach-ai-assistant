@@ -31,7 +31,7 @@ def number(value: float, lang: Language) -> str:
     return text.translate(_DE_MARKS) if lang == "de" else text
 
 
-def percent(value: int, lang: Language) -> str:
+def percent(value: int | str, lang: Language) -> str:
     """Show a percentage as the language writes it: "20%" or "20 %"."""
     return f"{value} %" if lang == "de" else f"{value}%"
 
@@ -312,6 +312,16 @@ _EN: dict[str, str] = {
     "usage.this_session": "This session: {usage}",
     "usage.session": "Session: {usage}",
     "usage.no_calls": "This answer made no model call that reported its tokens.",
+    # The share of the turn's input the provider's prompt cache served (T10.6).
+    "usage.cached": (
+        "Cached input: {cached} of {total} input tokens ({percent}), which saved {saved} at "
+        "today's prices."
+    ),
+    "usage.cached_unpriced": (
+        "Cached input: {cached} of {total} input tokens ({percent}); what it saved is not known, "
+        "as a price could not be read."
+    ),
+    "usage.cached_none": "None of this answer's input came from the provider's prompt cache.",
     "usage.explain": (
         "Costs are priced on the input and output tokens, with OpenRouter's prices per token, "
         "read once a day. Reasoning is shown as OpenRouter reports it and is not priced again; "
@@ -1604,6 +1614,15 @@ _DE: dict[str, str] = {
     "usage.this_session": "Diese Sitzung: {usage}",
     "usage.session": "Sitzung: {usage}",
     "usage.no_calls": "Diese Antwort hat keinen Modellaufruf gemacht, der seine Token meldet.",
+    "usage.cached": (
+        "Eingabe aus Cache: {cached} von {total} Eingabe-Token ({percent}), eine Ersparnis von "
+        "{saved} zu den heutigen Preisen."
+    ),
+    "usage.cached_unpriced": (
+        "Eingabe aus Cache: {cached} von {total} Eingabe-Token ({percent}); die Ersparnis ist "
+        "nicht bekannt, da ein Preis nicht gelesen werden konnte."
+    ),
+    "usage.cached_none": "Keine Eingabe dieser Antwort kam aus dem Prompt-Cache des Anbieters.",
     "usage.explain": (
         "Die Kosten werden aus den Eingabe- und Ausgabe-Token berechnet, mit den Preisen pro "
         "Token von OpenRouter, die einmal am Tag gelesen werden. Reasoning wird gezeigt, wie "

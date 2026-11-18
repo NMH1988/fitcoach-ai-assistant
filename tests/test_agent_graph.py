@@ -6,6 +6,7 @@ itself, node by node with fake models, and the compiled graph with a spy on the 
 """
 
 import dataclasses
+import json
 import re
 import threading
 import time
@@ -245,6 +246,51 @@ def test_prepare_opens_the_index_then_the_translator_then_the_answer_model():
     assert steps == [Step.PLAN]
 
 
+def test_prepare_sends_the_prompts_it_is_given_and_reads_no_file(tmp_path, monkeypatch):
+    """With the turn's prompts in the context the files are not read again (T10.4)."""
+    for name in ("ANSWER_PROMPT_PATH", "QUERY_TRANSLATION_PROMPT_PATH"):
+        monkeypatch.setattr(config, name, tmp_path / "missing.md")
+    prompts = graph.TurnPrompts(chat.Prompt("Read before the run."), chat.Prompt("Rewrite."))
+    context = _context(open_index=lambda: None, translation_model=lambda: None, prompts=prompts)
+    update = graph.prepare({"question": QUESTION}, _runtime(context))
+    assert update["system_prompt"] == "Read before the run."
+    assert update["translation_prompt"] == "Rewrite."
+    assert update["messages"][0].content == "Read before the run."
+
+
+def test_prepare_raises_the_prompt_error_kept_before_the_run():
+    """A prompt that could not be read before the run is reported here, before anything opens."""
+    opened = []
+    kept = chat.PromptMissingError(config.PROMPT_MISSING_MESSAGE, "prompt.answer_missing")
+    context = _context(open_index=lambda: opened.append("index"), prompts=kept)
+    with pytest.raises(chat.PromptMissingError) as raised:
+        graph.prepare({"question": QUESTION}, _runtime(context))
+    assert raised.value.code == "prompt.answer_missing"
+    assert opened == []
+
+
+def test_the_turn_prompts_join_the_language_and_coach_parts_as_sent():
+    """The answer prompt is the owner's text, the language part, then a coach's part (T9.7)."""
+    guest = graph.load_turn_prompts("en", coach=False)
+    coach = graph.load_turn_prompts("en", coach=True)
+    assert guest.answer.text.startswith("Test system prompt.\n\nTest language part")
+    assert coach.answer.text.startswith(guest.answer.text + "\n\n")
+    assert guest.answer.version != coach.answer.version
+    assert guest.translation.text == "Test query translation prompt."
+    assert guest.versions() == {
+        "prompt_answer": chat.prompt_version(guest.answer.text),
+        "prompt_query": chat.prompt_version(guest.translation.text),
+    }
+
+
+def test_the_run_config_carries_the_turn_id_and_the_prompt_versions():
+    """The versions go on the run's metadata next to the turn_id (T10.4)."""
+    versions = graph.load_turn_prompts("en", coach=False).versions()
+    run = graph.run_config("turn-1", None, versions)
+    assert run["metadata"] == {"turn_id": "turn-1", **versions}
+    assert graph.run_config("turn-1")["metadata"] == {"turn_id": "turn-1"}
+
+
 def test_prepare_sends_the_question_alone_and_waits_for_a_basis():
     """The request holds the system prompt and <user_input> only: no <sources>, no <profile>."""
     context = _context(open_index=lambda: None, translation_model=lambda: None)
@@ -442,7 +488,7 @@ def test_finish_says_not_covered_when_there_is_no_answer():
 # --- The compiled graph ------------------------------------------------------------------------
 
 
-def _graph_turn(index, *replies, text=QUESTION, search_first=True, **extra):
+def _graph_turn(index, *replies, text=QUESTION, search_first=True, history=None, **extra):
     """Invoke the compiled chat graph once with a scripted model; return its output and model."""
     model = ScriptedChatModel(replies=list(replies), search_first=search_first)
     context = _context(
@@ -452,7 +498,8 @@ def _graph_turn(index, *replies, text=QUESTION, search_first=True, **extra):
         search_log=SearchLog(),
         **extra,
     )
-    output = graph.chat_graph().invoke({"text": text}, context=context, config=graph.run_config())
+    turn = {"text": text, **({"history": history} if history is not None else {})}
+    output = graph.chat_graph().invoke(turn, context=context, config=graph.run_config())
     return output, model
 
 
@@ -498,6 +545,44 @@ def test_the_longest_turn_takes_max_steps(index):
     )
     assert len(updates) == graph.MAX_STEPS
     assert list(updates[-1]) == ["finish"]
+
+
+def _longest_turn(index, **extra) -> ScriptedChatModel:
+    """Run a turn with a search, the other tool rounds and the answer; return its model."""
+    rounds = [search_reply(QUESTION)] + [tool_reply((TDEE_TOOL, {}))] * (config.MAX_TOOL_ROUNDS - 1)
+    _, model = _graph_turn(index, *rounds, AIMessage(ANSWER), search_first=False, **extra)
+    return model
+
+
+def _assert_same_prefix(model: ScriptedChatModel) -> None:
+    """Assert that every answer call sent the first call's system message and tools, byte-equal."""
+    assert len(model.calls) == config.MAX_TOOL_ROUNDS + 1
+    system = [call[0] for call in model.calls]
+    assert all(isinstance(message, SystemMessage) for message in system)
+    assert {message.content for message in system} == {system[0].content}
+    tools = [json.dumps(kwargs["tools"]) for kwargs in model.call_kwargs]
+    assert set(tools) == {tools[0]}
+    # The same start of the request, so the provider's prompt cache can serve it (T10.6).
+    assert [call[1:2] for call in model.calls] == [model.calls[0][1:2]] * len(model.calls)
+
+
+def test_every_answer_call_of_a_turn_sends_the_same_system_prompt_and_tools(index):
+    """Up to MAX_TOOL_ROUNDS + 1 calls, one system message and one tool list (T10.6)."""
+    # The context builds the tools anew on every call, so the order cannot depend on a cache.
+    _assert_same_prefix(_longest_turn(index))
+
+
+def test_a_coachs_turn_keeps_its_system_prompt_and_tools_the_same_too(index):
+    """A coach's part, <memories> and a history change nothing between a turn's calls (T10.6)."""
+    coach = preferences.CoachMemory("coach-1", ("Alex Example",), ("Prefers short answers.",))
+    history = [HumanMessage("Earlier question"), AIMessage("Earlier answer.")]
+    model = _longest_turn(index, history=history, coach=coach, language="de")
+    _assert_same_prefix(model)
+    assert preferences.PREFERENCE_TOOL in json.dumps(model.call_kwargs[0]["tools"])
+    # The history and the question with <memories> follow the system message in every call.
+    first = model.calls[0]
+    assert [call[:4] for call in model.calls] == [first[:4]] * len(model.calls)
+    assert "<memories>" in first[3].text
 
 
 def test_tool_runs_are_reported_in_the_order_of_their_messages(index):

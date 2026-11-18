@@ -117,6 +117,7 @@ VALID_ROWS = {
         "status": "PENDING_REVIEW",
         "edited_by_coach": 0,
         "model_version": "m",
+        "prompt_version": "0123456789ab",
         "created_at": NOW,
         "reviewed_by": None,
         "reviewed_at": None,
@@ -204,7 +205,11 @@ def _seed(conn):
         conn, "coach_clients", {**VALID_ROWS["coach_clients"], "status": "active", "ended_at": None}
     )
     _insert(conn, "workout_sessions", VALID_ROWS["workout_sessions"])
-    _insert(conn, "ai_reviews", VALID_ROWS["ai_reviews"])
+    review = VALID_ROWS["ai_reviews"]
+    if "prompt_version" not in {row[1] for row in conn.execute("PRAGMA table_info(ai_reviews)")}:
+        # Before version 7 (T10.4) a review has no prompt_version.
+        review = {name: value for name, value in review.items() if name != "prompt_version"}
+    _insert(conn, "ai_reviews", review)
     names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master")}
     if "food_suggestion_lists" in names:  # from version 6 (T9.34)
         _insert(conn, "food_suggestion_lists", VALID_ROWS["food_suggestion_lists"])
@@ -223,7 +228,7 @@ def test_connect_creates_the_file_in_the_configured_folder_with_every_table(stor
         for row in store_conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
     }
     assert names == TABLES
-    assert db.schema_version(store_conn) == len(schema.MIGRATIONS) == 6
+    assert db.schema_version(store_conn) == len(schema.MIGRATIONS) == 7
 
 
 def test_the_store_folder_is_gitignored_and_inside_the_project():
@@ -831,13 +836,13 @@ def test_the_audit_check_and_access_action_list_the_same_actions(store_conn):
     assert {"review_answered", "target_set", "suggestions_set"} <= set(get_args(access.Action))
 
 
-@pytest.mark.parametrize("migrations", [1, 2, 3, 4, 5])
+@pytest.mark.parametrize("migrations", [1, 2, 3, 4, 5, 6])
 def test_upgrading_an_older_file_keeps_every_audit_row_index_and_trigger(tmp_path, migrations):
-    """A version 1 to 5 file with audit rows reaches version 6, its rows, IDs and guards kept."""
+    """A version 1 to 6 file with audit rows reaches version 7, its rows, IDs and guards kept."""
     path = tmp_path / "old.sqlite3"
     before = _old_file(path, migrations)
     with db.connect(path) as conn:
-        assert db.schema_version(conn) == len(schema.MIGRATIONS) == 6
+        assert db.schema_version(conn) == len(schema.MIGRATIONS) == 7
         after = [tuple(row) for row in conn.execute("SELECT * FROM audit_log ORDER BY id")]
         assert after == before
         indexes = {
@@ -983,3 +988,75 @@ def test_a_suggestion_list_needs_two_users_and_an_item_appears_once_per_meal(sto
             "food_suggestion_items",
             {**VALID_ROWS["food_suggestion_items"], "meal": "brunch"},
         )
+
+
+# --- Migration 7 (T10.4): the prompt version of a stored review -----------------------------------
+
+
+@pytest.mark.parametrize("migrations", [1, 2, 3, 4, 5, 6])
+def test_upgrading_keeps_every_review_and_marks_its_prompt_version_unknown(tmp_path, migrations):
+    """A review written before version 7 keeps every value and gets the version 'unknown'."""
+    path = tmp_path / "old.sqlite3"
+    _old_file(path, migrations)
+    raw = sqlite3.connect(path)
+    raw.row_factory = sqlite3.Row
+    before = [dict(row) for row in raw.execute("SELECT * FROM ai_reviews ORDER BY id")]
+    raw.close()
+    assert len(before) == 1
+    with db.connect(path) as conn:
+        after = [dict(row) for row in conn.execute("SELECT * FROM ai_reviews ORDER BY id")]
+        assert [row["prompt_version"] for row in after] == [config.PROMPT_VERSION_UNKNOWN]
+        # Columns an earlier migration added (thread_id, migration 2) are left to their own tests.
+        assert [{name: row[name] for name in before[0]} for row in after] == before
+        assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+def test_migration_7_s_check_has_the_configured_version_length():
+    """The CHECK fixes the length at 12; a new length in config needs a new migration."""
+    assert "length(prompt_version) = 12" in schema._V7
+    assert config.PROMPT_VERSION_LENGTH == 12
+
+
+def test_a_new_review_must_name_its_prompt_version(store_conn):
+    """'unknown' (or no value, its default) is for older rows only; a new row is refused."""
+    _seed(store_conn)
+    row = {**VALID_ROWS["ai_reviews"], "period_start": "2026-10-12"}
+    without = {name: value for name, value in row.items() if name != "prompt_version"}
+    for bad in (without, {**row, "prompt_version": config.PROMPT_VERSION_UNKNOWN}):
+        with pytest.raises(sqlite3.IntegrityError, match="names its prompt version"):
+            _insert(store_conn, "ai_reviews", bad)
+
+
+@pytest.mark.parametrize(
+    "bad", ["", "protein", "0123456789AB", "0123456789abc", "0123456789a", "0123456789ag"]
+)
+def test_a_prompt_version_is_twelve_lowercase_hex_characters(store_conn, bad):
+    """Any other text under prompt_version is refused by its CHECK."""
+    _seed(store_conn)
+    row = {**VALID_ROWS["ai_reviews"], "period_start": "2026-10-12", "prompt_version": bad}
+    with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
+        _insert(store_conn, "ai_reviews", row)
+
+
+def test_a_migration_7_that_fails_halfway_leaves_the_version_6_file_as_it_was(tmp_path):
+    """A failure after migration 7 added the column undoes it: version 6, the review kept."""
+    path = tmp_path / "old.sqlite3"
+    _old_file(path, 6)
+    raw = sqlite3.connect(path, autocommit=True)
+    # A trigger already named as migration 7's makes its CREATE TRIGGER fail after the ALTER TABLE.
+    raw.execute(
+        "CREATE TRIGGER ai_reviews_prompt_version_known BEFORE DELETE ON users BEGIN SELECT 1; END"
+    )
+    before = raw.execute("SELECT * FROM ai_reviews ORDER BY id").fetchall()
+    raw.close()
+    with pytest.raises(sqlite3.OperationalError, match="ai_reviews_prompt_version_known"):
+        with db.connect(path):
+            pass
+    raw = sqlite3.connect(path)
+    try:
+        assert raw.execute("PRAGMA user_version").fetchone()[0] == 6
+        columns = {row[1] for row in raw.execute("PRAGMA table_info(ai_reviews)")}
+        assert "prompt_version" not in columns
+        assert raw.execute("SELECT * FROM ai_reviews ORDER BY id").fetchall() == before
+    finally:
+        raw.close()
