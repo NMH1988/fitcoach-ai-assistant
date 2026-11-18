@@ -46,6 +46,9 @@ def _draft(**changes) -> str:
                 "direction": None,
                 "source_range": None,
                 "population": None,
+                # Strict mode sends every field, so a real reply always holds both (T10.2).
+                "target_kcal": None,
+                "kcal_change": None,
             }
         ],
     }
@@ -531,6 +534,8 @@ def test_cited_evidence_is_stored_with_the_review(store_conn, relationships, mon
         "direction": "increase",
         "source_range": "10 to 20 sets per muscle group per week",
         "population": "trained adults",
+        "target_kcal": None,
+        "kcal_change": None,
     }
     model = _model(_draft(recommendations=[training]))
     assert _start(_context(model)).outcome == "pending"
@@ -869,3 +874,328 @@ def test_a_stuck_decision_replaced_by_an_edit_runs_the_edit_s_checks(
     assert edited.outcome == "edited"
     [seen] = reviews.list_reviews(store_conn, world.SHARED, world.SHARED)
     assert seen["final"]["observations"][0]["text"] == "One day logged."
+
+
+# T10.2: the coach's edit is checked by arithmetic against the client's target as it is now.
+
+
+def _kcal_edit(kcal_change=None, target_kcal=None) -> dict:
+    """Return the world's draft as the coach's edit, with the recommendation's kcal fields set."""
+    edited = json.loads(_draft())
+    edited["recommendations"][0].update(target_kcal=target_kcal, kcal_change=kcal_change)
+    return edited
+
+
+def _set_target(conn, kcal: float) -> None:
+    """Have coach A set the shared client's daily target from the week after the reviewed one."""
+    records.add_client_target(
+        conn,
+        world.COACH_A,
+        world.SHARED,
+        kcal=kcal,
+        protein_g=150.0,
+        carbs_g=150.0,
+        fat_g=50.0,
+        effective_from=date(2026, 11, 2),
+    )
+
+
+def _target_reads(conn) -> int:
+    """Return how many audited reads of nutrition targets the store holds."""
+    query = (
+        "SELECT count(*) FROM audit_log WHERE action = 'read' "
+        "AND resource_type = 'nutrition_targets'"
+    )
+    return conn.execute(query).fetchone()[0]
+
+
+def test_an_edit_s_kcal_change_is_added_to_the_client_s_current_target(store_conn, relationships):
+    """-600 from the 1,500 kcal target the coach set after the draft fails; -300 passes."""
+    started = _start(_context())
+    thread = _pending(store_conn)["thread_id"]
+    # The draft's metrics hold the week's target, 2,345 kcal, against which -600 would pass.
+    _set_target(store_conn, 1500.0)
+    before = _target_reads(store_conn)
+    refused = review.decide_review(
+        _context(), world.COACH_A, started.review_id, thread, "edit", _kcal_edit(-600)
+    )
+    assert (refused.outcome, refused.errors) == ("edit_invalid", ("calorie_floor",))
+    # The current target is read through the store's audited read.
+    assert _target_reads(store_conn) == before + 1
+    assert _pending(store_conn)["status"] == "PENDING_REVIEW"
+    edited = review.decide_review(
+        _context(), world.COACH_A, started.review_id, thread, "edit", _kcal_edit(-300)
+    )
+    assert edited.outcome == "edited"
+    [seen] = reviews.list_reviews(store_conn, world.SHARED, world.SHARED)
+    assert seen["final"]["recommendations"][0]["kcal_change"] == -300
+
+
+def test_an_edit_without_a_kcal_change_reads_no_target(store_conn, relationships):
+    """Only an edit that sets a kcal_change reads the target, so no audit row is added for one."""
+    started = _start(_context())
+    thread = _pending(store_conn)["thread_id"]
+    before = _target_reads(store_conn)
+    result = review.decide_review(
+        _context(), world.COACH_A, started.review_id, thread, "edit", _kcal_edit(target_kcal=1800)
+    )
+    assert result.outcome == "edited"
+    assert _target_reads(store_conn) == before
+
+
+def test_an_edit_s_target_below_the_floor_is_refused(store_conn, relationships):
+    """A coach's target_kcal below the floor fails as the model's does."""
+    started = _start(_context())
+    thread = _pending(store_conn)["thread_id"]
+    result = review.decide_review(
+        _context(), world.COACH_A, started.review_id, thread, "edit", _kcal_edit(target_kcal=1100)
+    )
+    assert (result.outcome, result.errors) == ("edit_invalid", ("calorie_floor",))
+
+
+def test_a_refused_target_read_fails_the_change_closed(store_conn, relationships, monkeypatch):
+    """When the store refuses the target read, a kcal_change fails with kcal_change_no_target."""
+    started = _start(_context())
+    thread = _pending(store_conn)["thread_id"]
+
+    def refused(*args, **kwargs):
+        """Refuse the read as the store does for a scope no longer shared."""
+        raise access.NotFound
+
+    monkeypatch.setattr(review.records, "list_targets", refused)
+    result = review.decide_review(
+        _context(), world.COACH_A, started.review_id, thread, "edit", _kcal_edit(300)
+    )
+    assert (result.outcome, result.errors) == ("edit_invalid", ("kcal_change_no_target",))
+
+
+def test_an_edit_of_a_draft_from_before_the_kcal_fields_is_released(store_conn, relationships):
+    """An edit without the two fields, as a draft stored before T10.2 gives, passes its checks."""
+    started = _start(_context())
+    thread = _pending(store_conn)["thread_id"]
+    edited = json.loads(_draft())
+    for field in ("target_kcal", "kcal_change"):
+        del edited["recommendations"][0][field]
+    result = review.decide_review(
+        _context(), world.COACH_A, started.review_id, thread, "edit", edited
+    )
+    assert result.outcome == "edited"
+
+
+def test_a_stuck_decision_replaced_by_an_edit_checks_its_kcal_change(
+    store_conn, relationships, monkeypatch
+):
+    """After a store failure, an edit's kcal_change is checked against the current target too."""
+    started = _start(_context())
+    thread = _pending(store_conn)["thread_id"]
+    _set_target(store_conn, 1500.0)
+    monkeypatch.setattr(review.reviews, "decide_review", _FailingOnce(reviews.decide_review))
+    with pytest.raises(account.StoreUnavailable):
+        review.decide_review(_context(), world.COACH_A, started.review_id, thread, "approve")
+    refused = review.decide_review(
+        _context(), world.COACH_A, started.review_id, thread, "edit", _kcal_edit(-600)
+    )
+    assert (refused.outcome, refused.errors) == ("edit_invalid", ("calorie_floor",))
+
+
+def test_a_store_failure_while_an_edit_reads_the_target_leaves_the_run_waiting(
+    store_conn, relationships, monkeypatch
+):
+    """A store failure in the target read: the review waits, and the next click is checked anew."""
+    started = _start(_context())
+    thread = _pending(store_conn)["thread_id"]
+    _set_target(store_conn, 1500.0)
+    monkeypatch.setattr(review.records, "list_targets", _FailingOnce(records.list_targets))
+    with pytest.raises(account.StoreUnavailable):
+        review.decide_review(
+            _context(), world.COACH_A, started.review_id, thread, "edit", _kcal_edit(-300)
+        )
+    assert _pending(store_conn)["status"] == "PENDING_REVIEW"
+    with review_threads.open_saver(config.STORE_PATH) as saver:
+        snapshot = review.review_graph(saver).get_state({"configurable": {"thread_id": thread}})
+    assert snapshot.next == ("decide",)
+    # The next click's own answer is the one checked: -600 from 1,500 fails, not the earlier -300.
+    refused = review.decide_review(
+        _context(), world.COACH_A, started.review_id, thread, "edit", _kcal_edit(-600)
+    )
+    assert (refused.outcome, refused.errors) == ("edit_invalid", ("calorie_floor",))
+    passed = review.decide_review(
+        _context(), world.COACH_A, started.review_id, thread, "edit", _kcal_edit(-300)
+    )
+    assert passed.outcome == "edited"
+
+
+# Approve checks a draft's kcal_change against the client's target now (owner's choice, 2026-11-18).
+
+ENERGY_TEXT = "Made-up text: a deficit of about 600 kcal a day was used in these studies."
+CITED_CHANGE = {
+    "kind": "nutrition",
+    "text": "Consider a 600 kcal deficit [S1].",
+    "evidence": ["S1"],
+    "model_suggestion": False,
+    "direction": None,
+    "source_range": None,
+    "population": None,
+    "target_kcal": None,
+    "kcal_change": -600,
+}
+
+
+def _energy_chunk() -> RetrievedChunk:
+    """Return a made-up energy balance chunk whose 600 kcal lets the draft's change pass."""
+    meta = {
+        "source_id": "3",
+        "chunk_index": 1,
+        "title": "Made-up energy review",
+        "year": 2020,
+        "evidence_tier": 2,
+        "topics": ["energy_balance"],
+    }
+    return RetrievedChunk(ENERGY_TEXT, meta, 0.3)
+
+
+def _start_with_change(monkeypatch) -> review.RunResult:
+    """Draft a review whose recommendation cuts 600 kcal (2,345 - 600 passes); return its start."""
+    monkeypatch.setattr(review, "_search", lambda context, topics: [_energy_chunk()])
+    started = _start(_context(_model(_draft(recommendations=[CITED_CHANGE]))))
+    assert (started.outcome, started.errors) == ("pending", ())
+    return started
+
+
+def test_approve_refuses_a_draft_change_that_takes_today_s_target_below_the_floor(
+    store_conn, relationships, monkeypatch
+):
+    """-600 passed against the week's 2,345 kcal; against today's 1,500 Approve is refused."""
+    started = _start_with_change(monkeypatch)
+    thread = _pending(store_conn)["thread_id"]
+    _set_target(store_conn, 1500.0)
+    before = _target_reads(store_conn)
+    refused = review.decide_review(_context(), world.COACH_A, started.review_id, thread, "approve")
+    assert (refused.outcome, refused.errors) == ("approve_invalid", ("calorie_floor",))
+    assert _target_reads(store_conn) == before + 1
+    assert _pending(store_conn)["status"] == "PENDING_REVIEW"
+    assert reviews.list_reviews(store_conn, world.SHARED, world.SHARED) == []
+    # The review keeps waiting: the coach may edit the figure (or reject the draft).
+    edited = json.loads(_draft(recommendations=[{**CITED_CHANGE, "kcal_change": -300}]))
+    result = review.decide_review(
+        _context(), world.COACH_A, started.review_id, thread, "edit", edited
+    )
+    assert result.outcome == "edited"
+
+
+def test_approve_releases_a_draft_change_that_today_s_target_allows(
+    store_conn, relationships, monkeypatch
+):
+    """With the week's target still in force, Approve of the -600 draft releases it."""
+    started = _start_with_change(monkeypatch)
+    thread = _pending(store_conn)["thread_id"]
+    result = review.decide_review(_context(), world.COACH_A, started.review_id, thread, "approve")
+    assert result.outcome == "approved"
+    [seen] = reviews.list_reviews(store_conn, world.SHARED, world.SHARED)
+    assert seen["final"]["recommendations"][0]["kcal_change"] == -600
+
+
+def test_approve_of_a_draft_without_a_change_reads_no_target(store_conn, relationships):
+    """Only a draft that sets a kcal_change makes Approve read the target (no audit row else)."""
+    started = _start(_context())
+    thread = _pending(store_conn)["thread_id"]
+    before = _target_reads(store_conn)
+    result = review.decide_review(_context(), world.COACH_A, started.review_id, thread, "approve")
+    assert result.outcome == "approved"
+    assert _target_reads(store_conn) == before
+
+
+def test_approve_fails_closed_when_the_target_read_is_refused(
+    store_conn, relationships, monkeypatch
+):
+    """A refused read on Approve leaves no target: kcal_change_no_target, the review waits."""
+    started = _start_with_change(monkeypatch)
+    thread = _pending(store_conn)["thread_id"]
+
+    def refused(*args, **kwargs):
+        """Refuse the read as the store does for a scope no longer shared."""
+        raise access.NotFound
+
+    monkeypatch.setattr(review.records, "list_targets", refused)
+    result = review.decide_review(_context(), world.COACH_A, started.review_id, thread, "approve")
+    assert (result.outcome, result.errors) == ("approve_invalid", ("kcal_change_no_target",))
+    assert _pending(store_conn)["status"] == "PENDING_REVIEW"
+
+
+def test_a_stuck_edit_replaced_by_approve_checks_the_draft_s_change(
+    store_conn, relationships, monkeypatch
+):
+    """After a store failure on an edit, an Approve in its place is checked against today too."""
+    started = _start_with_change(monkeypatch)
+    thread = _pending(store_conn)["thread_id"]
+    monkeypatch.setattr(review.reviews, "decide_review", _FailingOnce(reviews.decide_review))
+    plain = json.loads(_draft(recommendations=[{**CITED_CHANGE, "kcal_change": None}]))
+    with pytest.raises(account.StoreUnavailable):
+        review.decide_review(_context(), world.COACH_A, started.review_id, thread, "edit", plain)
+    _set_target(store_conn, 1500.0)
+    refused = review.decide_review(_context(), world.COACH_A, started.review_id, thread, "approve")
+    assert (refused.outcome, refused.errors) == ("approve_invalid", ("calorie_floor",))
+
+
+def test_a_stuck_approve_repeated_after_a_new_target_is_checked_again(
+    store_conn, relationships, monkeypatch
+):
+    """Code review round 2: the same click after a store failure is checked against today too."""
+    started = _start_with_change(monkeypatch)
+    thread = _pending(store_conn)["thread_id"]
+    monkeypatch.setattr(review.reviews, "decide_review", _FailingOnce(reviews.decide_review))
+    with pytest.raises(account.StoreUnavailable):
+        review.decide_review(_context(), world.COACH_A, started.review_id, thread, "approve")
+    _set_target(store_conn, 1500.0)
+    refused = review.decide_review(_context(), world.COACH_A, started.review_id, thread, "approve")
+    assert (refused.outcome, refused.errors) == ("approve_invalid", ("calorie_floor",))
+    assert reviews.list_reviews(store_conn, world.SHARED, world.SHARED) == []
+    # The run stays stuck with the earlier Approve; an edit in its place is checked and released.
+    edited = json.loads(_draft(recommendations=[{**CITED_CHANGE, "kcal_change": -300}]))
+    result = review.decide_review(
+        _context(), world.COACH_A, started.review_id, thread, "edit", edited
+    )
+    assert result.outcome == "edited"
+
+
+def test_a_stuck_approve_can_always_be_rejected_without_a_target_read(
+    store_conn, relationships, monkeypatch
+):
+    """Code review round 3: Reject reads no target, so a refused read never blocks the way out."""
+    started = _start_with_change(monkeypatch)
+    thread = _pending(store_conn)["thread_id"]
+    monkeypatch.setattr(review.reviews, "decide_review", _FailingOnce(reviews.decide_review))
+    with pytest.raises(account.StoreUnavailable):
+        review.decide_review(_context(), world.COACH_A, started.review_id, thread, "approve")
+    calls = []
+
+    def refused(*args, **kwargs):
+        """Record the call and refuse the read, as for a scope no longer shared."""
+        calls.append(1)
+        raise access.NotFound
+
+    monkeypatch.setattr(review.records, "list_targets", refused)
+    before = _target_reads(store_conn)
+    result = review.decide_review(_context(), world.COACH_A, started.review_id, thread, "reject")
+    assert result.outcome == "rejected"
+    assert calls == [] and _target_reads(store_conn) == before
+
+
+def test_a_stuck_edit_repeated_after_a_new_target_is_checked_again(
+    store_conn, relationships, monkeypatch
+):
+    """Code review round 3: the same edit clicked again runs check_edit against today's target."""
+    started = _start(_context())
+    thread = _pending(store_conn)["thread_id"]
+    monkeypatch.setattr(review.reviews, "decide_review", _FailingOnce(reviews.decide_review))
+    # -600 from the week's 2,345 kcal passes; the store then fails as the edit is released.
+    with pytest.raises(account.StoreUnavailable):
+        review.decide_review(
+            _context(), world.COACH_A, started.review_id, thread, "edit", _kcal_edit(-600)
+        )
+    _set_target(store_conn, 1500.0)
+    refused = review.decide_review(
+        _context(), world.COACH_A, started.review_id, thread, "edit", _kcal_edit(-600)
+    )
+    assert (refused.outcome, refused.errors) == ("edit_invalid", ("calorie_floor",))
+    assert reviews.list_reviews(store_conn, world.SHARED, world.SHARED) == []

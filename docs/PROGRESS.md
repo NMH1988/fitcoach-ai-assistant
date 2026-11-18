@@ -22,6 +22,7 @@ Keep the entry short and record what the code does not say. `tests/test_docs_lay
 ---
 
 - [2026-11-18 · T10.7 The chat turn's dependencies as one `TurnDeps` object, same behaviour · NMH1988/fitcoach-ai-assistant#149 (closes NMH1988/fitcoach-ai-assistant#139)](progress/2026-11-18-T10.7.md)
+- [2026-11-18 · T10.2 Weekly review: kcal figures as numeric fields, checked against the calorie floor by arithmetic · NMH1988/fitcoach-ai-assistant#146 (closes NMH1988/fitcoach-ai-assistant#134)](progress/2026-11-18-T10.2.md)
 - [2026-11-18 · T10.1 Answers checked for injected instructions before the chat's memory keeps them, and a measured miss rate · NMH1988/fitcoach-ai-assistant#147 (closes NMH1988/fitcoach-ai-assistant#133)](progress/2026-11-18-T10.1.md)
 - [2026-11-17 · T9.34 Follow-up: a coach-built meal plan stays in the Capstone (owner's decision) · NMH1988/fitcoach-ai-assistant#132 (refs NMH1988/fitcoach-ai-assistant#117)](progress/2026-11-17-T9.34.md)
 - [2026-11-18 · T10.4 Prompt versions on traces, log lines, stored reviews and evaluation results · NMH1988/fitcoach-ai-assistant#148 (closes NMH1988/fitcoach-ai-assistant#136)](progress/2026-11-18-T10.4.md)

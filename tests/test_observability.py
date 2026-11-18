@@ -1199,3 +1199,84 @@ def test_a_script_calls_configure_logging(monkeypatch):
     monkeypatch.setattr(observability, "configure_logging", lambda: calls.append(1))
     assert run_evaluation.main(["--repeat", "0"]) == 2
     assert calls == [1]
+
+
+def _values(found: object) -> list:
+    """Return every plain value in a parsed log line, nested ones included."""
+    if isinstance(found, dict):
+        return [value for item in found.values() for value in _values(item)]
+    if isinstance(found, list):
+        return [value for item in found for value in _values(item)]
+    return [found]
+
+
+def test_a_review_s_kcal_fields_are_in_no_log_line(store_conn, monkeypatch):
+    """T10.2: a draft's and an edit's target_kcal and kcal_change values reach no log line."""
+    from src.agent import review
+    from tests import store_world as world
+
+    world.build(store_conn)
+    monkeypatch.setattr(review, "_search", lambda context, topics: [])
+    canaries = {4321, -1777, -777}
+
+    def draft(target_kcal=None, kcal_change=None) -> dict:
+        """Return a draft for the world's week with the recommendation's kcal fields set."""
+        return {
+            "observations": [{"text": "The client logged 1 of 7 days.", "evidence": []}],
+            "hypotheses": [],
+            "recommendations": [
+                {
+                    "kind": "nutrition",
+                    "text": "Log every day next week.",
+                    "evidence": [],
+                    "model_suggestion": True,
+                    "direction": None,
+                    "source_range": None,
+                    "population": None,
+                    "target_kcal": target_kcal,
+                    "kcal_change": kcal_change,
+                }
+            ],
+        }
+
+    def context(*replies) -> review.ReviewContext:
+        """Return a run's context with a fake model giving the replies in order."""
+        fake = ScriptedTranslator(plans=list(replies), model_name=config.REVIEW_MODEL)
+        return review.ReviewContext(
+            store_path=config.STORE_PATH,
+            chat_model=lambda: fake,
+            prompt=chat.Prompt("STAND-IN REVIEW PROMPT (tests only)."),
+            today=date(2026, 11, 5),
+        )
+
+    stream = io.StringIO()
+    observability.configure_logging(stream=stream)
+    # A draft whose figure is in no metric fails the number check twice: the run ends.
+    invalid = json.dumps(draft(target_kcal=4321))
+    monday = date(2026, 10, 26)
+    ended = review.start_review(
+        context(invalid, invalid), world.COACH_A, world.SHARED, monday, "en"
+    )
+    assert ended.outcome == "invalid"
+    started = review.start_review(
+        context(json.dumps(draft())), world.COACH_A, world.SHARED, monday, "en"
+    )
+    [row] = [r for r in store_conn.execute("SELECT id, thread_id FROM ai_reviews")]
+    refused = review.decide_review(
+        context(), world.COACH_A, started.review_id, row["thread_id"], "edit", draft(None, -1777)
+    )
+    assert refused.errors == ("calorie_floor",)
+    edited = review.decide_review(
+        context(), world.COACH_A, started.review_id, row["thread_id"], "edit", draft(4321, -777)
+    )
+    assert edited.outcome == "edited"
+    lines = [json.loads(line) for line in stream.getvalue().splitlines()]
+    assert {line["code"] for line in lines} >= {"invalid", "pending", "edit_invalid", "edited"}
+    for line in lines:
+        # The turn ID is a random UUID, whose digits are no figure.
+        line.pop("turn_id", None)
+        for value in _values(line):
+            assert value not in canaries, line
+            if isinstance(value, str):
+                for canary in canaries:
+                    assert str(abs(canary)) not in value, line

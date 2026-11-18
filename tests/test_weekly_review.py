@@ -162,7 +162,8 @@ def test_the_good_draft_passes():
 def test_the_schema_parses_a_good_draft_and_strips_texts():
     """WeeklyReview reads the draft; a blank training field becomes None."""
     draft = _with(("recommendations", 0, "direction"), "   ")
-    review = wr.WeeklyReview.model_validate(draft)
+    # The draft predates T10.2's kcal fields, which the schema requires: filled in as None.
+    review = wr.WeeklyReview.model_validate(wr.with_kcal_fields(draft))
     assert review.recommendations[0].direction is None
     assert wr.as_draft(review, "de")["language"] == "de"
 
@@ -736,3 +737,168 @@ def test_the_share_logged_from_suggestions_is_not_sent_to_the_model():
     sent = json.dumps(wr.aggregates(week, ALL))
     assert "suggest" not in sent and "0.4321" not in sent
     assert wr.aggregates(week, ALL) == METRICS
+
+
+# T10.2: the kcal figures as numeric fields, checked against the floor by arithmetic.
+
+
+def _kcal(index: int = 0, target_kcal=None, kcal_change=None, draft: dict | None = None) -> dict:
+    """Return the good draft (or the one given) with one recommendation's kcal fields set."""
+    found = copy.deepcopy(wr.with_kcal_fields(draft if draft is not None else _good()))
+    found["recommendations"][index].update(target_kcal=target_kcal, kcal_change=kcal_change)
+    return found
+
+
+def _metrics(target_kcal: float | None, gap: float = -300.0) -> dict:
+    """Return the week's metrics with the client's kcal target (None: no target) and kcal gap."""
+    found = copy.deepcopy(METRICS)
+    nutrition = found["nutrition"]
+    if target_kcal is None:
+        nutrition["target"] = None
+    else:
+        nutrition["target"]["kcal"] = target_kcal
+        nutrition["average_minus_target"]["kcal"] = gap
+    return found
+
+
+def _recommendation_schema() -> dict:
+    """Return the Recommendation schema as the OpenAI SDK sends it in strict mode."""
+    from openai.lib._parsing._completions import type_to_response_format_param
+
+    sent = type_to_response_format_param(wr.WeeklyReview)
+    assert sent["json_schema"]["strict"] is True
+    return sent["json_schema"]["schema"]["$defs"]["Recommendation"]
+
+
+def test_the_two_kcal_fields_are_sent_required_nullable_and_described():
+    """Strict mode: both fields are required, an integer or null, with the owner's wording (O18)."""
+    schema = _recommendation_schema()
+    for field in wr.KCAL_FIELDS:
+        assert field in schema["required"]
+        sent = schema["properties"][field]
+        assert sent["anyOf"] == [{"type": "integer"}, {"type": "null"}]
+        assert "default" not in sent and "minimum" not in json.dumps(sent)
+    target = schema["properties"]["target_kcal"]["description"]
+    assert f"Never below {config.CALORIE_FLOOR_KCAL} kcal per day." in target
+    assert target.startswith("A daily energy intake in kcal that this recommendation proposes")
+    change = schema["properties"]["kcal_change"]["description"]
+    assert change.startswith("A change in kcal per day to the client's current target")
+    assert "average_minus_target" in change
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("target_kcal", config.REVIEW_TARGET_KCAL_RANGE[0] - 1),
+        ("target_kcal", config.REVIEW_TARGET_KCAL_RANGE[1] + 1),
+        ("kcal_change", config.REVIEW_KCAL_CHANGE_RANGE[0] - 1),
+        ("kcal_change", config.REVIEW_KCAL_CHANGE_RANGE[1] + 1),
+        ("target_kcal", True),
+        ("target_kcal", "1800"),
+        ("kcal_change", -300.5),
+    ],
+)
+def test_a_kcal_field_outside_its_range_or_not_a_whole_number_fails_the_schema(field, value):
+    """A value off the config range, a boolean, a text or a fraction fails on the schema."""
+    draft = _kcal(**{field: value})
+    assert wr.validate(draft, CHUNKS, METRICS) == ["schema"]
+    assert wr.check_edit(draft, CHUNKS, METRICS) == ["schema"]
+
+
+def test_the_range_ends_and_a_whole_float_are_accepted():
+    """Both ends of each range parse, and 1800.0 is read as 1800."""
+    low, high = config.REVIEW_TARGET_KCAL_RANGE
+    for value in (low, high):
+        assert wr.WeeklyReview.model_validate(_kcal(target_kcal=value))
+    low, high = config.REVIEW_KCAL_CHANGE_RANGE
+    for value in (low, high):
+        assert wr.WeeklyReview.model_validate(_kcal(kcal_change=value))
+    review = wr.WeeklyReview.model_validate(_kcal(target_kcal=1800.0))
+    assert review.recommendations[0].target_kcal == 1800
+
+
+def test_the_reviewers_case_a_300_kcal_deficit_from_1400_fails_and_from_1800_passes():
+    """1,400 - 300 is below the floor; 1,800 - 300 is not (Sprint 3 review point 2)."""
+    draft = _kcal(kcal_change=-300)
+    assert "calorie_floor" in wr.validate(draft, CHUNKS, _metrics(1400.0))
+    assert "calorie_floor" in wr.check_edit(draft, CHUNKS, _metrics(1400.0))
+    assert "calorie_floor" not in wr.validate(draft, CHUNKS, _metrics(1800.0))
+    assert wr.check_edit(draft, CHUNKS, _metrics(1800.0)) == []
+
+
+def test_a_change_that_lands_exactly_on_the_floor_passes():
+    """The floor itself is allowed: 1,500 - 300 is 1,200."""
+    assert wr.check_edit(_kcal(kcal_change=-300), CHUNKS, _metrics(1500.0)) == []
+
+
+@pytest.mark.parametrize(("value", "fails"), [(1199, True), (1200, False), (1800, False)])
+def test_a_proposed_target_below_the_floor_fails(value, fails):
+    """target_kcal is compared with config.CALORIE_FLOOR_KCAL, whatever the current target."""
+    errors = wr.check_edit(_kcal(target_kcal=value), CHUNKS, _metrics(2500.0))
+    assert ("calorie_floor" in errors) is fails
+
+
+def test_a_change_with_no_current_target_fails_its_own_code():
+    """A kcal_change with no target in the metrics, or no metrics at all, fails closed."""
+    draft = _kcal(kcal_change=300)
+    assert wr.check_edit(draft, CHUNKS, _metrics(None)) == ["kcal_change_no_target"]
+    assert wr.check_edit(draft, CHUNKS) == ["kcal_change_no_target"]
+    assert "kcal_change_no_target" in wr.validate(draft, CHUNKS, _metrics(None))
+    assert wr.check_edit(_kcal(target_kcal=1800), CHUNKS, _metrics(None)) == []
+
+
+def test_the_kcal_fields_of_a_training_recommendation_are_checked_too():
+    """The floor arithmetic runs on every kind of recommendation, so a training one fails safe."""
+    draft = _kcal(index=1, target_kcal=1000)
+    assert "calorie_floor" in wr.check_edit(draft, CHUNKS, METRICS)
+    assert "calorie_floor" in wr.validate(draft, CHUNKS, METRICS)
+
+
+def test_a_kcal_field_follows_the_number_rule_of_the_texts():
+    """A field's figure must be in the metrics or a cited chunk, as a text's must (owner, Q)."""
+    assert "number" in wr.validate(_kcal(target_kcal=1777), CHUNKS, METRICS)
+    assert "number" in wr.validate(_kcal(index=1, kcal_change=-1777), CHUNKS, METRICS)
+    # The current target, the floor and a gap from <metrics> are allowed, the gap's sign aside.
+    for fields in ({"target_kcal": 2500}, {"target_kcal": 1200}, {"kcal_change": -300}):
+        assert "number" not in wr.validate(_kcal(**fields), CHUNKS, _metrics(2500.0))
+    # A figure in a chunk the recommendation cites is allowed too.
+    text = f"{PROTEIN_TEXT} A target of 2100 kcal a day was used."
+    cited = [_chunk("12", 3, text, ["protein"]), CHUNKS[1]]
+    assert wr.validate(_kcal(target_kcal=2100), cited, METRICS) == []
+    assert "number" in wr.validate(_kcal(target_kcal=2100), CHUNKS, METRICS)
+
+
+def test_the_text_patterns_still_check_a_recommendation_whose_fields_are_null():
+    """The fields null, a sub-floor figure in the text still fails by the patterns (fallback)."""
+    draft = _kcal(draft=_with(("recommendations", 0, "text"), "Aim for 1,000 kcal a day."))
+    assert "calorie_floor" in wr.validate(draft, CHUNKS, METRICS)
+    assert "calorie_floor" in wr.check_edit(draft, CHUNKS, METRICS)
+
+
+def test_a_mismatch_between_the_text_and_the_fields_is_not_failed():
+    """The fields are checked; a different figure in the text is the coach's to read (owner, Q)."""
+    text = "Raise intake by 300 kcal a day."
+    draft = _kcal(kcal_change=-296, draft=_with(("recommendations", 0, "text"), text))
+    assert wr.check_edit(draft, CHUNKS, _metrics(2500.0)) == []
+
+
+def test_a_draft_from_before_the_kcal_fields_is_read_with_both_null():
+    """with_kcal_fields() fills in None; an old draft passes the schema and the edit's checks."""
+    old = _good()
+    assert "target_kcal" not in old["recommendations"][0]
+    filled = wr.with_kcal_fields(old)
+    assert all(item["target_kcal"] is None for item in filled["recommendations"])
+    assert all(item["kcal_change"] is None for item in filled["recommendations"])
+    assert wr.check_edit(old, CHUNKS, METRICS) == []
+    # A value that is no review is left for the schema to fail.
+    assert wr.with_kcal_fields(["x"]) == ["x"]
+    assert wr.check_edit({"observations": [], "recommendations": "x"}, CHUNKS) == ["schema"]
+
+
+def test_the_floor_s_texts_name_the_kcal_fields():
+    """The retry text and the coach's texts name the fields' arithmetic and the new code."""
+    assert "target_kcal" in wr.ERROR_TEXTS["calorie_floor"]
+    assert "kcal_change" in wr.ERROR_TEXTS["calorie_floor"]
+    assert "kcal_change to null" in wr.ERROR_TEXTS["kcal_change_no_target"]
+    assert "current target plus its change" in i18n.t("review.check.calorie_floor", "en")
+    assert "aktuelle Ziel plus ihre Änderung" in i18n.t("review.check.calorie_floor", "de")
