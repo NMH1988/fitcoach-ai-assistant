@@ -142,19 +142,22 @@ def evaluate(
             if experiment is not None
             else None
         )
+        deps = chat.TurnDeps(
+            chat_model=lambda: chat_model,
+            translation_model=lambda: translation_model,
+            open_index=lambda: index,
+            keyword_index=lambda _: keywords,
+            manifest=manifest,
+            prices=lambda: prices,
+            run_trace=trace,
+        )
         result = chat.run_turn(
             item.question,
             limiter,
-            open_index=lambda: index,
-            chat_model=lambda: chat_model,
-            translation_model=lambda: translation_model,
-            manifest=manifest,
-            user=item.profile if with_profile else None,
-            keyword_index=lambda _: keywords,
-            on_chunks=seen.append,
+            deps=deps,
             language=language,
-            prices=lambda: prices,
-            run_trace=trace,
+            user=item.profile if with_profile else None,
+            callbacks=chat.TurnCallbacks(on_chunks=seen.append),
         )
         # Each search reports its newly labelled chunks, so together they are in [S#] order.
         chunks = tuple(chunk for found in seen for chunk in found)

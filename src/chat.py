@@ -683,48 +683,66 @@ def _log_turn(
     )
 
 
+@dataclass(frozen=True)
+class TurnDeps:
+    """What a chat turn is built with: its models, the index, the sources, prices and services."""
+
+    # Factories: each is called at most once a turn, and only after the guard passes (T9.2).
+    chat_model: Callable[[], BaseChatModel]
+    translation_model: Callable[[], BaseChatModel]
+    open_index: Callable[[], Chroma]
+    # keyword_index(index) gives the BM25 index of the opened index; the app passes a cached one.
+    keyword_index: Callable[[Chroma], KeywordIndex] = hybrid.build_keyword_index
+    # The knowledge base's sources by ID, for the answer's source cards; None counts as empty.
+    manifest: Mapping[str, Source] | None = None
+    # prices() gives the model prices already known, never reading them (T8.2): only the turn's log
+    # line uses them, and the cost is null when there are none.
+    prices: Callable[[], Mapping[str, ModelPrice] | None] | None = None
+    # The USDA FoodData Central search (T9.9), asked by the food tool for a food the table does not
+    # have; None (no key, the evaluation run) keeps the table alone.
+    food_api: FoodSearch | None = None
+    # A coach's chat (T9.7): their client names and saved preferences, read from the store before
+    # the turn; it offers remember_preference and <memories>. None for a guest.
+    coach: preferences.CoachMemory | None = None
+    # A coach's client tools (T9.17): the coach, the store and the chat's references, which give
+    # list_my_clients and get_client_week. None for a guest.
+    clients: CoachClients | None = None
+    # An evaluation experiment's tracer and root run ID (T9.33, src/experiments.py): only
+    # `scripts/run_evaluation.py --langsmith` passes one, never the app.
+    run_trace: tracing.RunTrace | None = None
+
+
+@dataclass(frozen=True)
+class TurnCallbacks:
+    """What the caller is told while a turn runs: each step, the answer so far, the chunks found."""
+
+    # on_step(step) is called as each step starts; on_text(text) as the answer streams in.
+    on_step: Callable[[Step], None] | None = None
+    on_text: Callable[[str], None] | None = None
+    # on_chunks(chunks) gets each search's newly labelled chunks, in [S#] order, so all its calls
+    # together give the turn's chunks in label order; only the evaluation run uses it (T6.1, T9.3).
+    on_chunks: Callable[[Sequence[RetrievedChunk]], None] | None = None
+
+
 def run_turn(
     text: str,
     limiter: guard.RateLimiter,
     *,
-    open_index: Callable[[], Chroma],
-    chat_model: Callable[[], BaseChatModel],
-    translation_model: Callable[[], BaseChatModel],
-    manifest: Mapping[str, Source] | None = None,
-    on_step: Callable[[Step], None] | None = None,
-    on_text: Callable[[str], None] | None = None,
-    user: profile.UserProfile | None = None,
-    keyword_index: Callable[[Chroma], KeywordIndex] = hybrid.build_keyword_index,
-    on_chunks: Callable[[Sequence[RetrievedChunk]], None] | None = None,
+    deps: TurnDeps,
     language: i18n.Language = "en",
-    prices: Callable[[], Mapping[str, ModelPrice] | None] | None = None,
+    user: profile.UserProfile | None = None,
     conversation: Conversation | None = None,
-    coach: preferences.CoachMemory | None = None,
-    food_api: FoodSearch | None = None,
-    clients: CoachClients | None = None,
-    run_trace: tracing.RunTrace | None = None,
+    callbacks: TurnCallbacks | None = None,
 ) -> TurnResult:
     """Run one chat turn: guard, agent, tools; never raise for an error a user can cause."""
-    # on_step(step) is called as each step starts; on_text(text) as the answer streams in. `user`
-    # is the session's profile, for the energy and meal plan tools only: it never goes into the
-    # model's messages (T9.3).
-    # keyword_index(index) gives the BM25 index of the opened index; the app passes a cached one.
-    # on_chunks(chunks) gets each search's newly labelled chunks, in [S#] order, so all its calls
-    # together give the turn's chunks in label order; only the evaluation run uses it (T6.1, T9.3).
+    # `user` is the session's profile, for the energy and meal plan tools only: it never goes into
+    # the model's messages (T9.3).
     # language is the app's language control (en or de) (T7.2), never taken from the text; an
     # unknown one is a bug in the caller, refused before any call.
-    # prices() gives the model prices already known, never reading them (T8.2): only the turn's log
-    # line uses them, and the cost is null when there are none.
     # conversation is the session's memory (T9.4): the turn sees its earlier questions and answers
     # and, when answered, is kept in it. None: the turn stands alone (the evaluation run).
-    # coach is a coach's chat (T9.7): their client names and saved preferences, read from the
-    # store before the turn; it offers remember_preference and <memories>. None for a guest.
-    # food_api is the USDA FoodData Central search (T9.9), asked by the food tool for a food the
-    # table does not have; None (no key, the evaluation run) keeps the table alone.
-    # clients is a coach's client tools (T9.17): the coach, the store and the chat's references,
-    # which give list_my_clients and get_client_week. None for a guest.
-    # run_trace is an evaluation experiment's tracer and root run ID (T9.33, src/experiments.py):
-    # only `scripts/run_evaluation.py --langsmith` passes one, never the app.
+    # callbacks: None, or a callback left as None, tells the caller nothing.
+    callbacks = callbacks or TurnCallbacks()
     if language not in config.ANSWER_LANGUAGE_PROMPT_PATHS:
         raise ValueError(f"Unknown answer language: {language!r}")
     turn_id = str(uuid.uuid4())
@@ -743,7 +761,7 @@ def run_turn(
     # and raised there too, so outcome() maps it to its fixed message and run_turn() never raises.
     prompts: graph.TurnPrompts | Exception
     try:
-        prompts = graph.load_turn_prompts(language, coach=coach is not None)
+        prompts = graph.load_turn_prompts(language, coach=deps.coach is not None)
     except Exception as exc:
         prompts = exc
     versions = prompts.versions() if isinstance(prompts, graph.TurnPrompts) else {}
@@ -751,45 +769,46 @@ def run_turn(
     def keep_chunks(chunks: Sequence[RetrievedChunk]) -> None:
         """Keep a search's new chunks for the log line, then pass them to the caller's callback."""
         trace.chunks.extend(chunks)
-        if on_chunks is not None:
-            on_chunks(chunks)
+        if callbacks.on_chunks is not None:
+            callbacks.on_chunks(chunks)
 
     def step(name: Step) -> None:
         """Record a step and report it to the caller's progress indicator."""
         steps.append(name)
-        if on_step is not None:
-            on_step(name)
+        if callbacks.on_step is not None:
+            callbacks.on_step(name)
 
     def graph_turn() -> TurnResult:
         """Run the turn's graph: the guard first, the index and the models only if it passes."""
-        # Each factory runs at most once a turn; the prepare node calls them in order (T9.2).
+        # The one place a TurnContext is built from the turn's deps (T10.7). Each factory runs at
+        # most once a turn; the prepare node calls them in order (T9.2).
         context = graph.TurnContext(
-            chat_model=cache(chat_model),
+            chat_model=cache(deps.chat_model),
             tools=cache(
                 partial(
                     registry.build_tools,
                     user,
-                    food_api=food_api,
+                    food_api=deps.food_api,
                     # A coach's clients' names never reach the FoodData Central API (T9.9).
-                    client_names=coach.client_names if coach is not None else (),
+                    client_names=deps.coach.client_names if deps.coach is not None else (),
                     # A coach's client tools and this chat's references (T9.17).
-                    clients=clients,
+                    clients=deps.clients,
                 )
             ),
             on_step=step,
-            on_text=on_text,
+            on_text=callbacks.on_text,
             recorder=recorder,
             on_tool_run=trace.tool_runs.append,
             limiter=limiter,
-            open_index=cache(open_index),
-            translation_model=cache(translation_model),
-            manifest=manifest or {},
-            keyword_index=keyword_index,
+            open_index=cache(deps.open_index),
+            translation_model=cache(deps.translation_model),
+            manifest=deps.manifest or {},
+            keyword_index=deps.keyword_index,
             language=language,
             on_chunks=keep_chunks,
             search_log=search_log,
             turn_id=turn_id,
-            coach=coach,
+            coach=deps.coach,
             prompts=prompts,
         )
 
@@ -801,7 +820,7 @@ def run_turn(
             return graph.chat_graph().invoke(
                 {"text": text, "history": history, "history_domains": domains or {}},
                 context=context,
-                config=graph.run_config(turn_id, run_trace, versions),
+                config=graph.run_config(turn_id, deps.run_trace, versions),
             )
 
         if conversation is None:
@@ -857,7 +876,7 @@ def run_turn(
     result = replace(outcome(), turn_id=turn_id, prompts=versions)
     trace.searches = len(search_log.searches)
     try:
-        _log_turn(result, language, trace, time.monotonic() - started, prices)
+        _log_turn(result, language, trace, time.monotonic() - started, deps.prices)
     except Exception:
         # A turn is not lost because its log line could not be built (e.g. the prices callable
         # raised); only the fixed event is written, never the error's message.

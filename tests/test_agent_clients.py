@@ -25,6 +25,7 @@ from tests.fakes import (
     ScriptedChatModel,
     ScriptedTranslator,
     build_fixture_index,
+    chat_turn,
     open_fixture_index,
     tool_reply,
     write_food_table,
@@ -354,7 +355,7 @@ def index_path(tmp_path_factory):
 def _turn(index_path, clients, *replies, question="Who logged fewer than 4 days this week?"):
     """Run one coach turn with a scripted model; return the result and the model."""
     model = ScriptedChatModel(replies=list(replies), search_first=False)
-    result = chat.run_turn(
+    result = chat_turn(
         question,
         guard.RateLimiter(),
         open_index=lambda: open_fixture_index(index_path),

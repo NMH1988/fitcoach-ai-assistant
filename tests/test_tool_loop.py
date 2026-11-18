@@ -24,6 +24,7 @@ from tests.fakes import (
     ScriptedChatModel,
     ScriptedTranslator,
     build_fixture_index,
+    chat_turn,
     open_fixture_index,
     plan_json,
     tool_reply,
@@ -83,7 +84,7 @@ def _turn(
     model = ScriptedChatModel(replies=list(replies), search_first=search_first)
     # With no plan given, the translator's rewrites repeat the query (tests/fakes.py).
     translator = translator or ScriptedTranslator(plans=[plan] if plan is not None else [])
-    result = chat.run_turn(
+    result = chat_turn(
         question,
         guard.RateLimiter(),
         open_index=lambda: index,

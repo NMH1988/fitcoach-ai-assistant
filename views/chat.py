@@ -335,34 +335,36 @@ def run_turn(question: str, turn: int) -> None:
     on_text = turns.PacedWriter(show_text, config.ANSWER_WORDS_PER_SECOND)
     memory = coach_memory()
 
-    result = turns.run_turn(
-        question,
-        guard.session_limiter(st.session_state),
-        open_index=resources.index,
+    deps = turns.TurnDeps(
         chat_model=resources.chat_model,
         translation_model=resources.translation_model,
-        manifest=resources.manifest(),
-        on_step=on_step,
-        on_text=on_text,
-        # The energy tools read the session's profile; the model cannot change it.
-        user=st.session_state.get("profile"),
+        open_index=resources.index,
         keyword_index=resources.keyword_index,
-        # The answer is written in the language chosen in the sidebar when the question is asked
-        # (T7.2); the question's own language does not change it.
-        language=lang(),
+        manifest=resources.manifest(),
         # Only the prices already read, so the turn's log line never waits for the network.
         prices=usage.PRICES.peek,
-        # The session's own memory: the turn sees this chat's earlier questions and answers (T9.4).
-        conversation=st.session_state["conversation"],
-        # A coach's client names and saved preferences (T9.7); None for a guest.
-        coach=memory,
         # The USDA FoodData Central API for foods the table lacks (T9.9); None without the key.
         # Read each turn, so a key added to the secrets works without a restart.
         food_api=fdc.build_food_api(),
+        # A coach's client names and saved preferences (T9.7); None for a guest.
+        coach=memory,
         # A coach's client tools and this chat's references (T9.17); None for a guest. Offered
         # only with the coach's part of the prompt, which explains them: when the store fails and
         # the coach's memory cannot be read, the turn has neither (code review round 7).
         clients=coach_clients_for_turn() if memory is not None else None,
+    )
+    result = turns.run_turn(
+        question,
+        guard.session_limiter(st.session_state),
+        deps=deps,
+        # The answer is written in the language chosen in the sidebar when the question is asked
+        # (T7.2); the question's own language does not change it.
+        language=lang(),
+        # The energy tools read the session's profile; the model cannot change it.
+        user=st.session_state.get("profile"),
+        # The session's own memory: the turn sees this chat's earlier questions and answers (T9.4).
+        conversation=st.session_state["conversation"],
+        callbacks=turns.TurnCallbacks(on_step=on_step, on_text=on_text),
     )
     if result.index_not_ready:
         # Open the index again on the next turn, e.g. once the owner has rebuilt it.

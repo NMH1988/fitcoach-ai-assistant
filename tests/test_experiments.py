@@ -16,11 +16,11 @@ import pytest
 import requests
 from langsmith import utils as ls_utils
 
-from src import chat, config, experiments, guard, tracing
+from src import config, experiments, guard, tracing
 from src.eval_questions import EvalItem
 from tests import test_observability as obs
 from tests import test_tracing as tracing_tests
-from tests.fakes import PROFILE, ScriptedTranslator
+from tests.fakes import PROFILE, ScriptedTranslator, chat_turn
 
 # The canary fixtures of the log tests, as in tests/test_tracing.py.
 canary_setup = obs.canary_setup
@@ -382,7 +382,7 @@ def test_the_experiments_client_is_unmasked_but_never_the_global_one(traced):
 
 def _turn(index, run_trace=None):
     """Run one canary turn with the canary profile, traced into the experiment when given."""
-    return chat.run_turn(
+    return chat_turn(
         obs.CANARY_QUESTION,
         guard.RateLimiter(),
         open_index=lambda: index,
@@ -457,7 +457,7 @@ def test_a_failed_experiment_turn_sends_no_reply_or_traceback(index, traced):
         tracing_tests.FAKE_LANGSMITH_KEY, session=session, batch=False
     )
     experiment = experiments.Experiment(client, "x", uuid.uuid4(), {"q1": uuid.uuid4()})
-    result = chat.run_turn(
+    result = chat_turn(
         obs.CANARY_QUESTION,
         guard.RateLimiter(),
         open_index=lambda: index,

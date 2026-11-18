@@ -29,6 +29,7 @@ from tests.fakes import (
     ScriptedChatModel,
     ScriptedTranslator,
     build_fixture_index,
+    chat_turn,
     open_fixture_index,
     plan_json,
     search_reply,
@@ -309,7 +310,7 @@ def _canary_turn(
     food_api=None,
 ):
     """Run one turn with the canary profile (a coach's turn with `coach`) and return its result."""
-    return chat.run_turn(
+    return chat_turn(
         text,
         guard.RateLimiter(),
         open_index=lambda: index,
@@ -505,7 +506,7 @@ CANARY_ENDINGS = {
             )
         ),
     ),
-    "index not ready": lambda index: chat.run_turn(
+    "index not ready": lambda index: chat_turn(
         CANARY_QUESTION,
         guard.RateLimiter(),
         open_index=_raise(IndexNotReadyError("The knowledge base index is missing.")),
@@ -513,7 +514,7 @@ CANARY_ENDINGS = {
         translation_model=lambda: None,
         user=CANARY_PROFILE,
     ),
-    "missing key": lambda index: chat.run_turn(
+    "missing key": lambda index: chat_turn(
         CANARY_QUESTION,
         guard.RateLimiter(),
         open_index=lambda: index,
@@ -745,7 +746,7 @@ def test_a_failing_log_call_does_not_lose_the_turn(index, caplog):
         raise ZeroDivisionError("CANARY-PRICES")
 
     model = _answer_model(AIMessage(CANARY_ANSWER, usage_metadata=_USAGE))
-    result = chat.run_turn(
+    result = chat_turn(
         CANARY_QUESTION,
         guard.RateLimiter(),
         open_index=lambda: index,

@@ -18,6 +18,7 @@ from tests.fakes import (
     ScriptedChatModel,
     ScriptedTranslator,
     build_fixture_index,
+    chat_turn,
     plan_json,
     search_reply,
     tool_reply,
@@ -94,7 +95,7 @@ def _turn(
 ) -> chat.TurnResult:
     """Run one turn with this answer model and a translator that reports REWRITE_USAGE."""
     # With no plans given the translator's rewrites repeat the query (tests/fakes.py).
-    return chat.run_turn(
+    return chat_turn(
         question,
         guard.RateLimiter(),
         open_index=lambda: index,
@@ -180,7 +181,7 @@ def test_an_off_topic_search_that_finds_nothing_keeps_its_usage(index):
 )
 def test_a_question_the_guard_stops_has_no_usage(text):
     """A question stopped before any call has no usage: nothing to price."""
-    result = chat.run_turn(
+    result = chat_turn(
         text,
         guard.RateLimiter(),
         open_index=lambda: None,
