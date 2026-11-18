@@ -22,6 +22,7 @@ Keep the entry short and record what the code does not say. `tests/test_docs_lay
 ---
 
 - [2026-11-18 · T10.1 Answers checked for injected instructions before the chat's memory keeps them, and a measured miss rate · NMH1988/fitcoach-ai-assistant#147 (closes NMH1988/fitcoach-ai-assistant#133)](progress/2026-11-18-T10.1.md)
+- [2026-11-17 · T9.34 Follow-up: a coach-built meal plan stays in the Capstone (owner's decision) · NMH1988/fitcoach-ai-assistant#132 (refs NMH1988/fitcoach-ai-assistant#117)](progress/2026-11-17-T9.34.md)
 - [2026-11-18 · T10.4 Prompt versions on traces, log lines, stored reviews and evaluation results · NMH1988/fitcoach-ai-assistant#148 (closes NMH1988/fitcoach-ai-assistant#136)](progress/2026-11-18-T10.4.md)
 - [2026-11-18 · T10.3 Structured output: one schema, no dead fields, field descriptions in the models · NMH1988/fitcoach-ai-assistant#145 (closes NMH1988/fitcoach-ai-assistant#135)](progress/2026-11-18-T10.3.md)
 - [2026-11-18 · T10.6 Prompt caching: the cached share per turn in Details, and a system prompt that stays the same within a turn · NMH1988/fitcoach-ai-assistant#144 (closes NMH1988/fitcoach-ai-assistant#138)](progress/2026-11-18-T10.6.md)
