@@ -16,6 +16,7 @@ import streamlit as st
 
 from src import account as accounts
 from src import config, dashboard, guard, i18n
+from src import weekly_review as wr
 from src.agent import graph, review
 from src.chat import PromptMissingError
 from views import account, questions, resources, tables
@@ -76,9 +77,9 @@ def _show_flash() -> None:
         # A fixed message in the chosen language (AC-30); never the service's own text.
         code = result.error_code if result.error_code in i18n.TEXT["en"] else "llm.error"
         st.error(t(code), icon=":material/error:")
-    elif result.outcome == "edit_invalid":
+    elif result.outcome in ("edit_invalid", "approve_invalid"):
         checks = " ".join(t(f"review.check.{code}") for code in result.errors)
-        st.warning(t("review.outcome.edit_invalid", checks=checks), icon=":material/warning:")
+        st.warning(t(f"review.outcome.{result.outcome}", checks=checks), icon=":material/warning:")
     elif result.outcome in _SUCCESS:
         st.success(t(f"review.outcome.{result.outcome}"), icon=":material/check_circle:")
     else:
@@ -133,7 +134,7 @@ def _edit_key(row: dict, section: str, index: int, field: str) -> str:
 
 
 def edited_text(draft: dict, values: dict) -> dict:
-    """Return the draft with the coach's texts; an emptied text leaves its item out."""
+    """Return the draft with the coach's texts and kcal figures; an emptied text drops its item."""
     # Kind, evidence, the suggestion label and the source's range stay as drafted (the form shows
     # no field for them); the store keeps the result as the coach's final text.
     found = {name: [] for name in _FIELDS}
@@ -146,8 +147,39 @@ def edited_text(draft: dict, values: dict) -> dict:
             for field in ("direction", "population"):
                 if (name, index, field) in values:
                     changed[field] = values[(name, index, field)].strip() or None
+            # The kcal fields (T10.2): a number, or None when the coach clears the box. The edit's
+            # checks then run the floor arithmetic on them (src/agent/review.py).
+            for field in wr.KCAL_FIELDS:
+                if (name, index, field) in values:
+                    value = values[(name, index, field)]
+                    changed[field] = None if value is None else int(value)
             found[name].append(changed)
     return found
+
+
+def _kcal_inputs(row: dict, index: int, item: dict) -> None:
+    """Show a recommendation's two kcal fields as number boxes the coach may change or clear."""
+    # Every kind gets them, so the coach can clear a figure the model put on a training item; a
+    # draft stored before T10.2 starts with both empty.
+    limits = {
+        "target_kcal": config.REVIEW_TARGET_KCAL_RANGE,
+        "kcal_change": config.REVIEW_KCAL_CHANGE_RANGE,
+    }
+    left, right = st.columns(2)
+    for column, field in zip((left, right), wr.KCAL_FIELDS, strict=True):
+        current = tables.review_kcal_value(item, field)
+        low, high = limits[field]
+        if current is not None and not low <= current <= high:
+            current = None  # never stored (the schema refuses it), but a box cannot show it
+        column.number_input(
+            t(f"review.{field}_input"),
+            min_value=low,
+            max_value=high,
+            value=current,
+            step=1,
+            help=t("review.kcal_input_help"),
+            key=_edit_key(row, "recommendations", index, field),
+        )
 
 
 def _edit_form(user: dict, row: dict) -> None:
@@ -176,6 +208,8 @@ def _edit_form(user: dict, row: dict) -> None:
                             max_chars=config.REVIEW_FIELD_MAX_CHARS,
                             key=_edit_key(row, name, index, field),
                         )
+                if name == "recommendations":
+                    _kcal_inputs(row, index, item)
         save, cancel = st.columns(2)
         submitted = save.form_submit_button(t("review.save_edit"), type="primary")
         cancelled = cancel.form_submit_button(t("review.cancel_edit"))
@@ -186,7 +220,7 @@ def _edit_form(user: dict, row: dict) -> None:
         values = {}
         for name in _FIELDS:
             for index in range(len(draft.get(name, []))):
-                for field in ("text", "direction", "population"):
+                for field in ("text", "direction", "population", *wr.KCAL_FIELDS):
                     key = _edit_key(row, name, index, field)
                     if key in st.session_state:
                         values[(name, index, field)] = st.session_state[key]

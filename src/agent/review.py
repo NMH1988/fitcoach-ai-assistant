@@ -16,7 +16,9 @@ and a person decides before anything reaches the client: the course's human-in-t
   with no review.
 - **save** stores the draft as PENDING_REVIEW with its scopes, evidence and thread (AC-28), then
   **decide** pauses with `interrupt()`. The coach's Approve, Edit or Reject resumes it with
-  `Command(resume=...)`: an edit must pass the safety checks first (AC-35); **release** and
+  `Command(resume=...)`: an edit must pass the safety checks first (AC-35), and an edit's or an
+  approved draft's `kcal_change` is added to the client's target as it is now, read from the store
+  before the run resumes (an audited read; refused, it counts as no target); **release** and
   **reject** decide in the store, which checks again that every scope the review used is still
   shared (AC-22). A refusal there pauses the run again, so the review waits until the client shares
   again (or either side's data is deleted).
@@ -53,7 +55,7 @@ from src.rag import hybrid
 from src.rag.hybrid import KeywordIndex
 from src.rag.retriever import RetrievedChunk, chunk_key, embed_queries
 from src.rag.store import IndexNotReadyError
-from src.store import reviews
+from src.store import records, reviews
 from src.store.access import NotFound
 
 logger = logging.getLogger(__name__)
@@ -66,6 +68,9 @@ Outcome = Literal[
     "not_finished",
     "invalid",
     "edit_invalid",
+    # Approve refused: the draft's kcal_change takes the client's current target below the floor,
+    # or there is no target to change (T10.2); the review keeps waiting.
+    "approve_invalid",
     "approved",
     "edited",
     "rejected",
@@ -325,20 +330,78 @@ def _decision(answer: object) -> dict | None:
     return {"decision": answer["decision"], "final": dict(final) if final is not None else None}
 
 
+def _released_text(values: Mapping, answer: Mapping) -> Mapping | None:
+    """Return the text a decision would release: the edit, the draft on Approve, else None."""
+    if answer["decision"] == "edit":
+        return answer["final"]
+    if answer["decision"] == "approve" and isinstance(values.get("draft"), Mapping):
+        return wr.without_language(values["draft"])
+    return None
+
+
+def _target_now(values: Mapping, context: ReviewContext, text: Mapping | None) -> dict | None:
+    """Return the client's target now as {"kcal": ...} when the text sets a change; else None."""
+    # A kcal_change applies to the target in force when the coach decides, which may differ from
+    # the week's if the coach set a new one since (T9.17), on an edit and on Approve alike (owner's
+    # choice, 2026-11-18). Read only when the text sets a change, through the store's audited read;
+    # refused (a scope revoked, the relationship ended), there is no target, so the change fails
+    # closed with kcal_change_no_target. A store that cannot open raises StoreUnavailable to the
+    # caller, which shows its message. Called before the graph resumes, never inside a node after
+    # interrupt(): a node that raised there would leave the coach's answer in the checkpoint, and
+    # the next click would resume with that old answer.
+    if not wr.sets_kcal_change(text):
+        return None
+    try:
+        with account.open_store(context.store_path) as conn:
+            rows = records.list_targets(conn, values["coach_id"], values["client_id"])
+    except NotFound:
+        return None
+    found = metrics.active_target(rows, context.today or metrics.berlin_day())
+    return None if found is None else {"kcal": found.kcal}
+
+
+def _with_target(values: Mapping, target: object) -> dict:
+    """Return the run's metrics with the target replaced (None, or a mapping with its kcal)."""
+    nutrition = {
+        **values["metrics"]["nutrition"],
+        "target": target if isinstance(target, Mapping) else None,
+    }
+    return {**values["metrics"], "nutrition": nutrition}
+
+
+def _refused(values: Mapping, answer: Mapping, target: object) -> RunResult | None:
+    """Return a refused edit or approval with its failed checks; None when it may go on."""
+    # target: the client's target now (_target_now()), or None. An edit passes the safety checks;
+    # an approval of a draft that sets a kcal_change passes the floor arithmetic against today's
+    # target (the draft's other checks ran against its own week).
+    found = _with_target(values, target)
+    review_id = values.get("review_id")
+    if answer["decision"] == "edit":
+        errors = wr.check_edit(answer["final"], chunks_of(values), found)
+        return RunResult("edit_invalid", review_id, tuple(errors)) if errors else None
+    text = _released_text(values, answer)
+    if text is not None and wr.sets_kcal_change(text):
+        errors = wr.check_approval(text, found)
+        return RunResult("approve_invalid", review_id, tuple(errors)) if errors else None
+    return None
+
+
 def decide(state: ReviewState) -> dict[str, Any]:
-    """Pause for the coach's Approve, Edit or Reject; an edit must pass the safety checks."""
-    answer = _decision(interrupt({"review_id": state["review_id"]}))
+    """Pause for Approve, Edit or Reject; an edit, or an approved kcal change, is checked first."""
+    resumed = interrupt({"review_id": state["review_id"]})
+    answer = _decision(resumed)
     if answer is None:
         return {"decision": None, "errors": ["schema"], "outcome": "edit_invalid"}
-    if answer["decision"] == "edit":
-        errors = wr.check_edit(answer["final"], chunks_of(state))
-        if errors:
-            return {"decision": None, "errors": errors, "outcome": "edit_invalid"}
+    # The client's target now, read by decide_review() before it resumed the run (_target_now());
+    # only that number rides in the answer. Without it there is no target, so a change fails closed.
+    refused = _refused(state, answer, resumed.get("target"))
+    if refused is not None:
+        return {"decision": None, "errors": list(refused.errors), "outcome": refused.outcome}
     return {"decision": answer, "errors": []}
 
 
 def after_decide(state: ReviewState) -> str:
-    """Release an approval or an edit, reject a rejection, ask again after a refused edit."""
+    """Release an approval or an edit, reject a rejection, ask again after a refused one."""
     answer = state.get("decision")
     if answer is None:
         return "decide"
@@ -556,24 +619,25 @@ def _restart_stuck(
     values: Mapping,
     decision: str,
     final: Mapping | None,
+    context: ReviewContext,
 ) -> RunResult | None:
-    """Put the coach's new decision in place of a stuck one; a refused edit is returned."""
+    """Put the coach's new decision in place of a stuck one; a refused one is returned."""
     # The store failed after an earlier click; the decision to finish is the one the coach makes
     # now, not the earlier one (code review round 2): the same click finishes it as it was, another
-    # replaces it as if the decide node had taken it, after the same checks on an edit.
+    # replaces it as if the decide node had taken it. Either way it passes the same checks as there
+    # first, against the target now (T10.2): the target may have changed since the first click,
+    # and a refusal leaves the run stuck with the earlier decision, for an edit or a rejection.
     answer = _decision({"decision": decision, "final": final})
     if answer is None:
         return RunResult(
             outcome="edit_invalid", review_id=values.get("review_id"), errors=("schema",)
         )
+    target = _target_now(values, context, _released_text(values, answer))
+    refused = _refused(values, answer, target)
+    if refused is not None:
+        return refused
     if answer == values.get("decision"):
         return None
-    if answer["decision"] == "edit":
-        errors = wr.check_edit(answer["final"], chunks_of(values))
-        if errors:
-            return RunResult(
-                outcome="edit_invalid", review_id=values.get("review_id"), errors=tuple(errors)
-            )
     graph.update_state(run, {"decision": answer, "errors": []}, as_node="decide")
     return None
 
@@ -615,9 +679,14 @@ def decide_review(
             run = _run_config(thread_id, coach_id, values["client_id"], turn_id)
             if snapshot.next == _WAITING:
                 answer = {"decision": decision, "final": None if final is None else dict(final)}
+                parsed = _decision(answer)
+                if parsed is not None:
+                    # Read before the run resumes, so a store that fails changes nothing in it.
+                    text = _released_text(values, parsed)
+                    answer["target"] = _target_now(values, context, text)
                 graph.invoke(Command(resume=answer), run, context=context)
             elif snapshot.next in _STUCK:
-                stuck = _restart_stuck(graph, run, values, decision, final)
+                stuck = _restart_stuck(graph, run, values, decision, final, context)
                 if stuck is not None:
                     _log(stuck, values, turn_id)
                     return stuck

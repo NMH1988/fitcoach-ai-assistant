@@ -893,6 +893,46 @@ def test_a_review_s_sections_are_escaped_lines_under_the_app_s_headings():
     assert [heading for heading, _ in german] == ["Beobachtungen", "Empfehlungen"]
 
 
+# "Proposed", so the client does not read the figure as their current target (owner, 2026-11-18).
+TARGET_EN, TARGET_DE = "Proposed target", "Vorgeschlagenes Ziel"
+CHANGE_EN, CHANGE_DE = "Proposed change", "Vorgeschlagene Änderung"
+
+
+@pytest.mark.parametrize(
+    ("fields", "lang", "expected"),
+    [
+        ({"target_kcal": 1800, "kcal_change": -300}, "en", (TARGET_EN, "1,800 kcal (-300)")),
+        ({"target_kcal": 1800, "kcal_change": -300}, "de", (TARGET_DE, "1.800 kcal (-300)")),
+        ({"target_kcal": 2100, "kcal_change": None}, "en", (TARGET_EN, "2,100 kcal")),
+        ({"target_kcal": None, "kcal_change": 250}, "en", (CHANGE_EN, "+250 kcal a day")),
+        ({"target_kcal": None, "kcal_change": -1200}, "de", (CHANGE_DE, "-1.200 kcal pro Tag")),
+        ({"target_kcal": None, "kcal_change": 0}, "en", (CHANGE_EN, "0 kcal a day")),
+        ({"target_kcal": 1800.0, "kcal_change": -300.0}, "en", (TARGET_EN, "1,800 kcal (-300)")),
+        ({"target_kcal": 1800.5, "kcal_change": None}, "en", None),
+        ({"target_kcal": None, "kcal_change": None}, "en", None),
+        # A draft from before T10.2 has no fields; a stored value of another type shows nothing.
+        ({}, "en", None),
+        ({"target_kcal": True, "kcal_change": "300"}, "en", None),
+    ],
+)
+def test_a_recommendation_s_kcal_fields_are_shown_as_one_line(fields, lang, expected):
+    """T10.2: the target with its change, or the change alone, in the language's number style."""
+    item = {"kind": "nutrition", "text": "Log every day.", **fields}
+    assert tables.review_kcal_line(item, lang) == expected
+
+
+def test_a_recommendation_s_kcal_line_sits_under_its_text_escaped():
+    """T10.2: the line follows the recommendation's own line, label and value escaped apart."""
+    review = _review_text()
+    review["recommendations"][1].update(target_kcal=1800, kcal_change=-300)
+    lines = tables.review_sections(review, "en")[1][1].split("\n")
+    suggestion = "*(The model's suggestion, no source cited)*"
+    assert lines[-2:] == [
+        f"- **Nutrition:** Log every day. {suggestion}",
+        "    - Proposed target: 1,800 kcal (-300)",
+    ]
+
+
 def test_a_review_s_sources_follow_its_labels_and_skip_what_the_app_does_not_know():
     """[S2] lists source 1's title and link; an unknown source or a review with none is left out."""
     manifest = chat.manifest_by_id()
