@@ -31,10 +31,6 @@ _AUTOLINK_STARTS = re.compile(r"(?:www(?=\.)|https?(?=:)|mailto(?=:))|(?=@)", re
 WORD_JOINER = "\u2060"
 # The columns of the Details tab's table of a turn's calls (T5.1), as keys in src/i18n.py.
 USAGE_COLUMNS = ("step", "model", "input", "cached", "output", "reasoning", "cost")
-# A call of the answer step is named with its round ("Answer, round 2"), read back for the UI.
-ANSWER_STEP = re.compile(
-    re.escape(config.USAGE_STEP_ANSWER).replace(re.escape("{round}"), r"(\d+)")
-)
 
 
 def dollars(text: str) -> str:
@@ -247,7 +243,7 @@ def usage_step(step: str, lang: Language) -> str:
         return i18n.t("usage.step.rewrite", lang)
     if step == config.USAGE_STEP_SEARCH:
         return i18n.t("usage.step.search", lang)
-    answer = ANSWER_STEP.fullmatch(step)
+    answer = usage.ANSWER_STEP.fullmatch(step)
     return i18n.t("usage.step.answer", lang, round=int(answer[1])) if answer else step
 
 
@@ -267,6 +263,22 @@ def usage_rows(turn_usage: usage.TurnUsage, lang: Language) -> dict[str, list]:
     ]
     names = [i18n.t(f"usage.col.{column}", lang) for column in USAGE_COLUMNS]
     return {name: [row[i] for row in rows] for i, name in enumerate(names)}
+
+
+def cache_line(turn_usage: usage.TurnUsage, lang: Language) -> str:
+    """Return the turn's cached share of its input and what it saved, or that none was cached."""
+    cached, total = turn_usage.cached_tokens, turn_usage.input_tokens
+    if cached == 0:
+        return i18n.t("usage.cached_none", lang)
+    numbers = {
+        "cached": i18n.number(cached, lang),
+        "total": i18n.number(total, lang),
+        "percent": i18n.percent(usage.cached_percent(cached, total), lang),
+    }
+    if turn_usage.saved is None:
+        return i18n.t("usage.cached_unpriced", lang, **numbers)
+    saved = dollars(usage.format_cost(turn_usage.saved, lang))
+    return i18n.t("usage.cached", lang, saved=saved, **numbers)
 
 
 # The kinds of records a gymer's My data page lists (T9.5), in the store's names, and the columns

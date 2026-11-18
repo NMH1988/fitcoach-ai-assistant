@@ -294,6 +294,37 @@ def summary_lines(runs: Sequence[EvalRun]) -> list[str]:
         f"{len(runs)} runs, {errors} ended with an error, {flagged} answers flagged by the memory "
         f"check · {usage.format_session(session)}"
     )
+    lines += cache_lines(runs)
+    return lines
+
+
+def cache_lines(runs: Sequence[EvalRun]) -> list[str]:
+    """Return how much of the answer calls' input the prompt cache served: round 1, then later."""
+    # Whether the provider's cache absorbs the long static system prompt (T10.6, the owner's run).
+    # Only each question's first run counts: a repeat (--repeat) sends its round 1 again word for
+    # word, and so does a question's "(no profile)" variant, as the profile is never in the messages
+    # (the tools read it, T9.3). In a question's first run, round 1 shares only the system prompt
+    # and the tools with the questions before it; later rounds also repeat the turn's own messages.
+    seen: set[str] = set()
+    firsts = []
+    for run in runs:
+        if run.item.id not in seen:
+            seen.add(run.item.id)
+            firsts.append(run)
+    calls = usage.answer_calls(call for run in firsts for call in run.cost.calls)
+    rounds = [usage.ANSWER_STEP.fullmatch(call.step)[1] for call in calls]
+    first = [call for call, number in zip(calls, rounds, strict=True) if number == "1"]
+    later = [call for call, number in zip(calls, rounds, strict=True) if number != "1"]
+    lines = []
+    for name, group in (("round 1", first), ("later rounds", later)):
+        if group:
+            total = sum(call.input_tokens for call in group)
+            cached = sum(call.cached_input for call in group)
+            percent = usage.cached_percent(cached, total)
+            lines.append(
+                f"answer calls, {name}: {total:,} input tokens, {cached:,} of them cached "
+                f"({percent}%)"
+            )
     return lines
 
 

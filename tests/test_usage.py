@@ -422,6 +422,84 @@ def test_a_turn_with_no_calls_costs_nothing():
     assert (turn.tokens, turn.cost) == (0, Decimal(0))
 
 
+def test_a_turn_counts_its_cached_input_and_what_it_saved():
+    """The turn's cached share of its input, and the saving against the input price (T10.6)."""
+    calls = [
+        CallUsage("Rewrite", REWRITE, 1000, 200),
+        CallUsage("Search", EMBEDDING, 40),
+        CallUsage("Answer, round 1", ANSWER, 3000, 100, cached_tokens=1000),
+        CallUsage("Answer, round 2", ANSWER, 3200, 400, cached_tokens=3000),
+    ]
+    turn = usage.price_turn(calls, PRICES)
+    assert (turn.input_tokens, turn.cached_tokens) == (7240, 4000)
+    # 4000 cached tokens x (0.000001 - 0.0000001)
+    assert turn.saved == Decimal("0.0036")
+    assert turn.savings == (0, 0, Decimal("0.0009"), Decimal("0.0027"))
+
+
+def test_cached_input_without_a_cache_price_saved_nothing():
+    """A model with no cached-input price charges the input price, so nothing was saved."""
+    call = CallUsage("Rewrite", REWRITE, input_tokens=1000, cached_tokens=600)
+    assert usage.call_saving(call, PRICES) == 0
+
+
+def test_a_cache_price_above_the_input_price_is_no_saving():
+    """A cache price higher than the input price shows no saving rather than a negative one."""
+    prices = {ANSWER: ModelPrice(Decimal("0.000001"), Decimal("0.00001"), Decimal("0.000002"))}
+    call = CallUsage("Answer, round 1", ANSWER, input_tokens=1000, cached_tokens=500)
+    assert usage.call_saving(call, prices) == 0
+
+
+def test_cached_tokens_above_the_input_count_as_the_whole_input():
+    """A cached count larger than the input (a provider bug) is capped in the share and saving."""
+    turn = usage.price_turn([CallUsage("Answer, round 1", ANSWER, 100, cached_tokens=500)], PRICES)
+    assert (turn.cached_tokens, turn.input_tokens) == (100, 100)
+    assert turn.saved == Decimal("0.00009")
+
+
+@pytest.mark.parametrize("prices", [None, {}, {REWRITE: PRICES[REWRITE]}], ids=str)
+def test_the_saving_is_unknown_only_for_cached_input_without_a_price(prices):
+    """Cached input with no price gives None; a call with no cached input saved 0 at any price."""
+    cached = CallUsage("Answer, round 1", ANSWER, 1000, cached_tokens=10)
+    assert usage.call_saving(cached, prices) is None
+    assert usage.call_saving(CallUsage("Answer, round 1", ANSWER, 1000), prices) == 0
+    turn = usage.price_turn([cached, CallUsage("Search", EMBEDDING, 40)], prices)
+    assert turn.saved is None
+
+
+def test_a_turn_built_without_its_savings_has_an_unknown_saving():
+    """Only price_turn() prices the savings; a TurnUsage without them never claims $0 saved."""
+    call = CallUsage("Answer, round 1", ANSWER, 1000, cached_tokens=500)
+    assert TurnUsage((call,), (Decimal("0.001"),)).saved is None
+
+
+def test_a_turn_with_no_calls_has_no_cached_input():
+    """A turn the guard stopped has no input, nothing cached and nothing saved."""
+    turn = usage.price_turn([], None)
+    assert (turn.input_tokens, turn.cached_tokens, turn.saved) == (0, 0, Decimal(0))
+
+
+def test_answer_calls_are_picked_by_their_step():
+    """Only the answer rounds are kept, not the rewrite or the search embedding."""
+    calls = [
+        CallUsage(config.USAGE_STEP_REWRITE, REWRITE, 10),
+        CallUsage(config.USAGE_STEP_SEARCH, EMBEDDING, 10),
+        CallUsage(config.USAGE_STEP_ANSWER.format(round=1), ANSWER, 10),
+        CallUsage(config.USAGE_STEP_ANSWER.format(round=12), ANSWER, 10),
+    ]
+    assert usage.answer_calls(calls) == calls[2:]
+
+
+@pytest.mark.parametrize(
+    ("cached", "total", "shown"),
+    [(0, 0, "0"), (0, 500, "0"), (1, 1000, "<1"), (6656, 13458, "49"), (10, 10, "100"),
+     (20, 10, "100")],
+)  # fmt: skip
+def test_cached_percent(cached, total, shown):
+    """The share is a whole percent, "<1" for a sliver, never above 100."""
+    assert usage.cached_percent(cached, total) == shown
+
+
 def test_the_session_adds_known_costs_and_says_when_some_are_missing():
     """The session total adds every turn's tokens and the known costs, and flags unknown ones."""
     known = usage.price_turn([CallUsage("Answer", ANSWER, 1000, 100)], PRICES)

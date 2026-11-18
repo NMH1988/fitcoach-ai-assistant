@@ -32,6 +32,8 @@ def section(turn_usage: usage.TurnUsage | None) -> None:
     st.subheader(f"{USAGE_ICON} {t('usage.title')}")
     if turn_usage is not None and turn_usage.calls:
         st.dataframe(tables.usage_rows(turn_usage, current), hide_index=True)
+        # How much of the input the provider's prompt cache served (T10.6).
+        st.caption(f":material/cached: {tables.cache_line(turn_usage, current)}")
         this_answer = tables.dollars(usage.format_turn(turn_usage, current))
         st.markdown(tables.bold_label(t("usage.this_answer", usage=this_answer)))
     else:
