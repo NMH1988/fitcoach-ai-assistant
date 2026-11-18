@@ -15,7 +15,7 @@ import pytest
 from langchain_core.messages import AIMessage
 from streamlit.testing.v1 import AppTest
 
-from src import config, guard, llm, observability
+from src import chat, config, guard, llm, observability
 from src.agent.memory import Conversation
 from src.chat import TurnResult
 from src.preferences import PREFERENCE_TOOL, CoachMemory
