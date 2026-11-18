@@ -106,14 +106,26 @@ ERROR_TEXTS: dict[str, str] = {
 
 
 class Statement(BaseModel):
-    """An observation or a hypothesis: one text and the labels of the sources it cites."""
+    """An observation or a hypothesis, with the labels of the sources it cites."""
 
+    # The docstrings and field descriptions of the three review models reach the model as the
+    # JSON schema's descriptions: their wording is the owner's (O18), so change it only with the
+    # owner.
     model_config = ConfigDict(frozen=True)
 
     # No default and no string length in the schema (OpenAI's strict mode), so both are checked
     # by the validators below.
-    text: str
-    evidence: tuple[str, ...] = Field(max_length=config.REVIEW_MAX_CHUNKS)
+    text: str = Field(
+        description=(
+            "One observation grounded only in <metrics>, or one hypothesis in cautious language; "
+            "in the review's language."
+        )
+    )
+    evidence: tuple[str, ...] = Field(
+        max_length=config.REVIEW_MAX_CHUNKS,
+        description="Labels from <sources> that support this item, such as S1; empty for an "
+        "observation.",
+    )
 
     @field_validator("text")
     @classmethod
@@ -123,20 +135,48 @@ class Statement(BaseModel):
 
 
 class Recommendation(BaseModel):
-    """A recommendation to the coach, nutrition or training, with its evidence (D22)."""
+    """A recommendation addressed to the coach, nutrition or training, with its evidence."""
 
     model_config = ConfigDict(frozen=True)
 
-    kind: Kind
-    text: str
-    evidence: tuple[str, ...] = Field(max_length=config.REVIEW_MAX_CHUNKS)
+    kind: Kind = Field(description="nutrition or training.")
+    text: str = Field(
+        description=(
+            "The recommendation, addressed to the coach, not written as a direct instruction to "
+            "the client."
+        )
+    )
+    evidence: tuple[str, ...] = Field(
+        max_length=config.REVIEW_MAX_CHUNKS,
+        description=(
+            "Labels from <sources> that support this recommendation, such as S1; at least one for "
+            "a training recommendation."
+        ),
+    )
     # True when the recommendation cites nothing: shown as the model's suggestion (PRD guardrail).
-    model_suggestion: bool
+    model_suggestion: bool = Field(
+        description="true when the recommendation cites no source; false when it cites one or more."
+    )
     # Training only (optional for nutrition): which way to change, the source's range quoted as
     # the cited chunk has it, and the population the source studied.
-    direction: str | None
-    source_range: str | None
-    population: str | None
+    direction: str | None = Field(
+        description=(
+            "Training: what should be increased, decreased, or maintained, without a "
+            "client-specific amount."
+        )
+    )
+    source_range: str | None = Field(
+        description=(
+            "Training: the relevant range or recommendation copied verbatim from the cited source "
+            "in its original English wording."
+        )
+    )
+    population: str | None = Field(
+        description=(
+            "Training: the population studied, using only information supported by the cited "
+            "source."
+        )
+    )
 
     @field_validator("text")
     @classmethod
@@ -154,13 +194,26 @@ class Recommendation(BaseModel):
 
 
 class WeeklyReview(BaseModel):
-    """The model's draft of a weekly review (D17): what it saw, what may explain it, what to do."""
+    """A draft weekly review for the coach."""
 
     model_config = ConfigDict(frozen=True)
 
-    observations: tuple[Statement, ...] = Field(min_length=1, max_length=config.REVIEW_MAX_ITEMS)
-    hypotheses: tuple[Statement, ...] = Field(max_length=config.REVIEW_MAX_ITEMS)
-    recommendations: tuple[Recommendation, ...] = Field(max_length=config.REVIEW_MAX_ITEMS)
+    observations: tuple[Statement, ...] = Field(
+        min_length=1,
+        max_length=config.REVIEW_MAX_ITEMS,
+        description="Factual observations grounded only in <metrics>; at least one.",
+    )
+    hypotheses: tuple[Statement, ...] = Field(
+        max_length=config.REVIEW_MAX_ITEMS,
+        description=(
+            "Possible explanations in cautious language, not conclusions or diagnoses, and never "
+            "implying a medical condition."
+        ),
+    )
+    recommendations: tuple[Recommendation, ...] = Field(
+        max_length=config.REVIEW_MAX_ITEMS,
+        description="Practical recommendations for the coach.",
+    )
 
 
 def _checked_text(text: str, limit: int) -> str:

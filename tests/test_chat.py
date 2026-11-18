@@ -187,9 +187,7 @@ def test_on_chunks_is_called_with_nothing_found_and_not_for_a_rejected_question(
             guard.RateLimiter(),
             open_index=lambda: index,
             chat_model=lambda: _model(),
-            translation_model=lambda: ScriptedTranslator(
-                plans=[plan_json([text], needs_tool=False)]
-            ),
+            translation_model=lambda: ScriptedTranslator(plans=[plan_json([text])]),
             on_chunks=seen.append,
         )
 
@@ -330,7 +328,7 @@ def test_with_only_a_rewrite_close_and_no_tool_no_answer_call_is_made(index):
     rewrites = ["protein for football players", "offside rule", "football laws"]
     assert retriever.retrieve(index, OFF_TOPIC) == []
     assert retriever.retrieve(index, rewrites[0])
-    plan = plan_json(rewrites, needs_tool=False, needs_profile=False)
+    plan = plan_json(rewrites)
     result = _turn(OFF_TOPIC, index, model, translator=ScriptedTranslator(plans=[plan]))
     assert (result.kind, result.text) == ("no_sources", config.NO_SOURCES_MESSAGE)
     assert result.steps == (Step.CHECK, Step.PLAN, Step.SEARCH)
@@ -399,7 +397,7 @@ def test_with_no_hits_even_without_the_filter_the_sources_do_not_cover_it(index,
     # The model searches (tests/fakes.py); nothing is found, so it is asked nothing more (T9.3).
     model = _model("Offside is a football rule.")
     rewrites = ["football rules", "offside in soccer", "the offside law"]
-    plan = plan_json(rewrites, ["fat"], needs_tool=True)
+    plan = plan_json(rewrites, ["fat"])
     result = _turn(OFF_TOPIC, index, model, translator=ScriptedTranslator(plans=[plan]))
     assert result.kind == "no_sources"
     assert _search(result).filter_dropped
@@ -634,9 +632,9 @@ DELOAD_QUESTION = "Do I need a deload week?"
 
 
 def _training_plan(question: str) -> str:
-    """Return the plan the query translation gives a training question: the topic, no tool."""
+    """Return the plan query translation gives a training question: three rewrites, the topic."""
     rewrites = [f"{question} rewrite {n}" for n in (1, 2, 3)]
-    return plan_json(rewrites, ["resistance_training"], needs_tool=False, needs_profile=False)
+    return plan_json(rewrites, ["resistance_training"])
 
 
 @pytest.fixture(scope="module")
@@ -749,9 +747,7 @@ def test_a_training_only_question_is_not_answered_from_nutrition_chunks(index):
 def test_a_too_strict_year_on_a_training_question_falls_back_to_training_chunks(training_index):
     """A year no training chunk meets drops the filters, and the training chunk still answers."""
     rewrites = [f"{TRAINING_QUESTION} rewrite {n}" for n in (1, 2, 3)]
-    plan = plan_json(
-        rewrites, ["resistance_training"], min_year=2025, needs_tool=False, needs_profile=False
-    )
+    plan = plan_json(rewrites, ["resistance_training"], min_year=2025)
     model = _model("Ten or more sets per muscle per week, in trained adults [S1].")
     result = _turn(
         TRAINING_QUESTION, training_index, model, translator=ScriptedTranslator(plans=[plan])
@@ -767,12 +763,10 @@ def test_a_training_chunk_found_only_by_keyword_does_not_cover_a_training_questi
 ):
     """No training chunk is close: neither the protein chunks nor a keyword match answer it."""
     rewrites = [f"{MIXED_QUESTION} rewrite {n}" for n in (1, 2, 3)]
-    plan = plan_json(
-        rewrites, ["resistance_training"], min_year=2025, needs_tool=False, needs_profile=False
-    )
+    plan = plan_json(rewrites, ["resistance_training"], min_year=2025)
     # The precondition: without filters the question finds protein chunks by meaning and the
     # training chunk only by keyword ("sets per week"), with no distance (security review, PR #47).
-    unfiltered = QueryPlan.model_validate_json(plan_json(rewrites, needs_tool=False))
+    unfiltered = QueryPlan.model_validate_json(plan_json(rewrites))
     found, _ = chat.find_chunks(MIXED_QUESTION, unfiltered, training_index)
     by_source = {c.metadata["source_id"]: c for c in found}
     assert {"1", "24"} <= set(by_source)
@@ -789,7 +783,7 @@ def test_a_training_chunk_found_only_by_keyword_does_not_cover_a_training_questi
 def test_a_nutrition_only_plan_never_falls_back_to_training_chunks(training_index):
     """Mirrored: nothing passes a protein filter, and the nutrition retry keeps training out."""
     rewrites = [f"{TRAINING_QUESTION} rewrite {n}" for n in (1, 2, 3)]
-    plan = plan_json(rewrites, ["protein"], needs_tool=False, needs_profile=False)
+    plan = plan_json(rewrites, ["protein"])
     # The precondition: with no filter the question finds the training chunk (distance 0).
     found, _ = chat.find_chunks(TRAINING_QUESTION, None, training_index)
     assert [c.metadata["source_id"] for c in found] == ["24"]
@@ -809,8 +803,6 @@ def test_a_plan_with_both_domains_still_finds_training_chunks_on_its_retry(train
         rewrites,
         ["resistance_training", "protein"],
         min_year=2025,
-        needs_tool=False,
-        needs_profile=False,
     )
     model = _model("Ten or more sets per muscle per week, in trained adults [S1].")
     result = _turn(
@@ -826,7 +818,7 @@ def test_a_plan_with_both_domains_still_finds_training_chunks_on_its_retry(train
 def test_a_plan_with_a_nutrition_topic_still_falls_back_past_its_filter(index, topics):
     """A plan with a nutrition topic falls back past its filter, and nutrition chunks answer."""
     rewrites = [f"{MIXED_QUESTION} rewrite {n}" for n in (1, 2, 3)]
-    plan = plan_json(rewrites, topics, needs_tool=False)
+    plan = plan_json(rewrites, topics)
     model = _model("Spread protein over four meals [S1].")
     result = _turn(MIXED_QUESTION, index, model, translator=ScriptedTranslator(plans=[plan]))
     assert _search(result).filter_dropped is True
@@ -841,7 +833,7 @@ def test_with_no_relevant_chunk_the_app_says_the_sources_do_not_cover_it(index):
     """Nothing close enough and no tool could answer: the fixed message, no citation, no call."""
     model = _model("Football is not a nutrition topic.")
     rewrites = ["offside rule football", "football offside law", "offside position"]
-    plan = plan_json(rewrites, needs_tool=False, needs_profile=False)
+    plan = plan_json(rewrites)
     shown = []
     result = _turn(
         OFF_TOPIC, index, model, translator=ScriptedTranslator(plans=[plan]), on_text=shown.append
@@ -1050,7 +1042,7 @@ def test_a_german_question_with_no_close_chunk_of_its_own_is_not_covered(index):
     # "Eiweiß" shares no word with the fixture's keywords, so the question's own vector is far from
     # every chunk while its English rewrites are close. Whether real German questions come within
     # RETRIEVAL_MAX_DISTANCE is measured live on the owner's German questions (T7.2).
-    translator = ScriptedTranslator(plans=[plan_json(ENGLISH_REWRITES, needs_tool=False)])
+    translator = ScriptedTranslator(plans=[plan_json(ENGLISH_REWRITES)])
     model = _model("Never shown.")
     result = _turn(
         "Wie viel Eiweiß vor dem Schlafen?", index, model, translator=translator, language="de"
