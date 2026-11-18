@@ -631,7 +631,7 @@ def _signed(value: int, lang: Language) -> str:
 
 
 def review_kcal_line(item: dict, lang: Language) -> tuple[str, str] | None:
-    """Return a recommendation's kcal fields as (label, value): ("Target", "1,800 kcal (-300)")."""
+    """Return a recommendation's kcal fields as a (label, value) pair, or None when it has none."""
     # A draft stored before T10.2 has neither field, and shows no line.
     target = review_kcal_value(item, "target_kcal")
     change = review_kcal_value(item, "kcal_change")

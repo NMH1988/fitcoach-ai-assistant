@@ -893,16 +893,21 @@ def test_a_review_s_sections_are_escaped_lines_under_the_app_s_headings():
     assert [heading for heading, _ in german] == ["Beobachtungen", "Empfehlungen"]
 
 
+# "Proposed", so the client does not read the figure as their current target (owner, 2026-11-18).
+TARGET_EN, TARGET_DE = "Proposed target", "Vorgeschlagenes Ziel"
+CHANGE_EN, CHANGE_DE = "Proposed change", "Vorgeschlagene Änderung"
+
+
 @pytest.mark.parametrize(
     ("fields", "lang", "expected"),
     [
-        ({"target_kcal": 1800, "kcal_change": -300}, "en", ("Target", "1,800 kcal (-300)")),
-        ({"target_kcal": 1800, "kcal_change": -300}, "de", ("Ziel", "1.800 kcal (-300)")),
-        ({"target_kcal": 2100, "kcal_change": None}, "en", ("Target", "2,100 kcal")),
-        ({"target_kcal": None, "kcal_change": 250}, "en", ("Change", "+250 kcal a day")),
-        ({"target_kcal": None, "kcal_change": -1200}, "de", ("Änderung", "-1.200 kcal pro Tag")),
-        ({"target_kcal": None, "kcal_change": 0}, "en", ("Change", "0 kcal a day")),
-        ({"target_kcal": 1800.0, "kcal_change": -300.0}, "en", ("Target", "1,800 kcal (-300)")),
+        ({"target_kcal": 1800, "kcal_change": -300}, "en", (TARGET_EN, "1,800 kcal (-300)")),
+        ({"target_kcal": 1800, "kcal_change": -300}, "de", (TARGET_DE, "1.800 kcal (-300)")),
+        ({"target_kcal": 2100, "kcal_change": None}, "en", (TARGET_EN, "2,100 kcal")),
+        ({"target_kcal": None, "kcal_change": 250}, "en", (CHANGE_EN, "+250 kcal a day")),
+        ({"target_kcal": None, "kcal_change": -1200}, "de", (CHANGE_DE, "-1.200 kcal pro Tag")),
+        ({"target_kcal": None, "kcal_change": 0}, "en", (CHANGE_EN, "0 kcal a day")),
+        ({"target_kcal": 1800.0, "kcal_change": -300.0}, "en", (TARGET_EN, "1,800 kcal (-300)")),
         ({"target_kcal": 1800.5, "kcal_change": None}, "en", None),
         ({"target_kcal": None, "kcal_change": None}, "en", None),
         # A draft from before T10.2 has no fields; a stored value of another type shows nothing.
@@ -924,7 +929,7 @@ def test_a_recommendation_s_kcal_line_sits_under_its_text_escaped():
     suggestion = "*(The model's suggestion, no source cited)*"
     assert lines[-2:] == [
         f"- **Nutrition:** Log every day. {suggestion}",
-        "    - Target: 1,800 kcal (-300)",
+        "    - Proposed target: 1,800 kcal (-300)",
     ]
 
 

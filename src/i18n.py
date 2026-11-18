@@ -1181,8 +1181,10 @@ _EN: dict[str, str] = {
     "review.source_range": "Range in the source",
     "review.population": "Studied in",
     # A recommendation's kcal fields (T10.2): shown beside its text, and in the edit form.
-    "review.target_kcal": "Target",
-    "review.kcal_change": "Change",
+    # "Proposed", so the client does not read the figure as their current target (compliance
+    # run 1 of T10.2's PR; owner's choice, 2026-11-18).
+    "review.target_kcal": "Proposed target",
+    "review.kcal_change": "Proposed change",
     "review.kcal_per_day": "{value} kcal a day",
     "review.target_kcal_input": "Daily target (kcal)",
     "review.kcal_change_input": "Change to the current target (kcal a day)",
@@ -2624,8 +2626,8 @@ _DE: dict[str, str] = {
     "review.direction": "Richtung",
     "review.source_range": "Bereich in der Quelle",
     "review.population": "Untersucht bei",
-    "review.target_kcal": "Ziel",
-    "review.kcal_change": "Änderung",
+    "review.target_kcal": "Vorgeschlagenes Ziel",
+    "review.kcal_change": "Vorgeschlagene Änderung",
     "review.kcal_per_day": "{value} kcal pro Tag",
     "review.target_kcal_input": "Tagesziel (kcal)",
     "review.kcal_change_input": "Änderung des aktuellen Ziels (kcal pro Tag)",

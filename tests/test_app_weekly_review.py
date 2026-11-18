@@ -377,7 +377,7 @@ UI = {
         "edit": "Edit",
         "save": "Approve my edit",
         # The page's Markdown source: a value is escaped (tables.one_line), its label apart.
-        "target": f"Target: {tables.one_line('1,200 kcal')}",
+        "target": f"Proposed target: {tables.one_line('1,200 kcal')}",
         "change_label": "Change to the current target (kcal a day)",
         "refused": "Your edit was not saved: a recommendation, or a possible reason",
     },
@@ -385,7 +385,7 @@ UI = {
         "draft": "Wochenbericht entwerfen",
         "edit": "Bearbeiten",
         "save": "Meine Bearbeitung freigeben",
-        "target": f"Ziel: {tables.one_line('1.200 kcal')}",
+        "target": f"Vorgeschlagenes Ziel: {tables.one_line('1.200 kcal')}",
         "change_label": "Änderung des aktuellen Ziels (kcal pro Tag)",
         "refused": "Ihre Bearbeitung wurde nicht gespeichert: eine Empfehlung oder ein möglicher",
     },
@@ -545,8 +545,8 @@ def test_approve_refuses_a_draft_change_below_the_floor_of_today_s_target(
 @pytest.mark.parametrize(
     ("language", "line"),
     [
-        ("en", f"Target: {tables.one_line('1,800 kcal (-300)')}"),
-        ("de", f"Ziel: {tables.one_line('1.800 kcal (-300)')}"),
+        ("en", f"Proposed target: {tables.one_line('1,800 kcal (-300)')}"),
+        ("de", f"Vorgeschlagenes Ziel: {tables.one_line('1.800 kcal (-300)')}"),
     ],
 )
 def test_a_gymer_reads_an_approved_review_s_kcal_fields(monkeypatch, language, line):
