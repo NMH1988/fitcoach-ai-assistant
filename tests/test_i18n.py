@@ -1,13 +1,16 @@
-"""Tests for src/i18n.py: both languages complete, the locale mapping, numbers, message codes."""
+"""Tests for src/i18n/: both languages complete, the locale mapping, numbers, message codes."""
 
+import ast
 import re
 import string
 from decimal import Decimal
+from pathlib import Path
 from typing import get_args
 
 import pytest
 
 from src import chat, config, guard, guardrails, i18n, llm, profile, units, usage
+from src.i18n import core as i18n_core
 from src.rag import sources, store
 from src.tools import food, meal_plan, registry
 
@@ -22,6 +25,51 @@ def _placeholders(text: str) -> set[str]:
 def test_every_key_exists_in_both_languages():
     """A key in one language but not the other fails the test."""
     assert set(i18n.TEXT["en"]) == set(i18n.TEXT["de"])
+
+
+# --- The package's page modules (T10.8) -----------------------------------------------------------
+
+I18N = Path(__file__).resolve().parent.parent / "src" / "i18n"
+
+
+def _dict_keys(path: Path, name: str) -> list[str]:
+    """Return the keys written in a module's dict literal `name`, repeats included."""
+    for node in ast.parse(path.read_text(encoding="utf-8")).body:
+        if isinstance(node, ast.AnnAssign) and getattr(node.target, "id", None) == name:
+            return [key.value for key in node.value.keys]
+    raise AssertionError(f"{path.name} has no {name} dict")
+
+
+def test_every_page_module_is_loaded():
+    """Every module but core holds texts, and every one of them is in i18n.PAGES."""
+    modules = {path.stem for path in I18N.glob("*.py")} - {"__init__", "core"}
+    assert {page.__name__.rsplit(".", 1)[1] for page in i18n.PAGES} == modules
+
+
+@pytest.mark.parametrize("language", ["EN", "DE"])
+def test_every_key_is_defined_once_across_the_modules(language):
+    """A key is written once in all the page modules: a repeat would silently replace a text."""
+    written = [key for page in i18n.PAGES for key in _dict_keys(Path(page.__file__), language)]
+    repeated = sorted({key for key in written if written.count(key) > 1})
+    assert repeated == []
+    assert set(written) == set(i18n.TEXT[language.lower()])
+
+
+@pytest.mark.parametrize("page", i18n.PAGES, ids=lambda page: page.__name__)
+def test_each_page_has_the_same_keys_in_both_languages(page):
+    """A page module's English and German dicts have the same keys."""
+    assert set(page.EN) == set(page.DE)
+
+
+def test_add_texts_refuses_a_repeated_key_and_a_language_missing(monkeypatch):
+    """add_texts() refuses a key another page defined, and a page whose languages differ."""
+    monkeypatch.setattr(i18n_core, "TEXT", {"en": {"a.b": "A"}, "de": {"a.b": "A"}})
+    with pytest.raises(ValueError, match="already defined"):
+        i18n_core.add_texts("page", {"a.b": "X"}, {"a.b": "X"})
+    with pytest.raises(ValueError, match="keys differ"):
+        i18n_core.add_texts("page", {"c.d": "C"}, {})
+    i18n_core.add_texts("page", {"c.d": "C"}, {"c.d": "C"})
+    assert i18n_core.TEXT["en"] == {"a.b": "A", "c.d": "C"}
 
 
 @pytest.mark.parametrize(

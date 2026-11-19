@@ -60,7 +60,8 @@ from src.store.access import NotFound
 
 logger = logging.getLogger(__name__)
 
-# How a run ended (or why it waits); the UI shows a fixed text for each (src/i18n.py, review.*).
+# How a run ended (or why it waits); the UI shows a fixed text for each (review.* in
+# src/i18n/reviews.py).
 Outcome = Literal[
     "pending",
     "not_found",
@@ -79,7 +80,7 @@ Outcome = Literal[
 ]
 _DECISIONS = ("approve", "edit", "reject")
 # The errors that end a run with a fixed message: the model or embedding service, the index, the
-# key. Each has (or gets here) the key of its message in src/i18n.py.
+# key. Each has (or gets here) the key of its message in src/i18n/ (messages.py, chat.py).
 _RUN_ERRORS = (
     llm.LLMError,
     IndexNotReadyError,

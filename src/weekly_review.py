@@ -75,7 +75,7 @@ _KCAL = re.compile(
 _SENTENCE_END = re.compile(r"[.!?;](?=\s+[A-ZÄÖÜ]|\s*$)")
 
 # The fixed text the model gets back for each failed check, on the one retry (English, as the
-# prompt is; the coach sees these codes as their own texts in src/i18n.py).
+# prompt is; the coach sees these codes as their own texts in src/i18n/reviews.py).
 ERROR_TEXTS: dict[str, str] = {
     "schema": "The reply did not follow the schema.",
     "unknown_evidence": "A citation names a label that is not in <sources>.",

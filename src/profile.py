@@ -52,7 +52,7 @@ class UserProfile(BaseModel):
     goal: Goal
 
 
-# One thing to fix: its key in src/i18n.py and the values in its text (T7.1).
+# One thing to fix: its key in src/i18n/profile.py and the values in its text (T7.1).
 Problem = tuple[str, dict[str, Any]]
 
 

@@ -57,7 +57,7 @@ CC BY 2.0 (#12) allows the same uses as CC BY 4.0 (copy, redistribute, adapt, in
 
 ### Formula sources (for the energy tools, not the vector store)
 
-Added in T4.2 with the owner's approval (2026-10-19), because none of the approved articles gives the Mifflin-St Jeor equation or activity factors. Found through the Europe PMC REST API; the licence was read on the publisher's article page on 2026-10-19 (mdpi.com, frontiersin.org) and matches the licence block of the article XML from the Europe PMC REST API. Only numbers are used, in `src/config.py`; no text goes into the knowledge base, prompts or the repo. Credited in `ATTRIBUTION.md` under "Formula sources".
+Added in T4.2 with the owner's approval (2026-10-19), because none of the approved articles gives the Mifflin-St Jeor equation or activity factors. Found through the Europe PMC REST API; the licence was read on the publisher's article page on 2026-10-19 (mdpi.com, frontiersin.org) and matches the licence block of the article XML from the Europe PMC REST API. Only numbers are used, in `src/config/nutrition.py`; no text goes into the knowledge base, prompts or the repo. Credited in `ATTRIBUTION.md` under "Formula sources".
 
 | # | Title (short) | Year | Journal | Licence (as stated in the article) | Checked on | Used for | ID |
 |---|---|---|---|---|---|---|---|

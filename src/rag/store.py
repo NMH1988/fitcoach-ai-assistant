@@ -49,7 +49,7 @@ class IndexNotReadyError(RuntimeError):
     def __init__(self, reason: str) -> None:
         """Build the fixed message: the reason, then the command that builds the index."""
         super().__init__(f"{reason} Run `{config.BUILD_INDEX_COMMAND}` to build it.")
-        # The key of the message in src/i18n.py, so the UI shows it in the chosen language.
+        # The key of the message in src/i18n/, so the UI shows it in the chosen language.
         self.code = _CODES[reason]
 
 

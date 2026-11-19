@@ -29,7 +29,7 @@ from tests import store_world as world
 from tests import test_agent_clients as clients_tests
 from tests import test_agent_review as review_tests
 from tests import test_observability as obs
-from tests.fakes import tool_reply
+from tests.fakes import patch_config, tool_reply
 
 # The canary fixtures of the log tests, so a trace is checked on the same turns as a log line.
 canary_setup = obs.canary_setup
@@ -90,7 +90,7 @@ def traced(monkeypatch):
     session = RecordingSession()
     # Not the machine's secrets.toml, which may hold the owner's real key (code review round 2).
     monkeypatch.setattr(config.st, "secrets", {})
-    monkeypatch.setattr(config, "tracing_requested", lambda: True)
+    patch_config(monkeypatch, "tracing_requested", lambda: True)
     monkeypatch.setenv(config.LANGSMITH_API_KEY_NAME, FAKE_LANGSMITH_KEY)
     build = tracing.build_client
     monkeypatch.setattr(
@@ -98,7 +98,7 @@ def traced(monkeypatch):
     )
     assert tracing.configure_tracing()
     yield session
-    monkeypatch.setattr(config, "tracing_requested", lambda: False)
+    patch_config(monkeypatch, "tracing_requested", lambda: False)
     tracing.configure_tracing()
 
 
@@ -143,7 +143,7 @@ def test_tracing_is_on_only_with_the_flag_and_the_key(monkeypatch, flag, key, on
     """configure_tracing() turns LangSmith on only when both are set, and off otherwise."""
     # Not the machine's secrets.toml, which may hold the owner's real key (code review round 2).
     monkeypatch.setattr(config.st, "secrets", {})
-    monkeypatch.setattr(config, "tracing_requested", lambda: flag)
+    patch_config(monkeypatch, "tracing_requested", lambda: flag)
     if key is not None:
         monkeypatch.setenv(config.LANGSMITH_API_KEY_NAME, key)
     build = tracing.build_client
@@ -169,7 +169,7 @@ def test_the_installed_client_masks_and_sends_to_the_eu_endpoint(traced):
 def test_tracing_stays_off_when_the_environment_adds_destinations(monkeypatch, name):
     """Write replicas would send the runs beyond the EU project, so tracing stays off."""
     monkeypatch.setattr(config.st, "secrets", {})
-    monkeypatch.setattr(config, "tracing_requested", lambda: True)
+    patch_config(monkeypatch, "tracing_requested", lambda: True)
     monkeypatch.setenv(config.LANGSMITH_API_KEY_NAME, FAKE_LANGSMITH_KEY)
     monkeypatch.setenv(name, '{"https://replica.test": "lsv2-test-not-a-real-key"}')
     assert tracing.configure_tracing() is False
@@ -235,7 +235,7 @@ def test_turning_tracing_off_never_leaves_an_unmasked_client(
 
     worker, errors = _start_thread(turn)
     assert ready.wait(60)
-    monkeypatch.setattr(config, "tracing_requested", lambda: False)
+    patch_config(monkeypatch, "tracing_requested", lambda: False)
     assert tracing.configure_tracing() is False
     turned_off.set()
     _finish(worker, errors)
@@ -1051,8 +1051,8 @@ def _demo_setup(monkeypatch, *, tracing_on=True, demo=True, flag="true", key=FAK
     session = RecordingSession()
     # Not the machine's secrets.toml, which may hold the owner's real key and flags.
     monkeypatch.setattr(config.st, "secrets", {})
-    monkeypatch.setattr(config, "tracing_requested", lambda: tracing_on)
-    monkeypatch.setattr(config, "demo_mode", lambda: demo)
+    patch_config(monkeypatch, "tracing_requested", lambda: tracing_on)
+    patch_config(monkeypatch, "demo_mode", lambda: demo)
     monkeypatch.delenv(config.TRACING_DEMO_UNMASKED_FLAG_NAME, raising=False)
     monkeypatch.delenv(config.LANGSMITH_API_KEY_NAME, raising=False)
     if flag is not None:
@@ -1075,7 +1075,7 @@ def demo_traced(monkeypatch):
     session = _demo_setup(monkeypatch)
     assert tracing.configure_tracing()
     yield session
-    monkeypatch.setattr(config, "tracing_requested", lambda: False)
+    patch_config(monkeypatch, "tracing_requested", lambda: False)
     tracing.configure_tracing()
 
 
@@ -1115,7 +1115,7 @@ def test_the_demo_flag_is_off_by_default(monkeypatch):
 def test_with_auth_configured_the_demo_flag_is_no_use(monkeypatch):
     """[auth] set means demo mode is off (real users), so the flag cannot unmask anything."""
     monkeypatch.setattr(config.st, "secrets", {config.AUTH_SECTION: {"cookie_secret": "x" * 40}})
-    monkeypatch.setattr(config, "tracing_requested", lambda: True)
+    patch_config(monkeypatch, "tracing_requested", lambda: True)
     monkeypatch.setenv(config.TRACING_DEMO_UNMASKED_FLAG_NAME, "true")
     monkeypatch.setenv(config.DEMO_MODE_NAME, "true")
     assert config.auth_configured()
@@ -1152,7 +1152,7 @@ def test_a_demo_trace_never_holds_the_key(index, demo_traced):
 
 def test_the_gate_fails_closed_when_demo_mode_stops_being_true(index, demo_traced, monkeypatch):
     """With the client installed, a demo mode that turns off masks the next payload."""
-    monkeypatch.setattr(config, "demo_mode", lambda: False)
+    patch_config(monkeypatch, "demo_mode", lambda: False)
     assert not tracing.demo_gate_open()
     obs.CANARY_ENDINGS["answer"](index)
     searched = _searched(demo_traced.runs())
@@ -1167,7 +1167,7 @@ def test_the_gate_fails_closed_when_the_check_raises(monkeypatch, demo_traced):
         """Fail as an unreadable secrets file might."""
         raise RuntimeError("secrets unreadable")
 
-    monkeypatch.setattr(config, "demo_mode", broken)
+    patch_config(monkeypatch, "demo_mode", broken)
     assert tracing.demo_gate_open() is False
     assert tracing._masked_unless_demo({"question": "CANARY-Q"}) == {"question": config.TRACE_MASK}
 
@@ -1175,7 +1175,7 @@ def test_the_gate_fails_closed_when_the_check_raises(monkeypatch, demo_traced):
 def test_turning_tracing_off_closes_the_gate_at_once(demo_traced, monkeypatch):
     """After tracing is turned off, a thread still on through the demo client sends masked."""
     assert tracing.demo_gate_open()
-    monkeypatch.setattr(config, "tracing_requested", lambda: False)
+    patch_config(monkeypatch, "tracing_requested", lambda: False)
     assert tracing.configure_tracing() is False
     assert not tracing.demo_gate_open()
     assert tracing._masked_unless_demo({"question": "CANARY-Q"}) == {"question": config.TRACE_MASK}
@@ -1183,7 +1183,7 @@ def test_turning_tracing_off_closes_the_gate_at_once(demo_traced, monkeypatch):
 
 def test_leaving_the_demo_installs_the_masked_client_again(monkeypatch, demo_traced):
     """Demo mode off with tracing still on: the next run installs the masked client again."""
-    monkeypatch.setattr(config, "demo_mode", lambda: False)
+    patch_config(monkeypatch, "demo_mode", lambda: False)
     assert tracing.configure_tracing()
     assert langsmith.run_trees.get_cached_client()._anonymizer is tracing.mask
     assert not tracing.demo_gate_open()

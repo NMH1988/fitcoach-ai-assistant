@@ -419,7 +419,7 @@ class GuardResult:
 
     @property
     def code(self) -> str | None:
-        """Return the key of the message in src/i18n.py, or None for an accepted message."""
+        """Return the key of the message in src/i18n/, or None for an accepted message."""
         if self.reason is None:
             return None
         if self.concern is not None:

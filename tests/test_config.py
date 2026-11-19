@@ -1,4 +1,4 @@
-"""Tests for src/config.py: models, limits and API key loading."""
+"""Tests for src/config/: models, limits and API key loading."""
 
 import pytest
 

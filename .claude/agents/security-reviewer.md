@@ -63,7 +63,7 @@ For each surface: find the controls in code, compare them with `docs/SECURITY.md
 3. **Tool arguments (model -> tools).**
    - Every tool validates its arguments with the Pydantic schemas (`strict`, ranges, finite numbers, no strings for numbers, no extra fields) before running; a validation error returns the fixed message that does not echo the input (a raw `ValidationError` string contains the input value).
    - Personal values come from `st.session_state`, never from the model: a model that sends `weight_kg=20` or `age=15` must not get a target, and the calorie floor (`CALORIE_FLOOR_KCAL`) and age limit hold in code for any argument.
-   - Only registered tool names run; an unknown name, a malformed call, a huge number of calls in one round or more than the round limit (4, `docs/ARCHITECTURE.md` section 2; the limit must live in `src/config.py`) stops cleanly without extra API spend.
+   - Only registered tool names run; an unknown name, a malformed call, a huge number of calls in one round or more than the round limit (4, `docs/ARCHITECTURE.md` section 2; the limit must live in `src/config/limits.py`) stops cleanly without extra API spend.
    - No tool opens files, URLs or code from an argument (e.g. the food name is never used in a path or a regex without escaping: check `rapidfuzz` and any `re` use on it).
 4. **Output injection (model or source text -> page).**
    - No `unsafe_allow_html=True`, `st.html`, `components.html` or raw HTML anywhere model, source or user text can reach.

@@ -10,7 +10,7 @@ entity from the escaped prompt (T3.4), and their Markdown is turned into plain t
 `clean_answer()`. The PDF holds no link annotations at all: URLs are printed as text.
 
 The PDF is written in the UI's language (T7.2): its headings, labels, table cells, numbers and
-fixed messages come from src/i18n.py, as the app shows them. What the app keeps English stays
+fixed messages come from src/i18n/, as the app shows them. What the app keeps English stays
 English here too: the tools' messages, notes and method lines, source titles, licence names, USDA
 names, the credit lines (as in ATTRIBUTION.md) and the font's licence. Each answer stays in the
 language it was written in.
@@ -75,8 +75,8 @@ RULE = colors.HexColor("#D8DEDB")
 MISSING = "�"
 BMP_LAST = 0xFFFF
 
-# The PDF's own headings and fixed labels live in src/i18n.py under "pdf.*", in English and German
-# (T7.2); TEXT is their English version, unfilled, as the tests read it.
+# The PDF's own headings and fixed labels live in src/i18n/shared.py under "pdf.*", in English and
+# German (T7.2); TEXT is their English version, unfilled, as the tests read it.
 TEXT_KEYS = (
     "title",
     "created",
@@ -103,7 +103,7 @@ TEXT_KEYS = (
     "footer",
 )
 TEXT = {key: i18n.TEXT["en"][f"pdf.{key}"] for key in TEXT_KEYS}
-# The profile's rows: the sidebar's labels (src/i18n.py) and the profile field each shows.
+# The profile's rows: the sidebar's labels (src/i18n/profile.py) and the profile field each shows.
 PROFILE_ROWS = ("weight", "height", "age", "sex", "activity", "goal")
 
 # Characters no PDF text should hold: C0 controls (but tab and newline) and DEL.

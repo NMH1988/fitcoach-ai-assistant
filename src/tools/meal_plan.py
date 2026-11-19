@@ -263,8 +263,8 @@ def evaluate_meal_plan(
 
 # --- Text for the tables in the app and the summary PDF ------------------------------------------
 
-# The texts come from src/i18n.py; the summary PDF uses the English ones (the defaults), the app
-# the language chosen (T7.1).
+# The texts come from src/i18n/ (food.py; the nutrient names in profile.py); the summary PDF uses
+# the English ones (the defaults), the app the language chosen (T7.1).
 _FOOD_COLUMN_KEYS = (
     "meal.food_asked",
     "food.usda_food",

@@ -27,6 +27,7 @@ from pydantic import Field
 from pypdf import PdfReader
 
 from src import chat, config, guard, llm
+from src.config import environment as config_environment
 from src.profile import UserProfile
 from src.rag import store
 from src.tools.food import TABLE_COLUMNS, Food
@@ -458,3 +459,13 @@ assert not set(_TURN_DEPS) & set(_TURN_CALLBACKS), "a name is both a dep and a c
 assert not set(_TURN_DEPS + _TURN_CALLBACKS) & set(_RUN_TURN_PARAMETERS), (
     "a TurnDeps or TurnCallbacks field shares its name with a run_turn() parameter"
 )
+
+
+def patch_config(monkeypatch: Any, name: str, value: Any) -> None:
+    """Set a function of config.environment on the package and on that module, for every caller."""
+    # The app reads config.<name> through the package, while functions of config.environment call
+    # each other in their own module (e.g. tracing_demo_unmasked() calls tracing_requested() and
+    # demo_mode(); demo_mode() and sign_in_ready() call auth_configured()): a patch on the package
+    # alone would not reach those calls (T10.8; tests/test_config_package.py lists them).
+    monkeypatch.setattr(config, name, value)
+    monkeypatch.setattr(config_environment, name, value)

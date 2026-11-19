@@ -16,7 +16,7 @@ class LLMError(RuntimeError):
     """A model or embedding call failed; `str()` is a fixed message safe to show the user."""
 
     user_message = "Something went wrong while calling the model service. Please try again."
-    # The key of the message in src/i18n.py, so the UI shows it in the chosen language (T7.1).
+    # The key of the message in src/i18n/, so the UI shows it in the chosen language (T7.1).
     code = "llm.error"
 
     def __init__(self, status_code: int | None = None, diagnostic: str | None = None) -> None:
