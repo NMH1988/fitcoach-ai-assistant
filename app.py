@@ -9,9 +9,9 @@ from views import about, account, navigation, notifications, sidebar
 # One JSON log handler for the app's lines, set up on every rerun (it keeps a single handler, T8.2).
 observability.configure_logging()
 
-# The language: English at the start of a session (owner's choice, T9.5; the browser's before),
-# then the user's choice in the sidebar (T7.1, moved from the header in T9.23) or the start page's
-# link (T9.5). Written once, before the control is drawn, so it is kept for the session.
+# The language: English at the start of a session, whatever the browser's (T9.5), then the user's
+# choice in the sidebar (T7.1, moved from the header in T9.23) or the start page's link (T9.5).
+# Written once, before the control is drawn, so it is kept for the session.
 if i18n.SESSION_KEY not in st.session_state:
     st.session_state[i18n.SESSION_KEY] = config.DEFAULT_LANGUAGE
 # Kept as the session's own value, so a run that draws no language control (the start page) does
@@ -45,7 +45,7 @@ if "conversation" not in st.session_state:
 # The user decides which pages exist in this run (D20): a guest's chat, a new account's welcome
 # page, or a role's pages. The account block sits at the top of the sidebar, under the menu.
 user = account.resolve()
-# The start page has no sidebar (owner's choice, 2026-11-02): it shows its own language link.
+# The start page has no sidebar (T9.5): it shows its own language link.
 on_start = account.needs_start(user)
 if not on_start:
     with st.sidebar:

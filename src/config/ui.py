@@ -11,13 +11,12 @@ CARD_AUTHORS_SHOWN = 3
 # Characters of the question shown on the sidebar's "Last answer" card before "…" (T3.2).
 CARD_QUESTION_CHARS = 60
 # Height of the scrolling message area in the Ask tab; tall enough to read a whole answer on a
-# desktop screen (owner's requests, 2026-10-20: 520, then 650, then 750 to fill a tall window).
+# desktop screen (520 and then 650 were too small to read on a tall window; 750 fills it).
 # On a short window the page scrolls to the chat input.
 CHAT_HEIGHT_PX = 750
 # Most words of the streamed answer shown per second. The real model sends its answer in fast
-# bursts, which looked as if it appeared all at once (owner's request, 2026-10-20). 20 read too
-# slowly in the owner's check; at 30 a 200-word answer takes about 7 s. 0 shows the text as it
-# arrives.
+# bursts, which look as if the answer appeared all at once. 20 read too slowly when tried; at 30 a
+# 200-word answer takes about 7 s. 0 shows the text as it arrives.
 ANSWER_WORDS_PER_SECOND = 30
 # The page uses the wide layout with the content in the middle column: these are the relative
 # widths of the left margin, the content and the right margin. The content takes about three
@@ -25,13 +24,12 @@ ANSWER_WORDS_PER_SECOND = 30
 PAGE_COLUMN_WEIGHTS = (1, 6, 1)
 # The units the profile form and the sidebar start in; the user can switch to imperial.
 DEFAULT_UNIT_SYSTEM = "metric"
-# The language a session starts in (owner's choice, 2026-11-02: English for everyone; from T7.1 to
-# T9.5 it followed the browser's locale); the user can switch to German.
+# The language a session starts in: English for everyone, whatever the browser's locale (T9.5); the
+# user can switch to German.
 DEFAULT_LANGUAGE = "en"
-# The app's title (T9.5, owner's choices of 2026-11-02: the start page's, then every page's): the
-# one rule of app.css that may set
-# colour, a teal-to-green gradient around the theme's greens, every stop at least 3:1 (large text)
-# on both modes' backgrounds, with a solid fallback (tests/test_stylesheet.py checks both).
+# The app's title, shown on every page (T9.5): the one rule of app.css that may set colour, a
+# teal-to-green gradient around the theme's greens, every stop at least 3:1 (large text) on both
+# modes' backgrounds, with a solid fallback (tests/test_stylesheet.py checks both).
 TITLE_GRADIENT = ("#0F7F8C", "#1D9E75", "#4E9A28")
 TITLE_FALLBACK = "#168563"
 # The widest screen the stylesheet treats as a phone: each @media (max-width: Npx) in it uses this
@@ -57,10 +55,10 @@ MACRO_COLORS: dict[str, str] = {
     "Carbohydrate": "#7A6FD0",
     "Fat": "#B87318",
 }
-# The sidebar donut's macro colours (T9.23, owner's choice, 2026-10-31): the palette above cannot
-# keep 3:1 on the deep green sidebar (protein is 2.1:1 on its light-mode secondary background), so
-# the donut uses the dark theme's green, violet and orange, which keep it on both sidebar
-# backgrounds in both modes (tests/test_theme.py). The same hue per macro as MACRO_COLORS.
+# The sidebar donut's macro colours (T9.23): the palette above cannot keep 3:1 on the deep green
+# sidebar (protein is 2.1:1 on its light-mode secondary background), so the donut uses the dark
+# theme's green, violet and orange, which keep it on both sidebar backgrounds in both modes
+# (tests/test_theme.py). The same hue per macro as MACRO_COLORS.
 SIDEBAR_MACRO_COLORS: dict[str, str] = {
     "Protein": "#5DCAA5",
     "Carbohydrate": "#AFA9EC",

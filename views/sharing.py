@@ -1,12 +1,12 @@
 """The gymer's Coach and sharing page (T9.12, AC-20, AC-22): accept a code, share, revoke, end.
 
 Every read and write goes through the store with the session's own user ID (`views/account.py`).
-A gymer has one coach at a time (owner's choice, 2026-11-03). With no coach, the page asks for
-the coach's code and the scopes to share (all off until the gymer ticks them); a refused code gets
-one fixed message per reason, never which of missing, used or expired it was. With a coach, it
-shows the coach's display name (read through `users.display_name_of()`, so the gymer knows who
-sees their data), the scopes to turn on or off, and a way to end the relationship. The coach's
-next read follows each change at once, as the store checks the sharing on every read (D16).
+A gymer has one coach at a time (T9.12). With no coach, the page asks for the coach's code and the
+scopes to share (all off until the gymer ticks them); a refused code gets one fixed message per
+reason, never which of missing, used or expired it was. With a coach, it shows the coach's display
+name (read through `users.display_name_of()`, so the gymer knows who sees their data), the scopes to
+turn on or off, and a way to end the relationship. The coach's next read follows each change at
+once, as the store checks the sharing on every read (D16).
 """
 
 import streamlit as st
@@ -63,7 +63,7 @@ def _accept(user: dict) -> None:
             key=CODE_KEY,
         )
         st.caption(t("sharing.choose"))
-        # What the coach's assistant sends, once for the three boxes (T9.17, compliance run 1).
+        # What the coach's assistant sends, once for the three boxes (T9.17).
         st.caption(t("sharing.assistant"))
         chosen = [scope for scope in SCOPES if st.checkbox(_scope_label(scope), value=False)]
         submitted = st.form_submit_button(
@@ -90,7 +90,7 @@ def _share(user: dict, relationship: dict) -> None:
     """Show the scopes the gymer shares, to turn each on or off."""
     st.subheader(t("sharing.what"))
     st.caption(t("sharing.choose"))
-    # What the coach's assistant sends, once for the three boxes (T9.17, compliance run 1).
+    # What the coach's assistant sends, once for the three boxes (T9.17).
     st.caption(t("sharing.assistant"))
     # Keyed by the relationship, so a new coach's form never starts from an old one's ticks.
     keys = {scope: f"sharing_{relationship['id']}_{scope}" for scope in SCOPES}
@@ -99,7 +99,7 @@ def _share(user: dict, relationship: dict) -> None:
         # The boxes start from the store, and after a failed save take the stored scopes again.
         # Assigned before the boxes are drawn, so Streamlit sends the browser the new values;
         # dropping the keys would not, and the browser would keep (and later send back) the
-        # unsaved ticks (code review round 2). A submitted value is never overwritten.
+        # unsaved ticks. A submitted value is never overwritten.
         if reset or key not in st.session_state:
             st.session_state[key] = scope in relationship["scopes"]
     with st.form("sharing_scopes"):
@@ -113,7 +113,7 @@ def _share(user: dict, relationship: dict) -> None:
             users.set_scopes(conn, user["id"], relationship["id"], wanted)
     except accounts.StoreUnavailable:
         # Nothing was saved: the next run sets the boxes from the store, so they never show a
-        # choice the coach's reads do not follow (code review rounds 1 and 2).
+        # choice the coach's reads do not follow.
         st.session_state[RESET_KEY] = True
         _done("account.store_unavailable", "error")
         return

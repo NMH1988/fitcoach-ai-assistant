@@ -59,7 +59,8 @@ EN: dict[str, str] = {
     "questions.waiting": "Your question is waiting for the coach's answer.",
     "questions.used_up": "You have asked {max} questions under this review, the most it takes.",
     # One fixed message for every refusal by the store (an ended relationship, a scope turned off),
-    # for both sides; it names no scope (code review rounds 1 and 2 of T9.24).
+    # for both sides; it names no scope, as the store gives the same NotFound for every refusal
+    # (T9.25).
     "questions.closed": "Questions can no longer be asked or answered under this review.",
     "questions.refused": "This question was not sent.",
     "questions.empty": "Please type some text first.",
@@ -123,8 +124,7 @@ EN: dict[str, str] = {
     "review.source_range": "Range in the source",
     "review.population": "Studied in",
     # A recommendation's kcal fields (T10.2): shown beside its text, and in the edit form.
-    # "Proposed", so the client does not read the figure as their current target (compliance
-    # run 1 of T10.2's PR; owner's choice, 2026-11-18).
+    # "Proposed", so the client does not read the figure as their current target.
     "review.target_kcal": "Proposed target",
     "review.kcal_change": "Proposed change",
     "review.kcal_per_day": "{value} kcal a day",

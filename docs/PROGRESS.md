@@ -21,6 +21,7 @@ Keep the entry short and record what the code does not say. `tests/test_docs_lay
 
 ---
 
+- [2026-11-19 · T10.9 Comments say why the code is as it is; the history stays in `docs/progress/` · NMH1988/fitcoach-ai-assistant#155 (closes NMH1988/fitcoach-ai-assistant#141)](progress/2026-11-19-T10.9.md)
 - [2026-11-19 · Plan T10.10: split `chat` into a package by concern · NMH1988/fitcoach-ai-assistant#154 (closes NMH1988/fitcoach-ai-assistant#153)](progress/2026-11-19-plan-T10.10.md)
 - [2026-11-19 · T10.8 Split `config` and `i18n` into packages by concern, same behaviour · NMH1988/fitcoach-ai-assistant#151 (closes NMH1988/fitcoach-ai-assistant#140)](progress/2026-11-19-T10.8.md)
 - [2026-11-18 · T10.5 Tools offered by the question's domain, and the program check on the chat's answer · NMH1988/fitcoach-ai-assistant#150 (closes NMH1988/fitcoach-ai-assistant#137)](progress/2026-11-18-T10.5.md)

@@ -49,7 +49,7 @@ def _strict_serializer() -> JsonPlusSerializer:
     """Return the checkpoint serializer that builds only LangGraph's safe list of types."""
     # The default one rebuilds any Python class named in the file, so whoever could write the file
     # could run code on the coach's next decision; a run's state is plain values, and Interrupt and
-    # Command are on the safe list (security-reviewer, 2026-11-06).
+    # Command are on the safe list.
     return JsonPlusSerializer(allowed_msgpack_modules=None)
 
 
@@ -58,7 +58,7 @@ def open_saver(store_path: Path) -> Iterator[SqliteSaver]:
     """Open the checkpointer file next to the store, set up, and close it after the block."""
     # A file that cannot be prepared, opened or written (another session holding its lock past the
     # busy timeout, say) gives the store's one fixed error, with the class name logged only, as
-    # account.open_store() does: an error's text may name the path (T9.16, code review round 1).
+    # account.open_store() does: an error's text may name the path (T9.16).
     try:
         target = threads_path(store_path)
         db.prepare_file(target, own_folder=store_path == config.STORE_PATH)

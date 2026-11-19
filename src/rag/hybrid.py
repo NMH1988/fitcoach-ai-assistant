@@ -111,10 +111,10 @@ def hybrid_search(
     by_meaning = vector_lists(index, vectors, where)
     # Vector search decides whether the sources cover the question at all (RETRIEVAL_MAX_DISTANCE):
     # a keyword match has no distance, and a shared word alone would let an off-topic question
-    # through (owner's choice in T3.3). Only the question's own list decides: the limit was
-    # measured on questions as asked, and one rewrite alone ("VAR and offside rule in football")
-    # can come within it for an off-topic question (owner's choice in T3.8). Once the question is
-    # covered, the rewrites' vector lists and keyword search add their chunks.
+    # through (T3.3). Only the question's own list decides: the limit was measured on questions as
+    # asked, and one rewrite alone ("VAR and offside rule in football") can come within it for an
+    # off-topic question (T3.8). Once the question is covered, the rewrites' vector lists and
+    # keyword search add their chunks.
     if not by_meaning or not by_meaning[0]:
         return []
     allowed = filter_ids(index, where)

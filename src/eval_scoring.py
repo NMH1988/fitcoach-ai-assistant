@@ -104,7 +104,7 @@ class Judge(DeepEvalBaseLLM):
         self._chat = chat_model
         self._recorder = recorder
         self._name = usage.model_name(chat_model)
-        # A traced call carries the turn_id of the answer it scores (T9.8, code review round 8).
+        # A traced call carries the turn_id of the answer it scores (T9.8).
         self._config = {"metadata": tracing.run_metadata(turn_id)}
         super().__init__(self._name)
 

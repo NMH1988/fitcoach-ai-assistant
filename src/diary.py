@@ -5,10 +5,10 @@ exactly, never matched. Its snapshot is the per-100 g values x grams / 100, unro
 round), taken from the table when the entry is written, so a later table never changes it (AC-23);
 an edit writes a new row with a snapshot from the current table. A weight is typed in the user's
 units and stored in kg. The day is today in `Europe/Berlin` or up to `config.DIARY_MAX_DAYS_BACK`
-days back, never a future day. A gymer logs only after saving a profile (owner's choice,
-2026-11-03, compliance review of T9.13): that first Save carries the opt-in tick and the profile's
-18+ check, so the diary never holds data from someone who skipped them. Each error is a
-`DiaryError` whose code is the i18n key of its message, which never repeats what was typed.
+days back, never a future day. A gymer logs only after saving a profile (T9.13): that first Save
+carries the opt-in tick and the profile's 18+ check, so the diary never holds data from someone who
+skipped them. Each error is a `DiaryError` whose code is the i18n key of its message, which never
+repeats what was typed.
 """
 
 import sqlite3

@@ -94,7 +94,7 @@ def _start(user: dict, client_id: str, monday: date) -> None:
         _flash(review.RunResult(outcome="error", error_code=exc.code))
         return
     # A run spends model and embedding calls, so it counts against the session's limit, as a chat
-    # question does (code review round 1); a refusal makes no call.
+    # question does; a refusal makes no call.
     refused = guard.session_limiter(st.session_state).try_acquire()
     if refused is not None:
         st.session_state[FLASH_KEY] = refused
@@ -103,7 +103,7 @@ def _start(user: dict, client_id: str, monday: date) -> None:
         with st.spinner(t("review.running")):
             result = review.start_review(context, user["id"], client_id, monday, lang())
     except accounts.StoreUnavailable:
-        # Shown on the next run, as the caller reruns the page at once (code review round 2).
+        # Shown on the next run, as the caller reruns the page at once.
         _flash(review.RunResult(outcome="error", error_code="account.store_unavailable"))
         return
     if result.error_code and result.error_code.startswith("index."):

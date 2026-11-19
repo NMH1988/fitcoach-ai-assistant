@@ -170,7 +170,7 @@ Deadline: **2026-11-02** (Sprint 2, already submitted by the owner, 2026-10-28).
 | [T10.6](tickets/T10.6.md) | NMH1988/fitcoach-ai-assistant#138 | Prompt caching: the cached share per turn in Details, and a system prompt that stays the same within a turn | S | - | tbd (owner) | done |
 | [T10.7](tickets/T10.7.md) | NMH1988/fitcoach-ai-assistant#139 | The chat turn's dependencies as one `TurnDeps` object, same behaviour | S | - | tbd (owner) | done |
 | [T10.8](tickets/T10.8.md) | NMH1988/fitcoach-ai-assistant#140 | Split `config` and `i18n` into packages by concern, same behaviour | L | T10.7 (order only) | tbd (owner) | done |
-| [T10.9](tickets/T10.9.md) | NMH1988/fitcoach-ai-assistant#141 | Comments say why the code is as it is; the history stays in `docs/progress/` | M | T10.8 (order only) | tbd (owner) | todo |
+| [T10.9](tickets/T10.9.md) | NMH1988/fitcoach-ai-assistant#141 | Comments say why the code is as it is; the history stays in `docs/progress/` | M | T10.8 (order only) | tbd (owner) | done |
 | [T10.10](tickets/T10.10.md) | NMH1988/fitcoach-ai-assistant#152 | Split `chat` into a package by concern, same behaviour | M | T10.9 (order only) | tbd (owner) | todo |
 | **Last** | | | | | | |
 | [T6.2](tickets/T6.2.md) | #20 | README, final checks and transfer to the course repo | S | all, O6 | 11-01 | done |

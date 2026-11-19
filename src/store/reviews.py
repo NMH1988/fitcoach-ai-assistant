@@ -9,8 +9,8 @@ any of them hides a review and blocks a pending one (AC-22); every decision stor
 the time and writes an audit row with no values (AC-29). While a review of a client and week is
 pending or approved, the coach cannot save another one for that week; a rejected one may be run
 again (T9.16). A gymer reads only the approved reviews about them, never the model's draft; a coach
-reads the reviews they wrote, only about clients who still share every scope each one used (owner's
-choices, 2026-10-27).
+reads the reviews they wrote, only about clients who still share every scope each one used, as for
+a read of that data (AC-22).
 """
 
 import json
@@ -295,7 +295,7 @@ def decide_review(
 def is_pending(conn: sqlite3.Connection, coach_id: str, review_id: object) -> bool:
     """Return True while the coach's own review is pending (its status only, no client data)."""
     # The workflow asks after the store refused a decision: a review decided in another tab is no
-    # longer pending, while one whose client revoked a scope still is (T9.16, code review round 1).
+    # longer pending, while one whose client revoked a scope still is (T9.16).
     if not values.is_row_id(review_id):
         return False
     row = conn.execute(_STATUS, (review_id, coach_id)).fetchone()
@@ -306,7 +306,7 @@ def discard_pending(conn: sqlite3.Connection, coach_id: str, thread_id: str) -> 
     """Delete the coach's pending review of a run that failed after saving it, if there is one."""
     # The review was saved but its run cannot wait for the coach (its thread could not be
     # written); no one has seen or decided it, so it goes with its evidence and scopes, and the
-    # week can be run again (T9.16, code review round 1). No audit row: nothing was decided.
+    # week can be run again (T9.16). No audit row: nothing was decided.
     thread = values.text(thread_id, "thread_id")
     with transaction(conn):
         for row in conn.execute(_PENDING_OF_THREAD, (coach_id, thread)).fetchall():

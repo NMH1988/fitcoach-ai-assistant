@@ -350,7 +350,7 @@ def run_turn(question: str, turn: int) -> None:
         coach=memory,
         # A coach's client tools and this chat's references (T9.17); None for a guest. Offered
         # only with the coach's part of the prompt, which explains them: when the store fails and
-        # the coach's memory cannot be read, the turn has neither (code review round 7).
+        # the coach's memory cannot be read, the turn has neither.
         clients=coach_clients_for_turn() if memory is not None else None,
     )
     result = turns.run_turn(

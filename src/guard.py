@@ -2,10 +2,9 @@
 
 Checks run in this order: too long (raw), empty, too long (cleaned), prompt-injection
 patterns, the domain guardrails (`src/guardrails.py`, T5.3), then the per-session rate limit.
-Only a message that passes every check counts against the rate limit (owner's choice in T1.3),
-and a rejected message never reaches a model: callers go through `run_guarded()`, and a chat
-turn through the guard node that starts its graph (`src/agent/graph.py`, T9.2). The patterns
-cover English and German (T7.4).
+Only a message that passes every check counts against the rate limit (T1.3), and a rejected message
+never reaches a model: callers go through `run_guarded()`, and a chat turn through the guard node
+that starts its graph (`src/agent/graph.py`, T9.2). The patterns cover English and German (T7.4).
 """
 
 import math
@@ -81,7 +80,7 @@ _OWNED = rf"'s (?:{_FOOD_WORDS})\b| (?:(?:from|with|by|that|which) )?(?:my|his|h
 # a longer name ("this chat app", "this AI tool"), unless it names a plan ("this AI meal plan").
 # Elsewhere a chat word in a longer name or owned by someone else is not the chat ("the
 # AI-generated meal plan", "the AI meal plan my app made", "the message from my dietitian").
-# Owner's choice in T1.3: "this AI app I downloaded" is rejected with the attacks.
+# "this AI app I downloaded" is rejected with the attacks (T1.3).
 _CHAT_WORDS = (
     rf"(?:(?:(?<=this )|(?<=our ))(?:{_CHAT_NOUNS}|session|model)"
     rf"(?!\w|-(?:generated|powered|written|made|based)\b| {_FOOD_COMPOUND}\b)"
@@ -151,8 +150,8 @@ _FOLDED_PATTERNS = [
     rf"\b{_OVERRIDE_VERBS}{_GAP} {_OWN_QUALIFIERS}{_GAP} (?:{_STRONG_NOUNS}|{_WEAK_NOUNS})\b",
     rf"\b{_OVERRIDE_VERBS}{_GAP} {_OTHER_QUALIFIERS}{_GAP} {_STRONG_NOUNS}\b{_NOT_THIRD_PARTY}",
     rf"\b{_OVERRIDE_VERBS} (?:the )?{_STRONG_NOUNS} (?:{_ABOVE}|you were given)",
-    # Also rejects a self-correction such as "ignore the above, I meant 80 kg": owner's choice in
-    # T1.3 (docs/SECURITY.md, known limits); the message asks the user to rephrase.
+    # Also rejects a self-correction such as "ignore the above, I meant 80 kg", a known limit
+    # (T1.3; docs/SECURITY.md); the message asks the user to rephrase.
     rf"\b{_OVERRIDE_VERBS} (?:the |everything |anything |all )?(?:{_ABOVE}|before this\b)",
     rf"\b{_OVERRIDE_VERBS} (?:what|everything|anything) you(?: were|'ve been| have been) told\b",
     rf"\b(?:rules|instructions|guidelines) you (?:were|have been) (?:given|told)\b{_NOT_HOW_TO}",
@@ -557,7 +556,7 @@ def check_for_a_person(text: str, max_chars: int) -> GuardResult:
     # check (a pattern there could only refuse a harmless text) and no rate limit (it makes no
     # call). The domain guardrails still refuse what the app does not advise on, on the same
     # detection views as the chat, so a question about pain, an injury, medication, pregnancy,
-    # drug dosing or eating below the floor is not sent (owner's choice, 2026-11-06).
+    # drug dosing or eating below the floor is not sent.
     if len(text) > config.MAX_RAW_INPUT_CHARS:
         return _reject(Rejection.TOO_LONG, TOO_LONG_MESSAGE)
     cleaned = clean_input(text)

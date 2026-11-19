@@ -27,13 +27,13 @@ RELEASE_PATTERN = re.compile(r"FoodData_Central_foundation_food_csv_(\d{4}-\d{2}
 # The zip also holds the lab samples behind each food; only the foods themselves are kept.
 FOUNDATION_DATA_TYPE = "foundation_food"
 
-# Nutrient IDs (nutrient.csv) for each column, most preferred first. Energy: in release
-# 2026-04-30, 312 foundation foods have both 2047 (Atwater general factors: 4, 9, 4 kcal per g)
-# and 2048 (specific factors per food), 35 only 2047 and 31 only the older 1008,
-# which mostly matches 2048 (within 1 kcal for 70 of the 98 foods with both). 2048 comes first
-# (owner's choice in T4.3): it is more exact for each food (raw almonds 584 kcal instead of 626,
-# creamy peanut butter 589 instead of 632) and closer to 1008. Carbohydrate is "by difference"
-# (1005). Total dietary fiber is 1079 or, for some foods, 2033 (AOAC 2011.25 method).
+# Nutrient IDs (nutrient.csv) for each column, most preferred first. Energy: in release 2026-04-30,
+# 312 foundation foods have both 2047 (Atwater general factors: 4, 9, 4 kcal per g) and 2048
+# (specific factors per food), 35 only 2047 and 31 only the older 1008, which mostly matches 2048
+# (within 1 kcal for 70 of the 98 foods with both). 2048 comes first (T4.3): it is more exact for
+# each food (raw almonds 584 kcal instead of 626, creamy peanut butter 589 instead of 632) and
+# closer to 1008. Carbohydrate is "by difference" (1005). Total dietary fiber is 1079 or, for some
+# foods, 2033 (AOAC 2011.25 method).
 NUTRIENT_IDS: dict[str, tuple[str, ...]] = {
     "kcal": ("2048", "2047", "1008"),
     "protein_g": ("1003",),

@@ -47,11 +47,11 @@ _TO_BETWEEN_NUMBERS = re.compile(r"(?<=\d)\s*(?:to|bis)\s*(?=\d)")
 _SPACE_AROUND_DASH = re.compile(r"\s*-\s*")
 _SPACES = re.compile(r"\s+")
 # A figure: digits with thousands or decimal marks, and "k" for a thousand when no letter follows
-# it ("1k kcal"; "1000kcal" is 1000, never 1000k: code review round 7).
+# it ("1k kcal"; "1000kcal" is 1000, never 1000k).
 _FIGURE = r"\d+(?:[.,]\d+)*(?:k(?![a-z]))?"
 # One optional approximate word before a figure of a range ("between about 1,000 and 1,300 kcal",
-# "zwischen ca. 1.000 und etwa 1.300 kcal"), so the lower end is not lost (code review round 8).
-# It starts a word, so "some" in "wholesome" is no approximate word (code review round 9).
+# "zwischen ca. 1.000 und etwa 1.300 kcal"), so the lower end is not lost. It starts a word, so
+# "some" in "wholesome" is no approximate word.
 _APPROXIMATE = (
     r"(?:\b(?:" + "|".join(re.escape(word) for word in config.REVIEW_KCAL_APPROXIMATE) + r")\s+)?"
 )
@@ -60,7 +60,7 @@ _LETTER_WORD = re.compile(r"[^\W\d_]+")
 # A kcal figure, or a range of two, checked from its lower end: "between X and Y" ("zwischen X und
 # Y"), or X and Y joined by a dash, "to", "bis", "up to" or "bis zu" ("pair" or "low" is the lower
 # end, "high" the figure or the upper end). A unit may follow a hyphen ("a 1,000-calorie day") and
-# be written in any of its usual forms ("kcals", "Kilokalorien") (code review rounds 6 and 7).
+# be written in any of its usual forms ("kcals", "Kilokalorien").
 _PAIR = r"(?:between|zwischen)\s+" + _APPROXIMATE + r"(?P<pair>" + _FIGURE + r")\s*(?:and|und)\s*"
 _LOW = r"(?P<low>" + _FIGURE + r")\s*(?:[\u2010-\u2015\u2212-]|to|bis|up\s+to|bis\s+zu)\s*"
 _UNIT = r"\s*-?\s*(?:k?cals?|kilo\s?calories?|calories?|kilokalorien|kalorien)\b"
@@ -69,9 +69,9 @@ _KCAL = re.compile(
     re.I,
 )
 # A mark that ends a sentence: a full stop, "!", "?" or ";" before a capital letter or the end, so
-# "2.500", "ca." and "e.g." do not cut a sentence short (code review round 7). German capitalises
-# nouns, so "z. B." before a noun still ends one; a change verb before it is then not seen and the
-# figure is read as an intake, which fails safe (code review round 8).
+# "2.500", "ca." and "e.g." do not cut a sentence short. German capitalises nouns, so "z. B."
+# before a noun still ends one; a change verb before it is then not seen and the figure is read as
+# an intake, which fails safe.
 _SENTENCE_END = re.compile(r"[.!?;](?=\s+[A-ZÄÖÜ]|\s*$)")
 
 # The fixed text the model gets back for each failed check, on the one retry (English, as the
@@ -542,7 +542,7 @@ def _is_change(raw_before: str, after: str, sentence: str) -> bool:
     """Return True if the words around a kcal figure make it a change, not an intake."""
     before = raw_before.rstrip()
     # A sign touching the figure ("-300 kcal"); "Target - 1,000 kcal" has a dash, not a sign, and
-    # a dash right after a digit is never read as a sign (code review round 6).
+    # a dash right after a digit is never read as a sign.
     if (
         raw_before.endswith(config.REVIEW_KCAL_SIGNS)
         and not raw_before[:-1].rstrip()[-1:].isdigit()
@@ -552,15 +552,14 @@ def _is_change(raw_before: str, after: str, sentence: str) -> bool:
     if words and words[-1] in config.REVIEW_KCAL_CHANGE_BEFORE:
         # "by"/"um" with a change verb in the same sentence, before the figure or after it as
         # German often puts it ("Die Zufuhr um 300 kcal senken"); "Die Zufuhr sollte um 1.000
-        # kcal liegen" is an intake (code review rounds 6 and 7). A zu-infinitive counts only as a
-        # whole word (round 9).
+        # kcal liegen" is an intake. A zu-infinitive counts only as a whole word.
         if any(verb in sentence for verb in config.REVIEW_KCAL_CHANGE_VERBS):
             return True
         if set(_LETTER_WORD.findall(sentence)) & set(config.REVIEW_KCAL_CHANGE_WORDS):
             return True
     following = [word.strip(".,;:").rstrip(")") for word in after.split()]
     # Only closing marks are stripped: "1,000 kcal (less than usual)" is an intake with a remark,
-    # not a change (code review round 5); "more or less" is no change (round 6).
+    # not a change; "more or less" is no change.
     if not following or following[0] not in config.REVIEW_KCAL_CHANGE_AFTER:
         return False
     return following[1:3] not in (["or", "less"], ["oder", "weniger"])
@@ -579,8 +578,8 @@ def _kcal_below_floor(text: str) -> bool:
     """Return True if the text holds a kcal figure below the floor that is not a change."""
     # A recommendation names no kcal figure below the floor at all, not even the client's current
     # intake: "an average of 1,000 kcal" reads as a target as easily as a fact, so the current value
-    # belongs in an observation (owner's choice, 2026-11-05, code review round 2; the prompt says
-    # so). Only a change ("by 300 kcal", "a 300 kcal deficit") is not an intake.
+    # belongs in an observation (T9.16; the prompt says so). Only a change ("by 300 kcal", "a 300
+    # kcal deficit") is not an intake.
     for match in _KCAL.finditer(text):
         before = text[: match.start()].lower()
         after = text[match.end() :].lstrip().lower()
@@ -687,8 +686,8 @@ def _safety_checks(
         if guardrails.matches_any(config.REVIEW_DIAGNOSIS_PATTERNS, _texts(item)):
             errors.append("diagnosis")
     # A hypothesis that cites a source gets the floor check too: its figure comes from the source,
-    # not the client's week, and may read as advice (security-reviewer, 2026-11-06); one without a
-    # citation may name the client's own current intake, as an observation does.
+    # not the client's week, and may read as advice; one without a citation may name the client's
+    # own current intake, as an observation does.
     cited_hypotheses = [h for h in review.get("hypotheses", ()) if h.get("evidence")]
     for item in cited_hypotheses:
         if any(_kcal_below_floor(text) for text in _texts(item)):
@@ -716,7 +715,7 @@ def validate(review: Mapping, chunks: Sequence[RetrievedChunk], metrics: Mapping
     errors: list[str] = []
     allowed = _metric_values(metrics) | {float(config.CALORIE_FLOOR_KCAL)}
     # An observation comes from <metrics> only (the prompt says so): a citation would let it carry a
-    # source's figure, worded as advice, past the floor check (security-reviewer, 2026-11-06).
+    # source's figure, worded as advice, past the floor check.
     if any(item.get("evidence") for item in review.get("observations", ())):
         errors.append("observation_evidence")
     for item in _items(review):
@@ -772,7 +771,7 @@ def sets_kcal_change(review: object) -> bool:
 def check_approval(draft: Mapping, metrics: Mapping) -> list[str]:
     """Return the failed floor checks of a draft's kcal fields against the client's target now."""
     # The draft passed every check against the week's target; on Approve, a kcal_change is added
-    # to the target in force when the coach decides, as on an edit (owner's choice, 2026-11-18).
+    # to the target in force when the coach decides, as on an edit (T10.2).
     target = current_target_kcal(metrics)
     errors: list[str] = []
     for item in with_kcal_fields(draft).get("recommendations", ()):

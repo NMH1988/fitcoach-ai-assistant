@@ -4,7 +4,7 @@
 # calculate_macro_targets can tell old targets apart; bump it when that calculation changes.
 TARGET_CALC_VERSION = "macro-targets-1"
 
-# calculate_tdee (docs/ARCHITECTURE.md section 6). Values approved by the owner on 2026-10-19 (O3);
+# calculate_tdee (docs/ARCHITECTURE.md section 6). Values approved by the owner (O3);
 # the numbers in brackets are source IDs in docs/SOURCES.md.
 # Mifflin-St Jeor resting energy in kcal/day: 10 x kg + 6.25 x cm - 5 x years, plus 5 for men or
 # minus 161 for women [22].
@@ -97,11 +97,11 @@ FOOD_MAX_ALTERNATIVES = 3
 # Decimal places of the scaled values (grams of nutrients); kcal are rounded to whole numbers.
 FOOD_DECIMALS = 1
 
-# The USDA FoodData Central API (T9.9; docs/SOURCES.md #21; copyright policy rule 10, changed with
-# the owner's approval on 2026-11-06): the chat's food tool asks it only when the Foundation Foods
-# table has no close match, and only when the owner's api.data.gov key is set. One search per
-# lookup, with only the food name and the fixed fields below in the request body; the key goes in a
-# header, never in the URL; redirects are refused, so the key never reaches another host.
+# The USDA FoodData Central API (T9.9; docs/SOURCES.md #21; copyright policy rule 10): the chat's
+# food tool asks it only when the Foundation Foods table has no close match, and only when the
+# owner's api.data.gov key is set. One search per lookup, with only the food name and the fixed
+# fields below in the request body; the key goes in a header, never in the URL; redirects are
+# refused, so the key never reaches another host.
 FOOD_API_URL = "https://api.nal.usda.gov/fdc/v1/foods/search"
 # The data types USDA makes itself, which its pages say are public domain (CC0 1.0). Branded and
 # Experimental foods are left out: USDA's pages do not confirm CC0 for them (copyright policy rule

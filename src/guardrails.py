@@ -24,8 +24,8 @@ class Concern(StrEnum):
     """Why a question is refused or redirected."""
 
     # First, here and in find_concern(): its message names the emergency number, so pain said
-    # together with drug use, an age under 18, pregnancy or a medication gets it (owner's choice,
-    # 2026-10-28). The message gives no advice either, so no refusal is lost.
+    # together with drug use, an age under 18, pregnancy or a medication gets it. The message
+    # gives no advice either, so no refusal is lost.
     INJURY = "injury"
     PED_DOSING = "ped_dosing"
     MINOR = "minor"
@@ -166,7 +166,7 @@ _PREGNANCY_PATTERNS = [
 
 # --- Medical conditions and medication (any mention) --------------------------------------
 # A disease named anywhere is redirected, research questions too ("does sugar cause diabetes?"):
-# owner's choice in the review of PR #46, as diseases are out of scope (docs/PRD.md).
+# diseases are out of scope (docs/PRD.md).
 _DISEASES = (
     r"(?:(?:pre-?)?diabetes|type [12] diabetes|t[12]d|kidney (?:failure|stones?)"
     r"|renal (?:disease|failure|insufficiency)|ckd|fatty liver|cirrhosis|hepatitis"
@@ -232,24 +232,22 @@ _MEDICAL_PATTERNS = [
 # --- Pain, injuries, rehabilitation (T9.19a) ---------------------------------------------------
 # An injury, rehabilitation or physiotherapy named anywhere (as a disease is), joint pain, and
 # pain the user has during or after training. Muscle soreness is answered: "DOMS", "sore muscles
-# after leg day", "muscle damage" (a research term) and muscle pain after training pass (owner's
-# choice, 2026-10-28), so the general pain patterns count only in a sentence that names no
-# muscle as the thing that is sore (_outside_muscle_talk); joint pain and named injuries count
-# anywhere. "Sore" counts only with a joint: a sore chest, back or shoulders after a session is
-# soreness (owner's choice, 2026-10-28).
+# after leg day", "muscle damage" (a research term) and muscle pain after training pass, so the
+# general pain patterns count only in a sentence that names no muscle as the thing that is sore
+# (_outside_muscle_talk); joint pain and named injuries count anywhere. "Sore" counts only with a
+# joint: a sore chest, back or shoulders after a session is soreness.
 _BODY_PARTS = (
     r"(?:joints?|knees?|(?:lower |upper )?back|shoulders?|elbows?|wrists?|hips?|ankles?|neck"
     r"|chest|feet|foot|heels?|achilles|spine|groin|rotator cuff)"
 )
 _JOINTS = r"(?:joints?|knees?|elbows?|wrists?|hips?|ankles?|heels?|feet|foot|achilles)"
 # Muscle words in either language, as the sentence check runs on the same folded text. Muscle as
-# a goal does not count (owner's choice, 2026-10-28): "to build muscle", "lean muscle", "muscle
-# growth", "Muskelaufbau", "mehr Muskeln", so "I get pain when I squat to build muscle" is
-# still redirected; a sore muscle always counts ("more muscle pain than usual", "mehr
-# Muskelkater"). Muscle in a nutrition phrase does not count either ("muscle protein
-# synthesis", "for my muscles", "für meine Muskeln", "Muskelproteinsynthese"; owner's choice,
-# 2026-10-28). No umlaut inside a lookbehind: german() would make it variable-width ("für" is
-# matched as "fur" in the guard's accent-free view, and as "fuer" when typed so).
+# a goal does not count: "to build muscle", "lean muscle", "muscle growth", "Muskelaufbau", "mehr
+# Muskeln", so "I get pain when I squat to build muscle" is still redirected; a sore muscle always
+# counts ("more muscle pain than usual", "mehr Muskelkater"). Muscle in a nutrition phrase does
+# not count either ("muscle protein synthesis", "for my muscles", "für meine Muskeln",
+# "Muskelproteinsynthese"). No umlaut inside a lookbehind: german() would make it variable-width
+# ("für" is matched as "fur" in the guard's accent-free view, and as "fuer" when typed so).
 _MUSCLE_WORDS = (
     r"(?:muscles? (?:pains?|aches?|aching|soreness|cramps?)"
     r"|muskel(?:kater|schmerz|krampf|krämpf)\w*"
@@ -513,8 +511,8 @@ _DE_SIDE_EFFECTS = (
 )
 # Lab values ("Nierenwerte", "Leberwerte") are a research question on their own ("Erhöht Kreatin
 # meine Nierenwerte?" is answered from the sources, as "does creatine raise my creatinine?" is in
-# English; owner's choice, 2026-10-21); they count only when said to be bad, high or abnormal
-# ("Meine Nierenwerte sind erhöht", "Ich habe schlechte Leberwerte").
+# English); they count only when said to be bad, high or abnormal ("Meine Nierenwerte sind erhöht",
+# "Ich habe schlechte Leberwerte").
 _DE_LAB_VALUES = r"(?:nieren|leber|schilddrüsen)werte?n?"
 _DE_BAD = (
     r"(?:schlecht|erhöht|zu hoch|hoch|zu niedrig|auffällig|abnormal|abnorm|kritisch"
@@ -766,9 +764,9 @@ def matches_any(patterns: Sequence[str], texts: Iterable[str]) -> bool:
 
 def reads_as_program_schedule(answer: str) -> bool:
     """Return True if the answer holds a day-by-day or weekday schedule (a written program)."""
-    # Markdown emphasis is removed first, so "**Monday**:" reads as "Monday:" (owner's choice,
-    # 2026-11-18): a normalisation, not another pattern. A list of exercises each with its own
-    # sets and reps is not caught here: the patterns that would catch it also catch a cited
-    # protocol, so the answer prompt alone forbids it (docs/TESTING.md, known limits).
+    # Markdown emphasis is removed first, so "**Monday**:" reads as "Monday:": a normalisation, not
+    # another pattern. A list of exercises each with its own sets and reps is not caught here: the
+    # patterns that would catch it also catch a cited protocol, so the answer prompt alone forbids
+    # it (docs/TESTING.md, known limits).
     plain = re.sub(r"[*_]", "", answer)
     return matches_any(config.PROGRAM_SCHEDULE_PATTERNS, (plain,))

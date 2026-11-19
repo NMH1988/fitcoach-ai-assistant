@@ -27,7 +27,7 @@ DISCLAIMER = (
 # agent decides whether to search, and its replies stay hidden until a search finds a relevant chunk
 # or a tool gives a result (BASIS_TOOL_STATUSES). A reply before that with no tool call, or a search
 # that finds nothing with no tool result, ends the turn with this message and no further model call
-# (owner's choice, 2026-10-29).
+# (T9.3).
 NO_SOURCES_MESSAGE = (
     "Our sources do not cover this question, so there is no answer from the research. Try a "
     "question about protein, carbohydrate, fat, energy balance, nutrient timing or supplements "

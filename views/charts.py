@@ -157,8 +157,8 @@ WEEK_MACROS = {"Protein": "protein_g", "Carbohydrate": "carbohydrate_g", "Fat": 
 
 
 def _tip(field: str, title: str) -> dict:
-    """Return a tooltip entry with a translated title, so no column name shows (round 3)."""
-    # The title names the quantity without its unit: the value shows the unit (round 4).
+    """Return a tooltip entry with a translated title, so no column name shows."""
+    # The title names the quantity without its unit: the value shows the unit.
     return {"field": field, "type": "nominal", "title": title}
 
 
@@ -330,12 +330,12 @@ def weight_trend(
                 "type": "temporal",
                 "title": None,
                 # Vega reads "2026-10-29" as UTC midnight, so the scale and labels stay in UTC: in
-                # local time a browser west of UTC would show the day before (code review round 2).
+                # local time a browser west of UTC would show the day before.
                 "scale": {"type": "utc"},
                 # At most one tick a day: with fewer days than ticks, Vega labelled each day twice.
                 # Each label is the ISO day in UTC, as the rest of the page writes it: with
                 # `formatType: "utc"` Vega dropped the format and wrote "Thu 29" (English in the
-                # German UI too; the owner's screenshots of 2026-11-05).
+                # German UI too).
                 "axis": {
                     "labelExpr": "utcFormat(datum.value, '%Y-%m-%d')",
                     "tickMinStep": 86_400_000,

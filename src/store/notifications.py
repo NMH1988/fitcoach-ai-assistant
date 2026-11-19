@@ -7,7 +7,7 @@ relationships, that the client connected (with the scopes shared at the start), 
 client started or stopped sharing later, and that the relationship ended; a gymer sees that they
 are connected with their coach, each weekly review a coach approved about them (never a pending or
 rejected one) and that a relationship ended. Both sides see "ended", as the store does not record
-who ended it (owner's choice, 2026-11-06).
+who ended it.
 
 The store writes `accepted_at` and the first scopes' `granted_at` with separate clock reads, so a
 scope granted within `config.NOTIFICATIONS_SAME_EVENT_SECONDS` after the code was accepted counts
@@ -26,12 +26,12 @@ coach's too, as with reviews): the coach's name and the time, never a food or an
 
 A notification holds its kind, its time, the other side's display name (`users.display_name_of()`,
 not audited), the scope and the week; never a value, a metric, a review's text or a question's or
-answer's text. Reading the relationship and review kinds is not audited (owner's choice,
-2026-11-06): they come from the user's own relationship rows, which both sides see, and from the
-approved reviews about a gymer, which are theirs to read. A coach's question notifications read a
-client's thread, so they are audited (a `read` of `review_questions` per client), but only when
-the caller passes `audited=True`, as the Notifications page does; the sidebar's count and the
-toasts, which run on every page, do not (the middle way, owner's choice, 2026-11-08).
+answer's text. Reading the relationship and review kinds is not audited: they come from the user's
+own relationship rows, which both sides see, and from the approved reviews about a gymer, which are
+theirs to read. A coach's question notifications read a client's thread, so they are audited (a
+`read` of `review_questions` per client), but only when the caller passes `audited=True`, as the
+Notifications page does; the sidebar's count and the toasts, which run on every page, do not, so the
+audit is not filled with page loads (T9.30).
 
 The read mark holds only the reader's own ID and a time ("read up to": when the page that was
 marked had loaded the list, so nothing stored after it is marked read unseen). A notification is
@@ -131,7 +131,7 @@ def _moment(text: str) -> datetime:
 def _granted_at_start(relationship: sqlite3.Row, consents: list[sqlite3.Row]) -> set[int]:
     """Return the IDs of the consents granted with the code: each scope's first, in the window."""
     # Only a scope's first consent can be the start's: one turned off and on again within the
-    # window is a change of its own (code review round 1), so the coach is told it is shared again.
+    # window is a change of its own, so the coach is told it is shared again.
     window = timedelta(seconds=config.NOTIFICATIONS_SAME_EVENT_SECONDS)
     accepted = _moment(relationship["accepted_at"])
     first: dict[str, sqlite3.Row] = {}
@@ -146,7 +146,7 @@ def _relationship_events(
     """Return one relationship's notifications for one side: connected, scope changes, ended."""
     at_start = _granted_at_start(relationship, consents)
     # A key holds the row's time too: SQLite may give a deleted row's ID to a new row, which must
-    # not count as toasted already (code review round 1).
+    # not count as toasted already.
     found = [
         Notification(
             "connected",
@@ -291,7 +291,7 @@ def list_notifications(
 def mark_all_read(conn: sqlite3.Connection, user_id: str, seen_at: datetime | None = None) -> None:
     """Mark as read what the reader saw: up to `seen_at` (when the list was loaded), or now."""
     # The page passes the time it loaded the list, so an event stored between that load and the
-    # click is not marked read unseen (code review round 1); a time in the future counts as now.
+    # click is not marked read unseen; a time in the future counts as now.
     user_id = values.user_id(user_id)
     now = _now()
     read_up_to = values.utc_text(now if seen_at is None else min(seen_at, now))

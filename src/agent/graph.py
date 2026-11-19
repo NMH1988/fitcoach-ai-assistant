@@ -12,13 +12,12 @@ and a `ToolNode` loop for at most `MAX_TOOL_ROUNDS` rounds; the
 arguments, fixed messages). The agent decides whether to search: a food or calculator question
 needs no research passage (the Sprint 2 review, point 3).
 
-Its replies stay hidden until the answer has a basis: a search found a relevant chunk or a tool
-gave a result (`config.BASIS_TOOL_STATUSES`). A reply with no tool call before that, or a round
-whose searches found nothing with no tool result, ends the turn with the "not covered" message and
-no further model call (AC-2; owner's choice in T9.3, 2026-10-29). In a coach's chat (T9.7) a
-`remember_preference` call is no basis either; a turn that proposed (or was refused) and then
-gave no answer with a basis ends with a fixed line about the proposal (kind `memory`) instead,
-unless its searches found nothing.
+Its replies stay hidden until the answer has a basis: a search found a relevant chunk or a tool gave
+a result (`config.BASIS_TOOL_STATUSES`). A reply with no tool call before that, or a round whose
+searches found nothing with no tool result, ends the turn with the "not covered" message and no
+further model call (AC-2; T9.3). In a coach's chat (T9.7) a `remember_preference` call is no basis
+either; a turn that proposed (or was refused) and then gave no answer with a basis ends with a fixed
+line about the proposal (kind `memory`) instead, unless its searches found nothing.
 
 The caller passes the text and the conversation's earlier messages (T9.4), and gets back only the
 `TurnResult` and the question the guard accepted: the messages and the tool runs are private state.
@@ -541,9 +540,9 @@ def finish(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
     # The proposal waits for the coach after the turn, whatever the turn's answer (T9.7).
     pending = {"proposal": proposals.texts[0]} if proposals.texts else {}
     if answer is None and (proposals.texts or proposals.refused) and not state.get("stopped"):
-        # The model was asked again after the proposal (owner's choice, 2026-11-03) and gave no
-        # answer with a basis: "keep answers short" asked for nothing else, so a fixed line about
-        # the proposal (or why none was made) stands in for "not covered" (AC-2 still holds).
+        # The model was asked again after the proposal (T9.7) and gave no answer with a basis: "keep
+        # answers short" asked for nothing else, so a fixed line about the proposal (or why none was
+        # made) stands in for "not covered" (AC-2 still holds).
         code = "memory.proposed" if proposals.texts else f"memory.refused.{proposals.refused[0]}"
         result = TurnResult(
             "memory", chat.memory_text(code, "en"), searches=searches, tool_runs=runs, code=code
@@ -551,7 +550,7 @@ def finish(state: TurnState, runtime: Runtime[TurnContext]) -> dict[str, Any]:
         return {"result": result, **pending}
     if answer is None:
         # The tool runs stay with "not covered", so a tool that failed or a call that was refused
-        # shows in Tool results rather than being hidden behind it (owner's choice, 2026-10-29).
+        # shows in Tool results rather than being hidden behind it (T9.3).
         result = TurnResult(
             "no_sources",
             config.NO_SOURCES_MESSAGE,

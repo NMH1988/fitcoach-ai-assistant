@@ -24,8 +24,8 @@ URL_PATH = "workouts"
 DRAFT_KEY = "workout_draft"
 EDITING_KEY = "workout_editing"
 # The day field's widget key, and the day itself in a plain key: Streamlit drops a widget's state
-# when another page is opened, while the draft and the edited workout's ID are kept (code review
-# round 1), so the field is given the kept day again on every run.
+# when another page is opened, while the draft and the edited workout's ID are kept, so the field
+# is given the kept day again on every run.
 DAY_KEY = "workout_day"
 KEPT_DAY_KEY = "workout_kept_day"
 WEEK_KEY = "workout_week"
@@ -122,7 +122,7 @@ def _save() -> None:
     try:
         with accounts.open_store(account.store_path()) as conn:
             # Checked again at the write: the profile may have been deleted in another tab. No
-            # notice: the next run's note on saving the profile first says it (round 4).
+            # notice: the next run's note on saving the profile first says it.
             if not accounts.has_profile_entries(conn, user_id):
                 return
             if editing is None:
@@ -235,7 +235,7 @@ def _set_fields(system: units.UnitSystem) -> None:
 def _has_agreed(user: dict) -> bool:
     """Return True if the gymer has saved a profile, so they ticked that their data is stored."""
     # The first-save tick of T9.5 is on the profile form: until a profile is saved (none yet, or
-    # all deleted on My data), no workout is stored (compliance run 1 on T9.14, owner's choice).
+    # all deleted on My data), no workout is stored (T9.14).
     with accounts.open_store(account.store_path()) as conn:
         return accounts.has_profile_entries(conn, user["id"])
 
@@ -312,7 +312,7 @@ def _week(user: dict, system: units.UnitSystem) -> None:
     if week.exercises:
         st.dataframe(tables.training_week_table(week, system, lang()), hide_index=True)
         st.caption(t("workouts.volume_note"))
-    # Edit would replace the draft, so it waits until the draft is saved or discarded (round 2).
+    # Edit would replace the draft, so it waits until the draft is saved or discarded.
     drafting = bool(_draft())
     for session in sorted(sessions, key=lambda item: (item["performed_on"], item["id"])):
         with st.container(border=True):

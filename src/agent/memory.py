@@ -4,8 +4,8 @@ The conversation graph, `turn -> forget`, is compiled with an `InMemorySaver` an
 of messages per `thread_id`. Its `turn` node runs the chat turn's own graph (`src/agent/graph.py`),
 which is never checkpointed, on the thread's messages; when the turn is answered, the thread keeps
 the question as the model got it (inside <user_input>) and the answer without its [S#] citations
-(owner's choices, 2026-10-30). The turn's raw text, its tool calls and results and its <sources>
-never reach the checkpointer, so a rejected message, a profile value and a chunk are not in memory.
+(T9.4). The turn's raw text, its tool calls and results and its <sources> never reach the
+checkpointer, so a rejected message, a profile value and a chunk are not in memory.
 Beside each kept question the thread keeps the turn's domain (nutrition, training, both or unknown,
 T10.5), by the question's message id, so a later turn offers its tools by the whole conversation the
 model sees, not by a short follow-up read on its own. `forget` deletes the oldest messages beyond
@@ -112,7 +112,7 @@ def turn(state: ConversationState, runtime: Runtime[ConversationContext]) -> dic
         raise
     except Exception as exc:
         # Not raised here: LangGraph would save the error as the task's pending write, with its
-        # text, which may hold the question, a chunk or a server's reply (code review, round 1).
+        # text, which may hold the question, a chunk or a server's reply.
         # BaseException (Streamlit's rerun and stop) is not caught.
         runtime.context.errors.append(exc)
         return {"proposal": None, "awaiting": False}

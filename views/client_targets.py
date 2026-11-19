@@ -7,7 +7,7 @@ client who stopped sharing (or ended the relationship) since the page was drawn 
 with one fixed message whatever the reason. The form never edits a target: each Save is a new row,
 which the client reads as set by their coach and cannot change or delete alone. The fields start
 from the client's target active today, whichever week the page shows, as a new target starts today
-(owner's choice, 2026-11-06, code review round 2): a past week's target never comes back unseen.
+(T9.17): a past week's target never comes back unseen.
 """
 
 import streamlit as st
@@ -24,8 +24,8 @@ FORM_KEY = "client_targets_form"
 # The outcome of the last Save, shown once on the next run: ("saved", day) or ("refused", code).
 FLASH_KEY = "client_targets_flash"
 # The client the form's fields were last filled for: a keyed number input keeps its value across
-# runs, so another client clears the fields and they start from that client's target (code review
-# round 1). The key holds no ID: Streamlit writes widget keys into the page.
+# runs, so another client clears the fields and they start from that client's target. The key holds
+# no ID: Streamlit writes widget keys into the page.
 SHOWN_FOR_KEY = "client_targets_shown_for"
 FIELDS = ("kcal", "protein_g", "carbs_g", "fat_g")
 _LABELS = {

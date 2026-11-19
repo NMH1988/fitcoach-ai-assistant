@@ -36,9 +36,9 @@ if TYPE_CHECKING:
 
 SEARCH_TOOL = "search_knowledge_base"
 # What the model reads about the tool: what it does, what it returns, and that the query carries no
-# personal values (owner's choice of 2026-10-29, after the compliance review: the query goes to the
-# query translation and embedding models). When to call it is the owner's to write (O8). The
-# training reviews joined in T9.19, so the model learns it may search training principles (T9.20).
+# personal values (T9.3: the query goes to the query translation and embedding models). When to
+# call it is the owner's to write (O8). The training reviews joined in T9.19, so the model learns it
+# may search training principles (T9.20).
 SEARCH_DESCRIPTION = (
     "Search the app's research knowledge base (openly licensed review articles and position "
     "stands on nutrition for strength training, and reviews on resistance training principles) "

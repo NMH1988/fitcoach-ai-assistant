@@ -1,10 +1,9 @@
 """The start page, the account block in the sidebar, the welcome page and the session's user.
 
 When sign-in is set up, a new session opens on the start page and nothing else is reachable until
-the visitor signs in with Google: there is no guest then (owner's choices, 2026-11-02). In demo
-mode the start page offers the made-up users instead. With no [auth] section the app opens as a
-guest, with a note in the sidebar; an [auth] section that is not ready leaves only the start
-page's note (it fails closed).
+the visitor signs in with Google: there is no guest then (T9.5). In demo mode the start page offers
+the made-up users instead. With no [auth] section the app opens as a guest, with a note in the
+sidebar; an [auth] section that is not ready leaves only the start page's note (it fails closed).
 
 The session's user is worked out again on every run (`resolve()`): from the signed-in Google
 account (`st.user`, hashed with the secret into the user ID; its name, email and picture are
@@ -89,8 +88,8 @@ def resolve() -> dict | None:
             if found is None:
                 # No account (a first sign-in, or deleted in another tab): nothing of an earlier
                 # account's profile, prepared export or workout draft stays in the session (the
-                # Workouts page's keys all start with WORKOUT_KEY_PREFIX, T9.14; the export since
-                # T9.14's compliance run 2), and its profile is loaded afresh later.
+                # Workouts page's keys all start with WORKOUT_KEY_PREFIX, T9.14), and its profile
+                # is loaded afresh later.
                 st.session_state.pop("account_loaded_for", None)
                 st.session_state.pop("profile", None)
                 st.session_state.pop(MY_DATA_EXPORT_KEY, None)
@@ -104,8 +103,7 @@ def resolve() -> dict | None:
     except account.StoreUnavailable:
         # Nothing is read or written: the session runs as a guest's, with one fixed message. A
         # profile loaded from the store earlier leaves the session, so a stored gymer's details
-        # never reach the guest's chat (compliance run 4 on T9.5; owner's choice, 2026-11-02); one
-        # typed in this state is a guest's own and stays.
+        # never reach the guest's chat (T9.5); one typed in this state is a guest's own and stays.
         st.session_state["store_unavailable"] = True
         if st.session_state.pop("account_loaded_for", None) is not None:
             st.session_state.pop("profile", None)
@@ -209,8 +207,7 @@ def _start_demo_picker() -> None:
 
 def _signed_in(user: dict) -> None:
     """Show who is signed in (the display name, escaped) and the sign-out button."""
-    # A subheader, so the account reads at the size of the sidebar's other headings (owner's
-    # choice, 2026-11-02).
+    # A subheader, so the account reads at the size of the sidebar's other headings.
     if user["display_name"] is None:
         st.subheader(f":material/account_circle: {t('account.signed_in_google')}", anchor=False)
     else:
@@ -225,7 +222,7 @@ def _signed_in(user: dict) -> None:
 
 def sidebar_block(user: dict | None) -> None:
     """Show the account block at the top of the sidebar: the demo picker, the user or a note."""
-    # Not drawn on the start page: app.py draws no sidebar there (owner's choice, 2026-11-02).
+    # Not drawn on the start page: app.py draws no sidebar there (T9.5).
     if config.demo_mode():
         _demo_picker()
         if user is not None:
@@ -250,7 +247,7 @@ def start_page() -> None:
     """Show the start page: sign in with Google, or in demo mode pick a made-up user."""
     # No sidebar here (app.py draws none for this page): the language is a link at the top right,
     # the title stands alone, and the disclaimer is one line under the choices. No guest when
-    # sign-in is set up (owner's choices, 2026-11-02; AC-12 keeps the disclaimer on every page).
+    # sign-in is set up (T9.5; AC-12 keeps the disclaimer on every page).
     with header.main_column():
         _language_link()
         with st.container(key=header.TITLE_KEY):

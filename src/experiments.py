@@ -9,12 +9,12 @@ traced, through `tracing.RunTrace`, into the experiment's own project and linked
 and the script then sends each turn's results as feedback scores (`expectation_feedback()`,
 `score_feedback()`).
 
-Unlike the app's runs, an experiment is not masked (owner's choice, 2026-11-12): it holds only
-the evaluation's own text, the owner's questions and good answers, the made-up profile of a
-question (`EvalItem.profile`), the CC BY and public domain chunks (the `<sources>` block shows
-each chunk's title, year and tier; the turn's output carries the cited sources' cards with their
-authors, licence and link, but a chunk found and not cited has no attribution in the trace), the
-prompts and the answers. So a failed question can be read in the trace.
+Unlike the app's runs, an experiment is not masked (T9.33): it holds only the evaluation's own text,
+the owner's questions and good answers, the made-up profile of a question (`EvalItem.profile`), the
+CC BY and public domain chunks (the `<sources>` block shows each chunk's title, year and tier; the
+turn's output carries the cited sources' cards with their authors, licence and link, but a chunk
+found and not cited has no attribution in the trace), the prompts and the answers. So a failed
+question can be read in the trace.
 Only a run's error is reduced to its class name (`tracing.mask_error_only()`), as a traceback can
 quote a provider's reply and the machine's paths. The unmasked client is built here, only after
 `tracing.configure_tracing()` says tracing is on (the flag and the key, T9.8), and is never
@@ -68,7 +68,7 @@ def build_client(
     # `session` and `batch=False` are for tests, as in tracing.build_client(). Inputs, outputs and
     # metadata are not masked: an experiment holds the evaluation's own text only (module
     # docstring). An error keeps only its class name, as a traceback can quote a provider's reply
-    # and the machine's paths (code review round 1). Never installed globally.
+    # and the machine's paths. Never installed globally.
     return Client(
         api_url=config.LANGSMITH_ENDPOINT,
         api_key=api_key,
@@ -299,9 +299,9 @@ class Experiment:
     def finish(self) -> None:
         """Wait a set time for the runs and feedback to be sent, then mark the experiment ended."""
         # One flush with a timeout: every tracer shares this client, and a tracer's own
-        # wait_for_futures() flushes it with none, so a slow LangSmith would block the script
-        # (code review round 1). LangSmith sends from a background thread that logs a refused
-        # batch and never raises, so only what is still queued after the timeout is seen here.
+        # wait_for_futures() flushes it with none, so a slow LangSmith would block the script.
+        # LangSmith sends from a background thread that logs a refused batch and never raises, so
+        # only what is still queued after the timeout is seen here.
         try:
             self.client.flush(timeout=config.EVAL_EXPERIMENT_FLUSH_SECONDS)
             queue = getattr(self.client, "tracing_queue", None)

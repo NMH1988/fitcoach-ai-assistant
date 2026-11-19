@@ -25,7 +25,7 @@ FLASH_KEY = "questions_flash"
 def _written(review_id: int, key: str) -> None:
     """Keep the success to show next run and drop a prepared export, which lacks the new row."""
     # As Today and Workouts do after a save: My data prepares the export again, with the new
-    # question or answer in it (code review round 7).
+    # question or answer in it.
     st.session_state.pop(account.MY_DATA_EXPORT_KEY, None)
     _flash(review_id, "success", key)
 
@@ -96,7 +96,7 @@ def _ask(user_id: str, review_id: int) -> None:
     except NotFound, questions.NotYourTurn:
         # Ended or a scope turned off since the page was drawn, or (another tab) a question now
         # waits or the thread is used up: the next run's line in place of the box says which, so
-        # nothing is flashed too (code review round 1).
+        # nothing is flashed too.
         return
     except StoreValueError:
         _flash(review_id, "warning", "questions.too_long")

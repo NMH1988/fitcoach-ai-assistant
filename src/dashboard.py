@@ -64,7 +64,7 @@ def _read(conn: sqlite3.Connection, actor_id: str, subject_id: str, monday: date
             found[scope] = reads[scope]()
         except NotFound:
             # A user's own read is refused only when the account is gone (deleted in another
-            # tab): that is the caller's NotFound, never "not shared" (code review round 1).
+            # tab): that is the caller's NotFound, never "not shared".
             if actor_id == subject_id:
                 raise
             # Revoked between the relationship's read and this one (AC-22): not shared.

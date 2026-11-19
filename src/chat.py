@@ -6,13 +6,12 @@ inside <user_input> in the user message; the chunks a search finds come back onl
 in that search's tool message (T9.3, `src/agent/search.py`); neither is ever put into the system
 prompt (.claude/rules/security-privacy.md). Both are escaped first (`src/prompt_data.py`), so no
 text can close or open a block (T3.4). The profile is never in the messages: the tools read it from
-the app (owner's choice in T9.3, 2026-10-29). The rewrites from query translation are used only for
-the search and shown in the app. Tool results reach the model only as tool messages (T4.4). Every
-error a user can cause or meet ends as a TurnResult with a fixed message, so the app shows it in
-the answer and keeps the chat history (AC-13). The answer's
-language is the app's language control (en or de), passed in as a fixed value: the code joins
-that language's part of the owner's prompt to the end of the system prompt, and nothing the user
-types picks it (T7.2).
+the app (T9.3). The rewrites from query translation are used only for the search and shown in the
+app. Tool results reach the model only as tool messages (T4.4). Every error a user can cause or meet
+ends as a TurnResult with a fixed message, so the app shows it in the answer and keeps the chat
+history (AC-13). The answer's language is the app's language control (en or de), passed in as a
+fixed value: the code joins that language's part of the owner's prompt to the end of the system
+prompt, and nothing the user types picks it (T7.2).
 """
 
 import hashlib
@@ -300,7 +299,7 @@ def find_chunks(
             # A training-only plan keeps its topic and drops only its year and tier, so the retry
             # passes the same distance gate on training chunks alone: neither a nutrition chunk nor
             # a training chunk that only shares a word stands in for a missing training source
-            # (PRD feature 26; T9.20, security review finding 3 and, on the PR, finding 1).
+            # (PRD feature 26; T9.20).
             topic_only = {"topics": {"$contains": config.TRAINING_TOPIC}}
             chunks = (
                 []
@@ -309,7 +308,7 @@ def find_chunks(
             )
         elif plan is not None and plan.topics and config.TRAINING_TOPIC not in plan.topics:
             # Mirrored: a plan whose topics are all nutrition runs again over the nutrition topics,
-            # so a training chunk never joins a nutrition answer (T9.20, T9.19's code review).
+            # so a training chunk never joins a nutrition answer (T9.20).
             chunks = hybrid.hybrid_search(index, queries, vectors, _NUTRITION_ONLY, keyword_index)
         else:
             # No topic, no usable plan, or both domains: search everything.
@@ -388,10 +387,10 @@ def build_messages(
 ) -> list[BaseMessage]:
     """Return the system prompt, the conversation's earlier messages, then the question."""
     # The chunks come only in a search's tool message (T9.3); the profile is never sent: the tools
-    # read it from the app (owner's choice in T9.3, 2026-10-29). history: the earlier questions and
-    # answers the model may see (T9.4, trim_history()). memories: a coach's saved preferences
-    # (T9.7), inside <memories> before the question in the user message, never in the system
-    # prompt; the conversation keeps the question alone (exchange_messages()).
+    # read it from the app (T9.3). history: the earlier questions and answers the model may see
+    # (T9.4, trim_history()). memories: a coach's saved preferences (T9.7), inside <memories> before
+    # the question in the user message, never in the system prompt; the conversation keeps the
+    # question alone (exchange_messages()).
     question_message = user_message(question)
     if memories:
         block = preferences.memories_block(memories)
@@ -403,8 +402,7 @@ def strip_citations(answer: str) -> str:
     """Return the answer without its [S#] citations, as the conversation keeps it (T9.4)."""
 
     # A later turn labels its own chunks from S1 again, so an old label could stand for another
-    # source (copyright policy rule 7; owner's choice, 2026-10-30). A bracket that is not a
-    # citation stays.
+    # source (copyright policy rule 7; T9.4). A bracket that is not a citation stays.
     def remove(bracket: re.Match[str]) -> str:
         """Return "" for a citation bracket, else the bracket as written."""
         return "" if _CITATION_BODY.fullmatch(bracket.group(1)) else bracket.group(0)
@@ -415,7 +413,7 @@ def strip_citations(answer: str) -> str:
 def exchange_messages(question: str, answer: str) -> list[BaseMessage]:
     """Return what the conversation keeps of an answered turn: the question and the answer."""
     # The same <user_input> the model got, and the shown answer without its citations; never the
-    # turn's tool calls, tool results or <sources> (owner's choice, 2026-10-30).
+    # turn's tool calls, tool results or <sources> (T9.4).
     return [user_message(question), AIMessage(strip_citations(answer))]
 
 
@@ -607,8 +605,8 @@ def fixed_text(result: TurnResult, lang: i18n.Language) -> str:
 
 def memory_text(code: str, lang: i18n.Language) -> str:
     """Return a coach's memory line with the reminder to ask anything else again on its own."""
-    # The turn had no basis, so a question asked beside the preference went unanswered (owner's
-    # choice after T9.7's code review round 2). The card reuses the line without the reminder.
+    # The turn had no basis, so a question asked beside the preference went unanswered (T9.7). The
+    # card reuses the line without the reminder.
     return f"{i18n.t(code, lang)} {i18n.t('memory.ask_again', lang)}"
 
 

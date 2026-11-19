@@ -1,14 +1,14 @@
 """The USDA FoodData Central API, asked by the chat's food tool when the local table has no match.
 
-T9.9 (docs/SOURCES.md #21; copyright policy rule 10 as changed on 2026-11-06). `lookup()` runs the
-table lookup first (`lookup_food_nutrition`); only a "not_found" there, with the owner's key set,
-sends one search to the API. The request is a POST to the fixed URL in `config.FOOD_API_URL` whose
-JSON body holds the checked food name and fixed fields only (`request_body()`); the key goes in the
-`X-Api-Key` header, so it is in no URL; redirects are refused, so it reaches no other host. A
-timeout, a connection error or a 5xx answer is tried again up to `FOOD_API_MAX_ATTEMPTS`; every
-failure becomes a code (`ApiCode`), never an exception or a text with the key or the name. The
-foods that come back are checked (their data type, name and per-100 g values) and ranked with the
-table's own fuzzy match, so the same rules decide what counts as a match. Nothing is stored.
+T9.9 (docs/SOURCES.md #21; copyright policy rule 10). `lookup()` runs the table lookup first
+(`lookup_food_nutrition`); only a "not_found" there, with the owner's key set, sends one search to
+the API. The request is a POST to the fixed URL in `config.FOOD_API_URL` whose JSON body holds the
+checked food name and fixed fields only (`request_body()`); the key goes in the `X-Api-Key` header,
+so it is in no URL; redirects are refused, so it reaches no other host. A timeout, a connection
+error or a 5xx answer is tried again up to `FOOD_API_MAX_ATTEMPTS`; every failure becomes a code
+(`ApiCode`), never an exception or a text with the key or the name. The foods that come back are
+checked (their data type, name and per-100 g values) and ranked with the table's own fuzzy match, so
+the same rules decide what counts as a match. Nothing is stored.
 """
 
 import http.client
@@ -380,7 +380,7 @@ def lookup(
 ) -> FoodLookupResult:
     """Look the food up in the table, then, only if it is not found there, through the API."""
     # client_names: in a coach's chat, the names of the coach's current and former clients (T9.7's
-    # list); a name holding one of them is never sent (compliance run 1, owner's choice).
+    # list); a name holding one of them is never sent, as a client's name must not reach USDA.
     local = lookup_food_nutrition(food, grams, table)
     if local.status != "not_found" or api is None or local.grams is None:
         return local

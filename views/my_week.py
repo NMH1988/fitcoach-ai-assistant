@@ -5,9 +5,9 @@ changes a target, whoever set it; only the week picker is a control. The week co
 `dashboard.own_week()`, the same views as the coach's Client week, every scope. A review shows only
 when the coach approved it (the store never gives a gymer a pending or rejected review, or the
 model's draft), labelled as an AI draft the coach approved (AC-41); a former coach's approved
-reviews show too, so no text says "your coach" (compliance run 1). Under each review, T9.25's
-questions to the coach (views/questions.py): the thread, still readable once the relationship has
-ended, and a box to ask while the coach may read the review.
+reviews show too, so no text says "your coach". Under each review, T9.25's questions to the coach
+(views/questions.py): the thread, still readable once the relationship has ended, and a box to ask
+while the coach may read the review.
 """
 
 import streamlit as st

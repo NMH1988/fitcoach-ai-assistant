@@ -58,7 +58,7 @@ def sidebar_card(system: units.UnitSystem) -> None:
         if targets.protein_lowered:
             st.caption(f":material/warning: {t('targets.protein_lowered')}")
         if active_coach_target() is not None:
-            # Not the active target: the coach's is (T9.17, code review round 1).
+            # Not the active target: the coach's is (T9.17).
             st.caption(f":material/sports: {t('targets.computed_not_active')}")
         st.caption(t("targets.more"))
 
@@ -94,7 +94,7 @@ def coach_target_notice() -> None:
         icon=":material/sports:",
     )
     # A coach's numbers become the active target: the app does not check their qualifications
-    # (PRD, Users and roles; T9.17 compliance run 1).
+    # (PRD, Users and roles; T9.17).
     st.caption(f":material/info: {t('sharing.unverified')}")
 
 

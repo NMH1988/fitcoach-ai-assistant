@@ -241,7 +241,7 @@ def page() -> None:
             return  # the account was deleted in another tab; the next run signs it out
         if not saved:
             # The first Save on My profile carries the opt-in tick and the 18+ check, so no food
-            # or weight is stored before them (owner's choice, 2026-11-03; diary checks it too).
+            # or weight is stored before them (T9.13; the diary checks it too).
             st.info(t("today.profile_first"), icon=":material/person:")
             return
         flash = st.session_state.pop(FLASH_KEY, None)

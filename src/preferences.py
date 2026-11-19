@@ -5,10 +5,10 @@ client's personal or health data. The code checks what it can before a proposal 
 before it is saved (AC-36): the input guard (length, injection patterns) and the domain guardrails
 (medical conditions, pregnancy, medication, ...), with no rate limit; and the display name of every
 client the coach has had, active or ended, read through `users.list_relationships()` (which reads
-each name with `users.display_name_of()`, not audited: owner's choice, 2026-11-03). A name matches
-as a whole word, all its words in a row, without case, so a client named "Max" blocks "MAX eats
-late" but not "maximum protein". Descriptive data with no name (an age and a weight) is not caught:
-the card's note and the coach's approval cover it.
+each name with `users.display_name_of()`, not audited, T9.12). A name matches as a whole word, all
+its words in a row, without case, so a client named "Max" blocks "MAX eats late" but not "maximum
+protein". Descriptive data with no name (an age and a weight) is not caught: the card's note and
+the coach's approval cover it.
 
 Saved preferences reach the model of the coach's chat only, inside a delimited <memories> block
 before the question, never in the system prompt (`memories_block()`).
@@ -134,7 +134,7 @@ def check_preference(text: object, client_names: Sequence[str]) -> PreferenceChe
     if any(names_in(view, client_names) for view in views):
         return PreferenceCheck(False, code="client_name")
     # A client named by the chat's reference ("client-2", T9.17) is a client too, and the same
-    # reference stands for another client in a later chat (code review round 1).
+    # reference stands for another client in a later chat.
     if any(REFERENCE.search(view) for view in views):
         return PreferenceCheck(False, code="client_reference")
     return PreferenceCheck(True, text=decision.text)

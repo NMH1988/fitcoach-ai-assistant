@@ -1,14 +1,14 @@
 """Accounts, coach-client relationships and the scopes a client shares (T9.6, T9.12; D14-D16).
 
-The functions that change shared data take the acting user and check that the change is theirs
-to make: a client turns their own scopes on or off, and either side ends a relationship. Two take
-no acting user, so only their callers may decide when they run: `create_user()` (T9.5, at the
-first sign-in) and `start_relationship()`, the low-level step behind an accepted invitation code
+The functions that change shared data take the acting user and check that the change is theirs to
+make: a client turns their own scopes on or off, and either side ends a relationship. Two take no
+acting user, so only their callers may decide when they run: `create_user()` (T9.5, at the first
+sign-in) and `start_relationship()`, the low-level step behind an accepted invitation code
 (`invitations.accept_invitation()` runs the same steps in its own transaction; it checks the two
-roles and that the gymer has no coach yet, but not a code). A gymer has one coach at a time
-(owner's choice, 2026-11-03, T9.12). `find_user()` checks no access and must get only the
-signed-in user's own ID. `display_name_of()` is the one read of another user's data that does not
-go through `access.authorised_read()`: it checks the relationship itself and is not audited (T9.12).
+roles and that the gymer has no coach yet, but not a code). A gymer has one coach at a time (T9.12).
+`find_user()` checks no access and must get only the signed-in user's own ID. `display_name_of()` is
+the one read of another user's data that does not go through `access.authorised_read()`: it checks
+the relationship itself and is not audited (T9.12).
 """
 
 import sqlite3
@@ -85,7 +85,7 @@ def _open_relationship(conn: sqlite3.Connection, coach_id: str, client_id: str) 
     if role_of(conn, coach_id) != "coach" or role_of(conn, client_id) != "gymer":
         raise values.StoreValueError("relationship", "needs a coach and a gymer")
     if _has_coach(conn, client_id):
-        # One coach at a time (owner's choice, 2026-11-03): the gymer ends the first one before.
+        # One coach at a time (T9.12): the gymer ends the first one before.
         raise values.StoreValueError("relationship", "the gymer has a coach already")
     cursor = conn.execute(_INSERT_RELATIONSHIP, (coach_id, client_id, values.utc_text()))
     return cursor.lastrowid
@@ -106,8 +106,8 @@ def start_relationship(conn: sqlite3.Connection, coach_id: str, client_id: str) 
 def display_name_of(conn: sqlite3.Connection, actor_id: object, other_id: object) -> str:
     """Return the other side's display name in a relationship (active or ended); else NotFound."""
     # Both sides of a relationship see each other's name, so a gymer knows who sees their data and
-    # a coach whom they coach (owner's choice, 2026-10-28). Not audited (owner's choice,
-    # 2026-11-03): the name is part of the relationship, which both sides see in their exports.
+    # a coach whom they coach (T9.12). Not audited: the name is part of the relationship, which
+    # both sides see in their exports.
     for value in (actor_id, other_id):
         try:
             values.user_id(value)

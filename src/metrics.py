@@ -10,7 +10,7 @@ daylight-saving change does not move a day; only "today" depends on the clock (`
 day is logged when it has at least one food; averages are over the logged days only, so a day with
 no entries is "not logged", never a day without eating (AC-26). The active target is the latest one
 started on or before the week's Sunday. The weight change is the week's latest weight minus the
-latest weight before its Monday (owner's choice, 2026-11-03).
+latest weight before its Monday (T9.13).
 
 The training metrics (`training_week()`, T9.14) take the workouts as
 `records.list_workout_sessions()` returns them: the week's sessions and sets, and per exercise the
@@ -302,7 +302,7 @@ def suggested_share(meals: Iterable[dict], start: date, since: str | None = None
     """Return the share of the week's logged items and energy that came from the suggestions."""
     # With `since` (a relationship's UTC start), an item counts as from a suggestion only if it
     # was logged from then on: the flag names no coach, so an earlier coach's list never shows
-    # in a new coach's share (compliance run 1 of T9.34, owner's choice, 2026-11-12).
+    # in a new coach's share (T9.34).
     days = {day.isoformat() for day in week_days(start)}
     week = [meal for meal in meals if meal["consumed_on"] in days]
     from_list = [

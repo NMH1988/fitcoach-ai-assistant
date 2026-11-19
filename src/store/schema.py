@@ -275,8 +275,8 @@ PRAGMA user_version = 1;
 
 # T9.16: the weekly review workflow. A review records every scope its metrics used (nutrition
 # always; body when the weight trend is in it, training when the training week is), and a coach
-# reads or decides it only while every one of them is shared (owner's choice, 2026-10-27). A
-# review written before this version used nutrition alone. thread_id names the review's thread in
+# reads or decides it only while every one of them is shared, as for a read of that data (AC-22).
+# A review written before this version used nutrition alone. thread_id names the review's thread in
 # the workflow's checkpointer file (src/agent/review_threads.py), so deleting a user's data deletes
 # its threads too (AC-34).
 _V2 = """
@@ -299,8 +299,8 @@ PRAGMA user_version = 2;
 # approved reviews), so no event is copied (D23). The only new data is a reader's "read up to" mark:
 # the reader's own ID and a time, never another user's ID or the ID of another user's row. Only the
 # newest mark is kept: notifications.mark_all_read() adds a row and deletes the reader's earlier
-# ones in the same transaction (owner's choice, 2026-11-06: an exception to keeping every row, so
-# the table is no log of when a user read their notifications); no row is changed in place.
+# ones in the same transaction (an exception to keeping every row, so the table is no log of when
+# a user read their notifications); no row is changed in place.
 _V3 = """
 CREATE TABLE notification_reads (
     id INTEGER PRIMARY KEY,
@@ -398,11 +398,10 @@ PRAGMA user_version = 5;
 # T9.34 (migration 6): the foods a coach suggests to a client. A list names its client and the
 # coach who wrote it, and a coach changes the suggestions by saving a new list (the newest is the
 # active one; an empty list clears them), so neither table is ever changed in place. A list goes
-# when either side deletes their data (my_data.delete_user_data(), owner's choice, 2026-11-12).
-# meal_items gains a flag for an item the gymer logged from the active list: a flag, not the
-# suggestion item's ID, as a list deleted with its coach's data would leave such a reference
-# pointing at nothing (owner's choice, 2026-11-12). audit_log is rebuilt again, as in _V4 and _V5,
-# with the new action `suggestions_set`.
+# when either side deletes their data (my_data.delete_user_data()). meal_items gains a flag for an
+# item the gymer logged from the active list: a flag, not the suggestion item's ID, as a list
+# deleted with its coach's data would leave such a reference pointing at nothing. audit_log is
+# rebuilt again, as in _V4 and _V5, with the new action `suggestions_set`.
 _V6 = """
 CREATE TABLE food_suggestion_lists (
     id INTEGER PRIMARY KEY,
