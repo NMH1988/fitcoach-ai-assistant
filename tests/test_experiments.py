@@ -20,7 +20,7 @@ from src import config, experiments, guard, tracing
 from src.eval_questions import EvalItem
 from tests import test_observability as obs
 from tests import test_tracing as tracing_tests
-from tests.fakes import PROFILE, ScriptedTranslator, chat_turn
+from tests.fakes import PROFILE, ScriptedTranslator, chat_turn, patch_config
 
 # The canary fixtures of the log tests, as in tests/test_tracing.py.
 canary_setup = obs.canary_setup
@@ -352,7 +352,7 @@ def test_finish_flushes_and_ends_the_experiment():
 def test_no_client_is_built_without_the_flag_and_the_key(monkeypatch, flag, key):
     """open_client() refuses, building no client, unless T9.8's flag and key are both set."""
     monkeypatch.setattr(config.st, "secrets", {})
-    monkeypatch.setattr(config, "tracing_requested", lambda: flag)
+    patch_config(monkeypatch, "tracing_requested", lambda: flag)
     monkeypatch.delenv(config.LANGSMITH_API_KEY_NAME, raising=False)
     if key is not None:
         monkeypatch.setenv(config.LANGSMITH_API_KEY_NAME, key)

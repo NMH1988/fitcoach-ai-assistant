@@ -1,8 +1,9 @@
 """calculate_tdee and calculate_macro_targets: daily energy needs and macro targets for a profile.
 
 Every number comes from an approved source (docs/SOURCES.md; values and source IDs in
-`src/config.py`): the Mifflin-St Jeor equation [22], the activity factors [23], and the goal
-adjustments, macro ranges and calorie floor [1], [9], [11], [12]. The arguments are personal data:
+`src/config/nutrition.py`, the calorie floor in `limits.py`): the Mifflin-St Jeor equation [22],
+the activity factors [23], and the goal adjustments, macro ranges and calorie floor [1], [9],
+[11], [12]. The arguments are personal data:
 nothing here logs, prints or stores them. Invalid arguments give a result with status "invalid" and
 a fixed message, never an exception and never an echo of what was sent.
 """

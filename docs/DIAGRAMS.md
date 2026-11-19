@@ -1,6 +1,6 @@
 # Diagrams
 
-Four drawings of how the app works (T1.16), drawn by hand from [`ARCHITECTURE.md`](ARCHITECTURE.md), whose text is the full description and wins where the two differ. The three graphs LangGraph draws from the code itself (the chat turn, the conversation, the weekly review) stay in [`ARCHITECTURE.md`](ARCHITECTURE.md), sections 2 and 16, where tests keep them equal to the code. The numbers and model names below come from `src/config.py` (and the article counts from `data/sources.json`), and `tests/test_docs_layout.py` fails when they change there and not here.
+Four drawings of how the app works (T1.16), drawn by hand from [`ARCHITECTURE.md`](ARCHITECTURE.md), whose text is the full description and wins where the two differ. The three graphs LangGraph draws from the code itself (the chat turn, the conversation, the weekly review) stay in [`ARCHITECTURE.md`](ARCHITECTURE.md), sections 2 and 16, where tests keep them equal to the code. The numbers and model names below come from `src/config/` (and the article counts from `data/sources.json`), and `tests/test_docs_layout.py` fails when they change there and not here.
 
 **Colours** (the same in every diagram, each drawn on a dark panel of its own so it reads in GitHub's light and dark themes): green border, the app's own UI and store, and what the user gets back; amber, a check that can stop the flow; dark green, a step that calls a model; purple, the data searched or read; red, a refusal; dashed, the external model provider.
 

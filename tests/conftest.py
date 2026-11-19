@@ -13,7 +13,7 @@ from streamlit.runtime.secrets import Secrets
 from src import chat, config, i18n, observability, tracing, usage
 from src.store import db
 from src.tools import food_api
-from tests.fakes import TEST_COACH_PART, TEST_LANGUAGE_PARTS
+from tests.fakes import TEST_COACH_PART, TEST_LANGUAGE_PARTS, patch_config
 
 
 @pytest.fixture
@@ -70,14 +70,14 @@ LANGSMITH_ENV_FLAGS = (
 def tracing_is_off(monkeypatch):
     """Keep LangSmith tracing off in every test, whatever the owner's secrets or env say (T9.8)."""
     # The tracing tests set the flag again and use a fake LangSmith session (tests/test_tracing.py).
-    monkeypatch.setattr(config, "tracing_requested", lambda: False)
+    patch_config(monkeypatch, "tracing_requested", lambda: False)
     for name in (*LANGSMITH_ENV_FLAGS, config.LANGSMITH_API_KEY_NAME, config.TRACING_FLAG_NAME):
         monkeypatch.delenv(name, raising=False)
     tracing.configure_tracing()
     yield
     # A test may have set the flag again on this same monkeypatch, which is undone only after
     # this teardown: turn it off first, so tracing never stays on into the next test.
-    monkeypatch.setattr(config, "tracing_requested", lambda: False)
+    patch_config(monkeypatch, "tracing_requested", lambda: False)
     tracing.configure_tracing()
 
 

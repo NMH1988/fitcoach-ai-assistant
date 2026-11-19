@@ -86,7 +86,7 @@ def test_the_scan_covers_the_app_views_src_agents_and_readme():
         APP,
         README,
         ROOT / "views" / "header.py",
-        ROOT / "src" / "i18n.py",
+        ROOT / "src" / "i18n" / "shared.py",
         ROOT / "src" / "prompts" / "answer_system.md",
         ROOT / ".claude" / "agents" / "code-reviewer.md",
         ROOT / ".claude" / "agents" / "security-reviewer.md",

@@ -48,7 +48,7 @@ APP_URL = "http://localhost:8501/"
 # The project's folder, so the output lands in the gitignored data/capture/ wherever it is run from.
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_ROOT = ROOT / "data" / "capture"
-# The app's own time zone (src/config.py TIME_ZONE, D21), so "last week" is the week the demo
+# The app's own time zone (src/config/ui.py TIME_ZONE, D21), so "last week" is the week the demo
 # seeded; the script imports nothing of the app.
 TIME_ZONE = ZoneInfo("Europe/Berlin")
 # The window the images and the video's screenshots are taken in: a full HD screen at 100%, so a
@@ -76,7 +76,7 @@ ANSWER_TIMEOUT_MS = 180_000
 REVIEW_TIMEOUT_MS = 300_000
 REVIEW_TRIES = 3
 PICK_TRIES = 3
-# The app's words when its checks refuse a draft (src/i18n.py, review.outcome.invalid).
+# The app's words when its checks refuse a draft (src/i18n/reviews.py, review.outcome.invalid).
 REFUSED_DRAFT = "did not pass the app's checks"
 # Run in the page: put an element in the middle of the nearest box that scrolls around it.
 CENTRE_IN_SCROLL_BOX = """element => {

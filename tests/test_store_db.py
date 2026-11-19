@@ -234,7 +234,7 @@ def test_connect_creates_the_file_in_the_configured_folder_with_every_table(stor
 def test_the_store_folder_is_gitignored_and_inside_the_project():
     """The real file lives in data/store/, which .gitignore keeps out of the repo."""
     # conftest points the config at a temporary file, so read the real values from the module text.
-    source = (ROOT / "src" / "config.py").read_text(encoding="utf-8")
+    source = (ROOT / "src" / "config" / "paths.py").read_text(encoding="utf-8")
     assert 'STORE_DIR = PROJECT_ROOT / "data" / "store"' in source
     assert 'STORE_PATH = STORE_DIR / "fitcoach.sqlite3"' in source
     assert "data/store/" in (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()

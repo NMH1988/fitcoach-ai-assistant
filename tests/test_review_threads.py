@@ -73,7 +73,7 @@ def _threads(store_path) -> set[str]:
 def test_the_file_sits_next_to_the_store_in_the_gitignored_folder():
     """The checkpointer file is in the store's folder, data/store/, which .gitignore keeps out."""
     assert review_threads.threads_path(config.STORE_PATH).parent == config.STORE_PATH.parent
-    source = (ROOT / "src" / "config.py").read_text(encoding="utf-8")
+    source = (ROOT / "src" / "config" / "paths.py").read_text(encoding="utf-8")
     assert 'STORE_DIR = PROJECT_ROOT / "data" / "store"' in source
     assert "data/store/" in (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
 

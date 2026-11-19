@@ -1,6 +1,6 @@
 """The plan and the progress log agree with their files, and doc links resolve (T1.15).
 
-Also: docs/DIAGRAMS.md has its four diagrams, with the numbers and models of src/config.py (T1.16).
+Also: docs/DIAGRAMS.md has its four diagrams, with the numbers and models of src/config/ (T1.16).
 """
 
 import re

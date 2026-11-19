@@ -29,7 +29,7 @@ LINE_START = re.compile(r"^(\d*)([#+=.)-])")
 # too many ("wwww.") does no harm (code review round 12).
 _AUTOLINK_STARTS = re.compile(r"(?:www(?=\.)|https?(?=:)|mailto(?=:))|(?=@)", re.I)
 WORD_JOINER = "\u2060"
-# The columns of the Details tab's table of a turn's calls (T5.1), as keys in src/i18n.py.
+# The columns of the Details tab's table of a turn's calls (T5.1), as keys in src/i18n/.
 USAGE_COLUMNS = ("step", "model", "input", "cached", "output", "reasoning", "cost")
 
 
@@ -282,7 +282,7 @@ def cache_line(turn_usage: usage.TurnUsage, lang: Language) -> str:
 
 
 # The kinds of records a gymer's My data page lists (T9.5), in the store's names, and the columns
-# each table shows, as keys under "my_data.col." in src/i18n.py.
+# each table shows, as keys under "my_data.col." in src/i18n/.
 STORED_KINDS = (
     "profile_entries",
     "body_measurements",
@@ -384,7 +384,7 @@ def rpe_text(rpe: float | None, lang: Language) -> str:
     return "–" if rpe is None else i18n.plain(rpe, lang)
 
 
-# The columns of the Workouts page's tables (T9.14), as keys under "workouts.col." in src/i18n.py.
+# The columns of the Workouts page's tables (T9.14), as keys under "workouts.col." in src/i18n/.
 SET_COLUMNS = ("set", "exercise", "reps", "weight", "rpe")
 WEEK_COLUMNS = ("exercise", "sets", "reps", "volume", "top_weight")
 
@@ -453,7 +453,7 @@ def entry_label(kind: str, row: dict, system: units.UnitSystem, lang: Language) 
 
 
 # The columns of the coach's client list (T9.12; the week's values since T9.15), as keys under
-# "clients.col." in src/i18n.py; the former clients keep only their name and days (T9.15, from the
+# "clients.col." in src/i18n/; the former clients keep only their name and days (T9.15, from the
 # compliance review of T9.12).
 CLIENT_COLUMNS = ("name", "since", "follow_up", "logged", "kcal", "sessions", "weight", "review")
 FORMER_COLUMNS = ("name", "since", "ended")
@@ -897,7 +897,7 @@ def invitation_label(row: dict, lang: Language) -> str:
 
 
 # The Today page (T9.13): the meals in the order of a day, and the columns of a meal's table, as
-# keys under "today.col." in src/i18n.py.
+# keys under "today.col." in src/i18n/.
 MEALS = ("breakfast", "lunch", "dinner", "snack")
 DIARY_COLUMNS = ("food", "grams", "kcal", "protein", "carbohydrate", "fat", "fiber")
 

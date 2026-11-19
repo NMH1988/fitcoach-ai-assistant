@@ -152,7 +152,7 @@ class TurnResult:
     # The tokens of each model and embedding call the turn made, in order, including the calls
     # made before an error (T5.1); empty when the guard stopped the question.
     usage: tuple[CallUsage, ...] = ()
-    # A fixed message's key in src/i18n.py and its numbers, so the UI shows it in the language
+    # A fixed message's key in src/i18n/ and its numbers, so the UI shows it in the language
     # chosen now (T7.1); set for every kind but "answer" (tests/conftest.py checks it), None for
     # the model's answer. `text` stays English, for the summary PDF.
     code: str | None = None
@@ -194,7 +194,7 @@ class PromptMissingError(RuntimeError):
     """A prompt file is missing, unreadable or empty; `str()` is the fixed message to show."""
 
     def __init__(self, message: str, code: str) -> None:
-        """Keep the fixed message and its key in src/i18n.py."""
+        """Keep the fixed message and its key in src/i18n/."""
         super().__init__(message)
         self.code = code
 
