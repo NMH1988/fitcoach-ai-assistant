@@ -291,7 +291,7 @@ def test_the_answer_stays_in_the_history_whatever_the_price_read_does(monkeypatc
 def test_the_session_total_shows_before_any_turn_has_searched(monkeypatch, prices):
     """A first turn that fails after the rewrite still puts the session total in the sidebar."""
     _use(monkeypatch, ANSWER)
-    monkeypatch.setattr(chat, "embed_queries", _out_of_credit)
+    monkeypatch.setattr(chat.retrieval, "embed_queries", _out_of_credit)
     at = _ask(_start(), QUESTION)
     assert _card(at) is None
     assert _usage_captions(at.sidebar) == [

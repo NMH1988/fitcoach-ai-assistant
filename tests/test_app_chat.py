@@ -135,7 +135,7 @@ def test_a_broken_index_clears_the_cached_keyword_index(monkeypatch):
     at = _ask(_start(), QUESTION)
     with monkeypatch.context() as broken:
         # What the retriever raises when a rebuild dropped the collection the app holds.
-        broken.setattr(chat, "embed_queries", _unreadable_index)
+        broken.setattr(chat.retrieval, "embed_queries", _unreadable_index)
         at = _ask(at, QUESTION)
     assert _assistant(at).error[0].value.startswith("The knowledge base index could not be read.")
     at = _ask(at, QUESTION)

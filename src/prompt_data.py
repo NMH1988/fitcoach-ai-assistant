@@ -1,6 +1,6 @@
 """Escaping for text put inside a delimited prompt block (<sources>, <user_input>), T3.4.
 
-Imports nothing from `src`, so every step that builds a prompt (the answer step in `src/chat.py`,
+Imports nothing from `src`, so every step that builds a prompt (the answer step in `src/chat/`,
 query translation in `src/rag/`, the tool loop) can use it without an import cycle.
 """
 
