@@ -161,7 +161,7 @@ def test_the_scan_reads_the_files_that_use_the_clients():
     names = {path.relative_to(ROOT).as_posix() for path in _scanned_files()}
     # src/eval_scoring.py and scripts/run_evaluation.py: the evaluation's judge (T9.10).
     assert {
-        "src/chat.py",
+        "src/chat/answer.py",
         "src/llm.py",
         "src/rag/query_translation.py",
         "src/eval_scoring.py",

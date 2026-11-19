@@ -1,4 +1,4 @@
-"""Tests for src/chat.py and src/rag/retriever.py: one chat turn with fakes (T3.1-T3.3)."""
+"""Tests for src/chat/ and src/rag/retriever.py: one chat turn with fakes (T3.1-T3.3)."""
 
 import annotationlib
 import dataclasses
@@ -375,7 +375,8 @@ def test_with_no_hits_the_search_runs_again_over_the_nutrition_topics(index, mon
     plan = plan_json(REWRITES, ["fat"])
     result = _turn(QUESTION, index, model, translator=ScriptedTranslator(plans=[plan]))
     # A nutrition plan drops its own filter but keeps out training chunks (T9.20).
-    assert spy.filters == [{"topics": {"$contains": "fat"}}] * 4 + [chat._NUTRITION_ONLY] * 4
+    nutrition_only = chat.retrieval._NUTRITION_ONLY
+    assert spy.filters == [{"topics": {"$contains": "fat"}}] * 4 + [nutrition_only] * 4
     assert len(spy.embedded) == 1
     assert result.kind == "answer"
     assert _search(result).filter_dropped
@@ -1154,7 +1155,7 @@ def test_manifest_by_id_is_empty_when_the_manifest_cannot_be_read(monkeypatch):
         """Raise the manifest error."""
         raise ManifestError("broken")
 
-    monkeypatch.setattr(chat, "load_manifest", fail)
+    monkeypatch.setattr(chat.citations, "load_manifest", fail)
     assert chat.manifest_by_id() == {}
 
 
@@ -1883,7 +1884,9 @@ def test_an_unexpected_error_logs_its_type_and_place_only(index, monkeypatch, ca
     """One error line names the exception's type and where it was raised, never its message."""
     caplog.set_level(logging.DEBUG)
     result = _failing_turn(fail, index, monkeypatch)
-    records = [r for r in caplog.records if r.name == "src.chat" and r.levelno >= logging.ERROR]
+    records = [
+        r for r in caplog.records if r.name == "src.chat.turn" and r.levelno >= logging.ERROR
+    ]
     assert len(records) == 1
     [record] = records
     assert record.getMessage() == "turn_error"
@@ -2367,7 +2370,7 @@ def test_the_turn_record_counts_the_searches(index, caplog):
 
 def test_run_turn_takes_the_text_the_limiter_the_deps_and_the_callbacks():
     """run_turn() has at most 8 parameters: the deps and the callbacks are one object each."""
-    # Forward references: chat.py imports Conversation for its annotation only.
+    # Forward references: src/chat/turn.py imports Conversation for its annotation only.
     parameters = inspect.signature(
         chat.run_turn, annotation_format=annotationlib.Format.FORWARDREF
     ).parameters

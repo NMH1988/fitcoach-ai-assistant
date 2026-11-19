@@ -349,6 +349,6 @@ def test_a_retry_that_searches_everything_lets_a_nutrition_chunk_into_the_traini
     # nothing, so a training-only plan whose filter found nothing is searched over everything.
     # The stray chunk is then 6-0, which BM25 finds through the rewrite's word "time".
     monkeypatch.setattr(config, "TRAINING_TOPIC", "not_a_topic")
-    monkeypatch.setattr(chat, "_NUTRITION_ONLY", None)
+    monkeypatch.setattr(chat.retrieval, "_NUTRITION_ONLY", None)
     scores = run_suite(fixture_index, questions)
     assert "training_retry" in scores.wrong_topic, _report(scores)

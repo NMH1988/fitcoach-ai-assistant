@@ -102,7 +102,7 @@ def test_the_app_source_records_no_history_in_comments():
 def test_the_scan_reads_the_app_folders():
     """The scan covers app.py and modules of src/, views/ and scripts/."""
     scanned = {path.relative_to(ROOT).as_posix() for path in _scanned_files()}
-    assert {"app.py", "src/chat.py", "views/tables.py", "scripts/run_evaluation.py"} <= scanned
+    assert {"app.py", "src/chat/turn.py", "views/tables.py", "scripts/run_evaluation.py"} <= scanned
 
 
 @pytest.mark.parametrize(

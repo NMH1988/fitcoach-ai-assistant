@@ -1,4 +1,4 @@
-"""Tests for the src/config package: every old name kept, one module per name, root, sizes."""
+"""Tests for the src/config package (old names, one module per name, root) and package sizes."""
 
 import ast
 import json
@@ -11,8 +11,8 @@ import pytest
 from src.config import paths
 
 ROOT = Path(__file__).resolve().parent.parent
-PACKAGES = (ROOT / "src" / "config", ROOT / "src" / "i18n")
-# The most lines a module of either package may have (T10.8, Sprint 3 review point 4).
+PACKAGES = (ROOT / "src" / "config", ROOT / "src" / "i18n", ROOT / "src" / "chat")
+# The most lines a module of these packages may have (T10.8, T10.10, Sprint 3 review point 4).
 MAX_MODULE_LINES = 600
 # The public names of the config module before T10.8 split it into a package (at 0051dba): the
 # package must still give every one of them as config.<NAME>, and no other.
@@ -98,7 +98,7 @@ OLD_NAMES = frozenset(
 )
 
 
-def _defined(module_path: Path) -> list[str]:
+def defined_names(module_path: Path) -> list[str]:
     """Return the public names a module defines at its top level: assignments, defs, classes."""
     names = []
     for node in ast.parse(module_path.read_text(encoding="utf-8")).body:
@@ -118,7 +118,7 @@ def _config_modules() -> list[Path]:
 
 def test_the_package_defines_the_old_module_s_names_each_once():
     """The modules define exactly the old names between them, none of them in two modules."""
-    defined = [name for path in _config_modules() for name in _defined(path)]
+    defined = [name for path in _config_modules() for name in defined_names(path)]
     assert len(defined) == len(set(defined)), sorted({n for n in defined if defined.count(n) > 1})
     assert set(defined) == OLD_NAMES
 
@@ -134,7 +134,7 @@ def test_every_old_name_is_read_through_the_package_from_its_own_module():
         "    wrong = [n for n in names if getattr(config, n) is not getattr(module, n)]\n"
         "    assert not wrong, wrong\n"
     )
-    defined = {path.stem: _defined(path) for path in _config_modules()}
+    defined = {path.stem: defined_names(path) for path in _config_modules()}
     done = subprocess.run(
         [sys.executable, "-c", check, json.dumps(defined)],
         cwd=ROOT,
@@ -148,7 +148,7 @@ def test_every_old_name_is_read_through_the_package_from_its_own_module():
 def test_the_init_only_gathers_the_modules():
     """The package's __init__ defines no setting of its own: it imports every module, no more."""
     init = ROOT / "src" / "config" / "__init__.py"
-    assert _defined(init) == []
+    assert defined_names(init) == []
     imported = {
         node.module
         for node in ast.parse(init.read_text(encoding="utf-8")).body
@@ -171,7 +171,7 @@ def test_the_paths_resolve_to_the_gitignored_folders_at_the_repository_root():
 
 @pytest.mark.parametrize("package", PACKAGES, ids=lambda path: path.name)
 def test_no_module_of_the_package_is_over_the_size_limit(package):
-    """Every module of src/config and src/i18n has at most MAX_MODULE_LINES lines."""
+    """Every module of src/config, src/i18n and src/chat has at most MAX_MODULE_LINES lines."""
     modules = sorted(package.glob("*.py"))
     assert len(modules) > 1
     sizes = {path.name: len(path.read_text(encoding="utf-8").splitlines()) for path in modules}
