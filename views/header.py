@@ -6,7 +6,7 @@ from src import config
 from views.text import t
 
 # The title's container: assets/app.css gives its h1 the size and gradient of the app's name
-# (`.st-key-app_title h1`; the start page's since T9.5, every page's by the owner's choice).
+# (`.st-key-app_title h1`; on every page, T9.5).
 TITLE_KEY = "app_title"
 
 
@@ -30,5 +30,5 @@ def show() -> None:
             help=t("app.disclaimer"),
         )
     st.markdown(t("app.intro"))
-    # Shown on every page state (AC-12), large enough to notice (owner's request, 2026-10-20).
+    # Shown on every page state (AC-12), large enough to notice.
     st.warning(f"**{t('app.not_medical_advice')}.** {t('app.disclaimer')}", icon=":material/info:")

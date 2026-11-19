@@ -47,8 +47,8 @@ def profile_page_ref() -> st.Page:
 
 def profile_page() -> None:
     """Show a gymer's home: the profile in the sidebar and the daily targets (no chat, T9.5)."""
-    # A gymer does not talk to the AI (owner's choice, 2026-11-02): the coach's AI drafts reviews,
-    # and the gymer reads what the coach approved (T9.15, T9.16).
+    # A gymer does not talk to the AI (T9.24): the coach's AI drafts reviews, and the gymer reads
+    # what the coach approved (T9.15, T9.16).
     with st.sidebar:
         st.divider()
         sidebar.show_profile()

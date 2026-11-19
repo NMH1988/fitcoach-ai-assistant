@@ -80,8 +80,8 @@ REVIEW_PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "weekly_review_system.md
 # title has "β".
 PDF_FONT_PATH = PROJECT_ROOT / "assets" / "fonts" / "DejaVuSans.ttf"
 PDF_BOLD_FONT_PATH = PROJECT_ROOT / "assets" / "fonts" / "DejaVuSans-Bold.ttf"
-# The fonts' licence, printed word for word at the end of every PDF (owner's choice, 2026-10-20):
-# its notices go with every copy, and each PDF embeds the fonts. Only the part before this heading
-# is printed; the rest covers DejaVu's math font, which the app does not ship.
+# The fonts' licence, printed word for word at the end of every PDF (T5.2): its notices go with
+# every copy, and each PDF embeds the fonts. Only the part before this heading is printed; the rest
+# covers DejaVu's math font, which the app does not ship.
 PDF_FONT_LICENSE_PATH = PROJECT_ROOT / "assets" / "fonts" / "LICENSE"
 PDF_FONT_LICENSE_END = "TeX Gyre DJV Math"

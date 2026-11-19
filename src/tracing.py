@@ -23,11 +23,11 @@ run's name (a node, a model class), its tags and its timing are not data and are
 makes them. The question, rewrites, answer, chunk text, profile values, memories, logged values,
 review text, tool arguments and results, and the stored user IDs are masked (AC-33).
 
-One exception (T9.35, owner's request, 2026-11-13, to show a reviewer what a trace holds): with
-`config.tracing_demo_unmasked()`, that is tracing on, the owner's demo flag on and demo mode on
-(synthetic users, never with [auth]), `configure_tracing()` installs a second client, built by
-`build_demo_client()`, whose anonymizer lets a payload through as it is (an error keeps only its
-class name, as in T9.33's experiments), into a project of its own (`config.LANGSMITH_DEMO_PROJECT`).
+One exception (T9.35, to show a reviewer what a trace holds): with `config.tracing_demo_unmasked()`,
+that is tracing on, the owner's demo flag on and demo mode on (synthetic users, never with [auth]),
+`configure_tracing()` installs a second client, built by `build_demo_client()`, whose anonymizer
+lets a payload through as it is (an error keeps only its class name, as in T9.33's experiments),
+into a project of its own (`config.LANGSMITH_DEMO_PROJECT`).
 The gate is checked on every payload, and any doubt, or turning tracing off, masks it again.
 """
 
@@ -98,15 +98,14 @@ PROMPT_VERSION_KEYS = frozenset({PROMPT_ANSWER_KEY, PROMPT_QUERY_KEY, PROMPT_REV
 _PROMPT_VERSION = re.compile(rf"[0-9a-f]{{{config.PROMPT_VERSION_LENGTH}}}")
 # Codes the app writes itself (a turn's code, a review's outcome). A review's failed checks
 # (`errors`, e.g. diagnosis, calorie_floor) hint at a client's health, so they are masked and stay
-# in the local log only (owner's choice, 2026-11-06, compliance run on T9.8).
+# in the local log only (T9.8).
 _CODE_KEYS = frozenset({"code", "outcome"})
 _CODE = re.compile(r"[a-z][a-z0-9_]{0,40}(?:\.[a-z0-9_]{1,40}){0,4}")
 # A guardrail's code names the health topic of the question (guardrail.pregnancy, ...): masked in
-# a trace, kept only in the local log; the turn's kind still says a guardrail answered (owner's
-# choice, 2026-11-06, code review round 1).
+# a trace, kept only in the local log; the turn's kind still says a guardrail answered.
 _MASKED_CODE_PREFIX = "guardrail."
 # The only booleans kept: the turn's own flow flags. Any other (e.g. a client's metric flags in a
-# review) is masked (owner's choice, 2026-11-06, code review round 1).
+# review) is masked.
 _FLAG_KEYS = frozenset({"tools_only", "stopped", "awaiting"})
 # Values kept only from a closed list: message and serialisation types, statuses, turn kinds.
 _TYPES = frozenset(
@@ -130,8 +129,8 @@ _TYPES = frozenset(
 # LangChain's serialised class path of a message ({"lc": 1, "id": ["langchain", "schema",
 # "messages", "HumanMessage"], ...}): constant names from the library, from which LangSmith shows a
 # model call's messages as a chat with their roles. Only these names are kept under an `id` key; a
-# message's or a tool call's own ID (any other value) is masked as before (owner's live check, O13,
-# 2026-11-07: the roles showed as "Unknown").
+# message's or a tool call's own ID (any other value) is masked. Without these names LangSmith
+# shows every role as "Unknown" (seen in a live check, O13).
 _MESSAGE_CLASS_PATH = frozenset(
     {
         "langchain",
@@ -225,7 +224,7 @@ def _mask_value(value: Any, key: str | None) -> Any:
     """Return the value with every text and number that is not metadata replaced (see module)."""
     if value is None:
         # An empty value tells something too (a day of a client's week with no log): kept only
-        # under a key whose values are metadata (compliance run on T9.8, owner's choice).
+        # under a key whose values are metadata (T9.8).
         return value if key in _METADATA_KEYS else config.TRACE_MASK
     if isinstance(value, bool):
         return value if key in _FLAG_KEYS else config.TRACE_MASK
@@ -236,15 +235,14 @@ def _mask_value(value: Any, key: str | None) -> Any:
     if isinstance(value, Mapping):
         masked = _mask_record(value)
         # A record with nothing kept becomes one placeholder, so a logged day ({kcal, protein_g})
-        # looks like a day with no log (None) in a client's week (code review round 4).
+        # looks like a day with no log (None) in a client's week.
         if masked and all(item == config.TRACE_MASK for item in masked.values()):
             return config.TRACE_MASK
         return masked
     if isinstance(value, list | tuple):
         # A list keeps its key's rule: e.g. LangGraph's node path. A list with nothing kept, an
         # empty one included, becomes one placeholder like a record, so its length shows nothing
-        # (how many exercises a client logged, whether a review found topics; owner's choice,
-        # 2026-11-06, code review round 5).
+        # (how many exercises a client logged, whether a review found topics).
         masked_items = [_mask_value(item, key) for item in value]
         if all(item == config.TRACE_MASK for item in masked_items):
             return config.TRACE_MASK
@@ -277,7 +275,7 @@ def mask_error_only(data: Any) -> Any:
     """Return a run's error as its class name only; leave every other payload as it is (T9.33)."""
     # The evaluation experiments' anonymizer (src/experiments.py): their runs are not masked, but
     # an error is repr(exc) and a traceback, which may quote a provider's reply and the machine's
-    # paths, so it keeps its class name as in mask() (code review round 1 of T9.33).
+    # paths, so it keeps its class name as in mask().
     if isinstance(data, Mapping) and set(data) == {"error"} and isinstance(data["error"], str):
         return {"error": _error_class(data["error"])}
     return data
@@ -366,7 +364,7 @@ def configure_tracing() -> bool:
             # Also turns off a tracer that LangSmith's own environment flag would start. The
             # global client is never cleared: a Streamlit thread that turned tracing on keeps its
             # own `enabled` until its next run, and with no global client LangSmith would build a
-            # default one that masks nothing (code review round 1). It keeps the masked one.
+            # default one that masks nothing. It keeps the masked one.
             langsmith.configure(enabled=False)
             _installed["key_digest"] = None
             _gate["open"] = False

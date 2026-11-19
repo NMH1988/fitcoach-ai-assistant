@@ -784,7 +784,7 @@ def main(args: Sequence[str] | None = None) -> int:
             "than the results file records (see each turn's trace)."
         )
     # After both files are written, so a slow LangSmith or a Ctrl-C while it sends loses no paid
-    # answer (code review round 1).
+    # answer.
     langsmith_failed = experiment is not None and not finish_experiment(experiment, runs, scores)
     errors = any(run.result.kind == "error" for run in runs)
     return 1 if failed or errors or langsmith_failed else 0

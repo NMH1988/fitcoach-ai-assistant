@@ -236,8 +236,8 @@ def evaluate_meal_plan(
             "leaves them out."
         )
     if totals.kcal < config.CALORIE_FLOOR_KCAL:
-        # The same pointer as the targets' floor notes (owner's choice after PR #56's review): the
-        # tool cannot tell a low day from a partial list, so it notes and points, not refuses.
+        # The same pointer as the targets' floor notes (T4.5): the tool cannot tell a low day from
+        # a partial list, so it notes and points, not refuses.
         notes.append(
             f"The plan's total of {totals.kcal} kcal is below the calorie floor of "
             f"{config.CALORIE_FLOOR_KCAL} kcal/day. The app does not suggest eating below the "

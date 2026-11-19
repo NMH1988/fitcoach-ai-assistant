@@ -26,7 +26,7 @@ LINE_START = re.compile(r"^(\d*)([#+=.)-])")
 # invisible) does, as its patterns need "www" right before the dot, the colon right after the
 # scheme and a letter right before the "@" (checked in a browser, 2026-11-06). No word
 # boundary: remark-gfm links after any punctuation, "_" included ("x_www."), and a joiner
-# too many ("wwww.") does no harm (code review round 12).
+# too many ("wwww.") does no harm.
 _AUTOLINK_STARTS = re.compile(r"(?:www(?=\.)|https?(?=:)|mailto(?=:))|(?=@)", re.I)
 WORD_JOINER = "\u2060"
 # The columns of the Details tab's table of a turn's calls (T5.1), as keys in src/i18n/.
@@ -47,10 +47,10 @@ def bold_label(line: str) -> str:
 def one_line(text: str) -> str:
     """Return text on one line, escaped, so it adds no formatting, image or link to a list."""
     # No link either: a model's text could otherwise offer one that carries a client's figure to
-    # another host (security-reviewer and code review round 11, 2026-11-06).
+    # another host.
     unlinked = _AUTOLINK_STARTS.sub(lambda found: found.group() + WORD_JOINER, text)
     # An escaped "&" keeps Markdown from decoding a character reference ("&#58;", "&commat;")
-    # into the colon, dot or "@" of a link after the joiners are placed (code review round 13).
+    # into the colon, dot or "@" of a link after the joiners are placed.
     line = chat.escape_markdown(" ".join(unlinked.split())).replace("&", r"\&")
     # A line start Markdown reads as a heading, quote, list or rule ("# Big", "> x", "1. x").
     return LINE_START.sub(r"\1\\\2", line)
@@ -129,7 +129,7 @@ def per_body_weight(
 ) -> str:
     """Show a macro's grams per body weight in the user's units, rounded once."""
     # From the grams and the weight, not Macro.g_per_kg, which is already rounded to 0.1: rounding
-    # it again showed 1.1 g/kg for 42 g at 40.1 kg (1.047; code review on PR #53).
+    # it again would show 1.1 g/kg for 42 g at 40.1 kg (1.047).
     return units.format_grams_per_body_weight(macro.grams, targets.weight_kg or 0, system, lang)
 
 
@@ -453,8 +453,8 @@ def entry_label(kind: str, row: dict, system: units.UnitSystem, lang: Language) 
 
 
 # The columns of the coach's client list (T9.12; the week's values since T9.15), as keys under
-# "clients.col." in src/i18n/; the former clients keep only their name and days (T9.15, from the
-# compliance review of T9.12).
+# "clients.col." in src/i18n/; the former clients keep only their name and days, as they no longer
+# share their data (T9.15).
 CLIENT_COLUMNS = ("name", "since", "follow_up", "logged", "kcal", "sessions", "weight", "review")
 FORMER_COLUMNS = ("name", "since", "ended")
 INVITATION_COLUMNS = ("created", "expires", "state")
@@ -462,7 +462,7 @@ INVITATION_COLUMNS = ("created", "expires", "state")
 
 def logged_days_line(week: metrics.WeekMetrics, lang: Language) -> str:
     """Say how many days of the whole week were logged: "3 of 7 days logged" (AC-26)."""
-    # Out of seven, also for the week in progress (owner's choice, 2026-10-30).
+    # Out of seven, also for the week in progress.
     return i18n.t("week.logged_days", lang, logged=week.logged_days, days=week.days_in_week)
 
 
@@ -675,8 +675,8 @@ def review_source_lines(review: dict, manifest: dict, lang: Language) -> list[st
     # The review text keeps what each of its [S#] labels cited (weekly_review.cited_sources()), so
     # a label in the text names the same source here; the manifest gives the title, the link, the
     # authors and the licence (approved sources only, docs/SOURCES.md), credited as the chat's
-    # source card does, as a review may quote a source's range (copyright policy rule 6;
-    # compliance-reviewer, 2026-11-06). A label or source the app does not know is left out.
+    # source card does, as a review may quote a source's range (copyright policy rule 6). A label
+    # or source the app does not know is left out.
     cited = review.get("sources")
     if not isinstance(cited, dict):
         return []
@@ -714,7 +714,7 @@ def review_label(review: dict, lang: Language) -> str:
 
 # The label of a thread row by its kind and who reads it (T9.25): the coach's answer is set apart
 # from the AI draft above it (AC-41) and is never called "your coach's", as a former coach's
-# threads stay on the gymer's page (owner's choice, 2026-11-06).
+# threads stay on the gymer's page.
 _THREAD_LABELS = {
     ("question", "gymer"): "questions.label.my_question",
     ("question", "coach"): "questions.label.client_question",

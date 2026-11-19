@@ -34,9 +34,9 @@ CHUNK_MIN_BODY_CHARS = 400
 CHUNK_MIN_CHARS = 300
 # Section title for paragraphs that sit directly in the body, outside any section (e.g. #18a).
 MAIN_TEXT_TITLE = "Main text"
-# Back matter that many articles put inside <body>: dropped, as it is not nutrition content (owner's
-# choice in T2.2), and so are the registration notes of an abstract, a bare PROSPERO ID that short
-# queries matched (T3.7; a Methods "Protocol and registration" section is content and stays).
+# Back matter that many articles put inside <body>: dropped, as it is not nutrition content (T2.2),
+# and so are the registration notes of an abstract, a bare PROSPERO ID that short queries matched
+# (T3.7; a Methods "Protocol and registration" section is content and stays).
 # Matched on the section's sec-type, or on its title in lower case with numbering and punctuation
 # removed; a title starting with "appendix" is dropped too.
 INGEST_DROPPED_SEC_TYPES: frozenset[str] = frozenset(
@@ -141,7 +141,7 @@ MAX_CHUNKS_PER_SOURCE = 3
 
 # Query translation (T3.2; docs/ARCHITECTURE.md section 5): one QUERY_TRANSLATION_MODEL call
 # rewrites the question and picks optional filters. Its system prompt is written by the owner (O7).
-# Rewrites per question; the question itself is searched as well (owner's choice in T3.2).
+# Rewrites per question; the question itself is searched as well (T3.2).
 QUERY_REWRITES = 3
 # Longest rewrite accepted; a longer one makes the whole reply invalid (fallback to the question).
 QUERY_REWRITE_MAX_CHARS = 300
@@ -149,9 +149,8 @@ QUERY_REWRITE_MAX_CHARS = 300
 # source after it finds nothing, so the search runs again without filters.
 QUERY_MIN_YEAR_RANGE = (2000, 2100)
 # The tool results an answer may rest on (T9.3): a calculation, a food found or not found, and
-# "profile needed", whose answer points to the "Add your details" button (owner's choice of
-# 2026-10-29, after the security review of PR #46). A refused call ("invalid") or a tool that
-# failed ("error") is no basis, so a reply after it stays hidden.
+# "profile needed", whose answer points to the "Add your details" button. A refused call
+# ("invalid") or a tool that failed ("error") is no basis, so a reply after it stays hidden.
 BASIS_TOOL_STATUSES = frozenset({"ok", "found", "not_found", "profile_needed"})
 
 # Article XML comes only from the Europe PMC REST API, which allows automated retrieval

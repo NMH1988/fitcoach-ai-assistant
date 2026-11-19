@@ -143,7 +143,7 @@ def save_profile(
 ) -> bool:
     """Save a gymer's profile, weight (if asked) and new target; False: the coach's target kept."""
     # While the gymer shares nutrition with a coach and the latest target is a coach's, the store
-    # writes no new target (T9.17, owner's choices, 2026-11-06), so the page can say it stays.
+    # writes no new target (T9.17), so the page can say it stays.
     # The target is worked out before anything is written, so a profile that gives no target
     # writes nothing; the three rows are one store transaction (T9.13), so a profile entry never
     # stays without its target.

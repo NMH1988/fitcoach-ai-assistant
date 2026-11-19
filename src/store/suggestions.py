@@ -9,10 +9,10 @@ list; an empty list clears them. Items keep the food log's gram range, at most
 
 `current_suggestions()` reads the active list. For the gymer it is the newest list written by the
 coach they are connected with now, so a former coach's list is hidden once the relationship ends,
-though kept until either side deletes their data (owner's choices, 2026-11-12). For a coach it is
-the newest list they wrote for the client, read through `access.authorised_read()` (nutrition, an
-audited read). A relationship's status is read as a value (`ended_at`), never as a sharing filter,
-which only the `open_shares` view writes.
+though kept until either side deletes their data. For a coach it is the newest list they wrote for
+the client, read through `access.authorised_read()` (nutrition, an audited read). A relationship's
+status is read as a value (`ended_at`), never as a sharing filter, which only the `open_shares` view
+writes.
 
 The list is the coach's suggestion, never a meal plan: the calorie floor does not apply to its
 total, and the gymer still logs any other food. A gymer's item logged from the active list carries

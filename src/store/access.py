@@ -3,10 +3,10 @@
 A user always reads their own data. Another user's data is read only by a coach, of a gymer, while
 their relationship is active and the gymer shares the scope the data belongs to: `body` (weight and
 profile entries), `nutrition` (meals, targets and the coach's own reviews) or `training` (workouts).
-Preferences have no scope and are never shared (owner's choices, 2026-10-27). Every other case (a
-missing user, someone else's client, an ended relationship, a scope not shared, a gymer reading a
-gymer) raises the same `NotFound`, so an answer never reveals whether a client exists. A coach's
-read writes an audit row with no values, in the same transaction as the read.
+Preferences have no scope and are never shared (T9.6). Every other case (a missing user, someone
+else's client, an ended relationship, a scope not shared, a gymer reading a gymer) raises the same
+`NotFound`, so an answer never reveals whether a client exists. A coach's read writes an audit row
+with no values, in the same transaction as the read.
 """
 
 import sqlite3

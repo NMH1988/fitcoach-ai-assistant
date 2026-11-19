@@ -183,7 +183,8 @@ EN: dict[str, str] = {
     "week.no_weight": "No weight logged up to this week.",
     "week.volume_heading": "Training volume per day",
     "chart.not_logged": "not logged",
-    # The tooltips' titles (code review round 3), without the unit the value shows (round 4).
+    # The tooltips' titles, so no column name shows; the value carries the unit, so the title has
+    # none.
     "chart.day": "Day",
     "chart.macro": "Macro",
     "chart.series": "Average or target",

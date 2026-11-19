@@ -227,9 +227,9 @@ def _emphasis_free(text: str) -> str:
 def _inline_markdown(text: str) -> str:
     """Return one line with its code spans, escapes, links, URLs and emphasis made plain."""
     # Code spans, then backslash escapes, then links, then bare URLs are set aside in NUL-delimited
-    # slots before the emphasis rules, so code stays as written (also in a link's text),
-    # "\*note\*" keeps its stars and a URL keeps its "__" (code review); the slots cannot clash
-    # with the text, as _plain() drops NUL.
+    # slots before the emphasis rules, so code stays as written (also in a link's text), "\*note\*"
+    # keeps its stars and a URL keeps its "__"; the slots cannot clash with the text, as _plain()
+    # drops NUL.
     kept: list[str] = []
 
     def keep(value: str) -> str:
@@ -437,7 +437,7 @@ def _macro_flowables(
         macro = getattr(targets, name)
         macros.append([i18n.t(f"macro.{name}", lang), *_macro_cells(macro, weight, system, lang)])
     flowables: list[Flowable] = [_table(summary), Spacer(1, 2 * mm), _table(macros, header=True)]
-    # The tool's message, notes and method stay English, as in the app (owner's choice in T7.1).
+    # The tool's message, notes and method stay English, as in the app (T7.1).
     flowables.append(_para(result.message, "small"))
     flowables += [_para(note, "small") for note in targets.notes]
     flowables.append(_para(result.energy_needs.method, "small"))
@@ -486,7 +486,7 @@ def _meal_plan_flowables(result: MealPlanResult, lang: Language = "en") -> list[
         *(meal_plan.food_row(item, lang) for item in result.items),
     ]
     # Eight columns: small cells, the values as wide as their longest text and the two name
-    # columns sharing the rest, so no header or value breaks mid-word (code review, round 2).
+    # columns sharing the rest, so no header or value breaks mid-word.
     widths = _fitted_widths(foods, wide=(0, 1), size=SMALL_SIZE)
     flowables: list[Flowable] = [_table(foods, header=True, widths=widths, cell_style="small_cell")]
     # The app's "Other close USDA names" column, as lines under the table.
@@ -529,7 +529,7 @@ def _tool_run_flowables(
         body = _meal_plan_flowables(result, lang)
     elif isinstance(result, coach_clients.ClientListResult | coach_clients.ClientWeekResult):
         # A coach's client tools (T9.17): their table is in the app; the answer above names the
-        # clients, and the message written for the model is not repeated (code review round 2).
+        # clients, and the message written for the model is not repeated.
         body = [_para(i18n.t("pdf.client_tool", lang), "small")]
     else:
         # A refused or failed call: the fixed message, never what the model sent.

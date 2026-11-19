@@ -53,7 +53,7 @@ def retrieve_all(
 def _sources(found: Sequence[RetrievedChunk], mark_keyword_only: bool = False) -> str:
     """Return the source IDs of the chunks found, in order, e.g. '#4 #4* #10'."""
     # In the hybrid row a "*" marks a chunk found by keyword search only (no vector distance),
-    # so T3.6 can see how often such chunks reach the top (PR #52 review).
+    # so T3.6 can see how often such chunks reach the top.
     return (
         " ".join(
             f"#{chunk.metadata.get('source_id')}"

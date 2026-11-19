@@ -9,7 +9,8 @@ MAX_RAW_INPUT_CHARS = 4 * MAX_INPUT_CHARS
 
 # Questions allowed per browser session: at most this many in any rolling window, and this many
 # in all. One accepted question counts once, however many model calls its turn makes; questions
-# the guard rejects do not count (owner's choice in T1.3). Reloading the page starts a new session.
+# the guard rejects do not count, as they make no model call (T1.3). Reloading the page starts a
+# new session.
 RATE_LIMIT_PER_MINUTE = 10
 RATE_LIMIT_WINDOW_SECONDS = 60
 RATE_LIMIT_PER_SESSION = 50
@@ -42,7 +43,7 @@ INVITE_TTL_DAYS = 7
 # every try counts, a valid one too.
 INVITE_MAX_ATTEMPTS = 5
 # The food and weight diary (T9.13): a gymer logs today or up to this many days back, never a
-# future day (owner's choice, 2026-11-03); a food's grams keep FOOD_MIN_GRAMS to FOOD_MAX_GRAMS.
+# future day; a food's grams keep FOOD_MIN_GRAMS to FOOD_MAX_GRAMS.
 DIARY_MAX_DAYS_BACK = 30
 DIARY_DEFAULT_GRAMS = 100.0
 DIARY_STEP_GRAMS = 10.0
@@ -55,7 +56,7 @@ TARGET_INPUT_MAX_KCAL = 10000
 TARGET_INPUT_MAX_GRAMS = 1000
 # The foods a coach suggests to a client (T9.34): at most this many items in one list, each with
 # grams in the food log's range (FOOD_MIN_GRAMS to FOOD_MAX_GRAMS) and a food at most once per
-# meal slot; the store checks them all (owner's choice, 2026-11-12).
+# meal slot; the store checks them all.
 MAX_SUGGESTED_FOODS = 20
 # In-app notifications (T9.29, D23): the Notifications page lists at most this many, newest first,
 # and at most NOTIFICATIONS_MAX_TOASTS show as toasts in one run (the rest as one "and N more"
@@ -96,22 +97,21 @@ MAX_TOOL_ROUNDS = 4
 # Tool calls run from one reply; the rest are answered with TOO_MANY_TOOL_CALLS_MESSAGE. Each result
 # is sent back to the model with every later call, so this bounds the tokens a turn can use.
 MAX_TOOL_CALLS_PER_ROUND = 6
-# evaluate_meal_plan calls run from one reply (T4.5; owner's choice after code review). A 20-food
-# result is about 7,000 characters, against about 500 for a food lookup, so 6 of them in each of 4
-# rounds could send about 420,000 characters (about 100k tokens) over a turn's model calls; with 1
-# a round the worst case with real food names is about 95,000 (docs/SECURITY.md, "Runaway cost").
+# evaluate_meal_plan calls run from one reply (T4.5). A 20-food result is about 7,000 characters,
+# against about 500 for a food lookup, so 6 of them in each of 4 rounds could send about 420,000
+# characters (about 100k tokens) over a turn's model calls; with 1 a round the worst case with real
+# food names is about 95,000 (docs/SECURITY.md, "Runaway cost").
 # One day's plan needs one call; the rest get TOO_MANY_MEAL_PLANS_MESSAGE.
 MAX_MEAL_PLAN_CALLS_PER_ROUND = 1
 
 # The chat's short-term memory (T9.4, D12): the thread keeps each answered turn's question and
-# answer only (owner's choice, 2026-10-30), in memory for the browser session. The thread holds at
-# most HISTORY_MAX_MESSAGES of them (a question and its answer are two), the oldest removed first
-# (what is stored); the model gets the latest of them that fit HISTORY_MAX_TOKENS, counted
-# approximately without a network call (what the model sees). Both bound the cost: each earlier
-# message is sent again with every model call of a turn. Kept after the owner's live check (O13,
-# 2026-10-30): a meal plan exchange, the longest answer measured, is an estimated 450-500 tokens of
-# history a call, so 2000 holds the last three or four such exchanges, more of shorter ones
-# (docs/TESTING.md, "Conversation memory").
+# answer only, in memory for the browser session. The thread holds at most HISTORY_MAX_MESSAGES of
+# them (a question and its answer are two), the oldest removed first (what is stored); the model
+# gets the latest of them that fit HISTORY_MAX_TOKENS, counted approximately without a network call
+# (what the model sees). Both bound the cost: each earlier message is sent again with every model
+# call of a turn. In the live check (O13, 2026-10-30), a meal plan exchange, the longest answer
+# measured, was an estimated 450-500 tokens of history a call, so 2000 holds the last three or four
+# such exchanges, more of shorter ones (docs/TESTING.md, "Conversation memory").
 HISTORY_MAX_MESSAGES = 20
 HISTORY_MAX_TOKENS = 2000
 # The coach's long-term memory (T9.7, D12): `remember_preference`, offered only in a coach's chat,

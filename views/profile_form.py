@@ -11,7 +11,7 @@ from views.text import label_of, lang, t
 
 FORM_FIELDS = tuple(profile.form_values(None, "metric"))
 # Set when the form opens for a signed-in gymer who has never saved a profile: the first save needs
-# the opt-in box ticked (owner's choice, 2026-11-02); a gymer with saved entries agreed then.
+# the opt-in box ticked (T9.5); a gymer with saved entries agreed then.
 OPT_IN_NEEDED_KEY = "profile_form_opt_in_needed"
 OPT_IN_KEY = "profile_form_opt_in"
 

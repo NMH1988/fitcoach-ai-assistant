@@ -158,8 +158,8 @@ EN: dict[str, str] = {
         "Weights and profile entries (height, age, sex, activity, goal). While shared, a weekly "
         "review your coach starts also sends this week's weight figures to that AI model"
     ),
-    # T9.17: what the coach's assistant sends, shown once above the scope boxes (compliance run 1,
-    # wording approved by the owner, 2026-11-07).
+    # T9.17: what the coach's assistant sends, shown once above the scope boxes, so a gymer knows
+    # what sharing a scope sends to a model (wording approved by the owner).
     "sharing.assistant": (
         "While a scope is shared, your coach can also ask the app's AI assistant about your "
         "weeks: that scope's figures (each day's totals, averages, your target, weight or "

@@ -3,15 +3,15 @@
 A preference is a coach's own working preference since T9.7 (it was a gymer's before T9.24).
 
 Each `add_*` writes a row for the acting user only, who must be a gymer, or for `add_preference()` a
-coach; weight, height and age keep the profile form's ranges and a target the calorie floor. The
-one write into another user's records is a coach's target for a client (`add_client_target()`,
-T9.17): only while the client shares nutrition with that coach, audited as `target_set`. A
-coach-set target is the gymer's to read, never to delete alone (`delete_record()` refuses it; only
+coach; weight, height and age keep the profile form's ranges and a target the calorie floor. The one
+write into another user's records is a coach's target for a client (`add_client_target()`, T9.17):
+only while the client shares nutrition with that coach, audited as `target_set`. A coach-set target
+is the gymer's to read, never to delete alone (`delete_record()` refuses it; only
 `my_data.delete_user_data()` removes it), and a profile Save keeps it while the gymer shares
-nutrition with a coach (`add_profile_with_target()`; owner's choices, 2026-11-06). The other one
-is a coach's list of suggested foods (`suggestions.add_client_suggestions()`, T9.34); a meal item
-the gymer logs from it is flagged `from_suggestion` here, after the store checked the item is on
-the gymer's active list, and an edit keeps the flag only for the same food.
+nutrition with a coach (`add_profile_with_target()`). The other one is a coach's list of suggested
+foods (`suggestions.add_client_suggestions()`, T9.34); a meal item the gymer logs from it is flagged
+`from_suggestion` here, after the store checked the item is on the gymer's active list, and an edit
+keeps the flag only for the same food.
 
 Each `list_*` takes the acting user and the user whose data it reads and goes through
 `access.authorised_read()`: the user's own data, or a coach's read within the scope the data
@@ -81,8 +81,7 @@ SELECT set_by FROM nutrition_targets WHERE user_id = ?
 ORDER BY effective_from DESC, id DESC LIMIT 1
 """
 # Whether the gymer shares nutrition with a coach now, read from the sharing rule's one view, so an
-# ended relationship, or a new coach the gymer does not share nutrition with, does not count
-# (owner's choice, 2026-11-06, code review round 1).
+# ended relationship, or a new coach the gymer does not share nutrition with, does not count.
 _SHARES_NUTRITION = "SELECT 1 FROM open_shares WHERE client_id = ? AND scope = 'nutrition'"
 _ADD_MEAL = """
 INSERT INTO meal_items (
@@ -275,7 +274,7 @@ def add_client_target(
         raise NotFound from None  # as a read of a subject that is not an ID
     row = _target_row(client_id, kcal, protein_g, carbs_g, fat_g, "coach", effective_from, None)
     # From today at the latest: a target set for later would keep a Save from writing the gymer's
-    # own target while it is not yet the active one (code review round 1).
+    # own target while it is not yet the active one.
     if effective_from > metrics.berlin_day():
         raise values.StoreValueError("effective_from", "must not be after today")
     with transaction(conn):
@@ -348,9 +347,8 @@ def add_profile_with_target(
     """Add a profile entry, its weight and its target in one transaction; False: target kept."""
     # One transaction, so a profile entry never stays without the target worked out from it,
     # except while the gymer shares nutrition with a coach and the latest target was set by a
-    # coach: that target then stays the active one and no target is written (T9.17, owner's
-    # choices, 2026-11-06). Otherwise (no coach, or nutrition not shared) a Save writes its
-    # target, which then replaces the coach's.
+    # coach: that target then stays the active one and no target is written (T9.17). Otherwise (no
+    # coach, or nutrition not shared) a Save writes its target, which then replaces the coach's.
     profile = _profile_row(user_id, height_cm, age, sex, activity, goal)
     weight = None if weight_kg is None else _weight_row(user_id, weight_kg, day)
     source = values.choice(set_by, "set_by", get_args(TargetSource))
@@ -516,8 +514,8 @@ def _rpe(value: object) -> float:
 def _workout_day(user_id: str, performed_on: date) -> tuple[str, str]:
     """Return a workout's checked user ID and day; a day after today (Berlin) is refused."""
     day = values.date_text(performed_on, "performed_on")
-    # A workout is logged once it is done, whoever the caller (the owner's choice, T9.14); today is
-    # the app's one Berlin day, as for `src/account.today()` and the diary (T9.13).
+    # A workout is logged once it is done, whoever the caller (T9.14); today is the app's one Berlin
+    # day, as for `src/account.today()` and the diary (T9.13).
     if performed_on > metrics.berlin_day():
         raise values.StoreValueError("performed_on", "must not be after today")
     return (values.user_id(user_id), day)

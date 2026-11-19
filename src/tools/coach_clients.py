@@ -131,7 +131,7 @@ class ClientListResult(BaseModel):
 
     status: Literal["ok"]
     message: str
-    # Today in Europe/Berlin: the model knows no date otherwise (code review round 7).
+    # Today in Europe/Berlin: the model knows no date otherwise.
     today: date
     week_start: date
     week_end: date
@@ -458,14 +458,14 @@ def build_tools(
 # every reference in it stays as written, so no name can end up in a link's target, whatever its
 # Markdown form (inline, angle brackets, reference definitions, bare URLs, a destination on the next
 # line). The check is per paragraph, the lines between blank lines, as no Markdown link crosses a
-# blank line (code review rounds 1-5; the owner's rule for text heuristics). Two slashes alone, not
-# "://", so a URL with no scheme counts too (round 3). Round 5 is the last round of this rule
-# (owner's choice, 2026-11-07): a link form found later is a known limit in docs/SECURITY.md.
+# blank line. Two slashes alone, not "://", so a URL with no scheme counts too. The markers are
+# not patched for each new link form, which would only make the heuristic longer, not whole: a
+# link form found later is a known limit in docs/SECURITY.md.
 LINK_MARKERS: tuple[str, ...] = ("](", "]:", "<", "//", "www.", "@")
 # A blank line ends a paragraph: only spaces, tabs or a carriage return between two newlines. The
 # text is split on the newline character only (str.splitlines() also breaks at U+2028, U+0085 and
-# others that end no Markdown line, round 4), so these paragraphs are never smaller than Markdown's
-# own; a lone carriage return only makes one longer, which keeps more references.
+# others that end no Markdown line), so these paragraphs are never smaller than Markdown's own; a
+# lone carriage return only makes one longer, which keeps more references.
 _BLANK_LINE = re.compile(r"(\n[ \t\r]*\n)")
 
 

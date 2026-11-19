@@ -11,9 +11,9 @@ from views.text import lang, n, plain, t
 
 def tab_message(result: registry.ToolResult) -> str:
     """Return why a Food lookup tab lookup gave no result, in the session's language."""
-    # The tab calls no model, so its messages follow the language (owner's choice in the review
-    # of PR #74); English keeps the lookup's own fixed text. The dropdown and the grams widget
-    # keep both in range, so an invalid lookup is not expected; a food is never "not found".
+    # The tab calls no model, so its messages follow the language (T7.1); English keeps the lookup's
+    # own fixed text. The dropdown and the grams widget keep both in range, so an invalid lookup is
+    # not expected; a food is never "not found".
     if lang() == "en":
         return result.message
     return t("food.tab.invalid" if result.status == "invalid" else "food.tab.error")

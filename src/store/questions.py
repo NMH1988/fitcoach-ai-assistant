@@ -1,23 +1,23 @@
 """Questions to the coach under an approved weekly review, and the coach's answers (T9.25).
 
-A thread belongs to its review (PRD feature 27, AC-42), so it follows the review's own rule
-(T9.16): the coach reads and answers it only while the relationship is active and the client shares
-nutrition and every scope the review's metrics used; the gymer asks under an approved review about
-them by the same rule, so no question is written that its coach could not read. Every other case (a
-pending or rejected review, another gymer's or another coach's review, an ended relationship, a
-scope turned off) gets the same `NotFound`, and nothing is written. The gymer reads the threads
-under the approved reviews about them, also once the relationship has ended, as they read those
-reviews (owner's choice, 2026-11-06). The thread takes turns: a question, the coach's answer, then
-the next question, at most `config.REVIEW_THREAD_MAX_QUESTIONS` per review; there is no edit and no
-delete of one row (rows are never changed in place; "delete everything" removes them). A coach's
-read is audited by `authorised_read()` and an answer writes a `review_answered` audit row, both
-without the text. The text is never sent to a model and is shown as plain text (views/questions.py).
+A thread belongs to its review (PRD feature 27, AC-42), so it follows the review's own rule (T9.16):
+the coach reads and answers it only while the relationship is active and the client shares nutrition
+and every scope the review's metrics used; the gymer asks under an approved review about them by the
+same rule, so no question is written that its coach could not read. Every other case (a pending or
+rejected review, another gymer's or another coach's review, an ended relationship, a scope turned
+off) gets the same `NotFound`, and nothing is written. The gymer reads the threads under the
+approved reviews about them, also once the relationship has ended, as they read those reviews. The
+thread takes turns: a question, the coach's answer, then the next question, at most
+`config.REVIEW_THREAD_MAX_QUESTIONS` per review; there is no edit and no delete of one row (rows are
+never changed in place; "delete everything" removes them). A coach's read is audited by
+`authorised_read()` and an answer writes a `review_answered` audit row, both without the text. The
+text is never sent to a model and is shown as plain text (views/questions.py).
 
 The notifications of a new question or answer (T9.30) read the same threads by the same rule
 through `list_question_events()`, which returns only IDs, the week and the time, never the text.
 A coach's read of one client is always audited; the coach's own list is audited only when the
 caller says so: the Notifications page does, the sidebar's count and the toasts, which run on
-every page, do not (the middle way, owner's choice, 2026-11-08).
+every page, do not, so the audit is not filled with page loads (T9.30).
 """
 
 import sqlite3
@@ -45,7 +45,7 @@ INSERT INTO review_questions (review_id, author_id, kind, text, created_at) VALU
 # The review's sharing rule (nutrition and every scope in ai_review_scopes, from open_shares) is
 # written out in each query below, as in reviews._WRITTEN_ABOUT and _WRITTEN_FOR_SHARED and
 # my_data._COACH_QUESTIONS: a read cannot call another store function inside its transaction, so a
-# change to the rule changes all of them (code review round 1), the notifications' three below too.
+# change to the rule changes all of them, the notifications' three below too.
 # The threads a coach reads about one client, after access.authorise_read() allowed nutrition:
 # those under the approved reviews they wrote whose every scope the client still shares.
 _OF_COACH_ABOUT = """
@@ -215,7 +215,7 @@ def answer_question(
     """Write the coach's answer to the open question under a review they wrote; return its ID."""
     # question_id names the question the coach saw: if another has become the open one since
     # (answered in another tab, then a new question asked), the answer is refused, not stored
-    # under a question it does not answer (code review round 2).
+    # under a question it does not answer.
     body = values.text(text, "text", config.REVIEW_THREAD_MAX_CHARS)
     if not values.is_row_id(review_id):
         raise NotFound
@@ -270,8 +270,8 @@ def list_question_events(
     # reading their own gets the coach's answers under every approved review about them. A coach's
     # read of one named client is always audited, as every read of another user's data is. Only
     # the coach's own list, which the sidebar's count and the toasts read on every page, skips its
-    # audit rows (one `read` per client found) unless `audited` (the Notifications page): the
-    # middle way, owner's choice, 2026-11-08, and the one exception (code review round 1).
+    # audit rows (one `read` per client found) unless `audited` (the Notifications page), so the
+    # audit is not filled with page loads (T9.30): the one exception to auditing every read.
     with transaction(conn):
         by_coach = authorise_read(conn, actor_id, subject_id, "nutrition")
         if by_coach:

@@ -85,7 +85,7 @@ EN: dict[str, str] = {
     "pdf.food_data": "Food data",
     "pdf.font": "Font",
     # Every PDF embeds subsets of the font, and its licence asks for its notices with every copy,
-    # so the licence follows this line word for word (owner's choices in T5.2's review, 2026-10-20).
+    # so the licence follows this line word for word (T5.2).
     "pdf.font_credit": (
         "Set in DejaVu Sans 2.37 "
         "(https://github.com/dejavu-fonts/dejavu-fonts/releases/tag/version_2_37). Its licence, "

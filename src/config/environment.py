@@ -19,12 +19,12 @@ LOG_LEVEL = "INFO"
 LANGSMITH_API_KEY_NAME = "LANGSMITH_API_KEY"
 TRACING_FLAG_NAME = "FITCOACH_TRACING"
 TRACING_ON_VALUES = frozenset({"1", "true", "yes", "on"})
-# The EU region (owner's choice, 2026-11-06): the LangSmith account is created there (O10).
+# The EU region: the LangSmith account is created there (O10, T9.8).
 LANGSMITH_ENDPOINT = "https://eu.api.smith.langchain.com"
 LANGSMITH_PROJECT = "fitcoach-ai-assistant"
-# Unmasked traces in demo mode only (T9.35, owner's request, 2026-11-13, to show a reviewer what a
-# trace holds): on only with tracing on, demo mode on (synthetic users, no [auth]) and this flag;
-# the runs go to a project of their own, which the owner deletes after the demo.
+# Unmasked traces in demo mode only (T9.35, to show a reviewer what a trace holds): on only with
+# tracing on, demo mode on (synthetic users, no [auth]) and this flag; the runs go to a project of
+# their own, which the owner deletes after the demo.
 TRACING_DEMO_UNMASKED_FLAG_NAME = "FITCOACH_TRACING_DEMO_UNMASKED"
 LANGSMITH_DEMO_PROJECT = "fitcoach-ai-assistant-demo"
 # What a masked value or key becomes in a trace.
@@ -91,8 +91,8 @@ def get_food_api_key() -> str | None:
     secret = value.strip() if isinstance(value, str) else ""
     key = secret or os.environ.get(FOOD_API_KEY_NAME, "").strip()
     # A key with a line break, another non-printable character or a non-ASCII one inside would
-    # make http.client raise an error (one that quotes the header), so it is not used (compliance
-    # run 1's question; code review round 2). api.data.gov keys are ASCII letters and digits.
+    # make http.client raise an error (one that quotes the header), so it is not used.
+    # api.data.gov keys are ASCII letters and digits.
     if not key or key == FOOD_API_KEY_PLACEHOLDER or not (key.isascii() and key.isprintable()):
         return None
     return key

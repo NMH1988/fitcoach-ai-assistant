@@ -117,7 +117,7 @@ def _open_week(rows: list[tuple[dict, dict[str, str]]]) -> None:
     """Let the coach pick an active client, with a link to their week on the Client week page."""
     names = {relationship["other_id"]: cells["name"] for relationship, cells in rows}
     # The picker shows the client the link opens: the kept pick, when still an active client
-    # (Streamlit drops this widget's state when another page opens; code review round 1).
+    # (Streamlit drops this widget's state when another page opens).
     kept = st.session_state.get(client_week.CLIENT_KEY)
     st.session_state[OPEN_KEY] = kept if kept in names else None
     st.selectbox(

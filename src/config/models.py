@@ -12,7 +12,7 @@ QUERY_TRANSLATION_MODEL = "openai/gpt-5-nano"
 EMBEDDING_MODEL = "qwen/qwen3-embedding-8b"
 
 # gpt-5 reasoning effort for every chat call: answers are grounded in retrieved sources, so "low"
-# keeps cost and latency down without hurting them (owner's choice in T1.2).
+# keeps cost and latency down without hurting them (T1.2).
 REASONING_EFFORT = "low"
 # Seconds one model or embedding request may take before it counts as a timeout.
 LLM_TIMEOUT_SECONDS = 60

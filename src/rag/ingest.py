@@ -4,9 +4,9 @@ Keeps the article title, the abstract and the body sections. Drops figures, tabl
 formulas, supplementary material, the reference list, numeric citation markers, back matter and
 anything that carries its own <permissions> or <attrib> (third-party content), as the copyright
 policy requires (text only, rules 5 and 7). Inline formulas keep their plain text, with exponents,
-subscripts, brackets and accents written out ("I^2", "β_x", "P(>0)", "R̂") so the numbers keep
-their meaning (owner's choice in T2.2). Only the front matter's abstract and the <body> are read;
-<back>, <floats-group> and sub-articles never are.
+subscripts, brackets and accents written out ("I^2", "β_x", "P(>0)", "R̂") so the numbers keep their
+meaning (T2.2). Only the front matter's abstract and the <body> are read; <back>, <floats-group> and
+sub-articles never are.
 """
 
 import re

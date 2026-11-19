@@ -94,7 +94,7 @@ _ENDED = frozenset({"approved", "edited", "rejected"})
 # The outcomes after which a run's thread is deleted: decided here, or decided elsewhere.
 _FINISHED = _ENDED | {"gone"}
 # Where a run may stand when the coach decides: waiting, or stuck after a failure in the
-# store with the coach's decision already taken (code review round 1).
+# store with the coach's decision already taken.
 _WAITING = ("decide",)
 _STUCK = (("release",), ("reject",))
 
@@ -342,14 +342,14 @@ def _released_text(values: Mapping, answer: Mapping) -> Mapping | None:
 
 def _target_now(values: Mapping, context: ReviewContext, text: Mapping | None) -> dict | None:
     """Return the client's target now as {"kcal": ...} when the text sets a change; else None."""
-    # A kcal_change applies to the target in force when the coach decides, which may differ from
-    # the week's if the coach set a new one since (T9.17), on an edit and on Approve alike (owner's
-    # choice, 2026-11-18). Read only when the text sets a change, through the store's audited read;
-    # refused (a scope revoked, the relationship ended), there is no target, so the change fails
-    # closed with kcal_change_no_target. A store that cannot open raises StoreUnavailable to the
-    # caller, which shows its message. Called before the graph resumes, never inside a node after
-    # interrupt(): a node that raised there would leave the coach's answer in the checkpoint, and
-    # the next click would resume with that old answer.
+    # A kcal_change applies to the target in force when the coach decides, which may differ from the
+    # week's if the coach set a new one since (T9.17), on an edit and on Approve alike (T10.2). Read
+    # only when the text sets a change, through the store's audited read; refused (a scope revoked,
+    # the relationship ended), there is no target, so the change fails closed with
+    # kcal_change_no_target. A store that cannot open raises StoreUnavailable to the caller, which
+    # shows its message. Called before the graph resumes, never inside a node after interrupt(): a
+    # node that raised there would leave the coach's answer in the checkpoint, and the next click
+    # would resume with that old answer.
     if not wr.sets_kcal_change(text):
         return None
     try:
@@ -624,10 +624,10 @@ def _restart_stuck(
 ) -> RunResult | None:
     """Put the coach's new decision in place of a stuck one; a refused one is returned."""
     # The store failed after an earlier click; the decision to finish is the one the coach makes
-    # now, not the earlier one (code review round 2): the same click finishes it as it was, another
-    # replaces it as if the decide node had taken it. Either way it passes the same checks as there
-    # first, against the target now (T10.2): the target may have changed since the first click,
-    # and a refusal leaves the run stuck with the earlier decision, for an edit or a rejection.
+    # now, not the earlier one: the same click finishes it as it was, another replaces it as if the
+    # decide node had taken it. Either way it passes the same checks as there first, against the
+    # target now (T10.2): the target may have changed since the first click, and a refusal leaves
+    # the run stuck with the earlier decision, for an edit or a rejection.
     answer = _decision({"decision": decision, "final": final})
     if answer is None:
         return RunResult(
@@ -662,10 +662,10 @@ def decide_review(
     final: Mapping | None = None,
 ) -> RunResult:
     """Resume a waiting review with the coach's decision; the thread goes once it is decided."""
-    # Three cases (code review round 1): the run waits at decide, so the decision resumes it; the
-    # run is stuck at release or reject after the store failed, so it finishes the decision the
-    # coach took then; or there is no run (its thread was lost), so only a rejection is possible,
-    # in the store, and an approval or an edit gets "gone" (draft the week again instead).
+    # Three cases: the run waits at decide, so the decision resumes it; the run is stuck at release
+    # or reject after the store failed, so it finishes the decision the coach took then; or there is
+    # no run (its thread was lost), so only a rejection is possible, in the store, and an approval
+    # or an edit gets "gone" (draft the week again instead).
     turn_id = str(uuid.uuid4())
     with review_threads.open_saver(context.store_path) as saver:
         graph = review_graph(saver)

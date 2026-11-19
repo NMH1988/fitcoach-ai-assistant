@@ -194,12 +194,12 @@ def build_tools(
     """Return the tools by name, bound to this profile (or None) and a coach's clients (T9.17)."""
     # `table` replaces the committed foods table (tests); the model can never set it. Run the
     # model's calls only through run_tool_call(): LangChain's own `tool.invoke()` skips the check
-    # for the NoArgs tools and would run them with the model's extra fields dropped.
-    # `food_api` (T9.9) is the FoodData Central search the food tool asks when the table has no
-    # match; None (no key, the evaluation run, the tests) keeps the table alone. The tools are
-    # built once per turn, so the budget bounds one turn's searches. The meal plan tool never asks
-    # the API (owner's choice, 2026-11-06). `client_names` are a coach's clients' names (T9.7): a
-    # food name holding one is not sent to the API.
+    # for the NoArgs tools and would run them with the model's extra fields dropped. `food_api`
+    # (T9.9) is the FoodData Central search the food tool asks when the table has no match; None (no
+    # key, the evaluation run, the tests) keeps the table alone. The tools are built once per turn,
+    # so the budget bounds one turn's searches. The meal plan tool never asks the API: T9.9 limits
+    # it to the chat's food tool. `client_names` are a coach's clients' names (T9.7): a food name
+    # holding one is not sent to the API.
     budget = TurnBudget()
 
     def tdee() -> TdeeResult | ToolNotice:

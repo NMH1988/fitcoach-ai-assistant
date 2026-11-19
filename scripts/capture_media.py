@@ -52,9 +52,9 @@ OUTPUT_ROOT = ROOT / "data" / "capture"
 # seeded; the script imports nothing of the app.
 TIME_ZONE = ZoneInfo("Europe/Berlin")
 # The window the images and the video's screenshots are taken in: a full HD screen at 100%, so a
-# screenshot shows a whole page, and the video's own size (scripts/make_video.py) (owner's choice,
-# 2026-11-09, T9.28: T9.27's 1280 by 860 and a 1280 by 720 window at 1.5 times the pixels showed
-# about two thirds of a page). The README shows the images at this size or smaller.
+# screenshot shows a whole page, and the video's own size (scripts/make_video.py) (T9.28: a 1280 by
+# 860 window, and a 1280 by 720 one at 1.5 times the pixels, showed about two thirds of a page).
+# The README shows the images at this size or smaller.
 VIEWPORT = {"width": 1920, "height": 1080}
 JPEG_QUALITY = 80
 # The demo users' names in the picker (src/demo.py) and the question the coach asks in the chat.
@@ -190,7 +190,7 @@ def main(args: Sequence[str] | None = None) -> int:
     """Check the address and the tools, then capture into a new folder under data/capture/."""
     # No observability.configure_logging() here, unlike the other scripts (T8.2): it reads the
     # secrets file and puts the key in the environment the browser and FFmpeg would inherit, and
-    # this script writes no log lines (owner's decision, 2026-11-09, code review round 2).
+    # this script writes no log lines.
     options = _parse(args)
     try:
         url = check_app_url(options.url)
