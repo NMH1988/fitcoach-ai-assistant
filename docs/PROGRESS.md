@@ -21,7 +21,7 @@ Keep the entry short and record what the code does not say. `tests/test_docs_lay
 
 ---
 
-- [2026-11-19 · T10.8 Split `config` and `i18n` into packages by concern, same behaviour · NMH1988/fitcoach-ai-assistant#PR (closes NMH1988/fitcoach-ai-assistant#140)](progress/2026-11-19-T10.8.md)
+- [2026-11-19 · T10.8 Split `config` and `i18n` into packages by concern, same behaviour · NMH1988/fitcoach-ai-assistant#151 (closes NMH1988/fitcoach-ai-assistant#140)](progress/2026-11-19-T10.8.md)
 - [2026-11-18 · T10.5 Tools offered by the question's domain, and the program check on the chat's answer · NMH1988/fitcoach-ai-assistant#150 (closes NMH1988/fitcoach-ai-assistant#137)](progress/2026-11-18-T10.5.md)
 - [2026-11-18 · T10.7 The chat turn's dependencies as one `TurnDeps` object, same behaviour · NMH1988/fitcoach-ai-assistant#149 (closes NMH1988/fitcoach-ai-assistant#139)](progress/2026-11-18-T10.7.md)
 - [2026-11-18 · T10.2 Weekly review: kcal figures as numeric fields, checked against the calorie floor by arithmetic · NMH1988/fitcoach-ai-assistant#146 (closes NMH1988/fitcoach-ai-assistant#134)](progress/2026-11-18-T10.2.md)
